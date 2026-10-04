@@ -1,0 +1,70 @@
+#include "hud/Shared.h"
+
+#include "engine/IconManager.h"
+#include "gui/GUI.h"
+
+namespace Shared {
+
+using GUI::Textfield;
+using GUI::Window;
+
+// @0x3445f0
+void BottomSlotInfo::LoadFrom(Window* root, const char* p) {
+    holder = GUI::GetWindowTypedF<Window>(root, "%s", p);
+    bgSimple = GUI::GetWindowTypedF<Window>(root, "%s.bottom_bar_bg_simple", p);
+    bgGreen = GUI::GetWindowTypedF<Window>(root, "%s.bottom_bar_bg_green", p);
+    bgRed = GUI::GetWindowTypedF<Window>(root, "%s.bottom_bar_bg_red", p);
+    bgDisabled = GUI::GetWindowTypedF<Window>(root, "%s.bottom_bar_bg_disabled", p);
+    wingsEmpty = GUI::GetWindowTypedF<Window>(root, "%s.bottom_bar_icon_soldiers_wings.icon_wings_empty_slot", p);
+    wingsEmpty->SetTexture(IconManager::GetIcon("inv_wings", false), true);
+    soldierFine = GUI::GetWindowTypedF<Window>(root, "%s.bottom_bar_icon_soldiers_wings.icon_soldier_fine", p);
+    soldierFine->takesZ = true;
+    iconHolder = GUI::GetWindowTypedF<Window>(root, "%s.icon_holder_belt_warrior", p);
+    iconHolder->takesZ = true;
+    progress = GUI::GetWindowTypedF<Window>(root, "%s.item_proress_bar", p);
+    progress->SetFrame(1, true);
+    progress->centerSprite = false;
+    progressH = progress->h;
+    progressY = progress->y;
+    timeLeft = GUI::GetWindowTypedF<Textfield>(root, "%s.text_training_time_left", p);
+    damage = GUI::GetWindowTypedF<Window>(root, "%s.damage_effect_square_red", p);
+    damageTime = 1.f;   // DAT_00344868
+    damageAlpha = 0.f;  // DAT_0034486c
+    golden = GUI::GetWindowTypedF<Window>(root, "%s.slot_golden_borderv", p);
+    lockIcon = GUI::GetWindowTypedF<Window>(root, "%s.icon_holder_16x16", p);
+    lockIcon->SetTexture(IconManager::GetIcon("gold_16_lock", false), true);
+    quantityNone = GUI::GetWindowTypedF<Textfield>(root, "%s.text_quantity_none", p);
+    quantity = GUI::GetWindowTypedF<Textfield>(root, "%s.text_quantity", p);
+    quantityActive = GUI::GetWindowTypedF<Textfield>(root, "%s.text_quantity_active", p);
+    unk64 = 0.f;
+    unk50 = 0;
+    progressValue = 1.f;
+}
+
+// @0x343634
+void ButtonBuildingControls::LoadFrom(Window* r, const char* p) {
+    if (!p) {
+        root = r;
+        red = GUI::GetWindowTyped<Window>(r, "button_large_round_sp_red");
+        green = GUI::GetWindowTyped<Window>(r, "button_large_round_sp_green");
+        blue = GUI::GetWindowTyped<Window>(r, "button_bg_blue_back");
+        icon = GUI::GetWindowTyped<Window>(r, "icon_60");
+        icon->takesZ = true;
+        text = GUI::GetWindowTyped<Textfield>(r, "text");
+        counter = GUI::GetWindowTyped<Textfield>(r, "text_counter_red");
+        clickArea = GUI::GetWindowTyped<GUI::Button>(r, "clickArea");
+    } else {
+        root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+        red = GUI::GetWindowTypedF<Window>(r, "%s.button_large_round_sp_red", p);
+        green = GUI::GetWindowTypedF<Window>(r, "%s.button_large_round_sp_green", p);
+        blue = GUI::GetWindowTypedF<Window>(r, "%s.button_bg_blue_back", p);
+        icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_60", p);
+        icon->takesZ = true;
+        text = GUI::GetWindowTypedF<Textfield>(r, "%s.text", p);
+        counter = GUI::GetWindowTypedF<Textfield>(r, "%s.text_counter_red", p);
+        clickArea = GUI::GetWindowTypedF<GUI::Button>(r, "%s.clickArea", p);
+    }
+    unk28 = 0;
+}
+
+}  // namespace Shared

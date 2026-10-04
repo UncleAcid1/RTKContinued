@@ -29,3 +29,16 @@ RTK_HUD_PANEL(BattleBarWindow)
 RTK_HUD_PANEL(BottomCityWindow)
 RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
+
+namespace BottomCityWindow {
+void ShowMainButton();        // @0x25e95c
+void HideMainButton();        // @0x25e860
+void ShowInstruments();       // @0x25e68c
+void HideInstruments();       // @0x25e564
+void UpdateContents();        // @0x25df84
+// Called by BuildingMovement while a building is being edited.
+void EnableUndoButton(bool on);     // @0x25e514
+void EnableRotateButton(bool on);   // @0x25e528
+void EnableCancelButton(bool on);   // @0x25e53c
+void EnableOkButton(bool on);       // @0x25e550
+}

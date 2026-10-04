@@ -36,6 +36,7 @@ add_executable(rtk
   src/gui/Textfield.cpp
   src/gui/WindowManager.cpp
   src/hud/HUDWindow.cpp
+  src/hud/Shared.cpp
   src/hud/TopCityWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp
