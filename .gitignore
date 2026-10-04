@@ -1,0 +1,7 @@
+# Regenerable outputs (see README "Regenerate")
+out/
+ghidra/
+build/
+__pycache__/
+*.pyc
+.DS_Store
