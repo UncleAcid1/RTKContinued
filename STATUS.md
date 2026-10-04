@@ -69,8 +69,8 @@ Milestones:
 ## Milestone 2 notes (verified from softfp decompile/asm)
 - Decompile: `tools/ghidra_softfp_patch.py` makes Ghidra's ARM default prototype softfp, so float args
   show up. `out/gui.c` = GUI/Render/HUD/StringTable functions with it (`tools/fn.sh 'regex' out/gui.c`).
-  A full softfp `out/decomp.c` export was running on a project copy in /private/tmp (re-run per README
-  if missing; old one is `out/decomp_hardfp.c`). `tools/asm.sh` / `tools/asmr.sh` read out/asm_all.txt.
+  Full softfp `out/decomp.c` exported 2026-10-04 (12,924 functions, 7 failed); the old hard-float
+  export is `out/decomp_hardfp.c`. `tools/asm.sh` / `tools/asmr.sh` read out/asm_all.txt.
 - Screen (SDL_baseInit @0x18b1e0): W/H globals 0x60ef6c/0x60ef70. max<600 small screen; max>=1850 or
   min>=1000 -> HighDPI flag (0x612424)=1, BaseZoom 1.5, GUI HighDPI 2.0, hover 2.0, HUD 1.6, ForceLinear.
   Defaults HighDPI/hover/hud = 1.25. Tablet = min>=600. Port plan: device screen = framebuffer pixels.
