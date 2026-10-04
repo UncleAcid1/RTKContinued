@@ -118,4 +118,25 @@ Render::Texture* GetDirectImage(const char* path) {
     return t;
 }
 
+// @0x205e3c (non-async path)
+Render::Texture* GetUIImage(const char* name, bool quiet, bool async) {
+    (void)async;
+    if (!name || !*name) return nullptr;
+    std::string key = "$ui:" + Lower(name);
+    auto it = g_cache.find(key);
+    if (it != g_cache.end()) return it->second;
+    Render::Texture* t = LoadTexture(name);
+    if (!t) t = LoadTexture(std::string("../resource/kingdom_ui/1Original/") + name);
+    if (!t) {
+        const char* base = std::strrchr(name, '/');
+        std::string opt = std::string("../resource/kingdom_ui/2Optimized/") + (base ? base + 1 : name);
+        size_t png = opt.find(".png");
+        if (png != std::string::npos) opt.replace(png, 4, ".jpg");
+        t = LoadTexture(opt);
+        if (!t && !quiet) std::printf("Resources::GetUIImage() Failed to load %s\n", opt.c_str());
+    }
+    if (t) g_cache[key] = t;   // only successful loads are cached
+    return t;
+}
+
 }  // namespace Resources

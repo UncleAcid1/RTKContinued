@@ -1,0 +1,117 @@
+#include "game/StringTable.h"
+
+#include <pugixml.hpp>
+
+#include <cctype>
+#include <cstdio>
+#include <cstring>
+#include <unordered_map>
+
+#include "engine/FileManager.h"
+
+namespace StringTable {
+namespace {
+
+// The original keeps a 2048-bucket chained hash keyed by StringInsensitiveHash; new entries go to
+// the head of their chain, so for duplicate keys the last one loaded wins. A map keyed by the
+// lower-cased key with overwrite-on-insert has the same lookup behaviour.
+std::unordered_map<std::string, std::u32string> g_table;
+char g_lang[16] = "EN";   // @0x228f40 (strcpy'd by SetLanguage)
+int g_langId = 0;
+
+std::string Lower(const char* s) {
+    std::string k(s);
+    for (char& c : k) c = (char)std::tolower((unsigned char)c);
+    return k;
+}
+
+const std::u32string* Find(const std::string& key) {
+    auto it = g_table.find(Lower(key.c_str()));
+    return it == g_table.end() ? nullptr : &it->second;
+}
+
+}  // namespace
+
+std::u32string DecodeUtf8(const char* text) {
+    // @0x22cd58: lead byte masks, continuation checks and the skip-one-byte-on-error rule as inlined
+    // in Init (the counting pass before it uses the same rules).
+    const unsigned char* p = (const unsigned char*)text;
+    size_t n = std::strlen(text);
+    std::u32string out;
+    while (n) {
+        unsigned c = p[0];
+        if (!(c & 0x80)) { out += (char32_t)c; ++p; --n; continue; }
+        if (n >= 2 && c - 0xc0 <= 0x1f && (p[1] & 0xc0) == 0x80) {
+            out += (char32_t)(((c & 0x3f) << 6) | (p[1] & 0x3f));
+            p += 2; n -= 2; continue;
+        }
+        if (n >= 3 && c - 0xe0 <= 0xf && (p[1] & 0xc0) == 0x80 && (p[2] & 0xc0) == 0x80) {
+            out += (char32_t)(((c & 0x1f) << 12) | ((p[1] & 0x3f) << 6) | (p[2] & 0x3f));
+            p += 3; n -= 3; continue;
+        }
+        if (n >= 4 && c - 0xf0 <= 7 && (p[1] & 0xc0) == 0x80 && (p[2] & 0xc0) == 0x80 &&
+            (p[3] & 0xc0) == 0x80) {
+            out += (char32_t)(((c & 0x0f) << 18) | ((p[1] & 0x3f) << 12) | ((p[2] & 0x3f) << 6) |
+                              (p[3] & 0x3f));
+            p += 4; n -= 4; continue;
+        }
+        ++p; --n;   // invalid byte: skipped
+    }
+    return out;
+}
+
+// @0x22cae0
+bool Init(const char* file, bool dryRun, bool renameToCurrentLanguage) {
+    uint32_t size = 0;
+    uint8_t* data = FileManager::LoadFile(file, size);
+    if (!data || !size) {
+        std::printf("StringTable: cannot load %s\n", file);
+        FileManager::FreeFile(data);
+        return false;
+    }
+    pugi::xml_document doc;
+    // load_buffer_inplace(..., 0x74 = parse_default, encoding_auto)
+    pugi::xml_parse_result r = doc.load_buffer_inplace(data, size, pugi::parse_default, pugi::encoding_auto);
+    if (!r) {
+        std::printf("StringTable: %s\n", r.description());
+        FileManager::FreeFile(data);
+        return false;
+    }
+    for (pugi::xml_node t = doc.child("ts").child("t"); t; t = t.next_sibling("t")) {
+        std::string key = t.attribute("i").value();
+        if (renameToCurrentLanguage && key.size() > 3) {
+            key[0] = g_lang[0];
+            key[1] = g_lang[1];
+        }
+        const char* text = t.child_value();
+        // Empty texts stay empty (the key itself is used only in the SetEmptyNameReplacement debug mode).
+        std::u32string value = *text ? DecodeUtf8(text) : std::u32string();
+        if (!dryRun) g_table[Lower(key.c_str())] = std::move(value);
+    }
+    FileManager::FreeFile(data);
+    return true;
+}
+
+void Deinit() { g_table.clear(); }
+
+void SetLanguage(const char* code, int langId) {
+    std::snprintf(g_lang, sizeof g_lang, "%s", code);
+    g_langId = langId;
+}
+int GetLangID() { return g_langId; }
+const char* GetLanguage() { return g_lang; }
+
+// @0x228ee8
+const char32_t* GetString(const char* key) {
+    const std::u32string* s = Find(std::string(g_lang) + "_" + key);
+    if (s && !s->empty()) return s->c_str();
+    s = Find(std::string("EN_") + key);
+    return s ? s->c_str() : nullptr;
+}
+
+// @0x22c980 ("%s_%s" with the current language, then "EN_%s")
+bool StringExists(const char* key) {
+    return Find(std::string(g_lang) + "_" + key) || Find(std::string("EN_") + key);
+}
+
+}  // namespace StringTable

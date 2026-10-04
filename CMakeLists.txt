@@ -15,6 +15,8 @@ find_package(JPEG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenGL REQUIRED)
 
+add_subdirectory(third_party)   # FreeType 2.4.5 + SDL_ttf 2.0.11, the versions the game shipped
+
 add_executable(rtk
   src/main.cpp
   src/engine/FileManager.cpp
@@ -26,8 +28,10 @@ add_executable(rtk
   src/game/GameData.cpp
   src/game/Map.cpp
   src/game/Background.cpp
+  src/game/StringTable.cpp
+  src/engine/Text.cpp
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
 target_compile_options(rtk PRIVATE -Wall -Wextra -Wno-unused-parameter)
-target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL)
+target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL sdl_ttf2011)

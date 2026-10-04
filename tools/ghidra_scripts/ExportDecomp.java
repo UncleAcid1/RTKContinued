@@ -1,4 +1,5 @@
-// Decompile every function and write C to <outdir>/decomp.c, plus a symbol/address index.
+// Decompile every function and write C to <outdir>/<base>.c, plus a symbol/address index.
+// args: <outdir> [name regex (default: all)] [base name (default: decomp)]
 //@category RTK
 import ghidra.app.script.GhidraScript;
 import ghidra.app.decompiler.*;
@@ -8,16 +9,19 @@ import java.io.*;
 public class ExportDecomp extends GhidraScript {
     @Override
     public void run() throws Exception {
-        String outDir = getScriptArgs().length > 0 ? getScriptArgs()[0] : ".";
+        String[] a = getScriptArgs();
+        String outDir = a.length > 0 ? a[0] : ".";
+        java.util.regex.Pattern pat = java.util.regex.Pattern.compile(a.length > 1 ? a[1] : ".");
+        String base = a.length > 2 ? a[2] : "decomp";
         DecompInterface di = new DecompInterface();
         di.openProgram(currentProgram);
-        try (PrintWriter c = new PrintWriter(new FileWriter(outDir + "/decomp.c"));
-             PrintWriter idx = new PrintWriter(new FileWriter(outDir + "/functions.tsv"))) {
+        try (PrintWriter c = new PrintWriter(new FileWriter(outDir + "/" + base + ".c"));
+             PrintWriter idx = new PrintWriter(new FileWriter(outDir + "/" + base + "_functions.tsv"))) {
             FunctionIterator it = currentProgram.getFunctionManager().getFunctions(true);
             int n = 0, fail = 0;
             while (it.hasNext() && !monitor.isCancelled()) {
                 Function f = it.next();
-                if (f.isThunk() || f.isExternal()) continue;
+                if (f.isThunk() || f.isExternal() || !pat.matcher(f.getName(true)).find()) continue;
                 idx.println(f.getEntryPoint() + "\t" + f.getBody().getNumAddresses() + "\t" + f.getName(true));
                 DecompileResults r = di.decompileFunction(f, 120, monitor);
                 c.println("// ==== " + f.getEntryPoint() + " " + f.getName(true));
