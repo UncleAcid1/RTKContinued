@@ -8,6 +8,7 @@
 // values multiplied by the root's scale (+0x60) and truncated.
 #pragma once
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #include <string>
 
@@ -173,6 +174,43 @@ public:
     Callback onEdit;              // +0xb8
 };
 
+// GUI::MovementEffect (0x4c bytes; base AnimationEffect): slides a window from one position to
+// another in `duration` seconds. Created by CreateMovementEffect and updated by UpdateAnimation.
+class MovementEffect {
+public:
+    using Fn = std::function<void()>;
+    MovementEffect(Fn onUpdate, Fn onShown, Fn onHidden)
+        : onUpdate(std::move(onUpdate)), onShown(std::move(onShown)), onHidden(std::move(onHidden)) {}
+    virtual ~MovementEffect() = default;
+    virtual void Update(float dt);                       // +0x08 @0x176548
+    virtual int GetCenteredX() const;                    // +0x0c @0x17621c
+    virtual int GetCenteredY() const;                    // +0x10 @0x176254
+    void CenterWith(int l, int t, int r, int b) { insetL = l; insetT = t; insetR = r; insetB = b; }  // @0x17628c
+    void CenterWith(const Window* w);                    // @0x1762a4
+    // @0x176510: from (fx, fy) to (tx, ty); hideAtEnd = !show (the window is hidden on arrival).
+    void Animate(int fx, int fy, int tx, int ty, bool show);
+
+    Window* window = nullptr;     // +0x04
+    Fn onUpdate;                  // +0x08 after every step
+    Fn onShown;                   // +0x0c arrival when shown
+    Fn onHidden;                  // +0x10 arrival when hidden
+    bool active = false;          // +0x14
+    bool hideAtEnd = false;       // +0x15
+    float t = 0.f;                // +0x18 progress 0..1
+    float duration = 0.2f;        // +0x1c seconds
+    bool blocksInput = true;      // +0x20 (IsAnyAnimationActive)
+    int insetL = 0, insetT = 0, insetR = 0, insetB = 0;   // +0x24..+0x30 centring margins
+    std::string swingIn, swingOut;   // +0x34 +0x38 sounds (not played yet)
+    int fromX = 0, fromY = 0, toX = 0, toY = 0;          // +0x3c..+0x48
+};
+
+MovementEffect* CreateMovementEffect(Window* w, MovementEffect::Fn onUpdate = nullptr,
+                                     MovementEffect::Fn onShown = nullptr,
+                                     MovementEffect::Fn onHidden = nullptr);   // @0x1830a4
+void RemoveMovementEffect(MovementEffect* e);                                  // @0x17c538
+void UpdateAnimation(float dt);                                                // @0x17c648 (movement part)
+bool IsAnyAnimationActive();                                                   // @0x17c43c
+
 // --- module API -------------------------------------------------------------------------------
 // @0x178b64 Init(fontFile, ..., highDPI): desktop window, default textfield/button, text cache.
 void Init(const char* fontFile, bool highDPI);
@@ -186,8 +224,21 @@ Window* RegisterUI(const char* layout, const char* rootImage, float scale, int o
 
 Window* GetWindow(Window* root, const char* name);                 // @0x17c17c
 void DumpTree(const Window* w, int depth = 0);   // PORT: debugging aid (prints the window tree)
-template <class T> T* GetWindowTyped(Window* root, const char* name) {
-    return dynamic_cast<T*>(GetWindow(root, name));
+// GetWindowTyped / GetWindowTypedF (@0x2432f8, @0x243420...): on a miss (or a window of another
+// type) they print a message and return GUI::Init's template window of that type, never null.
+Window* GetWindowTyped(Window* root, const char* name, int type);
+template <class T> T* GetWindowTyped(Window* root, const char* name);
+template <> inline Window* GetWindowTyped<Window>(Window* root, const char* name) { return GetWindowTyped(root, name, -1); }
+template <> inline Textfield* GetWindowTyped<Textfield>(Window* root, const char* name) {
+    return static_cast<Textfield*>(GetWindowTyped(root, name, Window::kTextfield));
+}
+template <> inline Button* GetWindowTyped<Button>(Window* root, const char* name) {
+    return static_cast<Button*>(GetWindowTyped(root, name, Window::kButton));
+}
+template <class T, class... A> T* GetWindowTypedF(Window* root, const char* fmt, A... args) {
+    char buf[0x100];
+    std::snprintf(buf, sizeof buf, fmt, args...);
+    return GetWindowTyped<T>(root, buf);
 }
 
 // Screen configuration (set by SDL_baseInit @0x18b1e0 from the device screen).

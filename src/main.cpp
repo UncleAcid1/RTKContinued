@@ -16,7 +16,10 @@
 #include "engine/Resources.h"
 #include "engine/Text.h"
 #include "game/StringTable.h"
+#include "game/GameState.h"
 #include "gui/GUI.h"
+#include "gui/WindowManager.h"
+#include "hud/HUD.h"
 #include "game/GameData.h"
 #include "game/Map.h"
 
@@ -99,32 +102,31 @@ int main(int argc, char** argv) {
     StringTable::Init("../resource/res_files/1Original/LocalizedStringsEN.xml", false, false);
     GUI::Init("fonts/ARICYRB.ttf", false);
     if (!Map::Load(opt.map, opt.seed)) return 1;
-    // Milestone 2a test: the resource bar layout (TopCityWindow::Init's RegisterUI call).
-    if (GUI::Window* bar = GUI::RegisterUI("../resource/kingdom_ui/1Original/Resource_bar_large.xml",
-                                           "Resource_bar_large.png", GUI::GetHudScaleFactor(), 0, 0, 0, 0,
-                                           false, 1.f)) {
-        bar->SetZ(0.5f);
-        bar->SetPosition((GUI::ScreenWidth() - bar->w) / 2, 0);
-        Render::SortRenderLayer(Render::kLayerGUI, 1);
-        if (std::getenv("RTK_DUMP_GUI")) GUI::DumpTree(bar);
-        if (std::getenv("RTK_TEXT_TEST")) {   // PORT: temporary text check against the reference
-            const char* names[][2] = {{"hud_res_holder.text_food", "315"}, {"hud_res_holder.text_lumber", "310"},
-                                      {"hud_res_holder.text_rocks", "275"}, {"hud_button_resbar_gold.text_gold_large", "770"},
-                                      {"hud_button_resbar_gold.text_crystals_large", "42"},
-                                      {"hud_resbar_population.text_people", "1/2"},
-                                      {"hud_button_resbar_gold.text_buy_large", "Buy"}};
-            for (auto& n : names)
-                if (auto* t = GUI::GetWindowTyped<GUI::Textfield>(bar, n[0])) {
-                    std::u32string u(n[1], n[1] + std::strlen(n[1]));
-                    t->SetText(u.c_str());
-                }
-            bar->SetZ(0.5f);
-        }
-    }
+    // The game's windows: their static FunctionalWindow objects are constructed in the binary's
+    // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
+    GameState::Reset();
+    BattleBarWindow::Queue();
+    BeltBarWindow::Queue();
+    BottomCityWindow::Queue();
+    CastleTopWindow::Queue();
+    HUDWindow::Queue();
+    PlayerTopWindow::Queue();
+    TaskHolderWindow::Queue();
+    TopCityWindow::Queue();
+    WindowManager::InitWindows();
+    HUDWindow::Show();
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
 
     float camX = opt.camX, camY = opt.camY, zoom = opt.zoom;
     const float dpi = (float)fbw / 1280.f;  // keep one game pixel per point on Retina
+    // One game tick: GUI animations, then every queued window's Update (Game::main_Loop order).
+    auto tick = [](float dt) {
+        GUI::UpdateAnimation(dt);
+        WindowManager::ProcessUpdate(dt);
+    };
     if (headless) {
+        for (int i = 0; i < 60; ++i) tick(1.f / 30.f);   // let the HUD slide in and count up
+        Render::SortRenderLayer(Render::kLayerGUI, 1);
         Render::SetCamera(camX, camY, zoom * dpi);
         Render::Frame();
         glFinish();
@@ -134,6 +136,7 @@ int main(int argc, char** argv) {
     }
 
     bool running = true, dragging = false;
+    uint64_t lastTicks = SDL_GetTicks();
     while (running) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -160,6 +163,10 @@ int main(int argc, char** argv) {
                 default: break;
             }
         }
+        uint64_t now = SDL_GetTicks();
+        float dt = (float)(now - lastTicks) / 1000.f;
+        lastTicks = now;
+        tick(dt > 0.1f ? 0.1f : dt);
         Render::SetCamera(camX, camY, zoom * dpi);
         Render::Frame();
         SDL_GL_SwapWindow(win);

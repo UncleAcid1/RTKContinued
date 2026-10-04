@@ -29,9 +29,20 @@ add_executable(rtk
   src/game/Map.cpp
   src/game/Background.cpp
   src/game/StringTable.cpp
+  src/game/GameState.cpp
   src/engine/Text.cpp
+  src/engine/IconManager.cpp
   src/gui/GUI.cpp
   src/gui/Textfield.cpp
+  src/gui/WindowManager.cpp
+  src/hud/HUDWindow.cpp
+  src/hud/TopCityWindow.cpp
+  src/hud/PlayerTopWindow.cpp
+  src/hud/CastleTopWindow.cpp
+  src/hud/BeltBarWindow.cpp
+  src/hud/BattleBarWindow.cpp
+  src/hud/BottomCityWindow.cpp
+  src/hud/TaskHolderWindow.cpp
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)

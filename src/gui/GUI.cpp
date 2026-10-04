@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "engine/FileManager.h"
+#include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Text.h"
@@ -449,9 +450,79 @@ void Window::RescaleWindow(float ns) {   // @0x17a320
     for (Window* c = firstChild; c; c = c->next) c->RescaleWindow(ns);
 }
 
-// @0x17a748 UNVERIFIED: scroll-area clipping (UV trimming) is not ported yet; the rectangle is
-// passed on to children as the original does.
+// @0x17a748: trim the window's sprite(s) to the rectangle (root-relative), then pass the rectangle
+// on to the children (intersected with their own clip rectangles). The natural sprite size is cached
+// in +0x28/+0x2a the first time.
 void Window::ClipWithRect(int l, int t, int r, int b) {
+    if (root && !root->ignoreClip) {
+        r += root->x; l += root->x; b += root->y; t += root->y;
+    }
+    Render::Sprite* s = sprite;
+    if (s) {
+        const bool nine = s->next != nullptr;
+        if (nine) {
+            Update9Slices();
+            s = sprite;
+        }
+        for (; s; s = s->next) {
+            float u0, u1, vB, vT;
+            if (nine) {   // 9-slice pieces: their current size and uv
+                unk28 = (int16_t)(int)s->w;
+                unk2a = (int16_t)(int)s->h;
+                Render::SetVisibility(s, visible);
+                u1 = s->u1; vT = s->vTop; u0 = s->u0; vB = s->vBottom;
+            } else {
+                if (unk28 == 0) {
+                    unk28 = (int16_t)(int)s->w;
+                    unk2a = (int16_t)(int)s->h;
+                }
+                s->w = (float)unk28;
+                s->h = (float)unk2a;
+                Render::SetVisibility(s, visible);
+                int rx = root ? root->x : 0, ry = root ? root->y : 0;
+                int cx = centerSprite ? (w - unk28) / 2 : 0;
+                int cy = centerSprite ? (h - unk2a) / 2 : 0;
+                Render::SetPosition(s, (float)(rx + x + cx) - 0.25f, (float)((ry + y + h) - cy) - 0.25f, z);
+                u1 = 1.f; vT = 0.f; u0 = 0.f; vB = 1.f;
+            }
+            int sw = unk28, sh = unk2a;
+            if (texture && texture->frames >= 2) {
+                s->frame1 = 0;
+                Render::SetFrame(s, (float)(texture->h / texture->frames), (float)texture->w, frame);
+                float sc = RootScale();
+                vT = s->vTop; u1 = s->u1;
+                s->w *= sc;
+                u0 = s->u0; vB = s->vBottom;
+                s->h *= sc;
+                sw = unk28 = (int16_t)(int)s->w;
+                sh = unk2a = (int16_t)(int)s->h;
+            }
+            int sx = (int)(s->x + 0.5f);
+            int right = sw + sx;
+            int sy = (int)(s->y + 0.5f), top = sy - sh;
+            if (r < sx || right < l || b < top || sy < t) {
+                Render::SetVisibility(s, false);
+                continue;
+            }
+            if (r < right || sx < l || top < t || b < sy) {
+                int nb = sy <= b ? sy : b;
+                int nl = l < sx ? sx : l;
+                int nt = top < t ? t : top;
+                int nw = r < right ? r - nl : right - nl;
+                float fl = (float)nl, fw = (float)nw, fh = (float)(nb - nt), fb = (float)nb;
+                s->x = fl; s->w = fw; s->h = fh; s->y = fb;
+                float fx = (float)sx, ftop = (float)top, fsw = (float)sw, fsh = (float)sh;
+                s->u1 = u0 + (u1 - u0) * (((fl + fw) - fx) / fsw);
+                s->vBottom = vT + (vB - vT) * ((fb - ftop) / fsh);
+                s->u0 = u0 + ((fl - fx) / fsw) * (u1 - u0);
+                s->vTop = vT + (((fb - fh) - ftop) / fsh) * (vB - vT);
+                s->x = fl - 0.25f;
+                s->y = fb - 0.25f;
+            } else {
+                s->u0 = u0; s->u1 = u1; s->vBottom = vB; s->vTop = vT;
+            }
+        }
+    }
     if (root && !root->ignoreClip) {
         b -= root->y; t -= root->y; r -= root->x; l -= root->x;
     }
@@ -575,6 +646,110 @@ void Deinit() {
 const char* GetFontFile() { return g_fontFile; }
 Textfield* DefaultTextfield() { return g_defaultText; }
 
+Window* GetWindowTyped(Window* root, const char* n, int type) {
+    Window* w = GetWindow(root, n);
+    if (w && (type < 0 || w->type == type)) return w;
+    std::printf("GUI: window %s not found in %s\n", n, root ? root->name.c_str() : "-");
+    if (type < 0) {
+        if (g_desktop) return g_desktop;
+        if (g_defaultText) return g_defaultText;
+        return g_defaultButton;
+    }
+    if (type == Window::kTextfield) return g_defaultText;
+    if (type == Window::kButton) return g_defaultButton;
+    return g_desktop;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Animation effects
+namespace {
+std::vector<MovementEffect*> g_movements;   // @0x17c8e4
+}
+
+void MovementEffect::Animate(int fx, int fy, int tx, int ty, bool show) {   // @0x176510
+    fromX = fx;
+    t = 0.f;
+    fromY = fy;
+    toY = ty;
+    active = true;
+    hideAtEnd = !show;
+    toX = tx;
+}
+
+// @0x176548: position = (int)(0.5 + t*to + (1-t)*from); on arrival snap to the target and run the
+// callbacks; a hiding animation hides the window.
+void MovementEffect::Update(float dt) {
+    if (!active) return;
+    t = dt / duration + t;
+    window->SetPosition((int)(0.5f + t * (float)toX + (float)fromX * (1.f - t)),
+                        (int)(0.5f + t * (float)toY + (1.f - t) * (float)fromY));
+    if (onUpdate) onUpdate();
+    if (!active || t <= 1.f) return;
+    window->SetPosition(toX, toY);
+    if (onUpdate) onUpdate();
+    if (!hideAtEnd) {
+        if (onShown) onShown();
+    } else {
+        if (onHidden) onHidden();
+        window->SetVisibility(false);
+    }
+    active = false;
+}
+
+int MovementEffect::GetCenteredX() const {   // @0x17621c
+    return ((insetL + g_screenW) - insetR - window->w) / 2 - insetL;
+}
+
+int MovementEffect::GetCenteredY() const {   // @0x176254
+    return ((insetT + g_screenH) - insetB - window->h) / 2 - insetT;
+}
+
+void MovementEffect::CenterWith(const Window* w) {   // @0x1762a4
+    if (!w->root) {
+        insetR = (w->w + w->x) - window->w - window->x;
+        insetB = (w->h + w->y) - window->h - window->y;
+        insetL = w->x - window->x;
+        insetT = w->y - window->y;
+    } else {
+        insetL = w->x;
+        insetB = (w->h + w->y) - window->h;
+        insetR = (w->w + w->x) - window->w;
+        insetT = w->y;
+    }
+}
+
+MovementEffect* CreateMovementEffect(Window* w, MovementEffect::Fn onUpdate, MovementEffect::Fn onShown,
+                                     MovementEffect::Fn onHidden) {
+    auto* e = new MovementEffect(std::move(onUpdate), std::move(onShown), std::move(onHidden));
+    e->window = w;
+    e->swingIn = "ui_swing_in";    // AnimationEffect::AnimationEffect @0x182f30
+    e->swingOut = "ui_swing_out";
+    g_movements.push_back(e);
+    return e;
+}
+
+void RemoveMovementEffect(MovementEffect* e) {   // @0x17c538 (swap-remove, then delete)
+    for (size_t i = 0; i < g_movements.size(); ++i) {
+        if (g_movements[i] == e) {
+            g_movements[i] = g_movements.back();
+            g_movements.pop_back();
+            delete e;
+            return;
+        }
+    }
+}
+
+// @0x17c648: movement effects (the alpha-fade list and the tap ring list are ported with input).
+void UpdateAnimation(float dt) {
+    for (size_t i = 0; i < g_movements.size(); ++i) g_movements[i]->Update(dt);
+}
+
+bool IsAnyAnimationActive() {   // @0x17c43c
+    for (MovementEffect* e : g_movements)
+        if (e && e->active && e->blocksInput) return true;
+    return false;
+}
+
 void DumpTree(const Window* w, int depth) {
     for (; w; w = depth ? w->next : nullptr) {
         const Render::Sprite* s = w->sprite;
@@ -656,7 +831,7 @@ Window* RegisterBinaryUI(const char* layout, const char* rootImage, float scale,
     auto str = [&](uint16_t off) { return off < strings.size() ? std::string(strings.c_str() + off) : std::string(); };
 
     Render::Texture* rootTex = Resources::GetUIImage(rootImage, true, false);
-    // (falls back to IconManager::GetIcon(rootImage) on the original; icons are not ported yet)
+    if (!rootTex && rootImage && *rootImage) rootTex = IconManager::GetIcon(rootImage, false);
     std::string dir = layout;
     size_t slash = dir.rfind('/');
     if (slash != std::string::npos) dir.resize(slash);
