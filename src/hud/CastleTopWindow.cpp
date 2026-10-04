@@ -49,6 +49,16 @@ Window* g_giNotify = nullptr;
 Textfield* g_giNotifyText = nullptr;
 bool g_campaignToCityDirect = false;   // Setting "campaign_to_city_direct" == 1
 
+// @0x277f5c: the panel takes clicks even on disabled buttons (force). At tutorial step 0x17 (and,
+// UNVERIFIED for later milestones, while BuildingMovement/BuildingPlacement is active or the shop /
+// screenshot window is open) it only absorbs clicks that land on it. The tutorial arrow and the
+// two featured quest holders follow with quests.
+bool Click(int x, int y, bool pressed) {
+    if (!g_root) return false;
+    if (GameState::TutorialStep() == 0x17) return g_root->GetWindowAtPosition(x, y, false) != nullptr;
+    return g_root->Click(x, y, pressed, true);
+}
+
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
@@ -57,7 +67,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.init = Init;
         f.setZ = SetZ;
         f.hide = Hide;
-        f.click = [](int, int, bool) { return false; };   // Click @0x277f5c: milestone 2d
+        f.click = Click;
         g_queue = new WindowManager::FunctionalWindow("CastleTopWindow", std::move(f));
     }
     return g_queue;

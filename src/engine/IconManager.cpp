@@ -54,4 +54,8 @@ Render::Texture* GetIcon(const char* name, bool async) {
     return t;
 }
 
+Render::Texture* GetSandClockIcon() { return Resources::GetDirectImage("images/icon_60_timer (1).png"); }
+
+Render::Texture* GetExclamaitionIcon() { return Resources::GetDirectImage("images/exc_mark_0001.png"); }
+
 }  // namespace IconManager

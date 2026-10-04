@@ -114,7 +114,8 @@ class Button : public Window {   // 0x88 bytes
 public:
     Button() { type = kButton; }
     virtual void SetOnLongTap(Callback cb);  // +0x84 @0x175f08
-    Callback onLongTap;           // +0x80/+0x84
+    Callback onLongTap;           // +0x80 (OnLongTapStart)
+    Callback onLongTapAbort;      // +0x84 (OnLongTapAbort)
 };
 
 class Textfield : public Window {  // 0xbc bytes
@@ -259,5 +260,14 @@ Window* GetCapture();                                              // @0x17698c
 void SetCapture(Window* w);                                        // @0x1769a0
 void ReleaseCapture();                                             // @0x1769b4
 bool CanInteractWith(void* object);                                // @0x176864
+void SetInteractionLock(bool lock);                                // @0x176844
+void SetInteractionObjectLock(void* a, void* b);                   // @0x17680c
+void SetOutOfBandInteractions(void* a, void* b);                   // @0x17682c
+void OnLongTapStart();                                             // @0x1768fc
+void OnLongTapAbort();                                             // @0x176944
+extern Textfield* g_inputField;                                    // the field receiving text input
+void SetTargetHighlight(Window* w, float target, bool pressed);    // @0x17c950
+void OnMouseMove(int x, int y, bool recordOnly);                   // @0x17d180
+void OnMouseClick(int x, int y, bool pressed);                     // @0x17d2ac (the tap ring)
 
 }  // namespace GUI

@@ -279,8 +279,27 @@ void Textfield::ClipWithRect(int l, int t, int r, int b) {
     hideSprite = true;
 }
 
-// @0x17d04c is ported with input in milestone 2d.
-bool Textfield::Click(int, int, bool, bool) { return false; }
+// @0x17d04c: an editable field takes the click (a visible, enabled field even without force) and
+// on release starts text input; a click elsewhere ends it. Then the Window behaviour.
+bool Textfield::Click(int px, int py, bool pressed, bool force) {
+    if (editable) {
+        if (!visible) force = false;
+        else if (enabled) force = true;
+        if (x <= px && px <= w + x && y <= py && py <= h + y && force) {
+            if (root) root->clickHandled = true;
+            if (!pressed) {
+                g_inputField = this;
+                // FileManager::BeginTextInput(OnTextInput, text): text input is not ported yet.
+            }
+            return true;
+        }
+        if (g_inputField == this) {
+            // FileManager::AbortTextInput()
+            g_inputField = nullptr;
+        }
+    }
+    return Window::Click(px, py, pressed, force);
+}
 
 void Textfield::SetAlignment(int horizontal, int vertical) {   // @0x1760c4
     alignH = horizontal;
@@ -293,7 +312,7 @@ void Textfield::SetPattern(const Render::TextPattern* p) { pattern = p; }  // @0
 void Textfield::SetFontStyle(unsigned s) { style = s; }                    // @0x1760f8
 void Textfield::SetEditable(bool e) { editable = e; }                      // @0x176100
 void Textfield::SetOnEdit(Callback cb) { onEdit = std::move(cb); }         // @0x176108
-bool Textfield::IsInputFocused() { return false; }   // @0x176110 (text input is not ported yet)
+bool Textfield::IsInputFocused() { return g_inputField == this; }   // @0x176110
 void Textfield::SetAsyncUpdate(bool on) { if (glow) glow->allowAsync = on; }   // @0x176130
 
 }  // namespace GUI

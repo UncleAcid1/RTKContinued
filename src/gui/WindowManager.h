@@ -33,8 +33,8 @@ public:
 
     std::string name;                 // +0x04
     bool usesZRange = true;           // +0x08
-    WindowQueue* next = nullptr;      // +0x0c towards the top
-    WindowQueue* prev = nullptr;      // +0x10
+    WindowQueue* next = nullptr;      // +0x0c towards the bottom (ProcessClick walks head -> next)
+    WindowQueue* prev = nullptr;      // +0x10 towards the top (ProcessUpdate/Move walk tail -> prev)
     bool pendingDestroy = false;      // +0x14
     bool shown = false;               // +0x15 set by the windows' Show/Hide
 };
@@ -76,10 +76,20 @@ public:
     bool hideOnOuterClick = false;          // +0x6c
 };
 
+// The bottom of the queue (main_Loop_Init creates it last as "desktop_window"): it takes every
+// click nothing above took, and ProcessClick returning it means the click belongs to the map.
+class DesktopWindow : public WindowQueue {
+public:
+    DesktopWindow() { name = "desktop_window"; usesZRange = false; }
+    bool Click(int, int, bool) override { return true; }   // @0x184c8c
+};
+extern DesktopWindow* g_desktopWindow;   // 0x612380
+
 void InitWindows();                           // @0x36f408: Init() of every queued window, in order
 WindowQueue* ProcessClick(int x, int y, bool pressed);   // @0x36ed98 (top first)
 void ProcessUpdate(float dt);                 // @0x36e2a8
 void ProcessMove(int x, int y);               // @0x36e218
+void SetMousePosition(int x, int y);          // @0x36e8a4
 int GetShownWindowCount();                    // @0x36e7b8
 void WindowShow(bool quiet);                  // @0x36ec60
 void WindowHide(bool quiet);                  // @0x36ebec

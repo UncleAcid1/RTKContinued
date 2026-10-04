@@ -9,6 +9,7 @@ void Init();                  // @0x2c9a7c
 void Show();                  // @0x2c909c
 void SetZ(float z);           // @0x2c9158
 float GetZ();                 // @0x2c6548
+void UpdateFrameBorder();     // @0x2c76e0
 void Update(float dt);        // @0x2c81c8
 int UpdateNumberToTarget(int current, int target);   // @0x2c6560 (animated counters)
 WindowManager::FunctionalWindow* Queue();

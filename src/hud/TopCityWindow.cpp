@@ -56,6 +56,26 @@ std::u32string ToWide(long long v) {
     return std::u32string(s.begin(), s.end());
 }
 
+// @0x365908. The leftmost 30 pixels of the bar never take clicks; while a dialog is open over the
+// bar (bar at depth 0.01) its lowest 40 pixels do not either. UNVERIFIED (later milestones): with
+// the shop or screenshot window open or BuildingMovement/BuildingPlacement active the bar only
+// absorbs clicks over it, and a visible tutorial arrow takes the click first.
+bool Click(int x, int y, bool pressed) {
+    if (!g_root) return false;
+    if (g_root->visibleSelf) {
+        // Shared::ContentScroller::Click(&scroller, x, y, pressed, g_root): see ContentScroller.
+    }
+    bool shrunk = false;
+    if (g_root->z == 0.01f && WindowManager::GetShownWindowCount() != 0) {
+        g_root->h -= 0x28;
+        shrunk = true;
+    }
+    bool r = false;
+    if (x >= g_root->x + 0x1e) r = g_root->Click(x, y, pressed, false);
+    if (shrunk) g_root->h += 0x28;
+    return r;
+}
+
 }  // namespace
 
 // The FunctionalWindow is a static object in the original (_INIT_ 0x364d40)
@@ -65,7 +85,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.init = Init;
         f.setZ = SetZ;
         f.hide = Hide;
-        f.click = [](int, int, bool) { return false; };   // Click @0x365908: milestone 2d
+        f.click = Click;
         g_queue = new WindowManager::FunctionalWindow("TopCityWindow", std::move(f));
     }
     return g_queue;

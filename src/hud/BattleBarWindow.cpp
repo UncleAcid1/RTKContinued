@@ -36,6 +36,15 @@ Textfield* g_allQuestsText = nullptr;
 Window* g_slider = nullptr;  // "Slider_mission_scroll_bg" (Shared::TaskWindow)
 GUI::MovementEffect* g_sliderEffect = nullptr;
 
+// @0x24bbb8. UNVERIFIED (later milestones): while BuildingMovement or BuildingPlacement is active or
+// the shop / screenshot window is open, the bar only absorbs clicks that land on it (root and
+// slider GetWindowAtPosition); otherwise the item and heal hover windows (+0xb4, +0xac) get the
+// click before the bar and the slider. None of those exist yet.
+bool Click(int x, int y, bool pressed) {
+    if (!g_root) return false;
+    return g_root->Click(x, y, pressed, false) || (g_slider && g_slider->Click(x, y, pressed, false));
+}
+
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
@@ -44,7 +53,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.init = Init;
         f.setZ = SetZ;
         f.hide = Hide;
-        f.click = [](int, int, bool) { return false; };   // Click: milestone 2d
+        f.click = Click;
         g_queue = new WindowManager::FunctionalWindow("BattleBarWindow", std::move(f));
     }
     return g_queue;

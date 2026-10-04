@@ -1,5 +1,6 @@
 #include "gui/GUI.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <unordered_map>
@@ -28,6 +29,22 @@ Window* g_desktop = nullptr;             // GUI::Init's template objects: SetTex
 Textfield* g_defaultText = nullptr;
 Button* g_defaultButton = nullptr;
 Window* g_capture = nullptr;
+
+// Input state
+Window* g_pressed = nullptr;          // the window a press landed on; its onClick fires on release
+// Interaction locks (tutorial): SetInteractionLock / SetInteractionObjectLock / SetOutOfBandInteractions
+bool g_interactionLock = false;
+void* g_lockObject1 = nullptr;
+void* g_lockObject2 = nullptr;
+void* g_outOfBand1 = nullptr;
+void* g_outOfBand2 = nullptr;
+
+}  // namespace
+
+// The editable Textfield receiving text input (Textfield::Click, IsInputFocused).
+Textfield* g_inputField = nullptr;
+
+namespace {
 
 // Global registry: every registered window (index stored in +0x70) and the name table
 // (1024-bucket chained hash keyed by StringHash, new entries at the head, so the newest window of a
@@ -109,6 +126,49 @@ float GetScaleFactor(int w, int h, bool phone, float scale) {
 Window* GetCapture() { return g_capture; }
 void SetCapture(Window* w) { g_capture = w; }
 void ReleaseCapture() { g_capture = nullptr; }
+
+void SetInteractionObjectLock(void* a, void* b) {   // @0x17680c
+    g_lockObject2 = b;
+    g_interactionLock = false;
+    g_lockObject1 = a;
+}
+
+void SetOutOfBandInteractions(void* a, void* b) {   // @0x17682c
+    g_outOfBand2 = b;
+    g_outOfBand1 = a;
+}
+
+void SetInteractionLock(bool lock) {   // @0x176844
+    g_lockObject2 = nullptr;
+    g_interactionLock = lock;
+    g_lockObject1 = nullptr;
+}
+
+// @0x176864: the out-of-band objects always; otherwise anything unless locked, or only the lock
+// objects while an object lock is set.
+bool CanInteractWith(void* object) {
+    if ((g_outOfBand1 && g_outOfBand1 == object) || (g_outOfBand2 && object == g_outOfBand2)) return true;
+    if (!g_interactionLock) {
+        if (!g_lockObject1 || object == g_lockObject1) return true;
+        if (g_lockObject2) return object == g_lockObject2;
+    }
+    return false;
+}
+
+// @0x1768fc / @0x176944: a long press on the captured Button.
+void OnLongTapStart() {
+    Window* c = g_capture;
+    if (!c || c->type != Window::kButton) return;
+    Button* b = static_cast<Button*>(c);
+    if (b->onLongTap) b->onLongTap();
+}
+
+void OnLongTapAbort() {
+    Window* c = g_capture;
+    if (!c || c->type != Window::kButton) return;
+    Button* b = static_cast<Button*>(c);
+    if (b->onLongTapAbort) b->onLongTapAbort();
+}
 
 // ---------------------------------------------------------------------------------------------
 // Window
@@ -554,8 +614,60 @@ Window* Window::GetWindowAtPosition(int px, int py, bool clickable) {
     return this;
 }
 
-// @0x17cc30 is ported with input in milestone 2d.
-bool Window::Click(int, int, bool, bool) { return false; }
+// @0x17cc30. (x, y) are relative to the root for children and absolute for a root. A press marks the
+// window that has an onClick and highlights it (brightness 1.2); the release fires onClick if it
+// lands on the same window. Children are tried first (last child first); a child that handles the
+// click sets the root's clickHandled, so its ancestors (other than the root) do not fire as well.
+// UNVERIFIED: pixelHitTest windows hit by rectangle (the port's textures carry no hit mask for
+// Render::Sprite::HasPixelAt).
+bool Window::Click(int px, int py, bool pressed, bool force) {
+    if (!parent) {
+        clickHandled = false;
+        if (Textfield* f = g_inputField) {
+            int fx = x + f->x, fy = y + f->y;
+            bool inside = !(px < fx || py < fy || fx + f->w < px) && py <= fy + f->h;
+            if (f->root == this && !inside) {
+                // FileManager::AbortTextInput(): text input is not ported yet.
+                g_inputField = nullptr;
+            }
+        }
+    }
+    if (!pressed && g_pressed) SetTargetHighlight(g_pressed, 1.f, pressed);
+    if (clip && !ignoreClip) {
+        int cx = px, cy = py;
+        if (!parent) { cx = px + x; cy = py + y; }
+        if (cx < clip->left || clip->right < cx || cy < clip->top || clip->bottom < cy) return false;
+    }
+    if (noInput || !visible || !(enabled || force)) return false;
+    bool inside = !(px < x || w + x < px || py < y) && py <= h + y;
+    if (!inside) return false;
+    bool handled = false;
+    for (Window* c = lastChild; c; c = c->prev) {
+        int cx = px, cy = py;
+        if (!parent) { cx = px - x; cy = py - y; }
+        handled |= c->Click(cx, cy, pressed, force);
+    }
+    if (parent && root->clickHandled) return true;
+    if (onClick) {
+        if (root) root->clickHandled = true;
+        if (pressed) {
+            if (g_pressed != this) SetTargetHighlight(g_pressed, 1.f, false);
+            g_pressed = this;
+            SetTargetHighlight(this, 1.2f, true);
+        } else if (this == g_pressed) {
+            if (enabled && CanInteractWith(this)) {
+                // SoundsManager::PlaySound(sound->name, sound->param, false): sounds are not ported yet.
+                onClick();
+            }
+            g_pressed = nullptr;
+        }
+    }
+    if (!parent && !onClick) {
+        if (!pressed && g_inputField && g_inputField->root == this) g_inputField = nullptr;
+        return handled;
+    }
+    return true;
+}
 
 // @0x17745c: nine sprites (left, right, top, bottom edges; four corners; centre), chained through
 // Sprite::next. Insets come from the layout (scaled by the root scale) and shrink proportionally
@@ -739,9 +851,117 @@ void RemoveMovementEffect(MovementEffect* e) {   // @0x17c538 (swap-remove, then
     }
 }
 
-// @0x17c648: movement effects (the alpha-fade list and the tap ring list are ported with input).
+// Press highlights (SetTargetHighlight): the window's sprites are drawn with alpha * cur, which the
+// text shader turns into brightness above 1. 0x18 bytes on the original.
+namespace {
+struct Highlight {
+    Window* window;
+    float cur, target;   // +0x04 +0x08
+    bool pressed;        // +0x0c
+    int x, y;            // +0x10 +0x14 the window's position when highlighted
+};
+std::vector<Highlight> g_highlights;
+struct TapRing { int x, y; float t; Render::Sprite* sprite; };   // OnMouseClick, 0x10 bytes
+std::vector<TapRing> g_tapRings;
+struct MouseSample { int x, y; double time; };   // OnMouseMove history (32 entries, 0x10 bytes)
+MouseSample g_mouseHistory[32];
+unsigned g_mouseSamples = 0;
+
+// ApplyAlphaModifierToSprite @0x1785ec: enabled windows' sprites with the plain or alpha shader get
+// alpha * m (and the alpha shader whenever that is not 1); then the children, recursively.
+void ApplyAlphaModifier(Window* w, float m) {
+    for (Render::Sprite* s = w->sprite; s; s = s->next) {
+        if (!w->enabled || (s->shaderType != 0 && s->shaderType != 1)) continue;
+        Render::SetShaderType(s, m * w->alpha != 1.f ? 1 : 0);
+        Render::SetAlpha(s, m * w->alpha);
+    }
+    for (Window* c = w->firstChild; c; c = c->next) ApplyAlphaModifier(c, m);
+}
+}  // namespace
+
+// @0x17c950. A Button inside a layout highlights its parent (the button graphic).
+void SetTargetHighlight(Window* w, float target, bool pressed) {
+    if (!w) return;
+    Window* t = (w->type == Window::kButton && w->parent) ? w->parent : w;
+    for (Highlight& h : g_highlights)
+        if (h.window == t) { h.target = target; return; }
+    if (!t->enabled) return;
+    g_highlights.push_back({t, t->alpha, target, pressed, t->x, t->y});
+}
+
+// @0x17c648: movement effects; highlights move towards their target (up at 4/s, down at 1/s) and
+// are dropped once back at 1; tap rings shrink from full size to nothing in 0.5 s.
 void UpdateAnimation(float dt) {
     for (size_t i = 0; i < g_movements.size(); ++i) g_movements[i]->Update(dt);
+    for (size_t i = 0; i < g_highlights.size(); ++i) {
+        Highlight& h = g_highlights[i];
+        if (h.cur < h.target) {
+            h.cur += dt * 4.f;
+            if (h.cur > h.target) h.cur = h.target;
+        } else if (h.cur > h.target) {
+            h.cur -= dt;
+            if (h.cur < h.target) h.cur = h.target;
+        }
+        ApplyAlphaModifier(h.window, h.cur);
+        if (h.cur == h.target && h.target == 1.f) {
+            g_highlights[i] = g_highlights.back();
+            g_highlights.pop_back();
+            --i;
+        }
+    }
+    for (size_t i = 0; i < g_tapRings.size();) {
+        TapRing& r = g_tapRings[i];
+        r.t -= dt;
+        if (r.t > 0.f) {
+            Render::Sprite* s = r.sprite;
+            if (s->tex) {
+                s->w = (float)s->tex->w * (r.t + r.t);
+                s->h = (float)s->tex->h * (r.t + r.t);
+                Render::SetPosition(s, (float)r.x + s->w * -0.5f, (float)r.y + s->h * 0.5f, s->z);
+            }
+            ++i;
+        } else {
+            Render::RemoveSprite(r.sprite);
+            g_tapRings[i] = g_tapRings.back();
+            g_tapRings.pop_back();
+        }
+    }
+}
+
+// @0x17d180: records the pointer; while a button is held (recordOnly false) a press highlight is
+// cancelled when the pointer leaves its window, if that window has moved since the press.
+void OnMouseMove(int mx, int my, bool recordOnly) {
+    MouseSample& m = g_mouseHistory[g_mouseSamples & 31];
+    m.y = my;
+    m.x = mx;
+    m.time = (double)std::chrono::duration_cast<std::chrono::microseconds>(
+                 std::chrono::steady_clock::now().time_since_epoch()).count() / 1e6;   // Timer::GetTime
+    ++g_mouseSamples;
+    if (recordOnly) return;
+    for (Highlight& h : g_highlights) {
+        Window* w = h.window;
+        if (!h.pressed || !w) continue;
+        if (h.x == w->x && h.y == w->y) continue;
+        int ax = w->x, ay = w->y;
+        if (w->root) { ax += w->root->x; ay += w->root->y; }
+        if (mx < ax || my < ay || ax + w->w < mx || ay + w->h < my) h.cur = h.target = 1.f;
+    }
+}
+
+// @0x17d2ac: the tap ring ("images/click.png", half transparent) at every release; a release also
+// lets go of the press highlights.
+void OnMouseClick(int mx, int my, bool pressed) {
+    if (Render::Texture* tex = Resources::GetDirectImage("images/click.png")) {
+        Render::Sprite* s = Render::CreateSprite(tex, Render::kLayer15, false, false);
+        s->screenSpace = true;
+        Render::SetPosition(s, (float)mx, (float)my, 0.0001f);
+        Render::SetShaderType(s, 1);
+        Render::SetAlpha(s, 0.5f);
+        g_tapRings.push_back({mx, my, 0.5f, s});
+    }
+    if (pressed) return;
+    for (Highlight& h : g_highlights)
+        if (h.pressed) h.target = 1.f;
 }
 
 bool IsAnyAnimationActive() {   // @0x17c43c

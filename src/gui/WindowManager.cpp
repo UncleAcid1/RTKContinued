@@ -14,6 +14,7 @@ WindowQueue* g_head = nullptr;
 WindowQueue* g_tail = nullptr;
 int g_shown = 0;              // WindowShow/WindowHide counter
 bool g_initialising = false;
+int g_mouseX = 0, g_mouseY = 0;   // SetMousePosition
 
 }  // namespace
 
@@ -84,6 +85,8 @@ void WindowQueue::MoveWindowDown(bool reassignZ) {
     Render::SortRenderLayer(Render::kLayerGUI, 1);
 }
 
+DesktopWindow* g_desktopWindow = nullptr;
+
 FunctionalWindow::FunctionalWindow(const char* n, Functions f) : fn(std::move(f)) { name = n; }
 
 // @0x36e694: a handled release click counts as an outer click for the other windows.
@@ -102,8 +105,9 @@ void FunctionalWindow::RegisterTopWindow(GUI::Window* w) {
     if (GUI::Window* c = w->GetChild("clickArea")) topWindow = c;
 }
 
-// @0x36ecc0 UNVERIFIED: GUI::IsAnyAnimationActive and CanInteractWith gates are applied in 2d.
+// @0x36ecc0: a release outside the top window (with a margin) closes it through Back().
 bool FunctionalWindow::OnOuterClick(int x, int y) {
+    if (GUI::IsAnyAnimationActive() || !GUI::CanInteractWith(nullptr)) return false;
     if (!hideOnOuterClick || !topWindow || this != g_head) return false;
     const GUI::Window* t = topWindow;
     if (t->root) { y -= t->root->y; x -= t->root->x; }
@@ -120,18 +124,26 @@ void InitWindows() {   // @0x36f408 (the progress bar it updates every 8 windows
     g_initialising = false;
 }
 
+// @0x36ed98: top first; nothing takes clicks while a blocking GUI animation runs.
 WindowQueue* ProcessClick(int x, int y, bool pressed) {
-    for (WindowQueue* w = g_head; w; w = w->next)
-        if (w->Click(x, y, pressed)) return w;
-    return nullptr;
+    if (GUI::IsAnyAnimationActive()) return nullptr;
+    WindowQueue* w = g_head;
+    while (w && !w->Click(x, y, pressed)) w = w->next;
+    return w;
 }
 
+void SetMousePosition(int x, int y) {   // @0x36e8a4
+    g_mouseX = x;
+    g_mouseY = y;
+}
+
+// @0x36e2a8 / @0x36e218: bottom first (from the tail through prev).
 void ProcessUpdate(float dt) {
-    for (WindowQueue* w = g_head; w; w = w->next) w->Update(dt);
+    for (WindowQueue* w = g_tail; w; w = w->prev) w->Update(dt);
 }
 
 void ProcessMove(int x, int y) {
-    for (WindowQueue* w = g_head; w; w = w->next) w->Move(x, y);
+    for (WindowQueue* w = g_tail; w; w = w->prev) w->Move(x, y);
 }
 
 int GetShownWindowCount() { return g_shown; }

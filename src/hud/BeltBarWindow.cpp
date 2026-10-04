@@ -44,6 +44,14 @@ GUI::ClipRect g_craftClip;
 Window* g_craftProfIcon = nullptr;
 GUI::MovementEffect* g_craftEffect = nullptr;
 
+// @0x2509ac. UNVERIFIED (later milestones): BuildingMovement/BuildingPlacement absorb clicks over the
+// belt; dragging belt items into the inventory (CharacterInfoWindow), the tutorial arrow and the
+// item hover window (+0x00) come first. Then the crafting bar and the belt.
+bool Click(int x, int y, bool pressed) {
+    if (!g_root) return false;
+    return (g_craftBar && g_craftBar->Click(x, y, pressed, false)) || g_root->Click(x, y, pressed, false);
+}
+
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
@@ -52,7 +60,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.init = Init;
         f.setZ = SetZ;
         f.hide = Hide;
-        f.click = [](int, int, bool) { return false; };   // Click @0x2509ac: milestone 2d
+        f.click = Click;
         g_queue = new WindowManager::FunctionalWindow("BeltBarWindow", std::move(f));
     }
     return g_queue;

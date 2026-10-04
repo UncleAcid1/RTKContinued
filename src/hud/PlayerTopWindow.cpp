@@ -41,6 +41,12 @@ GUI::MovementEffect* g_hpRestoreEffect = nullptr;
 Textfield* g_hpRestore1 = nullptr;
 Textfield* g_hpRestore2 = nullptr;
 
+// @0x329758. UNVERIFIED (later milestones): BuildingMovement/BuildingPlacement, the shop and the
+// screenshot window make the panel only absorb clicks over it; the tutorial arrow on map 0x70, the
+// heal window while the hero is hurt (+0x0c, the hero is at full health without entities) and
+// the PlayerHintHoverWindow (+0x08) are not ported yet.
+bool Click(int x, int y, bool pressed) { return g_root && g_root->Click(x, y, pressed, false); }
+
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
@@ -49,7 +55,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.init = Init;
         f.setZ = SetZ;
         f.hide = Hide;
-        f.click = [](int, int, bool) { return false; };   // Click @0x329758: milestone 2d
+        f.click = Click;
         f.update = Update;
         f.show = Show;
         g_queue = new WindowManager::FunctionalWindow("PlayerTopWindow", std::move(f));
