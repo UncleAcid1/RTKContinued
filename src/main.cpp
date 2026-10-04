@@ -14,6 +14,9 @@
 #include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "engine/Text.h"
+#include "game/StringTable.h"
+#include "gui/GUI.h"
 #include "game/GameData.h"
 #include "game/Map.h"
 
@@ -87,7 +90,37 @@ int main(int argc, char** argv) {
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
 
     if (!Render::Init(fbw, fbh) || !Resources::Init() || !GameData::Load()) return 1;
+    // SDL_baseInit: the device screen decides the UI configuration; the port's "device screen" is
+    // the window's framebuffer in pixels.
+    GUI::SetScreenSize(fbw, fbh);
+    Render::InitFonts();
+    StringTable::SetLanguage("EN", 0);
+    // UNVERIFIED: Game::LoadLanguageTable's file selection is not ported yet; English only.
+    StringTable::Init("../resource/res_files/1Original/LocalizedStringsEN.xml", false, false);
+    GUI::Init("fonts/ARICYRB.ttf", false);
     if (!Map::Load(opt.map, opt.seed)) return 1;
+    // Milestone 2a test: the resource bar layout (TopCityWindow::Init's RegisterUI call).
+    if (GUI::Window* bar = GUI::RegisterUI("../resource/kingdom_ui/1Original/Resource_bar_large.xml",
+                                           "Resource_bar_large.png", GUI::GetHudScaleFactor(), 0, 0, 0, 0,
+                                           false, 1.f)) {
+        bar->SetZ(0.5f);
+        bar->SetPosition((GUI::ScreenWidth() - bar->w) / 2, 0);
+        Render::SortRenderLayer(Render::kLayerGUI, 1);
+        if (std::getenv("RTK_DUMP_GUI")) GUI::DumpTree(bar);
+        if (std::getenv("RTK_TEXT_TEST")) {   // PORT: temporary text check against the reference
+            const char* names[][2] = {{"hud_res_holder.text_food", "315"}, {"hud_res_holder.text_lumber", "310"},
+                                      {"hud_res_holder.text_rocks", "275"}, {"hud_button_resbar_gold.text_gold_large", "770"},
+                                      {"hud_button_resbar_gold.text_crystals_large", "42"},
+                                      {"hud_resbar_population.text_people", "1/2"},
+                                      {"hud_button_resbar_gold.text_buy_large", "Buy"}};
+            for (auto& n : names)
+                if (auto* t = GUI::GetWindowTyped<GUI::Textfield>(bar, n[0])) {
+                    std::u32string u(n[1], n[1] + std::strlen(n[1]));
+                    t->SetText(u.c_str());
+                }
+            bar->SetZ(0.5f);
+        }
+    }
 
     float camX = opt.camX, camY = opt.camY, zoom = opt.zoom;
     const float dpi = (float)fbw / 1280.f;  // keep one game pixel per point on Retina

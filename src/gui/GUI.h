@@ -11,7 +11,7 @@
 #include <functional>
 #include <string>
 
-namespace Render { struct Texture; struct Sprite; struct Font; struct GlowFilter; }
+namespace Render { struct Texture; struct Sprite; struct Font; struct GlowFilter; struct TextPattern; }
 
 namespace GUI {
 
@@ -142,21 +142,24 @@ public:
     virtual void SetColor(float r, float g, float b);               // +0x94 @0x17a160
     virtual void SetWorldOverscale(bool on);                        // +0x98 @0x179360
     virtual void SetOverscale(float overscale);                     // +0x9c @0x179160
-    virtual void SetStyle(int style);                               // +0xa0 @0x1760e8
-    virtual void SetPattern(int pattern);                           // +0xa4 @0x1760f0
-    virtual void SetFontStyle(int style);                           // +0xa8 @0x1760f8
+    virtual void SetStyle(bool async);                              // +0xa0 @0x1760e8
+    virtual void SetPattern(const Render::TextPattern* pattern);    // +0xa4 @0x1760f0
+    virtual void SetFontStyle(unsigned style);                      // +0xa8 @0x1760f8
     virtual void SetEditable(bool editable);                        // +0xac @0x176100
     virtual void SetOnEdit(Callback cb);                            // +0xb0 @0x176108
     virtual bool IsInputFocused();                                  // +0xb4 @0x176110
     virtual void SetAsyncUpdate(bool on);                           // +0xb8 @0x176130
+
+    float TextZoom() const;       // (world overscale ? base zoom : 1) * overscale
+    void BuildSprite(Render::Sprite* reuse, bool setShader);
 
     std::u32string text;          // +0x80 (nullptr on the original = empty here)
     bool hasText = false;
     void* asyncTag = nullptr;     // +0x84
     int alignH = kLeft;           // +0x88
     int alignV = 0;               // +0x8c
-    int pattern = 0;              // +0x90
-    int style = 0;                // +0x94
+    const Render::TextPattern* pattern = nullptr;  // +0x90 SetPattern
+    unsigned style = 0;           // +0x94 SetFontStyle: initial TTF style bits
     int16_t fontSize = 0;         // +0x98 layout font size * font scale
     bool editable = false;        // +0x9a
     bool hideSprite = false;      // +0x9b
@@ -164,9 +167,9 @@ public:
     float overscale = 1.f;        // +0xa8
     Render::Font* font = nullptr; // +0xac
     Render::GlowFilter* glow = nullptr;  // +0xb0 chain of filters
-    bool asyncUpdate = false;     // +0xb4
+    bool async = false;           // +0xb4 SetStyle (passed to the text builder as its async flag)
     bool worldOverscale = false;  // +0xb5
-    int8_t fontStyle = 0;         // +0xb6 TTF style bits
+    int8_t lineSpacing = 0;       // +0xb6 extra pixels between lines
     Callback onEdit;              // +0xb8
 };
 
@@ -182,6 +185,7 @@ Window* RegisterUI(const char* layout, const char* rootImage, float scale, int o
                    int fitExtraW, int fitExtraH, bool async, float fontScale);
 
 Window* GetWindow(Window* root, const char* name);                 // @0x17c17c
+void DumpTree(const Window* w, int depth = 0);   // PORT: debugging aid (prints the window tree)
 template <class T> T* GetWindowTyped(Window* root, const char* name) {
     return dynamic_cast<T*>(GetWindow(root, name));
 }
@@ -195,7 +199,7 @@ bool IsHighDPIVersion();                                           // @0x1766e0
 bool IsSmallScreenVersion();                                       // @0x1767ec
 float GetScaleFactor(int w, int h, bool phone, float scale);       // @0x176760
 float GetHighDPIScaleFactor();                                     // @0x176184
-float GetHoverScaleFactor(float scale);                            // @0x176728
+float GetHoverScaleFactor(float normal, float scale);              // @0x176728 HighDPI ? scale*hover : normal
 float GetHudScaleFactor();                                         // @0x176700
 int GetVerticalCenter(int h);                                      // @0x1761fc
 

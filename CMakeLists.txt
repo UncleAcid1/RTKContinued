@@ -30,6 +30,8 @@ add_executable(rtk
   src/game/Background.cpp
   src/game/StringTable.cpp
   src/engine/Text.cpp
+  src/gui/GUI.cpp
+  src/gui/Textfield.cpp
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)

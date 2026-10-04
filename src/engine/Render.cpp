@@ -261,6 +261,8 @@ bool Init(int screenW, int screenH) {
     glGenBuffers(1, &g_vbo);
     bool ok = LoadShader(0, "mainVS.txt", "mainPS.txt");
     ok = LoadShader(2, "mainVS.txt", "mainPS.txt") && ok;
+    ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
+    ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
     // Render::Update: no depth test, premultiplied alpha blending (ONE, ONE_MINUS_SRC_ALPHA).
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -324,8 +326,9 @@ Sprite* CreateSprite(Texture* tex, int layer, bool mirror, bool flip) {
     return s;
 }
 
-void RemoveSprite(Sprite* s) {
-    if (!s) return;
+Sprite* RemoveSprite(Sprite* s) {
+    if (!s) return nullptr;
+    Sprite* next = s->next;
     auto& v = g_layers[s->layer].sprites;
     for (size_t i = 0; i < v.size(); ++i) {
         if (v[i] == s) {
@@ -334,6 +337,7 @@ void RemoveSprite(Sprite* s) {
         }
     }
     delete s;
+    return next;
 }
 
 void SetPosition(Sprite* s, float x, float y, float z) {
@@ -368,6 +372,98 @@ void SetFrame(Sprite* s, int frameHeight, int frame) {
 void SetShaderType(Sprite* s, int type) {
     if (s) s->shaderType = type;
 }
+
+// @0x1fe940 (no per-frame texture chain, no atlas): size = (w, h); v range = frame slice of height h;
+// u = 0..1, swapped when mirrorFrames. Sheets taller than 2048 with 2+ frames use two columns.
+void SetFrame(Sprite* s, float h, float w, int frame) {
+    if (!s || !s->tex) return;
+    Texture* t = s->tex;
+    if (s->h == h && s->w == w && s->frame1 == frame + 1) return;
+    s->h = h;
+    s->w = w;
+    s->frame1 = (int16_t)(frame + 1);
+    if (t->h <= 0x800 || t->frames < 2) {
+        float f = (float)frame, H = (float)t->h;
+        s->vBottom = 0.f + (1.f - 0.f) * ((h + f * h) / H);
+        s->vTop = 0.f + ((f * h) / H) * (1.f - 0.f);
+        s->u0 = s->mirrorFrames ? 1.f : 0.f;
+        s->u1 = s->mirrorFrames ? 0.f : 1.f;
+    } else {
+        int perCol = (t->frames + 1) >> 1;
+        float lo = 0.f, hi = 0.5f;
+        if (frame >= perCol) { lo = 0.5f; hi = 1.f; }
+        s->u0 = s->mirrorFrames ? hi : lo;
+        s->u1 = s->mirrorFrames ? lo : hi;
+        float row = (float)(frame % perCol);
+        float colH = (float)(t->h / t->frames * perCol);
+        s->vBottom = (h + row * h) / colH;
+        s->vTop = (row * h) / colH;
+    }
+}
+
+void SetVisibility(Sprite* s, bool v) { if (s) s->visible = v; }
+
+void SetColor(Sprite* s, float r, float g, float b) {
+    if (!s) return;
+    s->color[0] = r; s->color[1] = g; s->color[2] = b;
+}
+
+void SetAlpha(Sprite* s, float a) {
+    if (!s) return;
+    for (float& c : s->alpha) c = a;
+}
+
+// @0x1fdfc8 without atlas: u 0..1 (swapped if mirror), v bottom 1 / top 0 (swapped if flip)
+void SetMirror(Sprite* s, bool mirror, bool flip) {
+    if (!s) return;
+    s->u0 = mirror ? 1.f : 0.f;
+    s->u1 = mirror ? 0.f : 1.f;
+    s->vBottom = flip ? 0.f : 1.f;
+    s->vTop = flip ? 1.f : 0.f;
+}
+
+void SetTexture(Sprite* s, Texture* t) {
+    if (!s || s->tex == t) return;
+    s->tex = t;
+    s->frame1 = 0;
+}
+
+Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, const std::string& name) {
+    auto t = std::make_unique<Texture>();
+    t->w = w;
+    t->h = h;
+    t->name = name;
+    glGenTextures(1, &t->glId);
+    glBindTexture(GL_TEXTURE_2D, t->glId);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+    GLint f = nearest ? GL_NEAREST : GL_LINEAR;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, f);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, f);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    g_textures.push_back(std::move(t));
+    return g_textures.back().get();
+}
+
+void RemoveTexture(Texture* t) {
+    for (size_t i = 0; i < g_textures.size(); ++i) {
+        if (g_textures[i].get() == t) {
+            glDeleteTextures(1, &t->glId);
+            g_textures.erase(g_textures.begin() + (long)i);
+            return;
+        }
+    }
+}
+
+namespace { bool g_forceLinear = false; float g_baseZoom = 1.f; }
+void SetForceLinear(bool on) { g_forceLinear = on; }
+bool GetForceLinear() { return g_forceLinear; }
+void SetBaseZoomFactor(float z) { g_baseZoom = z; }
+float GetBaseZoomFactor() { return g_baseZoom; }
+
+int ScreenWidth() { return g_screenW; }
+int ScreenHeight() { return g_screenH; }
 
 void SortRenderLayer(int layer, int order) {
     g_layers[layer].sortOrder = order;
@@ -435,16 +531,21 @@ void Frame() {
                 curShader = s->shaderType;
                 curScreen = s->screenSpace;
             }
+            // Layer::Prepare @0x1fd028: screen-space sprites get +0.25 on x and y; y is negated.
             float x = s->x, y = s->y;
             if (s->screenSpace) { x += 0.25f; y += 0.25f; }
             float xl = x, xr = x + s->w, yb = -y, yt = s->h - y;
             const float* c = s->color;
-            auto V = [&](float px, float py, float u, float v) {
-                float a[10] = {px, py, s->z, u, v, c[0], c[1], c[2], c[3], s->extra};
-                verts.insert(verts.end(), a, a + 10);
+            auto V = [&](float px, float py, float u, float v, float a) {
+                float d[10] = {px, py, s->z, u, v, c[0], c[1], c[2], a, s->extra};
+                verts.insert(verts.end(), d, d + 10);
             };
-            V(xl, yb, s->u0, s->vBottom); V(xr, yb, s->u1, s->vBottom); V(xl, yt, s->u0, s->vTop);
-            V(xr, yb, s->u1, s->vBottom); V(xr, yt, s->u1, s->vTop); V(xl, yt, s->u0, s->vTop);
+            V(xl, yb, s->u0, s->vBottom, s->alpha[0]);
+            V(xr, yb, s->u1, s->vBottom, s->alpha[1]);
+            V(xl, yt, s->u0, s->vTop, s->alpha[2]);
+            V(xr, yb, s->u1, s->vBottom, s->alpha[1]);
+            V(xl, yt, s->u0, s->vTop, s->alpha[2]);
+            V(xr, yt, s->u1, s->vTop, s->alpha[3]);
         }
         flush();
     }
