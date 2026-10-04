@@ -1,0 +1,33 @@
+cmake_minimum_required(VERSION 3.20)
+project(RuleTheKingdom CXX C)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
+
+find_package(SDL3 REQUIRED CONFIG)
+find_package(pugixml REQUIRED)
+find_package(PNG REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(OpenGL REQUIRED)
+
+add_executable(rtk
+  src/main.cpp
+  src/engine/FileManager.cpp
+  src/engine/Image.cpp
+  src/engine/Render.cpp
+  src/engine/Resources.cpp
+  src/game/Rand48.cpp
+  src/game/SaveManager.cpp
+  src/game/GameData.cpp
+  src/game/Map.cpp
+  src/game/Background.cpp
+)
+target_include_directories(rtk PRIVATE src)
+target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
+target_compile_options(rtk PRIVATE -Wall -Wextra -Wno-unused-parameter)
+target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL)

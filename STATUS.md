@@ -35,17 +35,24 @@ reworked to work offline later. Rebuilding the server is a separate future proje
 Stack: C++17, CMake, SDL3, OpenGL (the game's own GLSL), pugixml, libpng/libjpeg, zlib, FreeType.
 
 Milestones:
-1. [ ] Native window showing map_0 live with pan/zoom, rendered by ported C++
+1. [x] Native window showing map_0 live with pan/zoom, rendered by ported C++
        (FileManager → Resources → Render → Map::Load → Background/Decor/Building sprites).
+       Verified 2026-10-04: pixel diff vs tools/render_map.py = 0.48% of pixels (edge filtering only).
+       Build: `cmake -S . -B build && cmake --build build -j8`; run: `./build/rtk --root ..`
+       (drag to pan, wheel to zoom, F12 screenshot, Esc quit; `--screenshot f.png --camera X Y Z` headless).
 2. [ ] GUI from .xmlb (HUD, windows, text).
 3. [ ] Game data + GameState + save/load; building and economy loops.
 4. [ ] Entities/AI/pathing, quests (Tasks), combat, campaign maps.
 
 ## Open questions (tracked)
-- The terrain colour-mask texture (shader type 2, sampler `colorMask`) is not identified yet.
+- RESOLVED: shader type 2 is mainVS+mainPS (Render::InitMain); 5.11 has no terrain shader at all.
 - Building+0xCC (input to GetSpriteZ for building parts) has an unknown source.
 - `GameState::playerSeed` initialisation for new games (FUN_00193d44) hasn't been read.
 - 47 UI images aren't in any source; most are online-only screens.
+
+- Render: textures are premultiplied (c*a/255.0, truncated); blend ONE, ONE_MINUS_SRC_ALPHA; no depth test.
+- Only layers passed to SortRenderLayer are sorted (layer 8 with SpriteSortZ); std::sort = STLport introsort (ported).
+- On map 0, Building::LinkBaseToBuilding removes whole decorations under building footprints at load.
 
 ## Key facts (see the tools for details)
 - Ghidra image base 0x10000: file vaddr = Ghidra address − 0x10000.
