@@ -13,6 +13,7 @@
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
+#include "game/Rand48.h"
 #include "game/MetaData.h"
 #include "game/Setting.h"
 
@@ -567,6 +568,95 @@ void Building::UpdateResources() {
     if (GameState::TutorialStep() == 0x29) pile->Appear(true, true);   // UNVERIFIED: the third argument is not set
 }
 
+namespace {
+// OnBuilded/OnUpgraded: a new worker (id 0 or 0x30) at the spawn tile when it is free, else at a
+// free waypoint around the building (w x h tries), else at the start tile.
+Entity* SpawnLiver(Building* b, int id) {
+    int sx = 0, sy = 0;
+    b->GetSpawnTile(sx, sy);
+    AI::Waypoint* wp = AI::GetWaypoint(sx, sy, false);
+    Decor* d = GetDecoration(sx, sy);
+    if (d && d->fake) d = nullptr;
+    if (wp && !EntityManager::GetEntityAtXY(sx, sy) && !GetBuilding(sx, sy) && !d)
+        return EntityManager::SpawnEntityAt(id, (unsigned)sx, (unsigned)sy, true, true);
+    int tries = b->data->w * b->data->h;
+    AI::Waypoint* free = nullptr;
+    int left = 0;
+    for (; tries != 0; --tries) {
+        AI::Waypoint* c = AI::GetWaypointNearBuilding(b, false);
+        if (!c) continue;   // (the original reads through the null waypoint here)
+        if (!EntityManager::GetEntityAtXY(c->x, c->y) && !GetBuilding(c->x, c->y) && !GetDecoration(c->x, c->y)) {
+            free = c;
+            left = tries - 1;
+            break;
+        }
+    }
+    if (left == 0) {
+        int tx = 0, ty = 0;
+        b->GetStartTile(tx, ty);
+        return EntityManager::SpawnEntityAt(id, (unsigned)tx, (unsigned)ty, true, true);
+    }
+    return EntityManager::SpawnEntityAt(id, (unsigned)free->x, (unsigned)free->y, true, true);
+}
+}  // namespace
+
+void Building::OnBuilded() {
+    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(1, id, 1).
+    int cls = data->buildingClass;
+    if (cls == 0) {
+        for (unsigned i = 0; i < data->givePopulation; ++i) {
+            int id = Rand48::lrand48() % 2 == 1 ? 0x30 : 0;
+            if ((unsigned)(GameState::TutorialStep() - 0x20) < 2) id = 0x30;
+            Entity* e = SpawnLiver(this, id);
+            AssignLiver(e);
+            e->SetHome(this);
+            e->SetHP(0x400);
+        }
+        stateTime = Timer::GetGlobalTime();
+        if (GameState::TutorialStep() == 0x20) stateTime = Timer::GetGlobalTime() - (uint32_t)data->collectTime;
+    } else if (cls == 0xd) {
+        int id = Rand48::lrand48() % 2 == 1 ? 7 : 6;
+        if (GameState::TutorialStep() < 0x3b) id = 7;
+        Entity* e = EntityManager::SpawnEntityAt(id, x, y, false, false);
+        AssignLiver(e);
+        e->SetHome(this);
+        AssignWorker(e, 0);
+        if (GameState::TutorialStep() < 0x3b) {
+            e->Disappear();
+            e->SetAlpha(0.f);
+            e->Update(0.f);
+        }
+        // (+0xd4 is the head of the sprite chain, the newest sprite: sprites.front() here)
+        if (!sprites.empty()) e->SetCustomZ(sprites.front()->z - 0.0005f);
+    } else if (cls == 7) {
+        UpdateStorageMax();
+    }
+    // UNVERIFIED (milestone 5): SoundsManager "building_build_end".
+}
+
+void Building::OnUpgraded() {
+    int cls = data->buildingClass;
+    if (cls == 0) {
+        unsigned n = (unsigned)data->upgrades[(size_t)level - 1].givePopulation;
+        for (unsigned i = 0; i < n; ++i) {
+            int id = Rand48::lrand48() % 2 == 1 ? 0x30 : 0;
+            Entity* e = SpawnLiver(this, id);
+            if (!liverAway) liverAway = true;
+            else e->SetActive(false, false);
+            AssignLiver(e);
+            e->SetHome(this);
+            e->SetHP(0x400);
+        }
+    } else if (cls == 7) {
+        UpdateStorageMax();
+    } else if (cls == 0xd) {
+        if (!livers.empty() && livers[0]) livers[0]->Appear(false, true);
+        if (farmEntity && farmEntity->GetSprite()) Render::SetVisibility(farmEntity->GetSprite(), true);
+    }
+    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(3, id, 1).
+    // UNVERIFIED (milestone 5): SoundsManager "building_upgrade_end".
+}
+
 void Building::HireGolbin() {
     if (data->buildingClass != 7) return;
     int tx = 0, ty = 0;
@@ -624,11 +714,11 @@ void Building::Update(double dt) {
             if (built == 0) {
                 needsBuilder = 0;
                 built = 1;
-                // UNVERIFIED (3b): OnBuilded().
+                OnBuilded();
             } else {
                 upgrading = 0;
                 ++level;
-                // UNVERIFIED (3b): OnUpgraded().
+                OnUpgraded();
             }
             UpdateStorage();
             UpdateImage();
