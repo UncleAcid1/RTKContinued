@@ -37,6 +37,7 @@ add_executable(rtk
   src/gui/WindowManager.cpp
   src/hud/HUDWindow.cpp
   src/hud/Shared.cpp
+  src/hud/ContentScroller.cpp
   src/hud/TopCityWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp

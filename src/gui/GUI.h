@@ -269,5 +269,6 @@ extern Textfield* g_inputField;                                    // the field 
 void SetTargetHighlight(Window* w, float target, bool pressed);    // @0x17c950
 void OnMouseMove(int x, int y, bool recordOnly);                   // @0x17d180
 void OnMouseClick(int x, int y, bool pressed);                     // @0x17d2ac (the tap ring)
+float GetMouseSpeed(bool horizontal);                              // @0x176e80 pixels per second
 
 }  // namespace GUI

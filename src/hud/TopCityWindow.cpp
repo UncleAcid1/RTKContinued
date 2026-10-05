@@ -7,6 +7,7 @@
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
+#include "hud/ContentScroller.h"
 #include "hud/HUD.h"
 
 namespace TopCityWindow {
@@ -23,12 +24,11 @@ struct ResourceBarGold {          // LoadFrom @0x365b88
     Textfield* gold = nullptr;    // "%s.text_gold_large"
     Textfield* crystals = nullptr;// "%s.text_crystals_large"
 };
-struct ResourceSlot { Window* icon; Window* iconInactive; Textfield* text; Textfield* textLimit; };
-struct ResourceBarResources {     // LoadFrom @0x365ca4
-    Window* holder = nullptr;
-    ResourceSlot slot[8] = {};
-    GUI::ClipRect clip = {0, 0, 0, 0};   // +0x128 the "mask_resources" window's rectangle
-    Window* mask = nullptr;
+struct ResourceSlot { Window* icon; Window* iconInactive; Textfield* text; Textfield* textLimit; int unk10; };
+struct ResourceBarResources {     // LoadFrom @0x365ca4 (statics at 0x630668)
+    Window* holder = nullptr;     // +0x00
+    ResourceSlot slot[8] = {};    // +0x04
+    Shared::ContentScroller scroller;   // +0xa4 two pages of four resources
 };
 struct ResourceBarPeople { Window* holder; Textfield* people; Textfield* peopleLimit; };   // @0x365c40
 
@@ -48,7 +48,7 @@ bool g_lastPlayerCity = false;
 bool g_valuesValid = false;
 uint32_t g_values[10] = {};           // resource amounts read when the city changes
 int g_shown[10] = {};                 // counters animated towards the amounts
-float g_timer = 0.f;
+float g_timer = 1.f;                  // 0x60f428
 bool g_buyTextPending = true;         // sets "PERFORM_BUY" on the first update
 
 std::u32string ToWide(long long v) {
@@ -63,7 +63,8 @@ std::u32string ToWide(long long v) {
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
     if (g_root->visibleSelf) {
-        // Shared::ContentScroller::Click(&scroller, x, y, pressed, g_root): see ContentScroller.
+        // UNVERIFIED: a visible tutorial arrow (BuildingHovers::ArrowVisible) takes the click first.
+        if (g_res.scroller.Click(x, y, pressed, g_root)) return true;
     }
     bool shrunk = false;
     if (g_root->z == 0.01f && WindowManager::GetShownWindowCount() != 0) {
@@ -76,6 +77,16 @@ bool Click(int x, int y, bool pressed) {
     return r;
 }
 
+// @0x3658ec
+void Move(int x, int y) { g_res.scroller.Move(x, y); }
+
+// @0x364c9c: a tap on the resources scrolls to the other page.
+void OnResources() {
+    Shared::ContentScroller& s = g_res.scroller;
+    if (s.offset < -0x8b) s.bounce += (float)(s.itemSize + 0x19);
+    else s.bounce += (float)g_res.slot[0].icon->w * -3.f;
+}
+
 }  // namespace
 
 // The FunctionalWindow is a static object in the original (_INIT_ 0x364d40)
@@ -86,6 +97,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.setZ = SetZ;
         f.hide = Hide;
         f.click = Click;
+        f.move = Move;
         g_queue = new WindowManager::FunctionalWindow("TopCityWindow", std::move(f));
     }
     return g_queue;
@@ -130,12 +142,21 @@ void Init() {
         g_res.slot[i].text = GUI::GetWindowTypedF<Textfield>(g_root, "%s.text_%s", r, kTextNames[i]);
         g_res.slot[i].textLimit = GUI::GetWindowTypedF<Textfield>(g_root, "%s.text_%s_limit", r, kTextNames[i]);
     }
-    // The holder is clipped to the mask rectangle and scrolls inside it
-    // (Shared::ContentScroller; UNVERIFIED: scrolling not ported, clipping is).
-    g_res.mask = mask;
-    g_res.clip = {mask->x, mask->y, mask->w + mask->x, mask->h + mask->y};
-    g_res.holder->SetClipRect(&g_res.clip);
-    g_res.holder->SetOnClick([] {});   // OnResources: scroll the bar
+    // The holder is clipped to the mask rectangle (the scroller's viewport) and scrolls inside it,
+    // two pages wide, without recycling.
+    Shared::ContentScroller& sc = g_res.scroller;
+    sc.Init();
+    sc.track = mask;
+    sc.viewport = {mask->x, mask->y, mask->w + mask->x, mask->h + mask->y};
+    g_res.holder->SetClipRect(&sc.viewport);
+    sc.windows.push_back(g_res.holder);
+    sc.noRecycle = true;
+    sc.itemCount = 2;
+    sc.horizontal = true;
+    sc.itemSize = (g_res.slot[7].icon->x + 0x14) - g_res.slot[0].icon->x;
+    sc.unkA0 = 2;
+    sc.perLine = 1;
+    g_res.holder->SetOnClick(OnResources);
 
     const char* q = "hud_resbar_population";
     g_people.holder = GUI::GetWindowTypedF<Window>(g_root, "%s", q);
@@ -194,7 +215,7 @@ void Update(float dt) {
         for (int i = 0; i < 10; ++i) g_values[i] = GameState::GetResourceAmount(i);
     }
     g_valuesValid = true;
-    // Shared::ContentScroller::Update (scrolling the resources) is not ported yet.
+    if (Queue()->shown) g_res.scroller.Update(dt);
     g_timer += dt;
     if (1.f / 30.f < g_timer) {
         g_timer = 0.f;

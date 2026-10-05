@@ -41,12 +41,24 @@ Milestones:
        Build: `cmake -S . -B build && cmake --build build -j8`; run: `./build/rtk --root ..`
        (drag to pan, wheel to zoom, F12 screenshot, Esc quit; `--screenshot f.png --camera X Y Z` headless).
 2. [ ] GUI from .xmlb (HUD, windows, text). IN PROGRESS, sub-steps:
-       2a fonts + GUI core + xmlb loader (draw Resource_bar_large in place)  2b text/glow + StringTable
-       2c HUD windows  2d input + WindowManager queues.
-       Done so far: third_party/ FreeType 2.4.5 + SDL_ttf 2.0.11 (exact versions in the .so) build and
-       render ARICYRB.TTF; src/engine/Text (CreateFont), src/game/StringTable, Resources::GetUIImage,
-       src/gui/GUI.h (class layout + vtable order, NOT implemented yet).
-       Research notes for the next session are in "Milestone 2 notes" below.
+       2a [x] fonts (FreeType 2.4.5 + SDL_ttf 2.0.11, the .so's versions) + GUI core + xmlb loader
+       2b [x] text/glow + StringTable
+       2c [x] HUD windows: HUDWindow (frame border, locators, farm timer, map-name popups), TopCity
+              (resource bar, scrolls via Shared::ContentScroller), PlayerTop, CastleTop, BattleBar,
+              BeltBar, BottomCity (Build/Tools + instruments), TaskHolder (queue slot only).
+       2d [~] input: Window::Click, Textfield::Click, WindowManager queues (ProcessClick head-first,
+              ProcessUpdate/ProcessMove tail-first, DesktopWindow at the bottom), press highlight,
+              tap ring, mouse history + GetMouseSpeed, interaction locks, ContentScroller (drag,
+              fling, snap, bounce, scrollbar). Verified by headless screenshots.
+       Remaining for M2: dialogs/windows beyond the HUD (shop, exchange, ...), text input
+       (BeginTextInput), MapMovement (main.cpp has a stand-in pan), sounds.
+       Deferred to later milestones (marked UNVERIFIED in the code): BuildingMovement/Placement and
+       BuildingHovers hooks in the panels' Click, ShopWindow, quest UI (TaskHolder Init/SetZ/Update,
+       milestone 4), Map::GetTotalStorageLimit (resource limits, milestone 3), texture frame-chain
+       animation (IconManager sand clock / exclamation), HP-restore and hint hover windows.
+       Headless testing: `./build/rtk --screenshot f.png [--click X Y]... [--press X Y]` runs 60
+       frames, then each click (press, 3 frames, release, 30 frames) in framebuffer pixels. Don't run
+       rtk without --screenshot from a tool call: it opens the window and blocks.
 3. [ ] Game data + GameState + save/load; building and economy loops.
 4. [ ] Entities/AI/pathing, quests (Tasks), combat, campaign maps.
 
@@ -70,7 +82,9 @@ Milestones:
 - Decompile: `tools/ghidra_softfp_patch.py` makes Ghidra's ARM default prototype softfp, so float args
   show up. `out/gui.c` = GUI/Render/HUD/StringTable functions with it (`tools/fn.sh 'regex' out/gui.c`).
   Full softfp `out/decomp.c` exported 2026-10-04 (12,924 functions, 7 failed); the old hard-float
-  export is `out/decomp_hardfp.c`. `tools/asm.sh` / `tools/asmr.sh` read out/asm_all.txt.
+  export is `out/decomp_hardfp.c`. `tools/asm.sh 'regex'` / `tools/asmr.sh` read out/asm_all.txt;
+  `tools/pic_data.py` annotates PIC data reads (not .bss bases: add `ldr lit` + pc by hand);
+  `tools/vtable.py <GOT value + 8>` prints a vtable; `tools/elfread.py` reads the .so (rd(addr, n)).
 - Screen (SDL_baseInit @0x18b1e0): W/H globals 0x60ef6c/0x60ef70. max<600 small screen; max>=1850 or
   min>=1000 -> HighDPI flag (0x612424)=1, BaseZoom 1.5, GUI HighDPI 2.0, hover 2.0, HUD 1.6, ForceLinear.
   Defaults HighDPI/hover/hud = 1.25. Tablet = min>=600. Port plan: device screen = framebuffer pixels.

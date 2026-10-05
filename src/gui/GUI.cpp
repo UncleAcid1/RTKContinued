@@ -867,6 +867,11 @@ struct MouseSample { int x, y; double time; };   // OnMouseMove history (32 entr
 MouseSample g_mouseHistory[32];
 unsigned g_mouseSamples = 0;
 
+double Now() {   // Timer::GetTime
+    return (double)std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::steady_clock::now().time_since_epoch()).count() / 1e6;
+}
+
 // ApplyAlphaModifierToSprite @0x1785ec: enabled windows' sprites with the plain or alpha shader get
 // alpha * m (and the alpha shader whenever that is not 1); then the children, recursively.
 void ApplyAlphaModifier(Window* w, float m) {
@@ -934,8 +939,7 @@ void OnMouseMove(int mx, int my, bool recordOnly) {
     MouseSample& m = g_mouseHistory[g_mouseSamples & 31];
     m.y = my;
     m.x = mx;
-    m.time = (double)std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::steady_clock::now().time_since_epoch()).count() / 1e6;   // Timer::GetTime
+    m.time = Now();
     ++g_mouseSamples;
     if (recordOnly) return;
     for (Highlight& h : g_highlights) {
@@ -946,6 +950,27 @@ void OnMouseMove(int mx, int my, bool recordOnly) {
         if (w->root) { ax += w->root->x; ay += w->root->y; }
         if (mx < ax || my < ay || ax + w->w < mx || ay + w->h < my) h.cur = h.target = 1.f;
     }
+}
+
+// @0x176e80: the pointer's speed over the samples of the last 0.1 s (oldest to newest, over at
+// least 0.025 s); 0 without two such samples.
+float GetMouseSpeed(bool horizontal) {
+    double since = Now() - 0.1;
+    unsigned n = g_mouseSamples > 31 ? 32 : g_mouseSamples;
+    int oldest = -1, newest = -1;
+    for (unsigned i = 0; i < n; ++i) {
+        double t = g_mouseHistory[i].time;
+        if (!(t > since)) continue;
+        if (oldest == -1 || t < g_mouseHistory[oldest].time) oldest = (int)i;
+        if (newest == -1 || t > g_mouseHistory[newest].time) newest = (int)i;
+    }
+    if (oldest == -1 || newest == -1 || oldest == newest) return 0.f;
+    const MouseSample& a = g_mouseHistory[oldest];
+    const MouseSample& b = g_mouseHistory[newest];
+    double dt = b.time - a.time;
+    if (dt < 0.025) dt = 0.025;
+    float d = horizontal ? (float)b.x - (float)a.x : (float)b.y - (float)a.y;
+    return (float)((double)d / dt);
 }
 
 // @0x17d2ac: the tap ring ("images/click.png", half transparent) at every release; a release also
