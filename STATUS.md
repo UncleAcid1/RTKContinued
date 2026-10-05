@@ -41,13 +41,13 @@ Milestones:
        Build: `cmake -S . -B build && cmake --build build -j8`; run: `./build/rtk --root ..`
        (drag to pan, wheel to zoom, F12 screenshot, Esc quit; `--screenshot f.png --camera X Y Z` headless:
        view centred on world X,Y at Z times the default zoom, then clamped by ApplyViewportLimit).
-2. [ ] GUI from .xmlb (HUD, windows, text). IN PROGRESS, sub-steps:
+2. [x] GUI from .xmlb (HUD, windows, text). Done 2026-10-05, sub-steps:
        2a [x] fonts (FreeType 2.4.5 + SDL_ttf 2.0.11, the .so's versions) + GUI core + xmlb loader
        2b [x] text/glow + StringTable
        2c [x] HUD windows: HUDWindow (frame border, locators, farm timer, map-name popups), TopCity
               (resource bar, scrolls via Shared::ContentScroller), PlayerTop, CastleTop, BattleBar,
               BeltBar, BottomCity (Build/Tools + instruments), TaskHolder (queue slot only).
-       2d [~] input: Window::Click, Textfield::Click, WindowManager queues (ProcessClick head-first,
+       2d [x] input: Window::Click, Textfield::Click, WindowManager queues (ProcessClick head-first,
               ProcessUpdate/ProcessMove tail-first, DesktopWindow at the bottom), press highlight,
               tap ring, mouse history + GetMouseSpeed, interaction locks, ContentScroller (drag,
               fling, snap, bounce, scrollbar). Verified by headless screenshots.
@@ -57,17 +57,39 @@ Milestones:
               (400 px jump filter, first-move-per-frame ProcessMove) and the game Update order.
               Verified headless: drag pans with fling, release over a button doesn't press it,
               clamp converges to the map edges/horizon when zoomed out.
-       Remaining for M2: dialogs/windows beyond the HUD (shop, exchange, ...), text input
-       (BeginTextInput), sounds.
+       2f [x] dialogs + text input: GUI::AnimationEffect base (MovementEffect, TweenEffect: dialogs drop
+              in from the top and fall out the bottom), PopupWindow (the message box: OK / OK+Cancel /
+              close, grows with the text), SettingsWindow (from the navigation panel's gear: music,
+              sound and notification toggles work; online buttons close it), CityRenameWindow,
+              Shared::ButtonTripleInfo/SmallLogoWindow, GameState pause counter / IsCityTutorial /
+              castle name, SystemFuncs settings (in memory), Timer::GetTime/GetGlobalTime.
+              Text input: TextInput (the binary's keyboard path) + FileManager::BeginTextInput /
+              EndTextInput / AbortTextInput + TextfieldCallback (cut to the field's maxLength = the
+              byte SetEditable sets). PORT: Android used a Java text dialog; the Mac port types into
+              the field, characters from SDL text events (any layout/IME), Backspace/Return by scancode.
+              Keys (main_Loop_Func SDL_KEYDOWN): Menu/V opens settings (only at secondTutorial 0x100),
+              Back/Y -> WindowQueue::ProcessBack, else hide popup / the MOBILE_EXIT_CONFIRM question
+              (OK = ExitWithSendSave -> MainExit sets `done`). Fixed a 2d bug: a release on a root without
+              onClick clears the pressed window of that layout (g_pressed), not the text-input field.
+              Verified headless: settings toggles, X / outer click / back key close (screen returns
+              pixel-identical), typing (12-char cut, Unicode), empty-name error popup, exit question.
+       Moved out of M2: GUI/game sounds -> milestone 5 (every SoundsManager call site is marked
+       UNVERIFIED); dialogs that show game data (shop, exchange, crafting, quests, character, level
+       info, friends/PvP, hovers ...) -> milestones 3-4, with the systems they display.
        Deferred to later milestones (marked UNVERIFIED in the code): BuildingMovement/Placement and
-       BuildingHovers hooks in the panels' Click, ShopWindow, quest UI (TaskHolder Init/SetZ/Update,
-       milestone 4), Map::GetTotalStorageLimit (resource limits, milestone 3), the CenterOn camera tween and
-       Map camera points, the initial camera on the player entity (stand-in position), touch/pinch
-       zoom, WindowQueue::ProcessWheel, the world click (EntityManager/buildings/ClickToBuyArea), texture frame-chain
-       animation (IconManager sand clock / exclamation), HP-restore and hint hover windows.
-       Headless testing: `./build/rtk --screenshot f.png [--click X Y]... [--press X Y]
-       [--drag X1 Y1 X2 Y2]...` runs 60 frames, then each input (press, 3 frames, [10 moves, one per
-       frame,] release, 30 frames) in framebuffer pixels. A drag's fling uses real time, as on the original. Don't run
+       BuildingHovers hooks (tutorial arrows, SetArrowAlpha) in the panels' and dialogs' Click,
+       ShopWindow, quest UI (TaskHolder Init/SetZ/Update, milestone 4), Map::GetTotalStorageLimit
+       (resource limits, milestone 3), the CenterOn camera tween and Map camera points, the initial
+       camera on the player entity (stand-in position), touch/pinch zoom, WindowQueue::ProcessWheel,
+       the world click (EntityManager/buildings/ClickToBuyArea), Map::GetCurrentFarm (ProcessBack),
+       texture frame-chain animation (IconManager sand clock / exclamation), HP-restore and hint hover
+       windows, SystemFuncs settings persistence (milestone 6), GameState::secondTutorial (stand-in 0x81).
+       Headless testing: `./build/rtk --screenshot f.png [--show city_rename] [--click X Y]...
+       [--press X Y] [--drag X1 Y1 X2 Y2]... [--type TEXT]... [--key SCANCODE]...` runs 60 frames,
+       then each input in order: a mouse input is press, 3 frames, [10 moves, one per frame,]
+       release, 30 frames, in framebuffer pixels; --type/--key feed the keyboard path, then 30 frames
+       (e.g. --key 28 = Y/back, 42 = Backspace, 40 = Return). `--show` is a PORT test aid that opens a
+       window not reachable yet. A drag's fling uses real time, as on the original. Don't run
        rtk without --screenshot from a tool call: it opens the window and blocks.
 3. [ ] Game data + GameState + save/load; building and economy loops.
 4. [ ] Entities/AI/pathing, quests (Tasks), combat, campaign maps.
@@ -119,5 +141,10 @@ Milestones:
   SDL_Color passed as {r=B,g=G,b=R} so surface bytes are RGBA; lines y += spacing+lineSkip; align
   0/1/2/3(justify); glow via ApplyImageFilters (gaussian, radius=(int)(blur*overscale)<=32, sigma=r/5
   min 0.9) — transcribe from out/gui.c. Text sprite: u 0..1, vB 0 vT 1, h = -texH, shader 1.
+- Dialog pattern (src/windows/): a static FunctionalWindow (ctor gets init/deinit/click/setZ/hide); Init
+  sets fn.show/back/update/zRange (+ hideOnOuterClick) and RegisterTopWindow(root). Show: shown = 1,
+  MoveWindowOnTop, if the root is hidden WindowShow + tween AnimateIn, root visible. Hide: AnimateOut.
+  OnTweenOut (tween onHidden): WindowHide, shown = 0, MoveWindowDown. Static-init order = address order
+  of the _INIT_ functions (main.cpp's Queue() list must follow it).
 - HUD = HUDWindow::Show: BattleBar, BeltBar, PlayerTop, TopCity, CastleTop, BottomCity, TaskHolder
   (FunctionalWindow statics in a global WindowQueue list; z via MoveWindowOnTop).
