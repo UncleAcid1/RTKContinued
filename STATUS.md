@@ -110,6 +110,18 @@ Milestones:
               Moved here from M4: Building::Update only advances construction while a builder entity is
               at work (BuilderAssigned && BuilderIsWorking), gathering/factories need a working worker
               entity, and farms drive an entity's animation, so the economy cannot run without them.
+              Done (2026-10-05, part 1): EntityData/EntityFactory (persons.xml), Animation and
+              AnimationController, the AI waypoint graph (CreateRoadAI, weights 1/1000/0.1, links,
+              parts) and the Dijkstra path search (TargetedAI::SetTarget), AIBaseState walking
+              (UpdateWalking), AIWorker (wandering, GetIdleWorkplace pickup, gathering, building),
+              Entity (position, sprite/animation, fades, rings), EntityManager (create/spawn/update,
+              in the tick before Map::Update), Building job hooks (AssignWorker, WorkStarted/Ended,
+              work/build tiles, parking spots), Map tile queries, blocks, owned borders.
+              Verified headless: a spawned worker wanders, picks the idle rock, walks there along the
+              roads and mines it. PORT test aid: `--spawn ID X Y`, `--walk X Y`, `--frames N`.
+              Next: AIPlayer (world clicks, SendGoblinToWork), the builder/gathering side effects in
+              Building (OnBuilded/OnUpgraded, CollectResources, storage piles), AIGoblin, AIPatch and
+              the farmers, Decor jobs, then the entity save/load with 3d.
        3d [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
               save/load, save file on disk + backup, autosave timing.
        3e [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying;
