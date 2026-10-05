@@ -2,8 +2,10 @@
 // Milestone 1: open a window and show a map, loaded and placed by the ported game code.
 //
 // Usage: rtk [--root <backup folder>] [--map N] [--seed N]
-//            [--screenshot out.png --camera X Y ZOOM]   (render one frame to a PNG and exit)
-//            [--click X Y]... [--press X Y]   (headless: left clicks / a final press, in pixels)
+//            [--screenshot out.png --camera X Y ZOOM]   (render one frame to a PNG and exit;
+//                                    the view centred on world X,Y at ZOOM times the default zoom)
+//            [--click X Y]... [--press X Y] [--drag X1 Y1 X2 Y2]...
+//                                    (headless left-button input in pixels, applied in order)
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
@@ -24,6 +26,7 @@
 #include "hud/HUD.h"
 #include "game/GameData.h"
 #include "game/Map.h"
+#include "game/MapMovement.h"
 
 namespace {
 
@@ -33,9 +36,9 @@ struct Options {
     long seed = 1;            // GameState::playerSeed (per player on the original)
     std::string screenshot;
     float camX = 2520.f, camY = 300.f, zoom = 1.f;  // centre of the starting area (area 1)
-    bool camSet = false;
-    struct Input { int x, y; bool release; };
-    std::vector<Input> clicks;   // headless input, applied before the screenshot
+    enum InputType { kClick, kPress, kDrag };
+    struct Input { InputType type; int x, y, x2, y2; };
+    std::vector<Input> inputs;   // headless input, applied before the screenshot
 };
 
 Options Parse(int argc, char** argv) {
@@ -47,16 +50,21 @@ Options Parse(int argc, char** argv) {
         else if (a == "--map") o.map = (unsigned)std::atoi(next());
         else if (a == "--seed") o.seed = std::atol(next());
         else if (a == "--screenshot") o.screenshot = next();
-        else if (a == "--click" || a == "--press") {
-            int x = std::atoi(next());
-            int y = std::atoi(next());
-            o.clicks.push_back({x, y, a == "--click"});
+        else if (a == "--click" || a == "--press" || a == "--drag") {
+            Options::Input in = {a == "--click" ? Options::kClick : a == "--press" ? Options::kPress : Options::kDrag,
+                                 0, 0, 0, 0};
+            in.x = std::atoi(next());
+            in.y = std::atoi(next());
+            if (in.type == Options::kDrag) {
+                in.x2 = std::atoi(next());
+                in.y2 = std::atoi(next());
+            }
+            o.inputs.push_back(in);
         }
         else if (a == "--camera") {
             o.camX = (float)std::atof(next());
             o.camY = (float)std::atof(next());
             o.zoom = (float)std::atof(next());
-            o.camSet = true;
         }
     }
     return o;
@@ -102,6 +110,7 @@ int main(int argc, char** argv) {
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
 
     if (!Render::Init(fbw, fbh) || !Resources::Init() || !GameData::Load()) return 1;
+    Render::aspect = (float)fbw / (float)fbh;   // main_Loop_Func on repositionWindows / a resize
     // SDL_baseInit: the device screen decides the UI configuration; the port's "device screen" is
     // the window's framebuffer in pixels.
     GUI::SetScreenSize(fbw, fbh);
@@ -110,6 +119,7 @@ int main(int argc, char** argv) {
     // UNVERIFIED: Game::LoadLanguageTable's file selection is not ported yet; English only.
     StringTable::Init("../resource/res_files/1Original/LocalizedStringsEN.xml", false, false);
     GUI::Init("fonts/ARICYRB.ttf", false);
+    GameState::SetCurrentMapID(opt.map);
     if (!Map::Load(opt.map, opt.seed)) return 1;
     // The game's windows: their static FunctionalWindow objects are constructed in the binary's
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
@@ -128,50 +138,109 @@ int main(int argc, char** argv) {
     HUDWindow::Show();
     Render::SortRenderLayer(Render::kLayerGUI, 1);
 
-    float camX = opt.camX, camY = opt.camY, zoom = opt.zoom;
-    const float dpi = (float)fbw / 1280.f;  // keep one game pixel per point on Retina
-    // One game tick: GUI animations, then every queued window's Update (Game::main_Loop order).
+    MapMovement::Init();
+    Render::zoom = Render::GetDefaultZoom();
+    // UNVERIFIED stand-in: Map::Load centres the view on the player entity (milestone 4).
+    Render::CenterOn(opt.camX, opt.camY);
+    Render::zoom *= opt.zoom;
+
+    // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
+    // WindowManager::Update (delayed callbacks, none yet), the window queue, HUDWindow::Update,
+    // GUI animations, the movement controllers, then Render::Update's camera step (the camera tween,
+    // not ported, and ApplyViewportLimit); its drawing is Render::Frame.
     auto tick = [](float dt) {
-        GUI::UpdateAnimation(dt);
         WindowManager::ProcessUpdate(dt);
+        HUDWindow::Update(dt);
+        GUI::UpdateAnimation(dt);
+        MapMovement::Update(dt);
+        Render::ApplyViewportLimit();
     };
-    // Mouse input follows Game::main_Loop_Func (SDL_MOUSEBUTTONDOWN/UP/MOTION): the windows get the
-    // click first (ProcessClick, top down); a click that only the desktop window takes belongs to
-    // the map. Coordinates are framebuffer pixels (the original scales SDL's by a float factor).
-    // UNVERIFIED stand-in: MapMovement (the real camera drag, focus and inertia), BuildingHovers,
-    // Spell/BuildingMovement, BuildingPlacement, the touch/pinch path, long taps and the 400-pixel
-    // jump filter are not ported; mapFocus/mapActive and the pan below stand in for MapMovement.
-    bool mapFocus = false, mapActive = false;
+    // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
+    // SDL's by a float factor). Not ported (UNVERIFIED): BuildingHovers, Spell/BuildingMovement,
+    // BuildingPlacement, the world click (EntityManager, buildings, buying areas), long taps, the
+    // touch/pinch path (Game::touchDown) and EditorConsole/Editor.
+    int lastX = 0x96, lastY = 0x96;   // 0x60ef50: the previous pointer position
+    bool firstMove = true;            // only the first motion event of a frame reaches ProcessMove
     auto mouseDown = [&](int x, int y, bool left) {
         WindowManager::SetMousePosition(x, y);
         GUI::OnMouseMove(x, y, true);
         if (left) {
-            if (WindowManager::ProcessClick(x, y, true) == WindowManager::g_desktopWindow)
-                mapFocus = true;   // MapMovement::Click(x, y, true, false)
+            if (!Map::IsCameraMoving() && WindowManager::ProcessClick(x, y, true) != WindowManager::g_desktopWindow) {
+                // UNVERIFIED: the tutorial arrow (BuildingHovers::ClickOnArrow / HideArrow) at step 0x80.
+            } else {
+                MapMovement::Click(x, y, true, false);
+            }
         } else {
-            mapFocus = true;       // MapMovement::Click(x, y, true, true)
+            MapMovement::Click(x, y, true, true);
         }
     };
     auto mouseUp = [&](int x, int y, bool left) {
-        if (!mapActive) GUI::OnMouseClick(x, y, false);
-        if (left && !(mapFocus && mapActive)) {
-            // A click that reaches the desktop window goes to the world (EntityManager, buildings):
-            // milestones 3-4.
-            WindowManager::ProcessClick(x, y, false);
+        if (MapMovement::IsActive()) MapMovement::Click(x, y, false, false);
+        else GUI::OnMouseClick(x, y, false);
+        if (!left) {
+            MapMovement::Click(x, y, false, true);
+            return;
         }
-        mapFocus = mapActive = false;   // MapMovement::RemoveFocus
+        if (Map::IsCameraMoving()) {
+            MapMovement::RemoveFocus();
+            return;
+        }
+        if (!(MapMovement::HasFocus() && MapMovement::IsActive())) WindowManager::ProcessClick(x, y, false);
+        MapMovement::RemoveFocus();
+        // A click that reaches the desktop window goes to the world: milestones 3-4.
+    };
+    auto mouseMove = [&](int x, int y) {
+        int dx = x - lastX, dy = y - lastY;
+        lastX = x;
+        lastY = y;
+        if (std::abs(dx) + std::abs(dy) > 400) return;   // a jump (a new touch), not a move
+        // UNVERIFIED: ShopWindow::IsVisible / BuildingHovers::IsHoverVisible also keep the drag.
+        if (WindowManager::GetShownWindowCount() != 0) {
+            MapMovement::RemoveFocus();
+            MapMovement::StopDrag();
+        }
+        MapMovement::Move(x, y, dx, dy);
+        if (!firstMove) {
+            GUI::OnMouseMove(x, y, true);
+        } else {
+            WindowManager::ProcessMove(x, y);
+            GUI::OnMouseMove(x, y, false);
+            firstMove = false;
+        }
+    };
+    // The mouse wheel zooms the map when no window is shown and no farm is visited (milestone 3);
+    // otherwise WindowQueue::ProcessWheel (UNVERIFIED, not ported). The original reads the event's
+    // first wheel field; the port uses the vertical wheel.
+    auto wheel = [&](int amount) {
+        if (WindowManager::GetShownWindowCount() != 0) return;
+        if (amount > 0) Render::zoom = Render::zoom * 1.1f;
+        if (amount < 0) Render::zoom = Render::zoom / 1.1f;
+        Render::ApplyViewportLimit();
     };
     if (headless) {
-        for (int i = 0; i < 60; ++i) tick(1.f / 30.f);   // let the HUD slide in and count up
-        for (const Options::Input& c : opt.clicks) {
-            mouseDown(c.x, c.y, true);
-            for (int i = 0; i < 3; ++i) tick(1.f / 30.f);
-            if (!c.release) break;
-            mouseUp(c.x, c.y, true);
-            for (int i = 0; i < 30; ++i) tick(1.f / 30.f);
+        const float dt = 1.f / 30.f;
+        for (int i = 0; i < 60; ++i) tick(dt);   // let the HUD slide in and count up
+        for (const Options::Input& in : opt.inputs) {
+            firstMove = true;
+            mouseMove(in.x, in.y);
+            mouseDown(in.x, in.y, true);
+            for (int i = 0; i < 3; ++i) tick(dt);
+            if (in.type == Options::kPress) break;
+            int ex = in.x, ey = in.y;
+            if (in.type == Options::kDrag) {
+                const int steps = 10;   // one motion event per frame
+                for (int k = 1; k <= steps; ++k) {
+                    firstMove = true;
+                    ex = in.x + (in.x2 - in.x) * k / steps;
+                    ey = in.y + (in.y2 - in.y) * k / steps;
+                    mouseMove(ex, ey);
+                    tick(dt);
+                }
+            }
+            mouseUp(ex, ey, true);
+            for (int i = 0; i < 30; ++i) tick(dt);
         }
         Render::SortRenderLayer(Render::kLayerGUI, 1);
-        Render::SetCamera(camX, camY, zoom * dpi);
         Render::Frame();
         glFinish();
         bool ok = Render::SaveScreenshot(opt.screenshot.c_str());
@@ -190,7 +259,7 @@ int main(int argc, char** argv) {
     uint64_t lastTicks = SDL_GetTicks();
     while (running) {
         SDL_Event e;
-        bool firstMove = true;   // only the first motion event of a frame reaches ProcessMove
+        firstMove = true;
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
                 case SDL_EVENT_QUIT: running = false; break;
@@ -210,28 +279,18 @@ int main(int argc, char** argv) {
                 case SDL_EVENT_MOUSE_MOTION: {
                     int x, y;
                     toPixels(e.motion.x, e.motion.y, x, y);
-                    if (mapFocus) {
-                        mapActive = true;
-                        camX -= e.motion.xrel / zoom;
-                        camY -= e.motion.yrel / zoom;
-                    }
-                    if (!firstMove) {
-                        GUI::OnMouseMove(x, y, true);
-                    } else {
-                        WindowManager::ProcessMove(x, y);
-                        GUI::OnMouseMove(x, y, false);
-                        firstMove = false;
-                    }
+                    mouseMove(x, y);
                     break;
                 }
                 case SDL_EVENT_MOUSE_WHEEL:
-                    zoom *= e.wheel.y > 0 ? 1.1f : (e.wheel.y < 0 ? 1.f / 1.1f : 1.f);
-                    if (zoom < 0.25f) zoom = 0.25f;
-                    if (zoom > 3.f) zoom = 3.f;
+                    wheel(e.wheel.y > 0 ? 1 : (e.wheel.y < 0 ? -1 : 0));
                     break;
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                    // main_Loop_Func's SDL_WINDOWEVENT_RESIZED: new screen size, aspect, default zoom.
                     SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
                     Render::Init(fbw, fbh);
+                    Render::aspect = (float)fbw / (float)fbh;
+                    Render::zoom = Render::GetDefaultZoom();
                     break;
                 default: break;
             }
@@ -240,7 +299,6 @@ int main(int argc, char** argv) {
         float dt = (float)(now - lastTicks) / 1000.f;
         lastTicks = now;
         tick(dt > 0.1f ? 0.1f : dt);
-        Render::SetCamera(camX, camY, zoom * dpi);
         Render::Frame();
         SDL_GL_SwapWindow(win);
     }

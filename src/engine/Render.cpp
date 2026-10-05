@@ -153,7 +153,6 @@ std::vector<std::unique_ptr<Texture>> g_textures;
 ShaderProg g_shaders[16];
 GLuint g_vao = 0, g_vbo = 0;
 int g_screenW = 0, g_screenH = 0;
-float g_camX = 0, g_camY = 0, g_zoom = 1;
 uint32_t g_seq = 0;
 
 // Replace the identifier `word` (whole-word) in src.
@@ -470,10 +469,70 @@ void SortRenderLayer(int layer, int order) {
     g_layers[layer].sortPending = true;
 }
 
-void SetCamera(float centerX, float centerY, float zoom) {
-    g_camX = centerX;
-    g_camY = centerY;
-    g_zoom = zoom;
+float offsetX = 0, offsetY = 0, zoom = 0.001f, aspect = 1.f;
+namespace { int g_boundMinX, g_boundMaxX, g_boundMinY, g_boundMaxY; }   // 0x613fe0..0x613fec
+
+void SetViewportMapBounds(int minX, int minY, int maxX, int maxY) {
+    g_boundMinX = minX;
+    g_boundMinY = minY;
+    g_boundMaxX = maxX;
+    g_boundMaxY = maxY;
+}
+
+// Transcribed from the asm (the decompile mixes up the branches). The view may show world x in
+// [minX*84-8, maxX*84+8] and world y in [21*minY, 21*maxY] (a map smaller than the screen is
+// centred); the zoom is limited so the map fills the screen and half the screen spans at least 240 px.
+void ApplyViewportLimit() {
+    float k = g_baseZoom;
+    float W = (float)g_screenW, H = (float)g_screenH;
+    float mapW = 16.f + (float)(g_boundMaxX - g_boundMinX) * 84.f;
+    float mapH = (float)(g_boundMaxY - g_boundMinY) * 42.f * 0.5f;
+    bool narrowX = mapW * k < W;
+    if (narrowX) mapW = W;
+    float scaleY = zoom * aspect;
+    bool centreY = false;
+    float padY = 0.f;
+    if (k * mapH < H) {
+        padY = (H - k * mapH) * 0.5f;
+        centreY = g_boundMinY > 0;
+        mapH = H;
+    }
+    float left = (float)g_boundMinX * 84.f - 8.f;
+    float right = 8.f + (float)g_boundMaxX * 84.f;
+    float halfW = 1.f / zoom, nhalfW = -1.f / zoom;
+    if (narrowX) {
+        offsetX = (halfW - right) * 0.5f + (nhalfW - left) * 0.5f;
+    } else {
+        float x = offsetX;
+        if (nhalfW - x < left) offsetX = nhalfW - left;
+        if (halfW - x > right) offsetX = halfW - right;
+    }
+    float top = (float)g_boundMinY * -21.f;
+    float halfH = 1.f / scaleY;
+    if (centreY) {
+        offsetY = (-1.f / scaleY + (0.f + (float)g_boundMaxY * 21.f)) * 0.5f + (halfH - top) * 0.5f;
+    } else {
+        float y = offsetY;
+        if (halfH - y > top) offsetY = y = halfH - top;
+        float bottom = -(padY + (float)g_boundMaxY * 21.f);
+        if (-1.f / scaleY - y < bottom) offsetY = -1.f / scaleY - bottom;
+    }
+    float z = zoom;
+    if (halfW + halfW > mapW) {
+        zoom = z = 1.f / (mapW * 0.5f);
+        scaleY = z * aspect;
+    }
+    if (1.f / scaleY + 1.f / scaleY > mapH) zoom = z = 1.f / (mapH * 0.5f) / aspect;
+    if (1.0 / (double)z < 240.0) zoom = 0.0041666668f;
+}
+
+float GetDefaultZoom() { return g_baseZoom / (float)(g_screenW / 2); }
+
+void CenterOn(float x, float y) {
+    float z = GetDefaultZoom();
+    offsetX = -x;
+    offsetY = y;
+    zoom = z;
 }
 
 size_t SpriteCount() {
@@ -515,8 +574,7 @@ void Frame() {
             if (curScreen)
                 glUniform4f(sp.uTransform, -g_screenW * 0.5f, g_screenH * 0.5f, 2.f / g_screenW, 2.f / g_screenH);
             else
-                glUniform4f(sp.uTransform, -g_camX + 0.25f, g_camY + 0.25f, 2.f * g_zoom / g_screenW,
-                            2.f * g_zoom / g_screenH);
+                glUniform4f(sp.uTransform, offsetX + 0.25f, offsetY + 0.25f, zoom, zoom * aspect);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, cur->glId);
             glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(verts.size() * sizeof(float)), verts.data(), GL_STREAM_DRAW);

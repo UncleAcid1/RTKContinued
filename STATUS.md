@@ -39,7 +39,8 @@ Milestones:
        (FileManager → Resources → Render → Map::Load → Background/Decor/Building sprites).
        Verified 2026-10-04: pixel diff vs tools/render_map.py = 0.48% of pixels (edge filtering only).
        Build: `cmake -S . -B build && cmake --build build -j8`; run: `./build/rtk --root ..`
-       (drag to pan, wheel to zoom, F12 screenshot, Esc quit; `--screenshot f.png --camera X Y Z` headless).
+       (drag to pan, wheel to zoom, F12 screenshot, Esc quit; `--screenshot f.png --camera X Y Z` headless:
+       view centred on world X,Y at Z times the default zoom, then clamped by ApplyViewportLimit).
 2. [ ] GUI from .xmlb (HUD, windows, text). IN PROGRESS, sub-steps:
        2a [x] fonts (FreeType 2.4.5 + SDL_ttf 2.0.11, the .so's versions) + GUI core + xmlb loader
        2b [x] text/glow + StringTable
@@ -50,17 +51,30 @@ Milestones:
               ProcessUpdate/ProcessMove tail-first, DesktopWindow at the bottom), press highlight,
               tap ring, mouse history + GetMouseSpeed, interaction locks, ContentScroller (drag,
               fling, snap, bounce, scrollbar). Verified by headless screenshots.
+       2e [x] camera + MapMovement: Render::offsetX/offsetY/zoom/aspect (the original globals),
+              GetDefaultZoom, CenterOn (instant path), SetViewportMapBounds + ApplyViewportLimit (from
+              Map::GetAreaBorders), wheel zoom, MapMovement drag/inertia, main_Loop_Func mouse dispatch
+              (400 px jump filter, first-move-per-frame ProcessMove) and the game Update order.
+              Verified headless: drag pans with fling, release over a button doesn't press it,
+              clamp converges to the map edges/horizon when zoomed out.
        Remaining for M2: dialogs/windows beyond the HUD (shop, exchange, ...), text input
-       (BeginTextInput), MapMovement (main.cpp has a stand-in pan), sounds.
+       (BeginTextInput), sounds.
        Deferred to later milestones (marked UNVERIFIED in the code): BuildingMovement/Placement and
        BuildingHovers hooks in the panels' Click, ShopWindow, quest UI (TaskHolder Init/SetZ/Update,
-       milestone 4), Map::GetTotalStorageLimit (resource limits, milestone 3), texture frame-chain
+       milestone 4), Map::GetTotalStorageLimit (resource limits, milestone 3), the CenterOn camera tween and
+       Map camera points, the initial camera on the player entity (stand-in position), touch/pinch
+       zoom, WindowQueue::ProcessWheel, the world click (EntityManager/buildings/ClickToBuyArea), texture frame-chain
        animation (IconManager sand clock / exclamation), HP-restore and hint hover windows.
-       Headless testing: `./build/rtk --screenshot f.png [--click X Y]... [--press X Y]` runs 60
-       frames, then each click (press, 3 frames, release, 30 frames) in framebuffer pixels. Don't run
+       Headless testing: `./build/rtk --screenshot f.png [--click X Y]... [--press X Y]
+       [--drag X1 Y1 X2 Y2]...` runs 60 frames, then each input (press, 3 frames, [10 moves, one per
+       frame,] release, 30 frames) in framebuffer pixels. A drag's fling uses real time, as on the original. Don't run
        rtk without --screenshot from a tool call: it opens the window and blocks.
 3. [ ] Game data + GameState + save/load; building and economy loops.
 4. [ ] Entities/AI/pathing, quests (Tasks), combat, campaign maps.
+5. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
+       screen effects.
+6. [ ] Mac release and polish: .app bundle, settings/persistence paths, Retina/fullscreen,
+       performance pass, full playthrough check against the original.
 
 ## Open questions (tracked)
 - RESOLVED: shader type 2 is mainVS+mainPS (Render::InitMain); 5.11 has no terrain shader at all.
@@ -83,6 +97,9 @@ Milestones:
   show up. `out/gui.c` = GUI/Render/HUD/StringTable functions with it (`tools/fn.sh 'regex' out/gui.c`).
   Full softfp `out/decomp.c` exported 2026-10-04 (12,924 functions, 7 failed); the old hard-float
   export is `out/decomp_hardfp.c`. `tools/asm.sh 'regex'` / `tools/asmr.sh` read out/asm_all.txt;
+  `objdump -d --triple=armv7 --start-address=<ghidra-0x10000> <libkingdom.so>` fills the ranges
+  asm_all.txt is missing (it splits some functions, e.g. ApplyViewportLimit; `objdump -T` gives the
+  exported global names, e.g. Render::offsetX). The build uses -ffp-contract=off (ARMv7 VMLA rounds twice).
   `tools/pic_data.py` annotates PIC data reads (not .bss bases: add `ldr lit` + pc by hand);
   `tools/vtable.py <GOT value + 8>` prints a vtable; `tools/elfread.py` reads the .so (rd(addr, n)).
 - Screen (SDL_baseInit @0x18b1e0): W/H globals 0x60ef6c/0x60ef70. max<600 small screen; max>=1850 or

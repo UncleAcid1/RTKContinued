@@ -12,6 +12,7 @@ float GetZ();                 // @0x2c6548
 void UpdateFrameBorder();     // @0x2c76e0
 void Update(float dt);        // @0x2c81c8
 int UpdateNumberToTarget(int current, int target);   // @0x2c6560 (animated counters)
+inline int GetDeltaTimeMultiplier() { return 1; }    // @0x2c6664
 WindowManager::FunctionalWindow* Queue();
 }
 

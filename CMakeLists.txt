@@ -27,6 +27,7 @@ add_executable(rtk
   src/game/SaveManager.cpp
   src/game/GameData.cpp
   src/game/Map.cpp
+  src/game/MapMovement.cpp
   src/game/Background.cpp
   src/game/StringTable.cpp
   src/game/GameState.cpp
@@ -48,5 +49,6 @@ add_executable(rtk
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
-target_compile_options(rtk PRIVATE -Wall -Wextra -Wno-unused-parameter)
+# -ffp-contract=off: ARMv7 VMLA/VMLS round the product and the sum separately; no fused multiply-add.
+target_compile_options(rtk PRIVATE -Wall -Wextra -Wno-unused-parameter -ffp-contract=off)
 target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL sdl_ttf2011)

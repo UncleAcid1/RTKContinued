@@ -61,5 +61,11 @@ int GetTileset();
 
 void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
 float GetSpriteZ(float a, float b, int c);             // @0x1b6814
+// Extent (tiles) of the unowned patches that border owned land; the whole grid if there are none.
+void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b6a20
+// Camera paths (tutorial and quest camera moves, Map::AddCameraPoint) are not ported yet, so the
+// list is always empty: InterruptCamera does nothing and IsCameraMoving is false.
+void InterruptCamera();                                // @0x1bf6d4
+bool IsCameraMoving();                                 // @0x1b82c4
 
 }  // namespace Map

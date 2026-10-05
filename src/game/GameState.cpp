@@ -33,6 +33,10 @@ const char* GetResourceName(int type) {
 bool IsPlayerCity() { return (unsigned)g_cityState <= 1; }
 int GetCurrentLocation() { return g_location; }
 uint32_t GetCurrentMapID() { return g_mapId; }
+void SetCurrentMapID(uint32_t id) {
+    g_location = id != 0 ? 2 : 0;   // SetCurrentLocation: campaign maps / city
+    g_mapId = id;
+}
 bool IsTutorial() { return false; }
 int GetPlayerWorkersCount() { return 0; }
 int GetMaxWorkerCount() { return 0; }

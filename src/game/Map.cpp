@@ -9,6 +9,7 @@
 #include "engine/Resources.h"
 #include "game/Background.h"
 #include "game/GameData.h"
+#include "game/GameState.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
 
@@ -342,6 +343,12 @@ void UpdateAreaBorders(long seed) {
             }
         }
     }
+    // UNVERIFIED: UpdateOwnedAreaBorders @0x1b68f4 (the owned extent, read by code not ported yet)
+    // runs here.
+    int minX, minY, maxX, maxY;
+    GetAreaBorders(minX, minY, maxX, maxY);
+    if (GameState::GetCurrentMapID() == 0xd) minX -= 1;
+    Render::SetViewportMapBounds(minX, minY - 0xd, maxX + 1, maxY);
 }
 
 }  // namespace
@@ -357,6 +364,26 @@ void TileCoordinatesToWorld(int& x, int& y) {
     x = (int)(off + fx * 84.f);
     y = (int)((float)y * 42.f * 0.5f);
 }
+
+void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY) {
+    minY = minX = 10000;
+    maxY = maxX = -10000;
+    for (auto& p : g_patches) {
+        if (p->owned || !p->bordered) continue;
+        if (p->x < minX) minX = p->x;
+        if (maxX < p->w + p->x) maxX = p->w + p->x;
+        if (p->y < minY) minY = p->y;
+        if (maxY < p->h + p->y) maxY = p->h + p->y;
+    }
+    if (minX != 10000 && minY != 10000 && maxX != -10000 && maxY != -10000) return;
+    minX = 0;
+    minY = 0;
+    maxX = GetGridWidth() - 1;
+    maxY = GetGridHeight();
+}
+
+void InterruptCamera() {}
+bool IsCameraMoving() { return false; }   // UNVERIFIED: GameState::IsPaused path (unlocks the GUI)
 
 float GetSpriteZ(float a, float b, int c) {
     float v = (a + b * -0.25f) / 15.f / 1000.f;

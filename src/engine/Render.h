@@ -69,9 +69,19 @@ Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, cons
 void RemoveTexture(Texture* t);
 void SortRenderLayer(int layer, int order); // @0x1fc29c  order 1 = SpriteSortZ, 0 = SpriteSortTex
 
-// Camera/world transform: shader instance +0x24 gets (camX+0.25, camY+0.25, scaleX, scaleY);
-// GUI instance +0x10 gets (-W/2, H/2, 2/W, 2/H)  (UpdateShaderUniforms @0x1f6e10).
-void SetCamera(float centerX, float centerY, float zoom);
+// Camera/world transform (UpdateShaderUniforms @0x1f6e10): the world shaders' instance +0x24 gets
+// (offsetX+0.25, offsetY+0.25, zoom, zoom*aspect); the GUI's +0x10 gets (-W/2, H/2, 2/W, 2/H).
+// offsetX is minus the world x at the screen centre, offsetY the world y there; zoom is clip units per
+// world pixel horizontally (GetDefaultZoom = baseZoomFactor / (W/2)), aspect = W/H.
+extern float offsetX, offsetY;   // 0x614040 0x614044
+extern float zoom;               // 0x60f040 (0.001 until main_Loop_Init)
+extern float aspect;             // 0x60f044
+void SetViewportMapBounds(int minX, int minY, int maxX, int maxY);   // @0x1f5ce4 (tiles)
+void ApplyViewportLimit();       // @0x1f5d08 keeps the view inside the map bounds, clamps the zoom
+float GetDefaultZoom();          // @0x1f6084
+// @0x1f60c0 CenterOn(x, y, _, animate=false, ...): the instant path. UNVERIFIED: the animated path
+// (camera tween in Render::Update) is not ported; its callers come with milestones 3-4.
+void CenterOn(float x, float y);
 void SetForceLinear(bool on);   // @0x201514
 bool GetForceLinear();          // @0x201528
 void SetBaseZoomFactor(float z);   // @0x1f61c0 (world zoom chosen from the screen size)

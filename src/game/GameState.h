@@ -21,6 +21,7 @@ const char* GetResourceName(int type);         // @0x190ce4
 bool IsPlayerCity();                           // @0x1905b8: city state 0 or 1
 int GetCurrentLocation();                      // @0x190530: 0 city, 1 farm, 2 campaign, 3 arena
 uint32_t GetCurrentMapID();                    // @0x190558
+void SetCurrentMapID(uint32_t id);             // @0x19056c
 bool IsTutorial();                             // UNVERIFIED stand-in: false
 int GetPlayerWorkersCount();                   // UNVERIFIED stand-in: 0
 int GetMaxWorkerCount();                       // UNVERIFIED stand-in: 0
