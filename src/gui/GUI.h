@@ -175,21 +175,19 @@ public:
     Callback onEdit;              // +0xb8
 };
 
-// GUI::MovementEffect (0x4c bytes; base AnimationEffect): slides a window from one position to
-// another in `duration` seconds. Created by CreateMovementEffect and updated by UpdateAnimation.
-class MovementEffect {
+// GUI::AnimationEffect (0x3c bytes): the base of the window animations. Every effect sits in one
+// list (CreateMovementEffect / CreateTweenEffect) that UpdateAnimation steps each frame.
+class AnimationEffect {
 public:
     using Fn = std::function<void()>;
-    MovementEffect(Fn onUpdate, Fn onShown, Fn onHidden)
+    AnimationEffect(Fn onUpdate, Fn onShown, Fn onHidden)   // @0x182f30
         : onUpdate(std::move(onUpdate)), onShown(std::move(onShown)), onHidden(std::move(onHidden)) {}
-    virtual ~MovementEffect() = default;
-    virtual void Update(float dt);                       // +0x08 @0x176548
+    virtual ~AnimationEffect() = default;
+    virtual void Update(float) {}                        // +0x08 @0x175afc
     virtual int GetCenteredX() const;                    // +0x0c @0x17621c
     virtual int GetCenteredY() const;                    // +0x10 @0x176254
     void CenterWith(int l, int t, int r, int b) { insetL = l; insetT = t; insetR = r; insetB = b; }  // @0x17628c
     void CenterWith(const Window* w);                    // @0x1762a4
-    // @0x176510: from (fx, fy) to (tx, ty); hideAtEnd = !show (the window is hidden on arrival).
-    void Animate(int fx, int fy, int tx, int ty, bool show);
 
     Window* window = nullptr;     // +0x04
     Fn onUpdate;                  // +0x08 after every step
@@ -201,14 +199,44 @@ public:
     float duration = 0.2f;        // +0x1c seconds
     bool blocksInput = true;      // +0x20 (IsAnyAnimationActive)
     int insetL = 0, insetT = 0, insetR = 0, insetB = 0;   // +0x24..+0x30 centring margins
-    std::string swingIn, swingOut;   // +0x34 +0x38 sounds (not played yet)
+    std::string swingIn = "ui_swing_in", swingOut = "ui_swing_out";   // +0x34 +0x38 sounds
+};
+
+// GUI::MovementEffect (0x4c bytes): slides a window from one position to another in `duration`
+// seconds. Created by CreateMovementEffect.
+class MovementEffect : public AnimationEffect {
+public:
+    using AnimationEffect::AnimationEffect;
+    void Update(float dt) override;                      // +0x08 @0x176548
+    // @0x176510: from (fx, fy) to (tx, ty); hideAtEnd = !show (the window is hidden on arrival).
+    void Animate(int fx, int fy, int tx, int ty, bool show);
+
     int fromX = 0, fromY = 0, toX = 0, toY = 0;          // +0x3c..+0x48
+};
+
+// GUI::TweenEffect (0x58 bytes): a dialog dropping in from above the screen to its centred position
+// (AnimateIn) and falling out of the bottom (AnimateOut), in `duration` (0.25) seconds. x moves from
+// fromX to midX until t reaches `split`, then on to toX; y moves linearly over the whole time.
+class TweenEffect : public AnimationEffect {
+public:
+    TweenEffect(Fn onUpdate, Fn onShown, Fn onHidden)    // @0x183230
+        : AnimationEffect(std::move(onUpdate), std::move(onShown), std::move(onHidden)) { duration = 0.25f; }
+    void Update(float dt) override;                      // +0x08 @0x176350
+    void AnimateIn();                                    // @0x17877c
+    void AnimateOut();                                   // @0x1786c4
+
+    int fromX = 0, fromY = 0, toX = 0, toY = 0;          // +0x3c..+0x48
+    int midX = 0;                                        // +0x4c
+    float split = 0.f;                                   // +0x54
 };
 
 MovementEffect* CreateMovementEffect(Window* w, MovementEffect::Fn onUpdate = nullptr,
                                      MovementEffect::Fn onShown = nullptr,
                                      MovementEffect::Fn onHidden = nullptr);   // @0x1830a4
 void RemoveMovementEffect(MovementEffect* e);                                  // @0x17c538
+TweenEffect* CreateTweenEffect(Window* w, TweenEffect::Fn onUpdate = nullptr, TweenEffect::Fn onShown = nullptr,
+                               TweenEffect::Fn onHidden = nullptr);            // @0x183278
+void RemoveTweenEffect(TweenEffect* e);                                        // @0x17c4a0
 void UpdateAnimation(float dt);                                                // @0x17c648 (movement part)
 bool IsAnyAnimationActive();                                                   // @0x17c43c
 

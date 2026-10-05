@@ -775,7 +775,7 @@ Window* GetWindowTyped(Window* root, const char* n, int type) {
 // ---------------------------------------------------------------------------------------------
 // Animation effects
 namespace {
-std::vector<MovementEffect*> g_movements;   // @0x17c8e4
+std::vector<AnimationEffect*> g_effects;   // @0x611f98+0x284: movement and tween effects
 }
 
 void MovementEffect::Animate(int fx, int fy, int tx, int ty, bool show) {   // @0x176510
@@ -808,15 +808,82 @@ void MovementEffect::Update(float dt) {
     active = false;
 }
 
-int MovementEffect::GetCenteredX() const {   // @0x17621c
+// @0x176350: see TweenEffect in GUI.h. On arrival the window snaps to (toX, toY); a hiding tween
+// hides the window before its callback.
+void TweenEffect::Update(float dt) {
+    if (!active) return;
+    float prev = t;
+    t = prev + dt / duration;
+    float x, y;
+    if (t <= split) {
+        x = (t * (float)midX) / split + 0.5f;
+        x = x + (float)fromX * (1.f - t / split);
+        y = 0.5f + t * (float)toY;
+        y = y + (float)fromY * (1.f - t);
+    } else if (t <= 1.f) {
+        float u = (t - split) / (1.f - split);
+        x = 0.5f + (float)toX * u;
+        x = x + (float)midX * (1.f - u);
+        y = 0.5f + t * (float)toY;
+        y = y + (float)fromY * (1.f - t);
+    } else {
+        if (prev > 1.f) return;
+        active = false;
+        window->SetPosition(toX, toY);
+        if (!hideAtEnd) {
+            if (onShown) onShown();
+        } else {
+            window->SetVisibility(false);
+            if (onHidden) onHidden();
+        }
+        return;
+    }
+    window->SetPosition((int)x, (int)y);
+    if (onUpdate) onUpdate();
+}
+
+// @0x17877c: from above the screen (y = -h) down to the centre. UNVERIFIED: the swing-in sound
+// (SoundsManager::PlaySound) is not played yet.
+void TweenEffect::AnimateIn() {
+    t = 0.f;
+    int cx = GetCenteredX();
+    fromX = cx;
+    toX = cx;
+    midX = cx;
+    fromY = -window->h;
+    toY = GetCenteredY();
+    hideAtEnd = false;
+    split = 0.8f;
+    active = true;
+    window->SetPosition(fromX, fromY);
+}
+
+// @0x1786c4: from the centre down past the bottom of the screen; ignored while a tween runs.
+// UNVERIFIED: the swing-out sound is not played yet.
+void TweenEffect::AnimateOut() {
+    if (active) return;
+    t = 0.f;
+    int cx = GetCenteredX();
+    fromX = cx;
+    toX = cx;
+    midX = cx;
+    fromY = GetCenteredY();
+    active = true;
+    hideAtEnd = true;
+    split = 0.2f;
+    toY = g_screenH;
+    window->SetPosition(fromX, fromY);
+}
+
+int AnimationEffect::GetCenteredX() const {   // @0x17621c
     return ((insetL + g_screenW) - insetR - window->w) / 2 - insetL;
 }
 
-int MovementEffect::GetCenteredY() const {   // @0x176254
+int AnimationEffect::GetCenteredY() const {   // @0x176254
     return ((insetT + g_screenH) - insetB - window->h) / 2 - insetT;
 }
 
-void MovementEffect::CenterWith(const Window* w) {   // @0x1762a4
+void AnimationEffect::CenterWith(const Window* w) {   // @0x1762a4
     if (!w->root) {
         insetR = (w->w + w->x) - window->w - window->x;
         insetB = (w->h + w->y) - window->h - window->y;
@@ -834,22 +901,34 @@ MovementEffect* CreateMovementEffect(Window* w, MovementEffect::Fn onUpdate, Mov
                                      MovementEffect::Fn onHidden) {
     auto* e = new MovementEffect(std::move(onUpdate), std::move(onShown), std::move(onHidden));
     e->window = w;
-    e->swingIn = "ui_swing_in";    // AnimationEffect::AnimationEffect @0x182f30
-    e->swingOut = "ui_swing_out";
-    g_movements.push_back(e);
+    g_effects.push_back(e);
     return e;
 }
 
-void RemoveMovementEffect(MovementEffect* e) {   // @0x17c538 (swap-remove, then delete)
-    for (size_t i = 0; i < g_movements.size(); ++i) {
-        if (g_movements[i] == e) {
-            g_movements[i] = g_movements.back();
-            g_movements.pop_back();
+TweenEffect* CreateTweenEffect(Window* w, TweenEffect::Fn onUpdate, TweenEffect::Fn onShown,
+                               TweenEffect::Fn onHidden) {
+    auto* e = new TweenEffect(std::move(onUpdate), std::move(onShown), std::move(onHidden));
+    e->window = w;
+    g_effects.push_back(e);
+    return e;
+}
+
+namespace {
+void RemoveEffect(AnimationEffect* e) {   // swap-remove, then delete
+    for (size_t i = 0; i < g_effects.size(); ++i) {
+        if (g_effects[i] == e) {
+            g_effects[i] = g_effects.back();
+            g_effects.pop_back();
             delete e;
             return;
         }
     }
 }
+}  // namespace
+
+void RemoveTweenEffect(TweenEffect* e) { RemoveEffect(e); }   // @0x17c4a0
+
+void RemoveMovementEffect(MovementEffect* e) { RemoveEffect(e); }   // @0x17c538
 
 // Press highlights (SetTargetHighlight): the window's sprites are drawn with alpha * cur, which the
 // text shader turns into brightness above 1. 0x18 bytes on the original.
@@ -894,10 +973,10 @@ void SetTargetHighlight(Window* w, float target, bool pressed) {
     g_highlights.push_back({t, t->alpha, target, pressed, t->x, t->y});
 }
 
-// @0x17c648: movement effects; highlights move towards their target (up at 4/s, down at 1/s) and
+// @0x17c648: animation effects; highlights move towards their target (up at 4/s, down at 1/s) and
 // are dropped once back at 1; tap rings shrink from full size to nothing in 0.5 s.
 void UpdateAnimation(float dt) {
-    for (size_t i = 0; i < g_movements.size(); ++i) g_movements[i]->Update(dt);
+    for (size_t i = 0; i < g_effects.size(); ++i) g_effects[i]->Update(dt);
     for (size_t i = 0; i < g_highlights.size(); ++i) {
         Highlight& h = g_highlights[i];
         if (h.cur < h.target) {
@@ -990,7 +1069,7 @@ void OnMouseClick(int mx, int my, bool pressed) {
 }
 
 bool IsAnyAnimationActive() {   // @0x17c43c
-    for (MovementEffect* e : g_movements)
+    for (AnimationEffect* e : g_effects)
         if (e && e->active && e->blocksInput) return true;
     return false;
 }

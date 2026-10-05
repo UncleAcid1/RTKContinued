@@ -7,6 +7,7 @@
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
+#include "windows/Windows.h"
 
 namespace CastleTopWindow {
 namespace {
@@ -59,6 +60,10 @@ bool Click(int x, int y, bool pressed) {
     return g_root->Click(x, y, pressed, true);
 }
 
+// @0x276d0c. UNVERIFIED (milestone 3): while the screenshot help is pending (a flag set with the
+// tutorial arrows) it first hides its arrow and calls SettingsWindow::HelpWithScreenShot.
+void OnSettings() { SettingsWindow::Show(); }
+
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
@@ -89,8 +94,8 @@ void Init() {
     g_effect = GUI::CreateMovementEffect(g_root);
     GUI::GetWindowTyped<Window>(g_root, "hud_navigation_main_bg")->noInput = true;
 
-    // UNVERIFIED (milestone 2d and later): OnFriends, OnShop, OnReturn, OnPvP, OnSettings open
-    // windows that are not ported; the callbacks are installed as no-ops.
+    // UNVERIFIED (later milestones / online): OnFriends, OnShop, OnReturn and OnPvP open windows that
+    // are not ported; those callbacks are installed as no-ops.
     g_friends = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01");
     g_friends->SetOnClick([] {});
     g_friendsBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01.button_large_blue_bg");
@@ -129,7 +134,7 @@ void Init() {
     g_settingsIcon = GUI::GetWindowTyped<Window>(g_root, "button_nav_dangle_settings.icon_chained");
     g_settingsIcon->SetTexture(IconManager::GetIcon("gold_settings", false), true);
     g_settingsClick = GUI::GetWindowTyped<Button>(g_root, "button_nav_dangle_settings.clickArea");
-    g_settingsClick->SetOnClick([] {});
+    g_settingsClick->SetOnClick(OnSettings);
     g_giPlayButton = GUI::GetWindowTyped<Window>(g_root, "button_nav_dangle_gi_play.button_gi_play");
     g_moreGames = GUI::GetWindowTyped<Window>(g_root, "button_nav_dangle_gi_play.button_more_games");
     g_friendsNotify = GUI::GetWindowTyped<Window>(g_root, "friendsi_notification_holder");

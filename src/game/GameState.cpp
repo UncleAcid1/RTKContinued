@@ -8,6 +8,7 @@ std::map<int, uint32_t> g_res;
 int g_cityState = 0;        // 0/1: player's city (IsPlayerCity), 2+: visiting
 int g_location = 0;
 uint32_t g_mapId = 0;
+int g_pause = 0;
 }
 
 void Reset() {
@@ -42,5 +43,19 @@ int GetPlayerWorkersCount() { return 0; }
 int GetMaxWorkerCount() { return 0; }
 bool IsMalePlayer() { return true; }
 int TutorialStep() { return 0x100; }
+int SecondTutorialStep() { return 0x81; }
+
+bool IsCityTutorial() {
+    if (TutorialStep() <= 0x67) return true;
+    unsigned second = (unsigned)SecondTutorialStep();
+    if (second - 0x8au <= 0x75u) return true;
+    return second - 0x82u < 7u;
+}
+
+void RaiseGamePauseState() { ++g_pause; }
+void DropGamePauseState() {
+    if (--g_pause < 0) g_pause = 0;
+}
+bool IsPaused() { return g_pause > 0; }
 
 }  // namespace GameState

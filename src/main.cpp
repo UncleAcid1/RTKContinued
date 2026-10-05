@@ -24,6 +24,7 @@
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
+#include "windows/Windows.h"
 #include "game/GameData.h"
 #include "game/Map.h"
 #include "game/MapMovement.h"
@@ -130,6 +131,7 @@ int main(int argc, char** argv) {
     CastleTopWindow::Queue();
     HUDWindow::Queue();
     PlayerTopWindow::Queue();
+    SettingsWindow::Queue();
     TaskHolderWindow::Queue();
     TopCityWindow::Queue();
     // main_Loop_Init: the desktop window goes last (the bottom of the queue), then InitWindows.

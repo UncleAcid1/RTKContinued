@@ -20,6 +20,7 @@ add_subdirectory(third_party)   # FreeType 2.4.5 + SDL_ttf 2.0.11, the versions 
 add_executable(rtk
   src/main.cpp
   src/engine/FileManager.cpp
+  src/engine/SystemFuncs.cpp
   src/engine/Image.cpp
   src/engine/Render.cpp
   src/engine/Resources.cpp
@@ -40,6 +41,7 @@ add_executable(rtk
   src/hud/Shared.cpp
   src/hud/ContentScroller.cpp
   src/hud/TopCityWindow.cpp
+  src/windows/SettingsWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp
   src/hud/BeltBarWindow.cpp

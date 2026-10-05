@@ -29,5 +29,13 @@ bool IsMalePlayer();                           // UNVERIFIED stand-in: true
 // TutorialWindow's step (global 0x6134ac). HUD panels appear once it passes their thresholds;
 // 0x100 is the finished city tutorial. UNVERIFIED stand-in: always 0x100.
 int TutorialStep();
+// GameState::secondTutorial (0x60efd0, .data initial 0x81). UNVERIFIED stand-in: the initial value.
+int SecondTutorialStep();
+bool IsCityTutorial();                         // @0x190af4
+
+// The pause counter (0x612d70): dialogs raise it while shown.
+void RaiseGamePauseState();                    // @0x191064
+void DropGamePauseState();                     // @0x191080 (never below 0)
+bool IsPaused();                               // @0x191104
 
 }  // namespace GameState
