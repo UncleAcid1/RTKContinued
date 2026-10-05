@@ -1,6 +1,7 @@
 #include "game/GameState.h"
 
 #include <cstdio>
+#include <strings.h>
 #include <map>
 #include <string>
 
@@ -114,6 +115,17 @@ const char* GetResourceName(int type) {
     static const char* names[] = {"LUMBER", "ROCKS", "FOOD", "PLANKS", "STONES", "MEAT", "SAUSAGE",
                                   "OIL", "GOLD", "CRYSTAL", "EXP_AFTER"};
     return type >= 0 && type < 11 ? names[type] : "";
+}
+
+int StringToResourceType(const char* name) {
+    static const struct { const char* name; int type; } table[] = {
+        {"LUMBER", kLumber}, {"ROCKS", kRocks}, {"FOOD", kFood}, {"PLANKS", kPlanks}, {"STONES", kStones},
+        {"MEAT", kMeat}, {"SAUSAGE", kSausage}, {"SAUSAGES", kSausage}, {"OIL", kOil}, {"GOLD", kGold},
+        {"CRYSTAL", kCrystal}, {"XP", kExpAfter}, {"EXP", kExpAfter}};
+    for (const auto& e : table)
+        if (strcasecmp(name, e.name) == 0) return e.type;
+    std::fprintf(stderr, "ERROR: GameState::StringToResourceType() Unknown resource type %s", name);
+    return kGold;
 }
 
 bool IsPlayerCity() { return (unsigned)g_cityState <= 1; }

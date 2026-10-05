@@ -25,6 +25,7 @@ bool CheckStorageFull(int type);               // @0x196dd8
 void ChangeResourceAmount(int type, int amount);
 void AddCrystals(int amount);                  // @0x196f68
 const char* GetResourceName(int type);         // @0x190ce4
+int StringToResourceType(const char* name);    // @0x192580 (case-insensitive; unknown -> GOLD)
 
 bool IsPlayerCity();                           // @0x1905b8: city state 0 or 1
 int GetCurrentLocation();                      // @0x190530: 0 city, 1 farm, 2 campaign, 3 arena

@@ -1,6 +1,5 @@
 // Static game data used by the map: decorations, buildings.
-// Ports of Map::LoadDecorationList @0x13a8a8, Map::LoadBuildingList @0x121748 (only the fields the
-// map/render code needs so far).
+// Ports of Map::LoadDecorationList @0x13a8a8 and Map::LoadBuildingList @0x121748.
 #pragma once
 #include <cstdint>
 #include <map>
@@ -8,6 +7,7 @@
 #include <vector>
 
 namespace Render { struct Texture; }
+class MetaData;
 
 namespace GameData {
 
@@ -22,25 +22,76 @@ struct DecorData {               // DecorData
     bool imageLoaded = false;
 };
 
-struct BuildingPart {            // BuildingPart, from <floor>
-    int type = 0;                // +0x00 (0 for <floor>)
+struct BuildingPart {            // BuildingPart, 0x44 bytes, one per <floor>
+    int type = 0;                // +0x00 0 floor, 1 centerpart, 2 ceil, 3 decors (5.11 data: floors only)
     std::string partImg;         // +0x08 "part_img"
     int offX = 0, offY = 0;      // +0x0c "off_x", +0x10 "off_y"
     int height = 0;              // +0x14 "height"
     int based = 0, valign = 0;   // +0x18, +0x1c
-    int stage = -1;              // +0x20 (-1: selected by order; trees/149/1000 get explicit stages)
+    int stage = -1;              // +0x20 (-1: selected by order; trees/149/1000 get explicit stages;
+                                 //        non-floor parts: "stg")
     float frameTime = 1.f;       // +0x24 = 1 / "fs"
+    float uc = 0.f;              // +0x28 "uc"
+    unsigned pD = 0, pCb = 0;    // +0x2c "p_d", +0x30 "p_cb"
+    unsigned lvl = 0, xp = 0;    // +0x34 "lvl", +0x38 "xp"
     Render::Texture* image = nullptr;  // +0x04 (BuildingPart::LoadImage)
     bool imageLoaded = false;
 };
 
-struct BuildingData {            // BuildingData
-    uint32_t id = 0;
+struct UpgradeInfo {             // 0x50 bytes per upgrade level (BuildingData+0xb8)
+    int quest = 0;               // +0x00 "upgradequests"
+    int requiredId = 0, requiredCount = 0;  // +0x04, +0x08 "requirestoupgrade" level:id=count
+    int time = 0;                // +0x0c "upgradetime"
+    int level = 0;               // +0x10 "upgradelevels"
+    int cost[11] = {};           // +0x14 "upgradecost" RESOURCE=n per resource type
+    int population = 0;          // +0x40 "upgrade_population"
+    int givePopulation = 0;      // +0x44 "give_upgrade_population"
+    int speedupCb = 0;           // +0x48 "speedupcb"[level + 1]
+};
+
+struct ResourceRespawn { int amount = 0, time = 0; };   // "resourcesrespawn" / "...time", 5 entries
+
+struct BuildingData {            // BuildingData, 0x1b4 bytes
+    uint32_t id = 0;             // +0x00
     std::string name;            // +0x04
     int w = 0, h = 0;            // +0x08 "buildZoneX", +0x0c "buildZoneY"
     int offsetX = 0, offsetY = 0;  // +0x10, +0x14
+    int iconY = 0;               // +0x18 "icon_y"
+    int tileset = 0;             // +0x1c
     int layer = 0;               // +0x20
-    uint32_t buildingClass = 0;  // +0x1ac "building_class"
+    int tab = 0, subtab = 0;     // +0x24, +0x28
+    int visid = 0;               // +0x2c
+    bool buy = false;            // +0x30
+    int collectTime = 0;         // +0x34 "collecttime"
+    int collectMoney = 0;        // +0x38 "collectmoney"
+    unsigned gold = 0;           // +0x44
+    unsigned cb = 0;             // +0x48
+    int hp = 100;                // +0x4c ("hp", 0 -> 100)
+    int requiresQuest = 0;       // +0x68
+    int requiredId = 0, requiredCount = 0;  // +0x6c, +0x70 "requirestobuild" id=count
+    unsigned constructionTime = 0;  // +0x74
+    unsigned level = 0;          // +0x78
+    int cost[11] = {};           // +0x7c lumber..oil (types 0..7)
+    unsigned costPopulation = 0; // +0xa8
+    unsigned givePopulation = 0; // +0xac
+    int speedupCb = 0;           // +0xb0 "speedupcb"[0]
+    std::vector<UpgradeInfo> upgrades;  // +0xb8
+    const void* delivery = nullptr;     // +0xc4 Contracts::GetContract("delivery_type")  UNVERIFIED: not ported yet
+    unsigned deliveryType = 0;   // (the id it was looked up with)
+    struct { float x, y; } parking[10], particles[10];   // +0xd0 / +0x120, counts +0xc8 / +0xcc
+    unsigned parkingCount = 0, particleCount = 0;
+    bool cantSellLast = false;   // +0x178
+    int speedupResource = 8;     // +0x17c "speedupresources" type (default GOLD)
+    int speedupAmount = 0;       // +0x180
+    int produceResource = 8;     // +0x184 "produce_resource" type (default GOLD)
+    int produceAmount = 0;       // +0x188
+    std::vector<ResourceRespawn> respawn;  // +0x18c (5 entries when set)
+    unsigned farmPatchDefault = 0;         // +0x198
+    MetaData* farmPatchCost = nullptr;     // +0x19c (lists, or null when empty)
+    MetaData* farmPatchCost2 = nullptr;    // +0x1a0
+    MetaData* farmPatchLevels = nullptr;   // +0x1a4
+    MetaData* unlockLevel = nullptr;       // +0x1a8
+    uint32_t buildingClass = 0;  // +0x1ac "building_class" (13 forced for 0x96 0x3ea 0x3e9 0x13 0x72 0x3ee 0x433)
     std::vector<BuildingPart> parts;  // +0x1b0 linked list, in file order
 };
 
