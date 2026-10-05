@@ -1,7 +1,5 @@
-// GameState: the player's state. MILESTONE 2 STAND-IN: only what the HUD reads, holding the values of
-// a freshly reset game (GameState::Reset @0x1a1424 sets level (0xbb) = 1, resources 0..9 = 0,
-// EXP_AFTER (10) = 1). The original stores every value three times XOR-scrambled (anti-cheat,
-// GetResourceAmount @0x196e08); that storage, saves and the economy are milestone 3.
+// GameState: the player's state (resources, level, settings, tutorial, ...). Being ported in
+// milestone 3; the settings and areas are in game/Setting.h.
 #pragma once
 #include <cstdint>
 
@@ -14,7 +12,7 @@ enum ResourceType {   // GameState::GetResourceName table @0x601568
 
 void Reset();
 uint32_t GetResourceAmount(int type);          // @0x196e08
-void SetResourceAmount(int type, uint32_t v);
+void SetResourceAmountValidated(int type, uint32_t v);   // @0x196ed0
 int GetLevel();                                // @0x196e00 (resource 0xbb)
 const char* GetResourceName(int type);         // @0x190ce4
 

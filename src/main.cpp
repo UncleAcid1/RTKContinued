@@ -24,6 +24,7 @@
 #include "engine/TextInput.h"
 #include "game/StringTable.h"
 #include "game/GameState.h"
+#include "game/Setting.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
@@ -122,7 +123,7 @@ int main(int argc, char** argv) {
     SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
 
-    if (!Render::Init(fbw, fbh) || !Resources::Init() || !GameData::Load()) return 1;
+    if (!Render::Init(fbw, fbh) || !Resources::Init()) return 1;
     Render::aspect = (float)fbw / (float)fbh;   // main_Loop_Func on repositionWindows / a resize
     // SDL_baseInit: the device screen decides the UI configuration; the port's "device screen" is
     // the window's framebuffer in pixels.
@@ -131,6 +132,9 @@ int main(int argc, char** argv) {
     StringTable::SetLanguage("EN", 0);
     // UNVERIFIED: Game::LoadLanguageTable's file selection is not ported yet; English only.
     StringTable::Init("../resource/res_files/1Original/LocalizedStringsEN.xml", false, false);
+    // main_Loop_Init: the sandbox server's res_files_sandbox config is not used offline.
+    GameState::LoadSettings("../resource/res_files/1Original/dynamic_config.xml");
+    if (!GameData::Load()) return 1;
     GUI::Init("fonts/ARICYRB.ttf", false);
     GameState::SetCurrentMapID(opt.map);
     if (!Map::Load(opt.map, opt.seed)) return 1;

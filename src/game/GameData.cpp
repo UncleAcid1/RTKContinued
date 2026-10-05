@@ -13,7 +13,6 @@ namespace {
 
 std::map<uint32_t, DecorData> g_decors;
 std::map<uint32_t, BuildingData> g_buildings;
-std::map<uint32_t, AreaInfo> g_areas;
 
 bool LoadXml(const char* path, pugi::xml_document& doc) {
     uint32_t n = 0;
@@ -83,30 +82,12 @@ void LoadBuildings() {
     }
 }
 
-void LoadAreas() {
-    pugi::xml_document doc;
-    if (!LoadXml("../resource/res_files/1Original/dynamic_config.xml", doc)) return;
-    for (auto n : doc.child("FBC").children("ar")) {
-        AreaInfo a;
-        a.id = n.attribute("id").as_uint();
-        a.name = n.attribute("name").value();
-        a.x = n.attribute("x").as_int();
-        a.y = n.attribute("y").as_int();
-        a.w = n.attribute("w").as_int();
-        a.h = n.attribute("h").as_int();
-        a.buyable = n.attribute("a").as_int() != 0;
-        g_areas[a.id] = a;
-    }
-}
-
 }  // namespace
 
 bool Load() {
     LoadDecorations();
     LoadBuildings();
-    LoadAreas();
-    std::printf("GameData: %zu decorations, %zu buildings, %zu areas\n", g_decors.size(), g_buildings.size(),
-                g_areas.size());
+    std::printf("GameData: %zu decorations, %zu buildings\n", g_decors.size(), g_buildings.size());
     return !g_decors.empty() && !g_buildings.empty();
 }
 
@@ -120,10 +101,6 @@ const BuildingData* GetBuilding(uint32_t id) {
     return it == g_buildings.end() ? nullptr : &it->second;
 }
 
-const AreaInfo* GetAreaInfo(uint32_t id) {
-    auto it = g_areas.find(id);
-    return it == g_areas.end() ? nullptr : &it->second;
-}
 
 Render::Texture* DecorImage(const DecorData* d) {
     auto* m = const_cast<DecorData*>(d);

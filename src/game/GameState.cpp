@@ -7,7 +7,10 @@
 
 namespace GameState {
 namespace {
+// std::map<ResourceType,int> (tree header 0x612f78): every value v of type t is kept three times, as [t] = v,
+// [t+0x2000] = v ^ [0xdd] and [t+0x4000] = v ^ [0xee], with the two keys stored in the same map.
 std::map<int, uint32_t> g_res;
+int g_resourceMismatches = 0;   // 0x612d60
 int g_cityState = 0;        // 0/1: player's city (IsPlayerCity), 2+: visiting
 int g_location = 0;
 uint32_t g_mapId = 0;
@@ -15,18 +18,34 @@ int g_pause = 0;
 std::u32string g_castleName;
 }
 
+// UNVERIFIED (milestone 3): only the resource part of Reset @0x1a1424 is ported so far.
 void Reset() {
-    g_res.clear();
-    g_res[kLevel] = 1;
-    for (int i = 0; i < 10; ++i) g_res[i] = 0;
-    g_res[kExpAfter] = 1;
+    g_res[0xdd] = 0x84358e6d;
+    g_res[0xee] = 0x14a46840;
+    SetResourceAmountValidated(kLevel, 1);
+    for (int i = 0; i < 0xb; ++i) SetResourceAmountValidated(i, 0);
+    SetResourceAmountValidated(kExpAfter, 1);
 }
 
+// A tampered copy is outvoted by the other two; with no two agreeing, 0 (1 for the level).
 uint32_t GetResourceAmount(int type) {
-    auto it = g_res.find(type);
-    return it == g_res.end() ? (type == kLevel ? 1u : 0u) : it->second;
+    uint32_t v = g_res[type];
+    uint32_t a = g_res[0xdd] ^ g_res[type + 0x2000];
+    uint32_t b = g_res[0xee] ^ g_res[type + 0x4000];
+    if (v == a && v == b) return v;
+    ++g_resourceMismatches;
+    if (a == b) return g_res[type] = a;
+    if (v == b) g_res[type + 0x2000] = v ^ g_res[0xdd];
+    else if (v == a) g_res[type + 0x4000] = v ^ g_res[0xee];
+    else v = type == kLevel ? 1 : 0;
+    return v;
 }
-void SetResourceAmount(int type, uint32_t v) { g_res[type] = v; }
+
+void SetResourceAmountValidated(int type, uint32_t v) {
+    g_res[type] = v;
+    g_res[type + 0x2000] = g_res[0xdd] ^ v;
+    g_res[type + 0x4000] = g_res[0xee] ^ v;
+}
 int GetLevel() { return (int)GetResourceAmount(kLevel); }
 
 const char* GetResourceName(int type) {

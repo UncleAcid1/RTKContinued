@@ -91,7 +91,20 @@ Milestones:
        (e.g. --key 28 = Y/back, 42 = Backspace, 40 = Return). `--show` is a PORT test aid that opens a
        window not reachable yet. A drag's fling uses real time, as on the original. Don't run
        rtk without --screenshot from a tool call: it opens the window and blocks.
-3. [ ] Game data + GameState + save/load; building and economy loops.
+3. [ ] Game data + GameState + save/load; building and economy loops. Sub-steps:
+       3a [ ] GameState core: resource store (triple XOR, GetResourceAmount @0x196e08), full Reset
+              (@0x1a1424), LoadSettings (dynamic_config.xml), levels/XP, ChangeResourceAmount,
+              storage limits.
+       3b [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
+              save/load (Save::Map/Area/Building/Decor), save file on disk + backup, autosave timing.
+       3c [ ] Building runtime: construction/upgrade/production/collect state and timers, Map::Update
+              for buildings, world click on buildings, BuildingHovers.
+       3d [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying.
+       3e [ ] economy loops: workers/orders (logic; goblin entities are M4), offline resources,
+              level-up, NotEnoughWindow, ExchangeWindow.
+       Note: with no save, LoadSavedGame (@0x1885e0) starts a new game on campaign map 0x15 with the
+       hero entity (the tutorial), which needs M4. Until then the port boots the city from a Reset
+       GameState (PORT test path).
 4. [ ] Entities/AI/pathing, quests (Tasks), combat, campaign maps.
 5. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.

@@ -1,6 +1,6 @@
-// Static game data used by the map: decorations, buildings, land areas.
+// Static game data used by the map: decorations, buildings.
 // Ports of Map::LoadDecorationList @0x13a8a8, Map::LoadBuildingList @0x121748 (only the fields the
-// map/render code needs so far) and the <ar> part of GameState::LoadSettings @0x1ac850.
+// map/render code needs so far).
 #pragma once
 #include <cstdint>
 #include <map>
@@ -44,17 +44,9 @@ struct BuildingData {            // BuildingData
     std::vector<BuildingPart> parts;  // +0x1b0 linked list, in file order
 };
 
-struct AreaInfo {                // GameState::AreaInfo (0xac bytes), from <ar> in dynamic_config.xml
-    uint32_t id = 0;
-    std::string name;
-    int x = 0, y = 0, w = 0, h = 0;
-    bool buyable = false;        // "a"  UNVERIFIED: mapped to Patch+0xa8 (used by UpdateAreaBorders)
-};
-
 bool Load();
 const DecorData* GetDecoration(uint32_t id);     // Map::GetDecoration(unsigned) @0x130ebc
 const BuildingData* GetBuilding(uint32_t id);    // Map::GetBuilding @0x11c3cc
-const AreaInfo* GetAreaInfo(uint32_t id);        // GameState::GetAreaInfo @0x194b40
 
 Render::Texture* DecorImage(const DecorData* d);         // DecorData::LoadImage @0x134bb8
 Render::Texture* PartImage(const BuildingPart* p);       // BuildingPart::LoadImage @0x11ee40

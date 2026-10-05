@@ -34,6 +34,7 @@ add_executable(rtk
   src/game/Background.cpp
   src/game/StringTable.cpp
   src/game/GameState.cpp
+  src/game/Setting.cpp
   src/engine/Text.cpp
   src/engine/IconManager.cpp
   src/gui/GUI.cpp

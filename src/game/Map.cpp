@@ -9,6 +9,7 @@
 #include "engine/Resources.h"
 #include "game/Background.h"
 #include "game/GameData.h"
+#include "game/Setting.h"
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
@@ -444,9 +445,10 @@ bool Load(uint32_t mapId, long playerSeed) {
         p->areaId = pc->data.size() > 0 ? pc->data[0] : 0;
         p->owned = pc->data.size() > 1 && pc->data[1] != 0;
         p->bordered = pc->data.size() > 2 && pc->data[2] != 0;
-        if (const GameData::AreaInfo* a = GameData::GetAreaInfo(p->areaId)) {
-            p->x = a->x; p->y = a->y; p->w = a->w; p->h = a->h;
-            p->buyable = a->buyable;
+        GameState::AreaInfo a;
+        if (GameState::GetAreaInfo(p->areaId, a)) {
+            p->x = a.x; p->y = a.y; p->w = a.w; p->h = a.h;
+            p->buyable = a.a;   // UNVERIFIED: "a" mapped to Patch+0xa8 (used by UpdateAreaBorders)
         } else if (patchCount == 1) {  // single-patch maps (AddOnePatch): whole grid
             p->x = 0; p->y = 0; p->w = g_gridW; p->h = g_gridH;
         }
