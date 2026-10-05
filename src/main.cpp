@@ -11,6 +11,7 @@
 //            [--spawn ID X Y]... [--walk X Y] [--frames N]
 //                                    (PORT test aid: spawn entities at tiles after the map loads;
 //                                    the last one walks to a tile; N more frames before the shot)
+//            [--dump-entities]               (PORT test aid: print every entity's state at the end)
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
@@ -31,6 +32,7 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/AIState.h"
+#include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
@@ -60,6 +62,7 @@ struct Options {
     std::vector<Spawn> spawns;   // PORT test aid: entities to spawn (no saves/new game yet)
     int walkX = -1, walkY = -1;  // PORT test aid: the last spawned entity walks here
     int frames = 0;              // extra headless frames before the screenshot
+    bool dumpEntities = false;   // PORT test aid
 };
 
 Options Parse(int argc, char** argv) {
@@ -95,6 +98,7 @@ Options Parse(int argc, char** argv) {
             o.walkY = std::atoi(next());
         }
         else if (a == "--frames") o.frames = std::atoi(next());
+        else if (a == "--dump-entities") o.dumpEntities = true;
         else if (a == "--type") {
             o.inputs.push_back({Options::kType, 0, 0, 0, 0, next()});
         }
@@ -390,6 +394,16 @@ int main(int argc, char** argv) {
             for (int i = 0; i < 30; ++i) tick(dt);
         }
         for (int i = 0; i < opt.frames; ++i) tick(dt);
+        for (unsigned i = 0; opt.dumpEntities && EntityManager::EnumEntities(i); ++i) {
+            Entity* e = EntityManager::EnumEntities(i);
+            AnimationController* ac = e->GetAnimController();
+            Map::Building* w = e->GetWorkplace();
+            std::printf("entity %u: id %u tile %d,%d world %.1f,%.1f state %d anim %s dir %d path %zu work %s\n", i,
+                        e->data->id, e->tileX, e->tileY, e->worldX, e->worldY, e->GetAI() ? e->GetAI()->GetState() : -1,
+                        ac && ac->anim ? ac->anim->name.c_str() : "-", e->GetDirection(),
+                        e->GetAI() ? e->GetAI()->path.size() : 0,
+                        w ? (std::to_string(w->data->id) + "@" + std::to_string(w->x) + "," + std::to_string(w->y)).c_str() : "-");
+        }
         Render::SortRenderLayer(Render::kLayerGUI, 1);
         Render::Frame();
         glFinish();

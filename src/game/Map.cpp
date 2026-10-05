@@ -444,6 +444,35 @@ Building* GetIdleWorkplace() {
     return nullptr;
 }
 
+Building* GetNearestStorage(Building* from, bool notSelf) {
+    Building* best = nullptr;
+    float bestD = 10000.f;
+    for (auto& p : g_patches) {
+        for (auto& bp : p->buildings) {
+            Building* b = bp.get();
+            if ((notSelf && b == from) || b->data->buildingClass != 7) continue;
+            float dy = (float)((int)from->y - (int)b->y), dx = (float)((int)from->x - (int)b->x);
+            float d = std::sqrt(dy * dy + dx * dx);
+            if (d < bestD) {
+                best = b;
+                bestD = d;
+            }
+        }
+    }
+    return best;
+}
+
+void UpdateStorageMax() {
+    GameState::updated = true;
+    GameState::resourceAmountMax = 0;
+    if (g_patches.empty()) return;
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->buildingClass == 7)
+                GameState::resourceAmountMax += Setting("storage_space").GetChild((unsigned)b->level).GetInt();
+    if (GameState::resourceAmountMax > 0) GameState::lastResourceAmountMax = GameState::resourceAmountMax;
+}
+
 void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY) {
     minX = g_owned[0];
     minY = g_owned[1];
@@ -602,6 +631,7 @@ bool Load(uint32_t mapId, long playerSeed) {
     std::printf("Map %u: %dx%d tileset %d, %zu patches, %zu sprites\n", g_mapId, g_gridW, g_gridH, g_tileset,
                 g_patches.size(), Render::SpriteCount());
     CreateRoadAI();
+    if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
     // UNVERIFIED (milestone 3, later steps): offline contracts, offline goblins, AssignEntities,
     // portals, spawns, the player's OnSetup and the static meta expressions run here.
     g_loaded = true;

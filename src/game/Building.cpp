@@ -9,6 +9,7 @@
 #include "game/AIState.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
+#include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
@@ -489,16 +490,94 @@ void Building::OnContractCompleted(bool silent) {
     (void)silent;
 }
 
-// Storage (class 7): the player's amounts per resource; piles of lumber/rocks/food/planks shown by
-// stage entities. UNVERIFIED (3c): the pile entities ("resource_lumber" ...) are not spawned yet.
+namespace {
+// A pile entity's stage animation for a fill level in percent (0 is no pile).
+void SetPileStage(Entity* e, int level) {
+    if ((unsigned)(level - 1) < 9) e->SetAnimationP("stage_1", true, false, false);
+    else if ((unsigned)(level - 10) < 10) e->SetAnimationP("stage_2", true, false, false);
+    else if ((unsigned)(level - 0x14) < 10) e->SetAnimationP("stage_3", true, false, false);
+    else if ((unsigned)(level - 0x1e) < 10) e->SetAnimationP("stage_4", true, false, false);
+    else if (level > 0x27) e->SetAnimationP("stage_5", true, false, false);
+}
+}  // namespace
+
+// Storage (class 7): the player's amounts per resource, and a pile entity for each of lumber,
+// rocks, food and planks whose stage is the fill level against "storage_space" at this level.
 void Building::UpdateStorage() {
     if (data->buildingClass != 7) return;
     if (!IsOpened()) {
-        for (auto& p : piles) p = nullptr;
+        for (auto& p : piles) {
+            if (p) EntityManager::RemoveEntity(p, true);
+            p = nullptr;
+        }
         return;
     }
-    for (int t = 0; t < 8; ++t) resources[t] = (int)GameState::GetResourceAmount(t);
+    float space = Setting("storage_space").GetChild((unsigned)level).GetFloat();
+    static const char* const kPiles[4] = {"resource_lumber", "resource_rocks", "resource_food", "resource_planks"};
+    for (int t = 0; t < 8; ++t) {
+        int amount = resources[t] = (int)GameState::GetResourceAmount(t);
+        if (t >= 4) continue;
+        Entity* pile = piles[t];
+        int stage = (int)(((float)amount / space) * 100.f);
+        if (!pile) {
+            if (stage == 0) continue;
+            pile = EntityManager::SpawnEntityAt(kPiles[t], x, y, false, false);
+            if (mainSprite) pile->SetCustomZ(mainSprite->z - 0.001f);
+            SetPileStage(pile, stage);
+            float px = 0.f, py = 0.f;
+            GetParkingSpot((unsigned)t, px, py);
+            pile->SetWorldPos(px, py);
+            piles[t] = pile;
+        } else {
+            if (mainSprite) pile->SetCustomZ(mainSprite->z - 0.001f);
+            if (stage == 0) {
+                EntityManager::RemoveEntity(pile, true);
+                piles[t] = nullptr;
+            } else {
+                SetPileStage(pile, stage);
+            }
+        }
+    }
 }
+
+// A tree or rock: the gathered pile (an entity in worker slot 1, at parking spot 0) shows what
+// waits for a goblin.
+void Building::UpdateResources() {
+    if (data->buildingClass != 4) return;
+    int amount = resources[data->produceResource];
+    if (Entity* pile = workers[1]) {
+        if (amount == 0) {
+            EntityManager::RemoveEntity(pile, true);
+            workers[1] = nullptr;
+        } else {
+            SetPileStage(pile, amount);
+        }
+        return;
+    }
+    if (amount == 0) return;
+    Entity* pile = nullptr;
+    if (data->produceResource == 0) pile = EntityManager::SpawnEntityAt("resource_lumber", x, y, false, false);
+    else if (data->produceResource == 1) pile = EntityManager::SpawnEntityAt("resource_rocks", x, y, false, false);
+    float px = 0.f, py = 0.f;
+    GetParkingSpot(0, px, py);
+    SetPileStage(pile, amount);
+    pile->SetWorldPos(px, py);
+    workers[1] = pile;
+    pile->SetHome(this);
+    if (GameState::TutorialStep() == 0x29) pile->Appear(true, true);   // UNVERIFIED: the third argument is not set
+}
+
+void Building::HireGolbin() {
+    if (data->buildingClass != 7) return;
+    int tx = 0, ty = 0;
+    GetSpawnTile(tx, ty);
+    Entity* g = EntityManager::SpawnEntityAt(0x133, (unsigned)tx, (unsigned)ty, true, true);
+    g->SetHP(0x400);
+    AssignLiver(g);
+    g->SetHome(this);
+}
+
+void Building::GetDeliveryTile(int& tx, int& ty) const { GetBuildTile(tx, ty); }   // (the same steps)
 
 // UNVERIFIED (3c): the crop entity of a farm's first growing patch (ids by contract type and crop).
 void Building::SetupSmallFarm() {}
@@ -559,12 +638,46 @@ void Building::Update(double dt) {
             if (GameState::TutorialStep() == 0x5f && buildLeft < 20.0) buildLeft = 20.0;
         }
     } else if (cls == 4) {
-        if (WorkerAssigned(0) && WorkerIsWorking(0)) {
-            // UNVERIFIED (3c): gathering (stack_size limits, the resource pile and the delivery order
-            // to the nearest storage) runs with a working worker only.
-        } else {
-            UpdateGrowing();
+        // Gathering: every collectTime seconds of work one unit moves from the tree or rock to its
+        // pile (at most stack_size), and the nearest storage gets a delivery order.
+        bool gathered = false;
+        if (WorkerAssigned(0) && WorkerIsWorking(0) &&
+            GetGatheredResCount() < (int)GameState::GetSetting("stack_size")) {
+            gathered = true;
+            unsigned period = (unsigned)data->collectTime;
+            if (!(gatherAcc < (double)period)) {
+                unsigned whole = gatherAcc > 0.0 ? (unsigned)(int64_t)gatherAcc : 0u;
+                unsigned n = whole / period, rem = whole % period;
+                if ((unsigned)resourceLeft <= n) n = (unsigned)resourceLeft;
+                float st = GameState::GetSetting("stack_size");
+                if ((st > 0.f ? (unsigned)(int)st : 0u) < n) n = (unsigned)GameState::GetSetting("stack_size");
+                int pr = data->produceResource;
+                if (resources[pr] < (int)GameState::GetSetting("stack_size")) {
+                    float st2 = GameState::GetSetting("stack_size");
+                    if ((st2 > 0.f ? (unsigned)(int)st2 : 0u) < n + (unsigned)resources[pr]) n = (unsigned)((int)st2 - resources[pr]);
+                } else {
+                    n = 0;
+                }
+                resourceLeft -= (int)n;
+                resources[pr] += (int)n;
+                gatherAcc = (double)rem;
+                lastGather = Timer::GetGlobalTime();
+                UpdateResources();
+                if (Building* storage = GetNearestStorage(this, false))
+                    GameState::PlaceOrder(this, storage, data->produceAmount, pr, 0);
+                if (resourceLeft == 0) {
+                    level = pr == 0 ? 6 : 0;
+                    resourceState = 2;
+                    UpdateImage();
+                    RemoveWorker(workers[0]);
+                }
+            } else {
+                gatherAcc = dt + gatherAcc;
+                unsigned t = (unsigned)GameState::TutorialStep();
+                if (t - 0x28u < 2u && (double)period - 1.0 <= gatherAcc) gatherAcc = (double)period - 1.0;
+            }
         }
+        if (!gathered) UpdateGrowing();
     } else if (cls == 0xd) {
         // UNVERIFIED (3c): the crop entity's frame follows GetFarmState; tutorial worker fade-out.
     }

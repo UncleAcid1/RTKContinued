@@ -65,8 +65,8 @@ Entity* SpawnEntityAt(int id, unsigned x, unsigned y, bool appear, bool glow) {
 
 Entity* SpawnEntityAt(const std::string& name, unsigned x, unsigned y, bool appear, bool glow) {
     int id = EntityFactory::GetEntityIDByName(name);
-    if (id != -1) SpawnEntityAt(id, x, y, appear, glow);
-    return nullptr;   // (the original returns nothing)
+    if (id == -1) return nullptr;
+    return SpawnEntityAt(id, x, y, appear, glow);
 }
 
 void AddEntity(Entity* e) { g_entities.push_back(e); }

@@ -56,7 +56,12 @@ void CreateRoadAI();                                   // @0x1bb868 the waypoint
 // @0x1baba8: an owned building without worker and builder that needs one: a ready tree/rock with
 // resources left, or one waiting for construction or an upgrade.
 Building* GetIdleWorkplace();
+// @0x1b8e7c: the storage (class 7) nearest to b in tiles, on any patch; b itself is skipped when
+// notSelf.
+Building* GetNearestStorage(Building* b, bool notSelf);
 void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b5fcc
+// @0x1b8bfc: the storage limit is the sum of every storage's "storage_space" at its level.
+void UpdateStorageMax();
 void WorldCoordinatesToScreen(int& x, int& y);         // @0x1b60fc
 
 void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c

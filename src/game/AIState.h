@@ -11,6 +11,8 @@
 
 #include "game/AI.h"
 
+namespace GameState { struct Order; }
+
 class Entity;
 namespace Map { struct Building; struct Decor; }
 
@@ -101,7 +103,7 @@ public:
     virtual bool TryToInterruptJob() { return false; }   // +0x110
     virtual bool IsWorking() { return false; }        // +0x114
     virtual void CancelWork() {}                      // +0x118
-    virtual void ResetOrder() {}                      // +0x138
+    virtual void ResetOrder(Map::Building*) {}        // +0x138
     virtual void RemoveActionMarker() {}              // +0x13c
     virtual void StopMovement() {}                    // +0x140
     virtual void AutoInteraction() {}                 // +0x144
@@ -140,6 +142,28 @@ public:
     float wanderTime = 0.f;       // +0xe4 seconds to the next stroll (0..29)
     float jobTime = 0.f;          // +0xe8 seconds to the next idle-workplace check (1..6)
     AI::Waypoint* strollTarget = nullptr;   // +0xec
+};
+
+// The storage goblin (class 0x10): takes delivery orders (GameState::GetTopOrder), walks to the
+// pile, carries it to the storage and adds it to the player's resources.
+class AIGoblin : public AIBaseState {
+public:
+    explicit AIGoblin(Entity* e);                     // @0xecef8
+    void Update(float dt) override;                   // +0x4c @0xece1c
+    void Reset(bool idle) override;                   // +0xd4 @0xec480
+    void WalkCompleted() override;                    // +0xd8 @0xec518
+    bool AssignToJob(Map::Decor* d) override;         // +0x108 @0xecd3c
+    void RemoveFromJob() override;                    // +0x10c @0xeccb8
+    bool IsWorking() override { return GetState() == 8; }   // +0x114 @0xec3dc
+    void CancelWork() override;                       // +0x118 @0xec3fc
+    void ResetOrder(Map::Building* b) override;       // +0x138 @0xec460
+    void GetOrder();                                  // @0xecc5c
+    void GotoTarget();                                // @0xecbc0 to the order's pile
+    void GotoDestination();                           // @0xec4b0 to the order's storage
+
+    float orderTime = 0.f;        // +0xe0 seconds to the next GetOrder
+    GameState::Order* order = nullptr;   // +0xe4
+    int step = 0;                 // +0xe8 0 free, 1/2 carrying, 3/4 to the pile, 5 decoration job
 };
 
 // AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,

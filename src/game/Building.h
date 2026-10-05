@@ -138,7 +138,10 @@ struct Building {
     int GetFirstGrowingPatchNum() const;         // @0x11f448
     int GetFarmState(int patch);                 // @0x11d7b4
     void OnContractCompleted(bool silent);       // @0x11db64
-    void UpdateStorage();                        // @0x1244e4
+    void UpdateStorage();                        // @0x1244e4 the storage's resource piles
+    void UpdateResources();                      // @0x123f50 a tree's or rock's gathered pile
+    void HireGolbin();                           // @0x124d74 a delivery goblin from a storage
+    void GetDeliveryTile(int& tx, int& ty) const;   // @0x11c5f8
     void SetupSmallFarm();                       // @0x11f498
     void UpdateOfflineStateNoWorker();           // @0x11ea90
 };

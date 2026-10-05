@@ -630,6 +630,154 @@ void AIWorker::Update(float dt) {
     AIBaseState::Update(dt);
 }
 
+// ----------------------------------------------------------------------------------- AIGoblin
+
+AIGoblin::AIGoblin(Entity* e) : AIBaseState(e) {
+    orderTime = fa4;
+    step = 0;
+    baseSpeed = 90.f;
+    order = nullptr;
+    SetSpeed(90.f);
+}
+
+void AIGoblin::Update(float dt) {
+    AIBaseState::Update(dt);
+    if (step != 0 || GameState::GetCurrentLocation() != 0) return;
+    orderTime -= dt;
+    if (orderTime >= 0.f) return;
+    GetOrder();
+    orderTime = fa4;
+}
+
+void AIGoblin::Reset(bool) {
+    AIBaseState::Reset(true);
+    step = 0;
+    SetCustomWalkAnimation("");
+}
+
+void AIGoblin::GetOrder() {
+    if (GameState::TutorialStep() < 0x2a) return;
+    order = GameState::GetTopOrder();
+    if (!order) return;
+    step = order->kind == 0 ? 4 : 3;
+    order->goblin = entity;
+    GotoTarget();
+}
+
+void AIGoblin::GotoTarget() {
+    int tx = 0, ty = 0;
+    order->from->GetDeliveryTile(tx, ty);
+    AI::Waypoint* wp = AI::GetWaypoint(tx, ty, false);
+    ChangeState(7);
+    SetSpeed(GameState::TutorialStep() == 0x30 ? 200.f : 100.f);
+    WalkTo(wp->x, wp->y);
+}
+
+void AIGoblin::GotoDestination() {
+    int tx = 0, ty = 0;
+    order->to->GetDeliveryTile(tx, ty);
+    AI::Waypoint* wp = AI::GetWaypoint(tx, ty, false);
+    ChangeState(7);
+    WalkTo(wp->x, wp->y);
+}
+
+static void SetCarryAnimation(AIGoblin* ai, int type) {
+    if (type == 0) ai->SetCustomWalkAnimation("walk_wood");
+    else if ((unsigned)(type - 1) < 2) ai->SetCustomWalkAnimation("walk_sack");
+}
+
+void AIGoblin::WalkCompleted() {
+    if (step == 4) {
+        if ((int)GameState::GetResourceAmount(order->type) < GameState::resourceAmountMax) {
+            GameState::Order* o = order;
+            if (o->from->resources[o->type] < o->amount) {
+                CancelWork();
+                o->taken = true;
+                return;
+            }
+            SetSpeed(GameState::TutorialStep() == 0x30 ? 200.f : 60.f);
+            SetCarryAnimation(this, order->type);
+            Map::Building* from = order->from;
+            from->resources[order->type] -= order->amount;
+            from->UpdateResources();
+            if (order->to) {
+                GotoDestination();
+                step = 1;
+                return;
+            }
+        }
+    } else if (step == 5) {
+        // UNVERIFIED (milestone 3, decorations): the goblin's decoration job (search/build
+        // animation, Decor::WorkStarted, facing the decoration, state 8).
+        return;
+    } else if (step == 3) {
+        SetCarryAnimation(this, order->type);
+        SetSpeed(GameState::TutorialStep() == 0x30 ? 200.f : 60.f);
+        order->from->UpdateResources();
+        if (order->to) {
+            GotoDestination();
+            step = 2;
+            return;
+        }
+    } else {
+        // (step 1, a pile delivered: tutorial step 0x30 moves to 0x33)
+        // UNVERIFIED (milestone 3e): BuildingHovers::ShowTextHover "+n <resource>" over the storage.
+        if (step != 0) {
+            GameState::ChangeResourceAmount(order->type, order->amount);
+            if (order->to) order->to->UpdateResources();
+        }
+        SetSpeed(100.f);
+        SetCustomWalkAnimation("");
+        entity->SetDirection(0);
+        step = 0;
+        ChangeState(0);
+        return;
+    }
+    CancelWork();
+}
+
+bool AIGoblin::AssignToJob(Map::Decor* d) {
+    // UNVERIFIED (milestone 3, decorations): the action point is Decor::GetActionPoint(x, y, 0).
+    SetSpeed(100.f);
+    entity->SetAlpha(0.f);
+    entity->Appear(false, true);
+    AI::Waypoint* wp = AI::GetWaypoint(d->x, d->y, false);
+    if (!wp) wp = AI::GetWaypointNearDecoration(d, false);
+    if (!wp) return false;
+    path.clear();
+    ChangeState(7);
+    step = 5;
+    WalkTo(wp->x, wp->y);
+    return true;
+}
+
+void AIGoblin::RemoveFromJob() {
+    // UNVERIFIED (milestone 3, decorations): Decor::WorkEnded on the workplace decoration.
+    ChangeState(0);
+    entity->SetAnimationP("idle_1", true, false, false);
+    entity->Disappear();
+    entity->SetCurrentMap(0);
+    step = 0;
+    ChangeState(0);
+}
+
+void AIGoblin::CancelWork() {
+    if (order && step == 4) {
+        order->goblin = nullptr;
+        GameState::Order* o = order;
+        order = nullptr;
+        step = 0;
+        o->taken = false;
+    } else if (step == 5) {
+        step = 0;
+    }
+    SetSpeed(100.f);
+}
+
+void AIGoblin::ResetOrder(Map::Building* b) {
+    if (order && order->to == b) order->to = nullptr;
+}
+
 // --------------------------------------------------------------------------------- the factory
 
 AIBaseState* CreateAIState(int state, Entity* e) {
@@ -637,10 +785,11 @@ AIBaseState* CreateAIState(int state, Entity* e) {
     case 0: return new AIBaseState(e);
     case 3:
     case 4: return new AIWorker(e);
+    case 7: return new AIGoblin(e);
     default:
         // UNVERIFIED (milestones 3-4): AIWarrior (1), AIPlayer (2), AIFarmerBig (5), AIPatch (6),
-        // AIGoblin (7), AIFarmerSmall (8), AIEnemy (9), AISpell (10), AIPlayerBot (11) are not
-        // ported yet; those entities get the base behaviour.
+        // AIFarmerSmall (8), AIEnemy (9), AISpell (10), AIPlayerBot (11) are not ported yet;
+        // those entities get the base behaviour.
         return new AIBaseState(e);
     }
 }

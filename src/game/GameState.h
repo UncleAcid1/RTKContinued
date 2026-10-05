@@ -3,6 +3,9 @@
 #pragma once
 #include <cstdint>
 
+namespace Map { struct Building; }
+class Entity;
+
 namespace GameState {
 
 enum ResourceType {   // GameState::GetResourceName table @0x601568
@@ -12,6 +15,7 @@ enum ResourceType {   // GameState::GetResourceName table @0x601568
 
 extern bool updated;             // a change waiting to be saved
 extern int resourceAmountMax;    // storage limit
+extern int lastResourceAmountMax; // the last non-zero storage limit
 extern int maxLevel;
 extern int totalGoldSpent, totalGoldEarned, totalCrystalsSpent, totalXPEarned;
 
@@ -47,6 +51,22 @@ int SecondTutorialStep();
 bool IsCityTutorial();                         // @0x190af4
 // @0x1908ac a quest task finished. UNVERIFIED stand-in (milestone 4, Tasks): false.
 bool TaskCompleted(unsigned id);
+
+// Delivery orders (0x612d50): resources a goblin carries from a building (a tree's or rock's pile)
+// to a storage. Taken orders stay in the list (the removal functions run on building removal and
+// game reloads, not ported yet).
+struct Order {                 // 0x1c bytes
+    bool taken = false;        // +0x00
+    Map::Building* from = nullptr;   // +0x04
+    Map::Building* to = nullptr;     // +0x08
+    int type = 0;              // +0x0c resource type
+    int amount = 0;            // +0x10
+    int kind = 0;              // +0x14 0: pick up a pile (skipped while that resource is full)
+    Entity* goblin = nullptr;  // +0x18
+};
+void PlaceOrder(Map::Building* from, Map::Building* to, int amount, int type, int kind);   // @0x19c3e0
+// @0x196e0c: the newest order not taken (and not a pile pickup of a full resource), now taken.
+Order* GetTopOrder();
 
 // The pause counter (0x612d70): dialogs raise it while shown.
 void RaiseGamePauseState();                    // @0x191064

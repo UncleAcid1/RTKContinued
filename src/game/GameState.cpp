@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <strings.h>
 #include <map>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -12,6 +14,7 @@ namespace GameState {
 
 bool updated = true;             // 0x60efcc (a change to save)
 int resourceAmountMax = 0;       // 0x6134a4 storage limit (CheckStorageFull)
+int lastResourceAmountMax = 0;   // GameState::lastResourceAmountMax
 int maxLevel = 0x1d;             // 0x60efc8
 int totalGoldSpent = 0;          // 0x613418
 int totalGoldEarned = 0;         // 0x61341c
@@ -161,6 +164,36 @@ bool IsCityTutorial() {
 }
 
 bool TaskCompleted(unsigned id) { (void)id; return false; }
+
+namespace {
+std::vector<std::unique_ptr<Order>> g_orders;   // 0x612d50 (pool-allocated on the original)
+}
+
+void PlaceOrder(Map::Building* from, Map::Building* to, int amount, int type, int kind) {
+    auto o = std::make_unique<Order>();
+    o->amount = amount;
+    o->from = from;
+    o->to = to;
+    o->type = type;
+    o->goblin = nullptr;
+    o->taken = false;
+    o->kind = kind;
+    g_orders.push_back(std::move(o));
+}
+
+Order* GetTopOrder() {
+    if (g_orders.empty()) return nullptr;
+    int amounts[11];
+    for (int t = 0; t < 11; ++t) amounts[t] = (int)GetResourceAmount(t);
+    for (size_t i = g_orders.size(); i-- > 0;) {
+        Order* o = g_orders[i].get();
+        if (o->taken) continue;
+        if (o->kind == 0 && resourceAmountMax <= amounts[o->type]) continue;
+        o->taken = true;
+        return o;
+    }
+    return nullptr;
+}
 
 void RaiseGamePauseState() { ++g_pause; }
 void DropGamePauseState() {
