@@ -147,7 +147,7 @@ public:
     virtual void SetStyle(bool async);                              // +0xa0 @0x1760e8
     virtual void SetPattern(const Render::TextPattern* pattern);    // +0xa4 @0x1760f0
     virtual void SetFontStyle(unsigned style);                      // +0xa8 @0x1760f8
-    virtual void SetEditable(bool editable);                        // +0xac @0x176100
+    virtual void SetEditable(unsigned maxLength);                   // +0xac @0x176100 (0: not editable)
     virtual void SetOnEdit(Callback cb);                            // +0xb0 @0x176108
     virtual bool IsInputFocused();                                  // +0xb4 @0x176110
     virtual void SetAsyncUpdate(bool on);                           // +0xb8 @0x176130
@@ -163,7 +163,7 @@ public:
     const Render::TextPattern* pattern = nullptr;  // +0x90 SetPattern
     unsigned style = 0;           // +0x94 SetFontStyle: initial TTF style bits
     int16_t fontSize = 0;         // +0x98 layout font size * font scale
-    bool editable = false;        // +0x9a
+    uint8_t maxLength = 0;        // +0x9a editable when non-zero (SetEditable)
     bool hideSprite = false;      // +0x9b
     float color[3] = {0, 0, 0};   // +0x9c +0xa0 +0xa4
     float overscale = 1.f;        // +0xa8

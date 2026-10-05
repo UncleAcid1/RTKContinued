@@ -1,6 +1,7 @@
 // GUI::Textfield (vtable 0x608580, 0xbc bytes). Text images come from Render::CreateTextInternal.
 #include "gui/GUI.h"
 
+#include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Text.h"
 
@@ -279,22 +280,46 @@ void Textfield::ClipWithRect(int l, int t, int r, int b) {
     hideSprite = true;
 }
 
+namespace {
+// TextfieldCallback::Callback @0x179ed4: the text input result goes into the edited field, cut to
+// its maxLength, with line breaks turned into spaces; then the field's onEdit; a final result ends
+// the editing.
+void OnTextInput(const char32_t* text, bool final) {
+    Textfield* f = g_inputField;
+    if (!f) return;
+    char32_t buf[0x101];
+    const char32_t* out = buf;
+    if (!text) {
+        out = nullptr;
+    } else {
+        size_t len = 0;
+        while (text[len]) ++len;
+        size_t n = len > f->maxLength ? f->maxLength : len;
+        for (size_t i = 0; i < n; ++i) buf[i] = (text[i] == 0xd || text[i] == 10) ? U' ' : text[i];
+        buf[n] = 0;
+    }
+    f->SetText(out);
+    if (g_inputField->onEdit) g_inputField->onEdit();
+    if (final) g_inputField = nullptr;
+}
+}  // namespace
+
 // @0x17d04c: an editable field takes the click (a visible, enabled field even without force) and
 // on release starts text input; a click elsewhere ends it. Then the Window behaviour.
 bool Textfield::Click(int px, int py, bool pressed, bool force) {
-    if (editable) {
+    if (maxLength) {
         if (!visible) force = false;
         else if (enabled) force = true;
         if (x <= px && px <= w + x && y <= py && py <= h + y && force) {
             if (root) root->clickHandled = true;
             if (!pressed) {
                 g_inputField = this;
-                // FileManager::BeginTextInput(OnTextInput, text): text input is not ported yet.
+                FileManager::BeginTextInput(OnTextInput, hasText ? text.c_str() : nullptr);
             }
             return true;
         }
         if (g_inputField == this) {
-            // FileManager::AbortTextInput()
+            FileManager::AbortTextInput();
             g_inputField = nullptr;
         }
     }
@@ -310,7 +335,7 @@ void Textfield::SetAlignment(int horizontal, int vertical) {   // @0x1760c4
 void Textfield::SetStyle(bool a) { async = a; }                            // @0x1760e8
 void Textfield::SetPattern(const Render::TextPattern* p) { pattern = p; }  // @0x1760f0
 void Textfield::SetFontStyle(unsigned s) { style = s; }                    // @0x1760f8
-void Textfield::SetEditable(bool e) { editable = e; }                      // @0x176100
+void Textfield::SetEditable(unsigned n) { maxLength = (uint8_t)n; }          // @0x176100
 void Textfield::SetOnEdit(Callback cb) { onEdit = std::move(cb); }         // @0x176108
 bool Textfield::IsInputFocused() { return g_inputField == this; }   // @0x176110
 void Textfield::SetAsyncUpdate(bool on) { if (glow) glow->allowAsync = on; }   // @0x176130

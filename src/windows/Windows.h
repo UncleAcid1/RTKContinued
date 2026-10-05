@@ -4,6 +4,14 @@
 
 namespace WindowManager { class FunctionalWindow; }
 
+namespace CityRenameWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CityRenameWindow" (_INIT_ 0x298ffc)
+void Init();                                // @0x29949c
+void Deinit();                              // @0x29945c
+void Show();                                // @0x299248
+void Hide();                                // @0x2992ec
+}
+
 namespace SettingsWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "SettingsWindow" (_INIT_ 0x33def8)
 void Init();                                // @0x33fae0

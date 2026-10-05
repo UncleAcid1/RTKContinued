@@ -4,8 +4,10 @@
 // Usage: rtk [--root <backup folder>] [--map N] [--seed N]
 //            [--screenshot out.png --camera X Y ZOOM]   (render one frame to a PNG and exit;
 //                                    the view centred on world X,Y at ZOOM times the default zoom)
-//            [--click X Y]... [--press X Y] [--drag X1 Y1 X2 Y2]...
-//                                    (headless left-button input in pixels, applied in order)
+//            [--click X Y]... [--press X Y] [--drag X1 Y1 X2 Y2]... [--type TEXT]... [--key SCANCODE]...
+//                                    (headless input, applied in order: left-button input in
+//                                    pixels, typed UTF-8 text, a key press by SDL scancode)
+//            [--show city_rename]            (PORT test aid: open a window not reachable yet)
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
@@ -19,6 +21,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Text.h"
+#include "engine/TextInput.h"
 #include "game/StringTable.h"
 #include "game/GameState.h"
 #include "gui/GUI.h"
@@ -37,9 +40,10 @@ struct Options {
     long seed = 1;            // GameState::playerSeed (per player on the original)
     std::string screenshot;
     float camX = 2520.f, camY = 300.f, zoom = 1.f;  // centre of the starting area (area 1)
-    enum InputType { kClick, kPress, kDrag };
-    struct Input { InputType type; int x, y, x2, y2; };
+    enum InputType { kClick, kPress, kDrag, kType, kKey };
+    struct Input { InputType type; int x, y, x2, y2; std::string text; };
     std::vector<Input> inputs;   // headless input, applied before the screenshot
+    std::string show;            // a window to open after the HUD (test aid)
 };
 
 Options Parse(int argc, char** argv) {
@@ -53,7 +57,7 @@ Options Parse(int argc, char** argv) {
         else if (a == "--screenshot") o.screenshot = next();
         else if (a == "--click" || a == "--press" || a == "--drag") {
             Options::Input in = {a == "--click" ? Options::kClick : a == "--press" ? Options::kPress : Options::kDrag,
-                                 0, 0, 0, 0};
+                                 0, 0, 0, 0, {}};
             in.x = std::atoi(next());
             in.y = std::atoi(next());
             if (in.type == Options::kDrag) {
@@ -61,6 +65,13 @@ Options Parse(int argc, char** argv) {
                 in.y2 = std::atoi(next());
             }
             o.inputs.push_back(in);
+        }
+        else if (a == "--show") o.show = next();
+        else if (a == "--type") {
+            o.inputs.push_back({Options::kType, 0, 0, 0, 0, next()});
+        }
+        else if (a == "--key") {
+            o.inputs.push_back({Options::kKey, std::atoi(next()), 0, 0, 0, {}});
         }
         else if (a == "--camera") {
             o.camX = (float)std::atof(next());
@@ -129,6 +140,7 @@ int main(int argc, char** argv) {
     BeltBarWindow::Queue();
     BottomCityWindow::Queue();
     CastleTopWindow::Queue();
+    CityRenameWindow::Queue();
     HUDWindow::Queue();
     PlayerTopWindow::Queue();
     SettingsWindow::Queue();
@@ -219,10 +231,58 @@ int main(int argc, char** argv) {
         if (amount < 0) Render::zoom = Render::zoom / 1.1f;
         Render::ApplyViewportLimit();
     };
+    // Key presses (SDL_KEYDOWN in main_Loop_Func, by scancode). While a text field is edited they go
+    // to TextInput; otherwise volume up/down (milestone 5: SoundsManager::SetVolume_Master), the
+    // menu key (and V) opens the settings and the back key (and Y) goes to the windows' Back.
+    auto keyDown = [&](int scancode) {
+        if (TextInput::enabled) {
+            if (scancode == SDL_SCANCODE_BACKSPACE) TextInput::OnBackspace();
+            else if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_KP_ENTER) TextInput::OnReturn();
+            // Characters: the original converts the keysym with a US layout (SDLKeyToNative @0x187158).
+            // PORT: they come from SDL text events instead (textInput below), so every keyboard layout
+            // and input method works, as the Android text dialog did.
+            return;
+        }
+        if (scancode == SDL_SCANCODE_VOLUMEUP || scancode == SDL_SCANCODE_VOLUMEDOWN) return;
+        if (scancode == SDL_SCANCODE_MENU || scancode == SDL_SCANCODE_V) {
+            // UNVERIFIED: BuildingHovers::IsWorldDialogVisible and PlayerTopWindow::IsPlayerDialogVisible
+            // (dialogs not ported) also block it.
+            if (GameState::SecondTutorialStep() == 0x100 && WindowManager::GetShownWindowCount() == 0 &&
+                !SettingsWindow::IsVisible())
+                SettingsWindow::Show();
+            return;
+        }
+        if (scancode == SDL_SCANCODE_AC_BACK || scancode == SDL_SCANCODE_Y) {
+            if (WindowManager::ProcessBack()) return;
+            // UNVERIFIED (PopupWindow not ported): with no death animation, camera move or GUI
+            // animation running, an open PopupWindow is hidden, otherwise the exit question pops up.
+        }
+    };
+    auto textInput = [&](const char* utf8) {
+        if (!TextInput::enabled) return;
+        const unsigned char* p = (const unsigned char*)utf8;
+        while (*p) {
+            char32_t c = *p++;
+            int extra = c >= 0xf0 ? 3 : c >= 0xe0 ? 2 : c >= 0xc0 ? 1 : 0;
+            if (extra) c &= 0x3f >> extra;
+            for (; extra > 0 && (*p & 0xc0) == 0x80; --extra) c = (c << 6) | (*p++ & 0x3f);
+            TextInput::OnCharacter(c);
+        }
+    };
     if (headless) {
         const float dt = 1.f / 30.f;
         for (int i = 0; i < 60; ++i) tick(dt);   // let the HUD slide in and count up
+        if (opt.show == "city_rename") {
+            CityRenameWindow::Show();
+            for (int i = 0; i < 30; ++i) tick(dt);
+        }
         for (const Options::Input& in : opt.inputs) {
+            if (in.type == Options::kType || in.type == Options::kKey) {
+                if (in.type == Options::kType) textInput(in.text.c_str());
+                else keyDown(in.x);
+                for (int i = 0; i < 30; ++i) tick(dt);
+                continue;
+            }
             firstMove = true;
             mouseMove(in.x, in.y);
             mouseDown(in.x, in.y, true);
@@ -266,8 +326,13 @@ int main(int argc, char** argv) {
             switch (e.type) {
                 case SDL_EVENT_QUIT: running = false; break;
                 case SDL_EVENT_KEY_DOWN:
-                    if (e.key.key == SDLK_ESCAPE) running = false;
+                    // PORT aids: Esc quits (not while typing), F12 saves a screenshot.
+                    if (e.key.key == SDLK_ESCAPE && !TextInput::enabled) running = false;
                     if (e.key.key == SDLK_F12) Render::SaveScreenshot("rtk_screenshot.png");
+                    keyDown(e.key.scancode);
+                    break;
+                case SDL_EVENT_TEXT_INPUT:
+                    textInput(e.text.text);
                     break;
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 case SDL_EVENT_MOUSE_BUTTON_UP: {

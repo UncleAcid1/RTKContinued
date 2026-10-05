@@ -627,7 +627,7 @@ bool Window::Click(int px, int py, bool pressed, bool force) {
             int fx = x + f->x, fy = y + f->y;
             bool inside = !(px < fx || py < fy || fx + f->w < px) && py <= fy + f->h;
             if (f->root == this && !inside) {
-                // FileManager::AbortTextInput(): text input is not ported yet.
+                FileManager::AbortTextInput();
                 g_inputField = nullptr;
             }
         }
@@ -663,7 +663,8 @@ bool Window::Click(int px, int py, bool pressed, bool force) {
         }
     }
     if (!parent && !onClick) {
-        if (!pressed && g_inputField && g_inputField->root == this) g_inputField = nullptr;
+        // A release on a root without onClick drops a pressed button of this layout (0x611fe4).
+        if (!pressed && g_pressed && g_pressed->root == this) g_pressed = nullptr;
         return handled;
     }
     return true;

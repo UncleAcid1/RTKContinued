@@ -26,6 +26,9 @@ bool IsTutorial();                             // UNVERIFIED stand-in: false
 int GetPlayerWorkersCount();                   // UNVERIFIED stand-in: 0
 int GetMaxWorkerCount();                       // UNVERIFIED stand-in: 0
 bool IsMalePlayer();                           // UNVERIFIED stand-in: true
+// The player's castle name; without one, StringTable "world_node_player_no_name".
+const char32_t* GetCastleName();               // @0x191d98
+void SetCastleName(const char32_t* name);      // @0x191e34
 // TutorialWindow's step (global 0x6134ac). HUD panels appear once it passes their thresholds;
 // 0x100 is the finished city tutorial. UNVERIFIED stand-in: always 0x100.
 int TutorialStep();

@@ -1,6 +1,9 @@
 #include "game/GameState.h"
 
 #include <map>
+#include <string>
+
+#include "game/StringTable.h"
 
 namespace GameState {
 namespace {
@@ -9,6 +12,7 @@ int g_cityState = 0;        // 0/1: player's city (IsPlayerCity), 2+: visiting
 int g_location = 0;
 uint32_t g_mapId = 0;
 int g_pause = 0;
+std::u32string g_castleName;
 }
 
 void Reset() {
@@ -42,6 +46,12 @@ bool IsTutorial() { return false; }
 int GetPlayerWorkersCount() { return 0; }
 int GetMaxWorkerCount() { return 0; }
 bool IsMalePlayer() { return true; }
+
+const char32_t* GetCastleName() {
+    if (!g_castleName.empty()) return g_castleName.c_str();
+    return StringTable::GetString("world_node_player_no_name");
+}
+void SetCastleName(const char32_t* name) { g_castleName = name; }
 int TutorialStep() { return 0x100; }
 int SecondTutorialStep() { return 0x81; }
 

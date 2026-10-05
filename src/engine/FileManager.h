@@ -34,4 +34,14 @@ void FreeFile(uint8_t* p);
 
 size_t EntryCount();
 
+// Text input for the edited Textfield. The callback gets the whole text after every change, with
+// final = true when editing ends.
+using TextInputCallback = void (*)(const char32_t* text, bool final);
+// @0x16cb18: on Android a Java text dialog (initial text cut to 250 characters). PORT: the Mac port
+// starts the binary's keyboard path instead: TextInput::Enable(text) plus SDL text events.
+void BeginTextInput(TextInputCallback cb, const char32_t* text);
+void EndTextInput(const char32_t* text, bool final);   // @0x16a934
+// @0x16a958: empty on Android (the Java dialog is modal). PORT: stops the keyboard path.
+void AbortTextInput();
+
 }  // namespace FileManager

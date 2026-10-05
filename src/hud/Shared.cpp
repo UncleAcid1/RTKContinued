@@ -67,4 +67,20 @@ void ButtonBuildingControls::LoadFrom(Window* r, const char* p) {
     unk28 = 0;
 }
 
+void SmallLogoWindow::LoadFrom(Window* r, const char* p) {
+    holder = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    eng = GUI::GetWindowTypedF<Window>(r, "%s.logo_small_eng", p);
+    lv = GUI::GetWindowTypedF<Window>(r, "%s.logo_small_lv", p);
+    rus = GUI::GetWindowTypedF<Window>(r, "%s.logo_small_rus", p);
+}
+
+void SmallLogoWindow::SetLanguage(unsigned langId) {
+    eng->SetVisibility(false);
+    lv->SetVisibility(false);
+    rus->SetVisibility(false);
+    if (langId == 1) rus->SetVisibility(true);
+    else if (langId != 3) eng->SetVisibility(true);
+    else lv->SetVisibility(true);
+}
+
 }  // namespace Shared

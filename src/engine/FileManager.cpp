@@ -1,5 +1,6 @@
 #include "engine/FileManager.h"
 
+#include <SDL3/SDL.h>
 #include <zlib.h>
 
 #include <algorithm>
@@ -8,6 +9,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+
+#include "engine/TextInput.h"
 
 namespace FileManager {
 namespace {
@@ -210,5 +213,26 @@ uint8_t* LoadFile(const char* name, uint32_t& size) {
 void FreeFile(uint8_t* p) { std::free(p); }
 
 size_t EntryCount() { return g_files.size(); }
+
+// ---------------------------------------------------------------------------------------------
+// Text input
+namespace {
+TextInputCallback g_textInputCallback = nullptr;   // 0x611ef8
+}  // namespace
+
+void BeginTextInput(TextInputCallback cb, const char32_t* text) {
+    TextInput::Enable(text);
+    if (SDL_Window* w = SDL_GetKeyboardFocus()) SDL_StartTextInput(w);
+    g_textInputCallback = cb;
+}
+
+void EndTextInput(const char32_t* text, bool final) {
+    if (g_textInputCallback) g_textInputCallback(text, final);
+}
+
+void AbortTextInput() {
+    TextInput::Disable();
+    if (SDL_Window* w = SDL_GetKeyboardFocus()) SDL_StopTextInput(w);
+}
 
 }  // namespace FileManager

@@ -91,6 +91,7 @@ void ProcessUpdate(float dt);                 // @0x36e2a8
 void ProcessMove(int x, int y);               // @0x36e218
 void SetMousePosition(int x, int y);          // @0x36e8a4
 int GetShownWindowCount();                    // @0x36e7b8
+WindowQueue* ProcessBack();                   // @0x36f008 (the first window, top down, whose Back() takes it)
 void WindowShow(bool quiet);                  // @0x36ec60
 void WindowHide(bool quiet);                  // @0x36ebec
 float GetTopWindowRange();                    // @0x36e8f4

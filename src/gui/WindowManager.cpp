@@ -118,6 +118,20 @@ bool FunctionalWindow::OnOuterClick(int x, int y) {
     return false;
 }
 
+// @0x36f008. UNVERIFIED (milestone 3): Map::GetCurrentFarm is null until farms are ported, so the
+// farm condition always passes.
+WindowQueue* ProcessBack() {
+    std::puts("checking processback");
+    if (GUI::IsAnyAnimationActive()) return nullptr;
+    for (WindowQueue* w = g_head; w; w = w->next) {
+        if (w->Back()) {
+            std::printf("back caught by %s\n", w->name.c_str());
+            return w;
+        }
+    }
+    return nullptr;
+}
+
 void InitWindows() {   // @0x36f408 (the progress bar it updates every 8 windows is not ported)
     g_initialising = true;
     for (WindowQueue* w = g_head; w; w = w->next) w->Init();

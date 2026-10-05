@@ -50,4 +50,14 @@ struct ButtonBuildingControls {
     void LoadFrom(GUI::Window* root, const char* prefix);
 };
 
+// Shared::SmallLogoWindow (0x10 bytes): the small game logo in a dialog, one image per language.
+struct SmallLogoWindow {
+    GUI::Window* holder = nullptr;   // +0x00 "%s"
+    GUI::Window* eng = nullptr;      // +0x04 logo_small_eng
+    GUI::Window* lv = nullptr;       // +0x08 logo_small_lv
+    GUI::Window* rus = nullptr;      // +0x0c logo_small_rus
+    void LoadFrom(GUI::Window* root, const char* prefix);   // @0x3426f4
+    void SetLanguage(unsigned langId);                      // @0x340288: 1 Russian, 3 Latvian, else English
+};
+
 }  // namespace Shared
