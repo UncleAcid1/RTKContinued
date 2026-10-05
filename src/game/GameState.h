@@ -10,10 +10,20 @@ enum ResourceType {   // GameState::GetResourceName table @0x601568
     kGold = 8, kCrystal = 9, kExpAfter = 10, kLevel = 0xbb
 };
 
+extern bool updated;             // a change waiting to be saved
+extern int resourceAmountMax;    // storage limit
+extern int maxLevel;
+extern int totalGoldSpent, totalGoldEarned, totalCrystalsSpent, totalXPEarned;
+
 void Reset();
 uint32_t GetResourceAmount(int type);          // @0x196e08
 void SetResourceAmountValidated(int type, uint32_t v);   // @0x196ed0
+uint32_t GetResourceAmountValidated(int type);   // @0x196c78 (same as GetResourceAmount)
 int GetLevel();                                // @0x196e00 (resource 0xbb)
+bool CheckStorageFull(int type);               // @0x196dd8
+// @0x197018: add (or spend, negative) a resource; XP raises the level. Crystals only go down here.
+void ChangeResourceAmount(int type, int amount);
+void AddCrystals(int amount);                  // @0x196f68
 const char* GetResourceName(int type);         // @0x190ce4
 
 bool IsPlayerCity();                           // @0x1905b8: city state 0 or 1

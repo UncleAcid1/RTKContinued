@@ -5,7 +5,8 @@ usage: tools/fn.sh 'GameState::Reset$' | tools/picsym.py
 
 Ghidra folds `ldr rN,[lit]; add rN,pc,rN` into `DAT_<lit> + 0x<pc+8>`; the global is then at
 u32(lit) + pc+8. Each such expression is replaced by `[name]` (exported symbol, +offset if inside
-one) or `[g_<addr>]`. If the address is a GOT slot, the slot's target is named instead: `[GOT:name]`.
+one) or `[g_<addr>]`. If the address is a GOT slot, the slot's target is named instead: `[GOT:name]`;
+`v + DAT_<lit>` with v = GOTBASE (the .got start) becomes `&[name]` (the slot GOTBASE + u32(lit)).
 Addresses are Ghidra addresses (file vaddr + 0x10000), as everywhere in the port's comments.
 """
 import bisect, os, re, subprocess, sys
@@ -44,6 +45,7 @@ def name(a):
     return f"g_{a:x}"
 
 def resolve(a):
+    if a == GOT[0]: return "GOTBASE"
     if GOT[0] <= a < GOT[1]:
         t = u32(a)
         return f"[GOT:{name(t + 0x10000 if t else 0)}]"
@@ -69,6 +71,14 @@ def sub_amp(m):
 src = sys.stdin.read()
 src = re.sub(r"\(int\)&DAT_([0-9a-f]{8}) \+ DAT_([0-9a-f]{8})", sub_amp, src)
 src = re.sub(r"DAT_([0-9a-f]{8}) \+ 0x([0-9a-f]+)", sub_pair, src)
+# `v = GOTBASE; ... *(T **)(v + DAT_<lit>)`: the GOT slot at GOTBASE + u32(lit) points at a global.
+def sub_slot(m):
+    try:
+        t = u32(GOT[0] + u32(int(m.group(1), 16)))
+        return f"&[{name(t + 0x10000)}]"
+    except Exception: return m.group(0)
+for v in set(re.findall(r"(\w+) = GOTBASE;", src)):
+    src = re.sub(rf"\b{v} \+ DAT_([0-9a-f]{{8}})", sub_slot, src)
 # Collapse STLport container template spellings.
 prev = None
 while prev != src:
