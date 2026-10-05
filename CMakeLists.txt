@@ -35,6 +35,12 @@ add_executable(rtk
   src/game/StringTable.cpp
   src/game/Building.cpp
   src/game/Contracts.cpp
+  src/game/EntityData.cpp
+  src/game/Animation.cpp
+  src/game/AI.cpp
+  src/game/AIState.cpp
+  src/game/Entity.cpp
+  src/game/EntityManager.cpp
   src/game/GameState.cpp
   src/game/MetaData.cpp
   src/game/Setting.cpp

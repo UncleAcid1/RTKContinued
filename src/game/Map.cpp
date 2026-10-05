@@ -8,6 +8,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
+#include "game/AI.h"
 #include "game/Background.h"
 #include "game/GameData.h"
 #include "game/Setting.h"
@@ -30,6 +31,9 @@ std::vector<Cell> g_grid;
 std::vector<std::unique_ptr<Patch>> g_patches;
 std::vector<Render::Sprite*> g_borderSprites;  // dark grass, posts, signs
 uint32_t g_currentTime = 0;                     // 0x6118c4
+bool g_loaded = false;                          // 0x613798 (set at the end of Map::Load)
+int g_owned[4] = {};                            // 0x613660 owned extent: min x, min y, max x, max y
+std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 
 Cell* At(int x, int y) {
     if ((unsigned)x >= (unsigned)g_gridW || (unsigned)y >= (unsigned)g_gridH) return nullptr;
@@ -280,6 +284,31 @@ void AddRandomDecors(Patch* p, long seed) {
 
 // ------------------------------------------------------------------------------ area borders
 // @0x1bcda8 Map::UpdateAreaBorders (dark grass patches, flag posts, for-sale signs)
+// @0x1b68f4
+void UpdateOwnedAreaBorders() {
+    int minX = 10000, minY = 10000, maxX = -10000, maxY = -10000;
+    g_owned[0] = g_owned[1] = 10000;
+    g_owned[2] = g_owned[3] = -10000;
+    if (!g_patches.empty()) {
+        for (auto& p : g_patches) {
+            if (!p->owned) continue;
+            if (p->x < minX) minX = p->x;
+            if (p->y <= minY) minY = p->y;
+            if (maxX < p->x + p->w) maxX = p->x + p->w;
+            if (maxY < p->y + p->h) maxY = p->y + p->h;
+        }
+        g_owned[0] = minX;
+        g_owned[1] = minY;
+        g_owned[2] = maxX;
+        g_owned[3] = maxY;
+        if (minX != 10000 && minY != 10000 && maxX != -10000 && maxY != -10000) return;
+    }
+    g_owned[0] = 0;
+    g_owned[1] = 0;
+    g_owned[2] = GetGridWidth() - 1;
+    g_owned[3] = GetGridHeight();
+}
+
 void UpdateAreaBorders(long seed) {
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
     g_borderSprites.clear();
@@ -341,8 +370,7 @@ void UpdateAreaBorders(long seed) {
             }
         }
     }
-    // UNVERIFIED: UpdateOwnedAreaBorders @0x1b68f4 (the owned extent, read by code not ported yet)
-    // runs here.
+    UpdateOwnedAreaBorders();
     int minX, minY, maxX, maxY;
     GetAreaBorders(minX, minY, maxX, maxY);
     if (GameState::GetCurrentMapID() == 0xd) minX -= 1;
@@ -363,7 +391,7 @@ void TileCoordinatesToLinear(int& x, int& y) {
     y = d >> 1;
 }
 
-// @0x11e4a4 (UNVERIFIED (3c): also sets each tile's AI waypoint +0x44)
+// @0x11e4a4
 void Building::LinkBaseToBuilding() {
     if (!data) return;
     ForEachFootprintTile(x, y, data->w, data->h, [&](int tx, int ty) {
@@ -372,7 +400,73 @@ void Building::LinkBaseToBuilding() {
         if (GameState::GetCurrentMapID() == 0) RemoveDecorationAt(tx, ty);
         else c->decor = nullptr;
         c->building = this;
+        if (AI::Waypoint* wp = AI::GetWaypoint(tx, ty, false)) wp->weight = 1000.f;
     });
+}
+
+Building* GetBuilding(int x, int y) {
+    Cell* c = At(x, y);
+    return c ? c->building : nullptr;
+}
+
+Decor* GetDecoration(int x, int y) {
+    Cell* c = At(x, y);
+    return c ? c->decor : nullptr;
+}
+
+// UNVERIFIED: both read the farm's own grid (0x613794) while the current location is the farm;
+// the farm is not ported yet.
+bool GetBlock(int x, int y) {
+    Cell* c = At(x, y);
+    return c && c->block;
+}
+
+void SetBlock(int x, int y, bool block) {
+    if (g_loaded && block) {
+        bool found = false;
+        for (auto& t : g_blockedTiles) found = found || (t.first == (uint8_t)x && t.second == (uint8_t)y);
+        if (!found) g_blockedTiles.emplace_back((uint8_t)x, (uint8_t)y);
+    }
+    if (Cell* c = At(x, y)) c->block = block;
+}
+
+Building* GetIdleWorkplace() {
+    for (auto& p : g_patches) {
+        for (auto& bp : p->buildings) {
+            Building* b = bp.get();
+            if (!b->patch->owned) continue;
+            if (b->WorkerAssigned(0) || b->BuilderAssigned()) continue;
+            if (b->data->buildingClass == 4 && b->resourceLeft != 0 && b->resourceState == 1) return b;
+            if ((b->needsBuilder != 0 || b->upgrading != 0) && !b->BuilderAssigned() && !b->BuilderIsWorking())
+                return b;
+        }
+    }
+    return nullptr;
+}
+
+void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY) {
+    minX = g_owned[0];
+    minY = g_owned[1];
+    maxX = g_owned[2];
+    maxY = g_owned[3];
+}
+
+void WorldCoordinatesToScreen(int& x, int& y) {
+    float sx = 2.f / Render::zoom;
+    float sy = sx / Render::aspect;
+    x = (int)((((float)x + Render::offsetX + sx * 0.5f) / sx) * (float)Render::ScreenWidth());
+    y = (int)(((((float)y - Render::offsetY) + sy * 0.5f) / sy) * (float)Render::ScreenHeight());
+}
+
+// @0x1bb868
+void CreateRoadAI() {
+    if (GameState::GetCurrentMapID() == 0) {
+        for (int x = 0; x < GetGridWidth(); ++x)
+            for (int y = 0; y < GetGridHeight(); ++y) AI::CreateMapWaypoint(x, y);
+    }
+    // UNVERIFIED (milestone 4): other maps create waypoints from the first patch's walkable tile
+    // list (+0xcc, 0xc bytes each, skipped when +8 is set).
+    AI::LinkAdjacentWaypoints();
 }
 
 void Update(double dt) {
@@ -420,6 +514,7 @@ float GetSpriteZ(float a, float b, int c) {
 }
 
 void Free() {
+    AI::FreeWaypoints();
     for (auto& p : g_patches) {
         for (auto& d : p->decors) if (d->sprite) Render::RemoveSprite(d->sprite);
     }
@@ -431,6 +526,8 @@ void Free() {
 
 bool Load(uint32_t mapId, long playerSeed) {
     Free();
+    g_loaded = false;
+    g_blockedTiles.clear();
     char name[64];
     std::snprintf(name, sizeof name, "maps/map_%u.bin", mapId);
     uint32_t n = 0;
@@ -504,6 +601,12 @@ bool Load(uint32_t mapId, long playerSeed) {
     UpdateAreaBorders(playerSeed);
     std::printf("Map %u: %dx%d tileset %d, %zu patches, %zu sprites\n", g_mapId, g_gridW, g_gridH, g_tileset,
                 g_patches.size(), Render::SpriteCount());
+    CreateRoadAI();
+    // UNVERIFIED (milestone 3, later steps): offline contracts, offline goblins, AssignEntities,
+    // portals, spawns, the player's OnSetup and the static meta expressions run here.
+    g_loaded = true;
+    // (Map::ExecuteStaticMeta runs with AI::allowWaypointLink off; then every link is redone)
+    AI::LinkAdjacentWaypoints();
     return true;
 }
 

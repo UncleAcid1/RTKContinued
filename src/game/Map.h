@@ -48,6 +48,17 @@ int GetGridHeight();
 uint32_t GetMapID();
 int GetTileset();
 
+Building* GetBuilding(int x, int y);                   // @0x1b63f0
+Decor* GetDecoration(int x, int y);                    // @0x1b6434
+bool GetBlock(int x, int y);                           // @0x1b8fd8
+void SetBlock(int x, int y, bool block);               // @0x1b9078
+void CreateRoadAI();                                   // @0x1bb868 the waypoint graph (AI.h)
+// @0x1baba8: an owned building without worker and builder that needs one: a ready tree/rock with
+// resources left, or one waiting for construction or an upgrade.
+Building* GetIdleWorkplace();
+void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b5fcc
+void WorldCoordinatesToScreen(int& x, int& y);         // @0x1b60fc
+
 void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
 void TileCoordinatesToLinear(int& x, int& y);          // @0x1b62f4
 // @0x1c4dd8, the part ported so far: every building's and decoration's Update.

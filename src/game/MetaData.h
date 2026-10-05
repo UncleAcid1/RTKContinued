@@ -34,3 +34,4 @@ public:
 };
 
 MetaData* ParseCustomStyleData(const char*& p, const char* delims, const char* wrap);
+MetaData* ParseInteger(const char*& p);   // @0x1d2564 nullptr if p holds no integer

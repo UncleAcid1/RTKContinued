@@ -15,6 +15,8 @@ std::string GetDecoratedImageName(const char* pack, const char* name);
 // Packs A2Static then A3MergedAnims; one-file animations resolve to "<name>_anim" in A3MergedAnims
 // with Texture::frames set from the registry. Returns nullptr if not found.
 Render::Texture* GetImage(const char* name);
+// @0x205b58: the frame count of a registered one-file animation, else 1.
+int GetFrameCount(const char* name);
 // "images/Decor/%s", "images/Buildings/%s", "images/%s", then the name itself.
 Render::Texture* GetDecoration(const char* name);
 // A plain resource path (e.g. "images/grass_01.png"), no pack decoration.

@@ -99,6 +99,11 @@ Render::Texture* GetImage(const char* name) {
     return t;
 }
 
+int GetFrameCount(const char* name) {
+    auto a = g_anims.find(Lower(name));
+    return a != g_anims.end() ? a->second : 1;
+}
+
 Render::Texture* GetDecoration(const char* name) {
     static const char* fmts[] = {"images/Decor/%s", "images/Buildings/%s", "images/%s"};
     char buf[1024];

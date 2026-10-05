@@ -6,7 +6,9 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
+#include "game/AIState.h"
 #include "game/Contracts.h"
+#include "game/Entity.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
@@ -249,9 +251,12 @@ void Building::SetUniqueID(uint32_t uid) {
     if (g_latestUniqueId < uid) g_latestUniqueId = uid;
 }
 
-// Worker/builder entities: milestone 3c. Their AI's "is working" (vtable +0x114) decides.
-bool Building::BuilderIsWorking() const { return false; }      // UNVERIFIED (3c): builder AI
-bool Building::WorkerIsWorking(int i) const { (void)i; return false; }   // UNVERIFIED (3c): worker AI
+bool Building::BuilderIsWorking() const { return builder && builder->GetAI()->IsWorking(); }
+
+bool Building::WorkerIsWorking(int i) const {
+    Entity* e = workers[(size_t)i];
+    return e && e->GetAI()->IsWorking();
+}
 
 bool Building::WorkerAssigned(int i) const {
     if (workers.empty()) return false;
@@ -259,10 +264,111 @@ bool Building::WorkerAssigned(int i) const {
 }
 
 void Building::RemoveWorker(Entity* e) {
-    // UNVERIFIED (3c): each removed entity's AI is told (vtable +0x10c) and its workplace cleared.
-    for (auto& w : workers)
-        if (w == e) w = nullptr;
-    if (builder && builder == e) builder = nullptr;
+    for (auto& w : workers) {
+        if (w == e) {
+            e->GetAI()->RemoveFromJob();
+            w->SetWorkplace(nullptr);
+            w = nullptr;
+        }
+    }
+    if (!builder || e != builder) return;
+    e->GetAI()->RemoveFromJob();
+    builder->SetWorkplace(nullptr);
+    builder = nullptr;
+}
+
+void Building::AssignWorker(Entity* e, int slot) {
+    if (!IsOpened()) {
+        builder = e;
+    } else {
+        if ((int)workers.size() <= slot) return;
+        workers[(size_t)slot] = e;
+    }
+    e->SetWorkplace(this);
+    e->GetAI()->AssignToJob(this);
+    if (Building* home = e->GetHome()) home->WorkerLeftToWork();
+}
+
+void Building::AssignLiver(Entity* e) {
+    e->temporary = false;
+    livers.push_back(e);
+}
+
+void Building::WorkerLeftToWork() {
+    if (liverAway) {
+        for (Entity* e : livers) {
+            if (!e->IsActive()) {
+                e->Appear(true, true);
+                e->SetActive(true, true);
+                return;
+            }
+        }
+    }
+    liverAway = false;
+}
+
+void Building::WorkStarted() {
+    if (data->buildingClass != 4) {
+        if (data->buildingClass != 0xd) stateTime = Timer::GetGlobalTime();
+        return;
+    }
+    if (data->id == 0x11 || data->id == 0x95) {
+        level = 5;
+        anim.paused = false;
+    } else {
+        level = 4;
+    }
+    if (!workers[0]->GetOfflineMode()) lastGather = Timer::GetGlobalTime();
+    else lastGather = (uint32_t)(int64_t)((double)Timer::GetGlobalTime() - gatherAcc);
+    UpdateImage();
+}
+
+void Building::WorkEnded() {
+    // UNVERIFIED (milestone 3e): BuildingHovers::Update(0, true).
+    if (data->buildingClass == 4) {
+        if (data->id == 0x11 || data->id == 0x95) anim.paused = true;
+    }
+    // UNVERIFIED (farm): class 0xd on the current farm moves the patch worker on to its next step
+    // (planting, harvest drops, cleaning); the farm is not ported yet.
+}
+
+void Building::GetSpawnTile(int& tx, int& ty) const {
+    tx = x + ((y & 1) ? 1 : 0);
+    ty = y + 1;
+}
+
+void Building::GetWorkTile(int& tx, int& ty) const {
+    tx = x + ((y & 1) ? 1 : 0);
+    ty = y + 1;
+}
+
+void Building::GetBuildTile(int& tx, int& ty) const {
+    tx = x;
+    ty = y;
+    int n = mirrored ? data->h : data->w;
+    for (int i = 0; i <= n / 2; ++i) {
+        if ((ty & 1) == 0) tx -= 1;
+        ty += 1;
+    }
+}
+
+void Building::GetBuildingSpot(float& wx, float& wy) const {
+    int tx, ty;
+    GetBuildTile(tx, ty);
+    wy = (float)ty * 42.f * 0.5f;
+    wx = ((ty % 2 == 1) ? 42.f : 0.f) + (float)tx * 84.f + 42.f;
+}
+
+void Building::GetParkingSpot(unsigned i, float& wx, float& wy) const {
+    if (i > data->parkingCount) return;
+    float bx = ((y & 1) ? 42.f : 0.f) + (float)x * 84.f + 42.f;
+    float by = (float)y * 42.f * 0.5f;
+    // (the original indexes the point list with i itself, so spot 1 is the second point)
+    const auto& p = i < 10 ? data->parking[i] : data->particles[i - 10];
+    if (!IsMirrored()) wx = p.x + bx;
+    else if ((unsigned)data->w < 4) wx = (bx - 84.f) - p.x;
+    else wx = (bx - 168.f) - p.x;
+    wy = p.y + by;
 }
 
 int Building::GetContractTime(int p) const {

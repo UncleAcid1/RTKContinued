@@ -8,6 +8,9 @@
 //                                    (headless input, applied in order: left-button input in
 //                                    pixels, typed UTF-8 text, a key press by SDL scancode)
 //            [--show city_rename]            (PORT test aid: open a window not reachable yet)
+//            [--spawn ID X Y]... [--walk X Y] [--frames N]
+//                                    (PORT test aid: spawn entities at tiles after the map loads;
+//                                    the last one walks to a tile; N more frames before the shot)
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
@@ -24,6 +27,12 @@
 #include "engine/TextInput.h"
 #include "game/StringTable.h"
 #include "game/Contracts.h"
+#include "engine/Timer.h"
+#include "game/Entity.h"
+#include "game/EntityData.h"
+#include "game/AIState.h"
+#include "game/EntityData.h"
+#include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Setting.h"
 #include "gui/GUI.h"
@@ -47,6 +56,10 @@ struct Options {
     struct Input { InputType type; int x, y, x2, y2; std::string text; };
     std::vector<Input> inputs;   // headless input, applied before the screenshot
     std::string show;            // a window to open after the HUD (test aid)
+    struct Spawn { int id, x, y; };
+    std::vector<Spawn> spawns;   // PORT test aid: entities to spawn (no saves/new game yet)
+    int walkX = -1, walkY = -1;  // PORT test aid: the last spawned entity walks here
+    int frames = 0;              // extra headless frames before the screenshot
 };
 
 Options Parse(int argc, char** argv) {
@@ -70,6 +83,18 @@ Options Parse(int argc, char** argv) {
             o.inputs.push_back(in);
         }
         else if (a == "--show") o.show = next();
+        else if (a == "--spawn") {
+            Options::Spawn sp;
+            sp.id = std::atoi(next());
+            sp.x = std::atoi(next());
+            sp.y = std::atoi(next());
+            o.spawns.push_back(sp);
+        }
+        else if (a == "--walk") {
+            o.walkX = std::atoi(next());
+            o.walkY = std::atoi(next());
+        }
+        else if (a == "--frames") o.frames = std::atoi(next());
         else if (a == "--type") {
             o.inputs.push_back({Options::kType, 0, 0, 0, 0, next()});
         }
@@ -165,6 +190,10 @@ int main(int argc, char** argv) {
     GameState::SetSetting("cinematic_camera", 1.f);
     GameState::SetSetting("bot_use_cb", 1.f);
     // The data files, in LoadSystemConfiguration order (the ones not ported yet are skipped).
+    // UNVERIFIED: Map::LoadPersonList (persons.xml into the map's own 0x58-byte person list) runs
+    // first on the original; nothing ported reads that list yet.
+    EntityFactory::Init();
+    EntityFactory::LoadData("../resource/res_files/1Original/persons.xml");
     Contracts::Init("../resource/res_files/1Original/deliveries.xml");
     if (!GameData::Load()) return 1;
     GUI::Init("fonts/ARICYRB.ttf", false);
@@ -190,6 +219,12 @@ int main(int argc, char** argv) {
     HUDWindow::Show();
     Render::SortRenderLayer(Render::kLayerGUI, 1);
 
+    // PORT test aid: without saves (3d) or the new-game flow (milestone 4) the city has no entities.
+    Entity* lastSpawned = nullptr;
+    for (const Options::Spawn& sp : opt.spawns)
+        lastSpawned = EntityManager::SpawnEntityAt(sp.id, (unsigned)sp.x, (unsigned)sp.y, false, false);
+    if (lastSpawned && opt.walkX >= 0) lastSpawned->GetAI()->WalkTo(opt.walkX, opt.walkY);
+
     MapMovement::Init();
     Render::zoom = Render::GetDefaultZoom();
     // UNVERIFIED stand-in: Map::Load centres the view on the player entity (milestone 4).
@@ -198,15 +233,19 @@ int main(int argc, char** argv) {
 
     // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
     // WindowManager::Update (delayed callbacks, none yet), the window queue, HUDWindow::Update,
-    // GUI animations, the movement controllers, Map::Update when the game is not paused (after the
-    // entities, not ported yet), then Render::Update's camera step (the camera tween, not ported, and
-    // ApplyViewportLimit); its drawing is Render::Frame.
+    // GUI animations, the movement controllers, then when the game is not paused the entities
+    // (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's camera
+    // step (the camera tween, not ported, and ApplyViewportLimit); its drawing is Render::Frame.
     auto tick = [](float dt) {
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
         GUI::UpdateAnimation(dt);
         MapMovement::Update(dt);
-        if (!GameState::IsPaused()) Map::Update(dt);
+        if (!GameState::IsPaused()) {
+            Entity::SetCurrentTime((uint32_t)Timer::GetGlobalTime());
+            EntityManager::Update(dt);
+            Map::Update(dt);
+        }
         Render::ApplyViewportLimit();
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
@@ -350,6 +389,7 @@ int main(int argc, char** argv) {
             mouseUp(ex, ey, true);
             for (int i = 0; i < 30; ++i) tick(dt);
         }
+        for (int i = 0; i < opt.frames; ++i) tick(dt);
         Render::SortRenderLayer(Render::kLayerGUI, 1);
         Render::Frame();
         glFinish();

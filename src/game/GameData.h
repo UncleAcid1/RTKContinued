@@ -18,6 +18,7 @@ struct DecorData {               // DecorData
     int w = 0, h = 0;            // +0x08 "lockzoneX", +0x0c "lockzoneY"
     int ox = 0, oy = 0;          // +0x10 "x", +0x14 "y"
     int layer = 0;               // +0x20 "layer"
+    bool isRoad = false;         // +0x6e "isroad" (waypoint weight 0.1)
     std::string img;             // +0x50 "img"
     Render::Texture* image = nullptr;  // +0x4c (DecorData::LoadImage)
     bool imageLoaded = false;

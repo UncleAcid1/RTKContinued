@@ -44,6 +44,7 @@ void LoadDecorations() {
         d.ox = n.attribute("x").as_int();
         d.oy = n.attribute("y").as_int();
         d.layer = n.attribute("layer").as_int();
+        d.isRoad = n.attribute("isroad").as_bool();
         g_decors[d.id] = d;
     }
 }

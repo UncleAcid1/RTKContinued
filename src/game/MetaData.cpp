@@ -18,7 +18,28 @@ const MetaData g_empty;          // 0x613950
 bool IsSpace(unsigned char c) { return c < 0x80 && std::isspace(c); }
 bool IsAlnum(unsigned char c) { return c < 0x80 && std::isalnum(c); }
 
-// @0x1d2564. (A '-' not followed by a digit is consumed anyway.)
+// @0x1d2414
+MetaData* ParseString(const char*& p) {
+    while (*p && IsSpace((unsigned char)*p)) ++p;
+    if (!IsAlnum((unsigned char)*p) && *p != '_') return nullptr;
+    MetaData* m = new MetaData(MetaData::kString);
+    const char* start = p;
+    while (*p && (IsAlnum((unsigned char)*p) || *p == '_')) ++p;
+    m->string = new char[p - start + 1];
+    std::memcpy(m->string, start, p - start);
+    m->string[p - start] = 0;
+    return m;
+}
+
+// @0x1d2710
+MetaData* ParseTerminal(const char*& p) {
+    if (MetaData* m = ParseInteger(p)) return m;
+    return ParseString(p);
+}
+
+}  // namespace
+
+// (A '-' not followed by a digit is consumed anyway.)
 MetaData* ParseInteger(const char*& p) {
     if (!*p) return nullptr;
     while (IsSpace((unsigned char)*p)) {
@@ -43,27 +64,6 @@ MetaData* ParseInteger(const char*& p) {
     while ((unsigned)(*p - '0') < 10) ++p;
     return m;
 }
-
-// @0x1d2414
-MetaData* ParseString(const char*& p) {
-    while (*p && IsSpace((unsigned char)*p)) ++p;
-    if (!IsAlnum((unsigned char)*p) && *p != '_') return nullptr;
-    MetaData* m = new MetaData(MetaData::kString);
-    const char* start = p;
-    while (*p && (IsAlnum((unsigned char)*p) || *p == '_')) ++p;
-    m->string = new char[p - start + 1];
-    std::memcpy(m->string, start, p - start);
-    m->string[p - start] = 0;
-    return m;
-}
-
-// @0x1d2710
-MetaData* ParseTerminal(const char*& p) {
-    if (MetaData* m = ParseInteger(p)) return m;
-    return ParseString(p);
-}
-
-}  // namespace
 
 MetaData::~MetaData() {
     for (MetaData* c = first; c;) {

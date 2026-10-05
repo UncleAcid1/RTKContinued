@@ -427,6 +427,35 @@ void SetTexture(Sprite* s, Texture* t) {
     s->frame1 = 0;
 }
 
+void SetFrameMirror(Sprite* s, bool mirror) {
+    if (!s || s->mirrorFrames == mirror) return;
+    s->mirrorFrames = mirror;
+    s->u0 = mirror ? 1.f : 0.f;
+    s->u1 = mirror ? 0.f : 1.f;
+}
+
+int GetFrameWidth(const Texture* t) { return t->w; }
+
+int GetFrameHeight(const Texture* t) { return t->frames != 0 ? t->h / t->frames : t->h; }
+
+// The sprite's slot in the old layer gets that layer's last sprite. (The port finds the slot by
+// search: sprite indices are not kept up to date.)
+void ChangeLayer(Sprite* s, int layer) {
+    if (!s || s->layer == layer || layer < 0 || layer >= kLayerCount) return;
+    auto& from = g_layers[s->layer].sprites;
+    for (size_t i = 0; i < from.size(); ++i) {
+        if (from[i] != s) continue;
+        g_layers[s->layer].sortPending = true;
+        from[i] = from.back();
+        from.pop_back();
+        s->layer = layer;
+        s->index = (int)g_layers[layer].sprites.size();
+        g_layers[layer].sprites.push_back(s);
+        g_layers[layer].sortPending = true;
+        return;
+    }
+}
+
 Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, const std::string& name) {
     auto t = std::make_unique<Texture>();
     t->w = w;

@@ -85,6 +85,7 @@ struct Building {
     std::string resourceText;    // +0x118 "TYPE=n|..." (handed to decorations)
     uint32_t uniqueId = 0;       // +0x120
     std::vector<Entity*> workers;  // +0x124 one slot per parking point
+    std::vector<Entity*> livers; // +0x130 entities living here (AssignLiver)
     Entity* builder = nullptr;   // +0x13c
     int patchContract[6] = {};   // +0x150 farm patch contracts, 1-based (0 empty)
     Entity* farmEntity = nullptr;  // +0x15c
@@ -94,6 +95,7 @@ struct Building {
     Render::Sprite* ring = nullptr;  // +0x174 ring under trees/rocks
     BuildingAnim anim;           // +0x178
     bool firstUpdate = true;     // +0x17c
+    bool liverAway = false;      // +0x199 a liver left for work (WorkerLeftToWork brings one back)
     int hp = 0, maxHp = 0;       // +0x1a8, +0x1ac (BuildingData hp)
     Entity* target = nullptr;    // +0x1b4
     int busy = 0;                // +0x1b8
@@ -103,6 +105,7 @@ struct Building {
     void UpdateImage();          // +0x0c @0x129bf8
     void GetStartTile(int& tx, int& ty) const;   // +0x18 MapObject @0x1c7658
     void GetBuildZone(int& w, int& h) const;     // +0x1c MapObject @0x1c76e4
+    bool IsMirrored() const { return mirrored; } // +0x24 MapObject @0x1c771c
     void Update(double dt);      // +0x44 @0x1267b0
 
     void LinkBaseToBuilding();   // @0x11e4a4
@@ -112,6 +115,16 @@ struct Building {
     void SetUniqueID(uint32_t uid);              // @0x11c9d4
     bool BuilderAssigned() const { return builder != nullptr; }   // @0x11c8f0
     bool BuilderIsWorking() const;               // @0x11d394
+    void AssignWorker(Entity* e, int slot);      // @0x126054 (the builder while not opened)
+    void AssignLiver(Entity* e);                 // @0x124d18
+    void WorkerLeftToWork();                     // @0x11e3d4
+    void WorkStarted();                          // @0x11e324
+    void WorkEnded();                            // @0x11de78
+    void GetSpawnTile(int& tx, int& ty) const;   // @0x11c538
+    void GetWorkTile(int& tx, int& ty) const;    // @0x11c568
+    void GetBuildTile(int& tx, int& ty) const;   // @0x11c598
+    void GetBuildingSpot(float& wx, float& wy) const;   // @0x11c75c
+    void GetParkingSpot(unsigned i, float& wx, float& wy) const;   // @0x11c7e4 (1-based)
     bool WorkerAssigned(int i) const;            // @0x123e48
     bool WorkerIsWorking(int i) const;           // @0x11d36c
     void RemoveWorker(Entity* e);                // @0x11d8a0

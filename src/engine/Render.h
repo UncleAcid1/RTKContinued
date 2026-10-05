@@ -66,6 +66,11 @@ void SetColor(Sprite* s, float r, float g, float b);  // @0x1fde78
 void SetAlpha(Sprite* s, float a);          // @0x1fde3c (all four corners)
 void SetMirror(Sprite* s, bool mirror, bool flip);    // @0x1fdfc8
 void SetTexture(Sprite* s, Texture* t);     // @0x1fe8cc
+// @0x1fddac (no atlas): u = 0..1, swapped when mirrored; does nothing if already in that state.
+void SetFrameMirror(Sprite* s, bool mirror);
+int GetFrameWidth(const Texture* t);        // @0x201464
+int GetFrameHeight(const Texture* t);       // @0x20146c h / frames for a one-file sheet
+void ChangeLayer(Sprite* s, int layer);     // @0x1fc55c
 // Texture from raw RGBA bytes (text). nearest: GL_NEAREST filters (text textures unless ForceLinear).
 Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, const std::string& name);
 void RemoveTexture(Texture* t);
