@@ -2,6 +2,7 @@
 #pragma once
 
 namespace GUI { class Window; class Textfield; }
+namespace Render { struct Texture; }
 
 namespace Shared {
 
@@ -48,6 +49,24 @@ struct ButtonBuildingControls {
     int unk24 = 0;                       // +0x24
     int unk28 = 0;                       // +0x28 set to 0 by LoadFrom
     void LoadFrom(GUI::Window* root, const char* prefix);
+};
+
+// Shared::ButtonTripleInfo (0x28 bytes): a dialog button with blue, green and gold backgrounds
+// (button_active_large / button_active_green / button_gold) and an inactive state. LoadFrom @0x343d7c.
+struct ButtonTripleInfo {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* blue = nullptr;         // +0x04 button_active_large
+    GUI::Window* green = nullptr;        // +0x08 button_active_green
+    GUI::Window* gold = nullptr;         // +0x0c button_gold
+    GUI::Window* inactive = nullptr;     // +0x10 button_inactive (hidden by LoadFrom)
+    GUI::Textfield* text = nullptr;      // +0x14
+    GUI::Window* icon = nullptr;         // +0x18 icon_build (takes a depth slot)
+    GUI::Textfield* textGold = nullptr;  // +0x1c
+    GUI::Textfield* textPrice = nullptr; // +0x20
+    GUI::Window* crystal = nullptr;      // +0x24 icon_35_crystal
+    void LoadFrom(GUI::Window* root, const char* prefix);
+    void ShowBlue(const char32_t* text, Render::Texture* icon);    // @0x3403f8
+    void ShowGreen(const char32_t* text, Render::Texture* icon);   // @0x340524
 };
 
 // Shared::SmallLogoWindow (0x10 bytes): the small game logo in a dialog, one image per language.

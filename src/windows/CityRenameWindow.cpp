@@ -75,12 +75,14 @@ void OnEdit() {
     g_cancelIcon->SetVisibility(empty);
 }
 
-// @0x299338. UNVERIFIED (PopupWindow not ported): an empty name shows the "ERROR_CITY_NAME" popup.
+// @0x299338: an empty name is refused with a popup.
 void OnOk() {
     if (HasText()) {
         GameState::SetCastleName(g_input->GetText());
         Hide();
+        return;
     }
+    PopupWindow::Show(StringTable::GetString("ERROR_CITY_NAME"), PopupWindow::Hide, PopupWindow::Hide, nullptr);
 }
 
 // @0x2993ec

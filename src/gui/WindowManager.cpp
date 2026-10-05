@@ -132,6 +132,8 @@ WindowQueue* ProcessBack() {
     return nullptr;
 }
 
+WindowQueue* Head() { return g_head; }
+
 void InitWindows() {   // @0x36f408 (the progress bar it updates every 8 windows is not ported)
     g_initialising = true;
     for (WindowQueue* w = g_head; w; w = w->next) w->Init();

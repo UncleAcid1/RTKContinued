@@ -85,6 +85,7 @@ public:
 };
 extern DesktopWindow* g_desktopWindow;   // 0x612380
 
+WindowQueue* Head();                          // the top of the queue (0x630b1c)
 void InitWindows();                           // @0x36f408: Init() of every queued window, in order
 WindowQueue* ProcessClick(int x, int y, bool pressed);   // @0x36ed98 (top first)
 void ProcessUpdate(float dt);                 // @0x36e2a8

@@ -29,6 +29,7 @@ add_executable(rtk
   src/game/SaveManager.cpp
   src/game/GameData.cpp
   src/game/Map.cpp
+  src/game/Game.cpp
   src/game/MapMovement.cpp
   src/game/Background.cpp
   src/game/StringTable.cpp
@@ -43,6 +44,7 @@ add_executable(rtk
   src/hud/ContentScroller.cpp
   src/hud/TopCityWindow.cpp
   src/windows/CityRenameWindow.cpp
+  src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp

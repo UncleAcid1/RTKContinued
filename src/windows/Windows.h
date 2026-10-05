@@ -12,6 +12,20 @@ void Show();                                // @0x299248
 void Hide();                                // @0x2992ec
 }
 
+namespace PopupWindow {
+using Callback = void (*)();
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PopupWindow" (_INIT_ 0x32d02c)
+void Init();                                // @0x32d9b0
+void Deinit();                              // @0x32d964
+// @0x32d630: OK only -> one centred button; OK and/or Cancel -> two; onExit adds the close button.
+// okText / cancelText are StringTable keys replacing "HUD_OK" / "CANCEL".
+void Show(const char32_t* text, Callback onOk, Callback onCancel, Callback onExit, const char* okText = nullptr,
+          const char* cancelText = nullptr);
+void Hide();                                // @0x32d79c
+bool IsVisible();                           // @0x32d000
+void ForceOnTop();                          // @0x32d014
+}
+
 namespace SettingsWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "SettingsWindow" (_INIT_ 0x33def8)
 void Init();                                // @0x33fae0

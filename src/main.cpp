@@ -28,6 +28,7 @@
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
+#include "game/Game.h"
 #include "game/GameData.h"
 #include "game/Map.h"
 #include "game/MapMovement.h"
@@ -143,6 +144,7 @@ int main(int argc, char** argv) {
     CityRenameWindow::Queue();
     HUDWindow::Queue();
     PlayerTopWindow::Queue();
+    PopupWindow::Queue();
     SettingsWindow::Queue();
     TaskHolderWindow::Queue();
     TopCityWindow::Queue();
@@ -253,9 +255,17 @@ int main(int argc, char** argv) {
             return;
         }
         if (scancode == SDL_SCANCODE_AC_BACK || scancode == SDL_SCANCODE_Y) {
-            if (WindowManager::ProcessBack()) return;
-            // UNVERIFIED (PopupWindow not ported): with no death animation, camera move or GUI
-            // animation running, an open PopupWindow is hidden, otherwise the exit question pops up.
+            // Not taken by a window (and no death animation, milestone 4, or camera move): an open
+            // popup closes, else the exit question. UNVERIFIED: RaidComplete, CampaignComplete,
+            // CampaignPerfected and BossOutro windows (not ported) also block the question.
+            if (WindowManager::ProcessBack() || Map::IsCameraMoving()) return;
+            if (!GUI::IsAnyAnimationActive() && !GUI::CanInteractWith(nullptr) && PopupWindow::IsVisible()) {
+                PopupWindow::Hide();
+                return;
+            }
+            if (GUI::IsAnyAnimationActive()) return;
+            PopupWindow::Show(StringTable::GetString("MOBILE_EXIT_CONFIRM"), ExitWithSendSave, PopupWindow::Hide,
+                              nullptr);
         }
     };
     auto textInput = [&](const char* utf8) {
@@ -319,7 +329,7 @@ int main(int argc, char** argv) {
         py = (int)(wy * k);
     };
     uint64_t lastTicks = SDL_GetTicks();
-    while (running) {
+    while (running && !done) {
         SDL_Event e;
         firstMove = true;
         while (SDL_PollEvent(&e)) {

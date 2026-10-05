@@ -67,6 +67,39 @@ void ButtonBuildingControls::LoadFrom(Window* r, const char* p) {
     unk28 = 0;
 }
 
+void ButtonTripleInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    blue = GUI::GetWindowTypedF<Window>(r, "%s.button_active_large", p);
+    green = GUI::GetWindowTypedF<Window>(r, "%s.button_active_green", p);
+    gold = GUI::GetWindowTypedF<Window>(r, "%s.button_gold", p);
+    inactive = GUI::GetWindowTypedF<Window>(r, "%s.button_inactive", p);
+    inactive->SetVisibility(false);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text", p);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_build", p);
+    icon->takesZ = true;
+    textGold = GUI::GetWindowTypedF<Textfield>(r, "%s.text_gold", p);
+    textPrice = GUI::GetWindowTypedF<Textfield>(r, "%s.text_price", p);
+    crystal = GUI::GetWindowTypedF<Window>(r, "%s.icon_35_crystal", p);
+}
+
+namespace {
+void ShowColored(ButtonTripleInfo& b, bool blue, const char32_t* text, Render::Texture* icon) {
+    b.blue->SetVisibility(blue);
+    b.green->SetVisibility(!blue);
+    b.gold->SetVisibility(false);
+    b.text->SetVisibility(true);
+    b.icon->SetVisibility(true);
+    b.textGold->SetVisibility(false);
+    b.textPrice->SetVisibility(false);
+    b.crystal->SetVisibility(false);
+    b.text->SetText(text);
+    b.icon->SetTexture(icon, true, 0, 0, false, 0);
+}
+}  // namespace
+
+void ButtonTripleInfo::ShowBlue(const char32_t* t, Render::Texture* i) { ShowColored(*this, true, t, i); }
+void ButtonTripleInfo::ShowGreen(const char32_t* t, Render::Texture* i) { ShowColored(*this, false, t, i); }
+
 void SmallLogoWindow::LoadFrom(Window* r, const char* p) {
     holder = GUI::GetWindowTypedF<Window>(r, "%s", p);
     eng = GUI::GetWindowTypedF<Window>(r, "%s.logo_small_eng", p);
