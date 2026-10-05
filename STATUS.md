@@ -92,20 +92,33 @@ Milestones:
        window not reachable yet. A drag's fling uses real time, as on the original. Don't run
        rtk without --screenshot from a tool call: it opens the window and blocks.
 3. [ ] Game data + GameState + save/load; building and economy loops. Sub-steps:
-       3a [ ] GameState core: resource store (triple XOR, GetResourceAmount @0x196e08), full Reset
-              (@0x1a1424), LoadSettings (dynamic_config.xml), levels/XP, ChangeResourceAmount,
-              storage limits.
-       3b [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
-              save/load (Save::Map/Area/Building/Decor), save file on disk + backup, autosave timing.
-       3c [ ] Building runtime: construction/upgrade/production/collect state and timers, Map::Update
-              for buildings, world click on buildings, BuildingHovers.
-       3d [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying.
-       3e [ ] economy loops: workers/orders (logic; goblin entities are M4), offline resources,
-              level-up, NotEnoughWindow, ExchangeWindow.
+       3a [x] data foundation (2026-10-05): settings (game/Setting: dynamic_config <px> key=value
+              trees via the Parse*Setting grammar, Setting handles, GetSetting/SetSetting, level XP
+              table, <ar> areas -> GameState::AreaInfo), the main_Loop_Init hard-coded settings (flag
+              globals' initial values), triple-XOR resource store, ChangeResourceAmount (stats, XP ->
+              level-up, maxLevel 29), AddCrystals, CheckStorageFull, StringToResourceType,
+              ExternalResourceTypeToInternal, MetaData + ParseCustomStyleData, full BuildingData
+              (LoadBuildingList: upgrades, costs, production, respawn, farm patches, parking/particle
+              points, unlock levels), Contracts (deliveries.xml), Splitter.
+              Not yet: the rest of GameState::Reset/state, Items (Items::GetItemInfo,
+              AddBuildingAsItem are marked UNVERIFIED), the other data files (persons, items, spells,
+              locations, sets, shop_packs, collections, tasks, professions, chests, projectiles, tavern).
+       3b [ ] Building runtime (Map::Building, 0x1d0 bytes; vtable 0x608100): state from Map::LoadBuidings
+              @0x1e2bdc / Patch::SaveBuilding @0x1e1f50, Update @0x1267b0 (construction/upgrade timers,
+              contracts, resource gathering, farms), UpdateImage, world click, BuildingHovers.
+       3c [ ] workers: goblin entities, EntityManager/EntityFactory, pathing and the worker AI.
+              Moved here from M4: Building::Update only advances construction while a builder entity is
+              at work (BuilderAssigned && BuilderIsWorking), gathering/factories need a working worker
+              entity, and farms drive an entity's animation, so the economy cannot run without them.
+       3d [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
+              save/load, save file on disk + backup, autosave timing.
+       3e [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying;
+              economy dialogs (level-up, NotEnoughWindow, ExchangeWindow, factory/farm hovers),
+              offline resources.
        Note: with no save, LoadSavedGame (@0x1885e0) starts a new game on campaign map 0x15 with the
        hero entity (the tutorial), which needs M4. Until then the port boots the city from a Reset
        GameState (PORT test path).
-4. [ ] Entities/AI/pathing, quests (Tasks), combat, campaign maps.
+4. [ ] Hero/army entities and AI, quests (Tasks), combat, campaign maps (worker entities: 3c).
 5. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.
 6. [ ] Mac release and polish: .app bundle, settings/persistence paths, Retina/fullscreen,
@@ -154,6 +167,9 @@ Milestones:
   SDL_Color passed as {r=B,g=G,b=R} so surface bytes are RGBA; lines y += spacing+lineSkip; align
   0/1/2/3(justify); glow via ApplyImageFilters (gaussian, radius=(int)(blur*overscale)<=32, sigma=r/5
   min 0.9) — transcribe from out/gui.c. Text sprite: u 0..1, vB 0 vT 1, h = -texH, shader 1.
+- tools/picsym.py: `tools/fn.sh 'X$' | tools/picsym.py` resolves PIC globals (`DAT_x + 0xpc`) to
+  exported names / string literals / `[g_addr]`, GOT slot loads (`v = GOTBASE; *(v + DAT_x)`) to
+  `&[name]`, and collapses STLport template spellings. Most file-static state (GameState's) is unnamed.
 - Dialog pattern (src/windows/): a static FunctionalWindow (ctor gets init/deinit/click/setZ/hide); Init
   sets fn.show/back/update/zRange (+ hideOnOuterClick) and RegisterTopWindow(root). Show: shown = 1,
   MoveWindowOnTop, if the root is hidden WindowShow + tween AnimateIn, root visible. Hide: AnimateOut.
