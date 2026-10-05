@@ -1,15 +1,17 @@
 // Map: grid, patches (land areas), decorations and buildings, and their sprites.
 // Port of the Map namespace (libkingdom.so 5.11): load path Map::Load @0x1c3518 -> LoadPlayer @0x1c0cd8
 // -> Patch::Load @0x1e3870 (LoadDecors @0x1e271c, LoadBuidings @0x1e2bdc), CreateRandomDecors, UpdateAreaBorders.
-// Gameplay state (timers, workers, AI, quests) is not ported yet; only what is needed to show the map.
+// Buildings are game/Building.h. Decorations' gameplay state, workers, AI and quests are not ported yet.
 #pragma once
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "game/Building.h"
+
 namespace Render { struct Sprite; }
-namespace GameData { struct DecorData; struct BuildingData; }
+namespace GameData { struct DecorData; }
 
 namespace Map {
 
@@ -25,19 +27,6 @@ struct Decor {
     const GameData::DecorData* data = nullptr;  // +0x3c
     Render::Sprite* sprite = nullptr;  // +0x88
     bool removed = false;
-};
-
-struct Building {
-    Patch* patch = nullptr;
-    uint8_t x = 0, y = 0;              // +0x0c, +0x0d
-    uint32_t id = 0;                   // +0x18
-    bool mirrored = false;             // +0x1c
-    int level = 0;                     // +0x50
-    const GameData::BuildingData* data = nullptr;
-    float baseX = 0, baseY = 0;        // +0x24, +0x30 (FindBaseCoordinates)
-    float minX = 0, maxX = 0, minY = 0, maxY = 0;  // +0x28, +0x2c, +0x38, +0x34 (sprite bounds)
-    std::vector<Render::Sprite*> sprites;  // +0xd4 chain
-    Render::Sprite* ring = nullptr;    // +0x174
 };
 
 struct Patch {
@@ -60,6 +49,9 @@ uint32_t GetMapID();
 int GetTileset();
 
 void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
+void TileCoordinatesToLinear(int& x, int& y);          // @0x1b62f4
+// @0x1c4dd8, the part ported so far: every building's and decoration's Update.
+void Update(double dt);
 float GetSpriteZ(float a, float b, int c);             // @0x1b6814
 // Extent (tiles) of the unowned patches that border owned land; the whole grid if there are none.
 void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b6a20

@@ -12,6 +12,7 @@ namespace Render {
 struct Texture {
     unsigned glId = 0;
     int w = 0, h = 0;      // +0x04, +0x08 (pixel size of the full image / sheet)
+    float frameTime = 0.f; // +0x0c seconds per frame (set by the users of animated textures)
     int frames = 0;        // +0x4c  frame count of a one-file animation sheet (0/1 = static)
     bool wrap = false;     // Texture::SetWrapping
     std::string name;
@@ -40,6 +41,7 @@ struct Sprite {                  // 0x68 bytes on the original
     float alpha[4] = {1, 1, 1, 1};  // +0x44 +0x48 +0x4c +0x50 per corner: BL, BR, TL, TR
     int shaderType = 0;          // +0x54 (GetShader(type))
     Texture* colorMask = nullptr;   // +0x58
+    float animTime = 0.f;        // +0x5c frame-chain timer (UpdateAnimatedSprites)
     int layer = 0;               // +0x60
     Sprite* next = nullptr;      // +0x64 chain of sprites drawn for one GUI window (9-slices)
     uint32_t seq = 0;            // PORT: creation order, keeps insertion order explicit

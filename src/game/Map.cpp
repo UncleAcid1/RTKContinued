@@ -7,6 +7,7 @@
 #include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "engine/Timer.h"
 #include "game/Background.h"
 #include "game/GameData.h"
 #include "game/Setting.h"
@@ -28,6 +29,7 @@ int g_gridW = 0, g_gridH = 0, g_tileset = 0;
 std::vector<Cell> g_grid;
 std::vector<std::unique_ptr<Patch>> g_patches;
 std::vector<Render::Sprite*> g_borderSprites;  // dark grass, posts, signs
+uint32_t g_currentTime = 0;                     // 0x6118c4
 
 Cell* At(int x, int y) {
     if ((unsigned)x >= (unsigned)g_gridW || (unsigned)y >= (unsigned)g_gridH) return nullptr;
@@ -127,95 +129,6 @@ void RemoveDecorationAt(int x, int y) {  // @0x1bb148 RemoveDecoration(x, y, fal
     d->removed = true;
 }
 
-// --------------------------------------------------------------------------------- buildings
-// @0x11cbb8 Map::Building::FindBaseCoordinates (not mirrored; mirrored branch uses the first
-// selected part's off_x).
-void FindBaseCoordinates(Building* b, const std::vector<const GameData::BuildingPart*>& parts) {
-    const GameData::BuildingData& D = *b->data;
-    float wx = (float)b->x * 84.f + ((b->y & 1) ? 42.f : 0.f);
-    float wy = (float)b->y * 42.f * 0.5f;
-    float hx = (float)((unsigned)D.w >> 1), hy = (float)((unsigned)D.h >> 1);
-    if (!b->mirrored) {
-        b->baseX = 42.f + hx * -42.f - (float)D.offsetX + wx;
-    } else {
-        float first = parts.empty() ? 0.f : (float)parts[0]->offX;
-        b->baseX = (42.f + hx * -42.f + (float)D.offsetX) - first + wx;
-    }
-    b->baseY = hy * 21.f - (float)D.offsetY + wy;
-    b->minX = b->maxX = b->baseX;
-    b->minY = b->maxY = b->baseY;
-}
-
-// @0x129838 Map::FilterBuildingParts(type 0, level): parts whose stage equals the level, or parts
-// with stage -1 whose order index equals the level. UpdateImage retries with lower levels.
-std::vector<const GameData::BuildingPart*> SelectParts(const GameData::BuildingData& D, int level) {
-    std::vector<const GameData::BuildingPart*> out;
-    for (; level >= 0 && out.empty(); --level) {
-        int order = 0;
-        for (const auto& p : D.parts) {
-            if (p.type != 0) continue;
-            if (p.stage == -1) {
-                if (order == level) out.push_back(&p);
-                ++order;
-            } else if (p.stage == level) {
-                out.push_back(&p);
-            }
-        }
-    }
-    return out;
-}
-
-// @0x129bf8 Map::Building::UpdateImage (static, completed state) + CreateBuildingPartSprite @0x11ef2c
-void BuildingUpdateImage(Building* b) {
-    for (auto* s : b->sprites) Render::RemoveSprite(s);
-    b->sprites.clear();
-    if (b->ring) { Render::RemoveSprite(b->ring); b->ring = nullptr; }
-    auto parts = SelectParts(*b->data, b->level);
-    FindBaseCoordinates(b, parts);
-    float partZ = 0.f;  // Building+0xd0, +0.1 per part
-    for (const auto* p : parts) {
-        Render::Texture* tex = GameData::PartImage(p);
-        if (!tex) continue;
-        Render::Sprite* s = Render::CreateSprite(tex, Render::kLayerObjects, b->mirrored, false);
-        if (tex->frames > 0) Render::SetFrame(s, tex->h / tex->frames, 0);
-        float X = b->baseX + (float)tex->w * -0.5f + (float)p->offX;
-        float Y = (float)p->offY + b->baseY;
-        // UNVERIFIED: second GetSpriteZ argument is ((Building+0xcc)->[8] + [0xc]) * 84 * 0.5 on the
-        // original; its source is not identified yet. Using 0.
-        float z = GetSpriteZ(b->baseY + partZ, 0.f, 0);
-        Render::SetPosition(s, (float)(int)X, Y, z);  // CreateBuildingPartSprite truncates x to int
-        b->sprites.push_back(s);
-        b->minX = std::fmin(b->minX, s->x);
-        b->maxX = std::fmax(b->maxX, s->x + s->w);
-        b->maxY = std::fmax(b->maxY, s->y);
-        b->minY = std::fmin(b->minY, s->y - s->h);
-        partZ += 0.1f;
-    }
-    Render::SortRenderLayer(Render::kLayerObjects, 1);
-    if (b->data->buildingClass == 4) {  // 0x12a050 ring under trees/rocks
-        if (Render::Texture* rt = Resources::GetImage("images/Rings/under_rings_tree_rock")) {
-            Render::Sprite* r = Render::CreateSprite(rt, Render::kLayerRings, false, false);
-            float dx = 0, dy = 0;
-            if (b->id == 0x11) { dx = -1.f; dy = -12.f; }
-            else if (b->id == 0x14) { dx = -12.f; dy = -25.f; }
-            float X = r->w * -0.5f + (b->minX + b->maxX) * 0.5f + dx;
-            float Y = b->maxY + r->h * 0.5f + dy;
-            Render::SetPosition(r, X, Y, 0.6f);  // z literal 0x3f19999a
-            b->ring = r;
-        }
-    }
-}
-
-void LinkBaseToBuilding(Building* b) {  // @0x11e4a4
-    ForEachFootprintTile(b->x, b->y, b->data->w, b->data->h, [&](int x, int y) {
-        Cell* c = At(x, y);
-        if (!c) return;
-        if (g_mapId == 0) RemoveDecorationAt(x, y);
-        else c->decor = nullptr;
-        c->building = b;
-    });
-}
-
 // ------------------------------------------------------------------------------- chunk decode
 void LoadDecors(Patch* p, SaveManager::Chunk& c) {  // @0x1e271c, one chunk 0xb
     SaveManager::Reader r(c);
@@ -233,27 +146,111 @@ void LoadDecors(Patch* p, SaveManager::Chunk& c) {  // @0x1e271c, one chunk 0xb
     p->decors.push_back(std::move(d));
 }
 
-void LoadBuilding(Patch* p, SaveManager::Chunk& c) {  // @0x1e2bdc, one chunk 0xc
-    SaveManager::Reader r(c);
-    auto b = std::make_unique<Building>();
-    b->patch = p;
+// @0x1e2bdc Map::LoadBuidings, one building: chunk 0xc, then the optional 0x2d (farm patch start
+// times), 0x2f (farm patch contracts), 0x31 (farm patch data) and 0x50 (unique id) chunks.
+void LoadBuilding(Patch* p, std::vector<SaveManager::Chunk>& chunks, size_t& ci) {
+    SaveManager::Reader r(chunks[ci++]);
+    auto bp = std::make_unique<Building>();
+    Building* b = bp.get();
     b->x = r.u8();
     b->y = r.u8();
     b->id = r.u32();
-    if (b->id == 100) b->id = 99;  // LoadBuidings: id 100 is loaded as 99
-    r.u32(); r.u32(); r.u32();     // +0x40 timer, +0x48 (float conv), +0x54
+    b->uniqueId = 0;
+    if (b->id == 100) b->id = 99;
+    b->stateTime = r.u32();
+    b->buildLeft = (double)r.u32();
+    b->f54 = r.u32();
     uint8_t six[6];
     for (auto& v : six) v = r.u8();
-    b->mirrored = six[0] != 0;     // +0x1c
-    b->level = six[2];             // +0x50
-    b->data = GameData::GetBuilding(b->id);
-    if (!b->data) {                // undefined ids: the game keeps an object with no image
-        p->buildings.push_back(std::move(b));
+    b->mirrored = six[0] != 0;
+    b->level = six[2];
+    r.u32(); r.u32();
+    b->built = r.u8() != 0;
+    b->upgrading = r.u8();
+    b->ff8 = r.u32();
+    b->lastGather = r.u32();
+    b->resourceLeft = (int)r.u32();
+    int n = r.u8();
+    for (int i = 0; i < n; ++i) b->resources[i] = r.s16();   // (n <= 11 in every save)
+    b->resourceState = r.u8();
+    b->growStart = r.u32();
+    b->f10c = r.u8();
+    b->f110 = r.u32();
+    b->f114 = r.u32();
+    b->resourceText = r.str16();
+    b->metaText = r.str16();   // UNVERIFIED: MetaExpression (quest conditions) not ported; kept as text
+    b->contract = (int)r.u32();
+
+    const GameData::BuildingData* d = GameData::GetBuilding(b->id);
+    uint32_t now = Timer::GetGlobalTime();
+    if (d) {
+        if (d->buildingClass == 4 && d->produceResource == 1 && b->level == 6) b->level = 0;
+        b->hp = b->maxHp = d->hp;
+        if (!b->built && now < b->stateTime) {
+            b->stateTime = Timer::GetGlobalTime();
+            if (b->buildLeft > 0.0) b->buildLeft = (double)d->constructionTime;
+        }
+        if (b->upgrading && now < b->stateTime) {
+            b->stateTime = Timer::GetGlobalTime();
+            if (b->buildLeft > 0.0) b->buildLeft = (double)(unsigned)d->upgrades[(size_t)b->level].time;
+        }
+    }
+    bool city = GameState::GetCurrentMapID() == 0;
+    if (!city && !b->metaText.empty()) d = nullptr;   // quest buildings on campaign maps: decorations
+    if (!d) {
+        const GameData::DecorData* dd = city ? GameData::GetDecoration(b->id) : nullptr;
+        if (!city && !b->metaText.empty()) dd = GameData::GetDecoration(b->id);
+        if (!dd) {
+            std::printf("Map::LoadBuidings() Cannot find building ID: %d\n", b->id);
+            return;
+        }
+        std::printf("Map::LoadBuidings() Replacing building (ID: %d) with a decoration\n", b->id);
+        // UNVERIFIED: the decoration also takes the building's timer, resources and meta expression.
+        auto dec = std::make_unique<Decor>();
+        dec->patch = p;
+        dec->x = b->x;
+        dec->y = b->y;
+        dec->id = b->id;
+        dec->data = dd;
+        dec->mirrored = b->mirrored;
+        DecorUpdateImage(dec.get());
+        DecorUpdateMapLink(dec.get());
+        p->decors.push_back(std::move(dec));
         return;
     }
-    BuildingUpdateImage(b.get());
-    LinkBaseToBuilding(b.get());
-    p->buildings.push_back(std::move(b));
+    b->data = d;
+    if (Cell* c = At(b->x, b->y)) c->building = b;   // SetBuilding
+    b->patch = p;
+    b->index = (int)p->buildings.size();
+    p->buildings.push_back(std::move(bp));
+    b->FindBaseCoordinates();
+    b->LinkBaseToBuilding();
+    if (b->built && !b->upgrading) b->SetOpened();
+    if (b->buildLeft > 0.0) {
+        if (!b->built) b->needsBuilder = 1;
+        b->SetClosed(true);
+    }
+    b->UpdateImage();
+    // UNVERIFIED (3b): BuildingHovers::RegisterBuilding(b).
+    b->workers.assign(d->parkingCount, nullptr);
+    b->builder = nullptr;
+    auto nextIs = [&](uint32_t type) { return ci < chunks.size() && chunks[ci].type == type; };
+    if (nextIs(0x2d)) {
+        SaveManager::Reader cr(chunks[ci++]);
+        for (auto& v : b->patchStart) v = cr.u32();
+    }
+    if (nextIs(0x2f)) {
+        SaveManager::Reader cr(chunks[ci++]);
+        for (auto& v : b->patchContract) v = (int)cr.u32();
+    }
+    if (nextIs(0x31)) {
+        SaveManager::Reader cr(chunks[ci++]);
+        for (auto& v : b->patchArg) v = cr.u32();
+    }
+    if (nextIs(0x50)) {
+        SaveManager::Reader cr(chunks[ci++]);
+        b->SetUniqueID(cr.u32());
+    }
 }
 
 // ------------------------------------------------------------------------- random decorations
@@ -359,6 +356,36 @@ int GetGridHeight() { return g_gridH; }
 uint32_t GetMapID() { return g_mapId; }
 int GetTileset() { return g_tileset; }
 
+void TileCoordinatesToLinear(int& x, int& y) {
+    int d = y + x * -2;
+    if (d < 0) d = (d - 1) - ((d - 1) >> 31);
+    x = (x * 2 + y + 1) / 2;
+    y = d >> 1;
+}
+
+// @0x11e4a4 (UNVERIFIED (3c): also sets each tile's AI waypoint +0x44)
+void Building::LinkBaseToBuilding() {
+    if (!data) return;
+    ForEachFootprintTile(x, y, data->w, data->h, [&](int tx, int ty) {
+        Cell* c = At(tx, ty);
+        if (!c) return;
+        if (GameState::GetCurrentMapID() == 0) RemoveDecorationAt(tx, ty);
+        else c->decor = nullptr;
+        c->building = this;
+    });
+}
+
+void Update(double dt) {
+    // UNVERIFIED (milestones 4-5): the 0.1 s visibility pass on campaign maps (fog) and the cloud,
+    // weather and camera-path parts that follow the object updates.
+    g_currentTime = Timer::GetGlobalTime();   // SetCurrentTime @0x130f2c (0x6118c4)
+    for (auto& p : g_patches) {
+        for (size_t i = 0; i < p->buildings.size(); ++i) p->buildings[i]->Update(dt);
+        // UNVERIFIED (milestone 3): Decor::Update (resource decorations, timers) and the removal of
+        // decorations that flag themselves (+0x40) afterwards.
+    }
+}
+
 void TileCoordinatesToWorld(int& x, int& y) {
     float fx = (float)x;
     float off = (y & 1) ? 42.f : 0.f;
@@ -395,10 +422,6 @@ float GetSpriteZ(float a, float b, int c) {
 void Free() {
     for (auto& p : g_patches) {
         for (auto& d : p->decors) if (d->sprite) Render::RemoveSprite(d->sprite);
-        for (auto& b : p->buildings) {
-            for (auto* s : b->sprites) Render::RemoveSprite(s);
-            if (b->ring) Render::RemoveSprite(b->ring);
-        }
     }
     g_patches.clear();
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
@@ -461,7 +484,11 @@ bool Load(uint32_t mapId, long playerSeed) {
         }
         if (SaveManager::Chunk* bc = next(SaveManager::kBuildingCount)) {
             int cnt = SaveManager::Reader(*bc).s16();
-            for (int k = 0; k < cnt; ++k) if (auto* c = next(SaveManager::kBuilding)) LoadBuilding(raw, *c);
+            for (int k = 0; k < cnt; ++k) {
+                if (!next(SaveManager::kBuilding)) continue;
+                --ci;   // LoadBuilding reads the chunk itself, then its optional followers
+                LoadBuilding(raw, chunks, ci);
+            }
         }
         if (SaveManager::Chunk* mc = next(SaveManager::kPatchMask)) {
             SaveManager::Reader mr(*mc);

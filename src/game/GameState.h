@@ -45,6 +45,8 @@ int TutorialStep();
 // GameState::secondTutorial (0x60efd0, .data initial 0x81). UNVERIFIED stand-in: the initial value.
 int SecondTutorialStep();
 bool IsCityTutorial();                         // @0x190af4
+// @0x1908ac a quest task finished. UNVERIFIED stand-in (milestone 4, Tasks): false.
+bool TaskCompleted(unsigned id);
 
 // The pause counter (0x612d70): dialogs raise it while shown.
 void RaiseGamePauseState();                    // @0x191064

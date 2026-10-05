@@ -160,6 +160,8 @@ bool IsCityTutorial() {
     return second - 0x82u < 7u;
 }
 
+bool TaskCompleted(unsigned id) { (void)id; return false; }
+
 void RaiseGamePauseState() { ++g_pause; }
 void DropGamePauseState() {
     if (--g_pause < 0) g_pause = 0;
