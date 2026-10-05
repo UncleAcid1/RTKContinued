@@ -198,13 +198,15 @@ int main(int argc, char** argv) {
 
     // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
     // WindowManager::Update (delayed callbacks, none yet), the window queue, HUDWindow::Update,
-    // GUI animations, the movement controllers, then Render::Update's camera step (the camera tween,
-    // not ported, and ApplyViewportLimit); its drawing is Render::Frame.
+    // GUI animations, the movement controllers, Map::Update when the game is not paused (after the
+    // entities, not ported yet), then Render::Update's camera step (the camera tween, not ported, and
+    // ApplyViewportLimit); its drawing is Render::Frame.
     auto tick = [](float dt) {
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
         GUI::UpdateAnimation(dt);
         MapMovement::Update(dt);
+        if (!GameState::IsPaused()) Map::Update(dt);
         Render::ApplyViewportLimit();
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
