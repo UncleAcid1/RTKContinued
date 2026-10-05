@@ -117,11 +117,15 @@ Milestones:
               Entity (position, sprite/animation, fades, rings), EntityManager (create/spawn/update,
               in the tick before Map::Update), Building job hooks (AssignWorker, WorkStarted/Ended,
               work/build tiles, parking spots), Map tile queries, blocks, owned borders.
+              Part 2: gathering in Building::Update, tree/rock piles (UpdateResources), storage piles
+              (UpdateStorage), HireGolbin, Map::GetNearestStorage/UpdateStorageMax, the delivery order
+              queue (GameState::PlaceOrder/GetTopOrder) and AIGoblin.
               Verified headless: a spawned worker wanders, picks the idle rock, walks there along the
-              roads and mines it. PORT test aid: `--spawn ID X Y`, `--walk X Y`, `--frames N`.
-              Next: AIPlayer (world clicks, SendGoblinToWork), the builder/gathering side effects in
-              Building (OnBuilded/OnUpgraded, CollectResources, storage piles), AIGoblin, AIPatch and
-              the farmers, Decor jobs, then the entity save/load with 3d.
+              roads and mines it; the pile appears, a spawned goblin carries it to the storage and the
+              HUD rocks count rises. PORT test aids: `--spawn ID X Y`, `--walk X Y`, `--frames N`,
+              `--dump-entities`.
+              Next: AIPlayer (world clicks, SendGoblinToWork), OnBuilded/OnUpgraded, CollectResources,
+              AIPatch and the farmers, Decor jobs, then the entity save/load with 3d.
        3d [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
               save/load, save file on disk + backup, autosave timing.
        3e [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying;
