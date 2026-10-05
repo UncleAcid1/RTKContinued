@@ -8,6 +8,7 @@
 
 namespace Render { struct Texture; }
 class MetaData;
+namespace Contracts { struct Contract; }
 
 namespace GameData {
 
@@ -76,8 +77,7 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     unsigned givePopulation = 0; // +0xac
     int speedupCb = 0;           // +0xb0 "speedupcb"[0]
     std::vector<UpgradeInfo> upgrades;  // +0xb8
-    const void* delivery = nullptr;     // +0xc4 Contracts::GetContract("delivery_type")  UNVERIFIED: not ported yet
-    unsigned deliveryType = 0;   // (the id it was looked up with)
+    const Contracts::Contract* delivery = nullptr;  // +0xc4 Contracts::GetContract("delivery_type")
     struct { float x, y; } parking[10], particles[10];   // +0xd0 / +0x120, counts +0xc8 / +0xcc
     unsigned parkingCount = 0, particleCount = 0;
     bool cantSellLast = false;   // +0x178

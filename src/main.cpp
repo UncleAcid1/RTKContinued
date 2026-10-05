@@ -23,6 +23,7 @@
 #include "engine/Text.h"
 #include "engine/TextInput.h"
 #include "game/StringTable.h"
+#include "game/Contracts.h"
 #include "game/GameState.h"
 #include "game/Setting.h"
 #include "gui/GUI.h"
@@ -134,6 +135,37 @@ int main(int argc, char** argv) {
     StringTable::Init("../resource/res_files/1Original/LocalizedStringsEN.xml", false, false);
     // main_Loop_Init: the sandbox server's res_files_sandbox config is not used offline.
     GameState::LoadSettings("../resource/res_files/1Original/dynamic_config.xml");
+    // Settings main_Loop_Init sets from the flag globals: their initial values in the binary (online,
+    // CommonSetFlags lets the server change some of them first).
+    GameState::SetSetting("exchange_enabled", 0.f);
+    GameState::SetSetting("character_icon_opens_heal", 0.f);
+    GameState::SetSetting("your_army_opens_tavern", 0.f);
+    GameState::SetSetting("always_open_tavern", 0.f);
+    GameState::SetSetting("skip_choose_troops_window", 1.f);
+    GameState::SetSetting("train_only_for_crystals", 1.f);
+    GameState::SetSetting("progress_as_time", 1.f);
+    GameState::SetSetting("campaign_to_city_direct", 1.f);
+    GameState::SetSetting("crystal_mult", 1.f);
+    GameState::SetSetting("contract_coeff", 1.f);
+    GameState::SetSetting("farm_coeff", 1.f);
+    GameState::SetSetting("hide_speedup", 0.f);
+    GameState::SetSetting("stack_size", 50.f);
+    GameState::SetSetting("friend_fight_timeout", 3600.f);
+    GameState::SetSetting("pvp_refresh_time", 14400.f);
+    GameState::SetSetting("item_boosts", 0.f);
+    GameState::SetSetting("spell_unlock", 0.f);
+    GameState::SetSetting("starter_chest_b", 0.f);
+    GameState::SetSetting("auto_fix_map_reset", 1.f);
+    GameState::SetSetting("show_hp_value", 0.f);
+    GameState::SetSetting("fb_sharing_enabled", 0.f);
+    GameState::SetSetting("og_enabled", 0.f);
+    GameState::SetSetting("og_enabled2", 1.f);
+    GameState::SetSetting("enable_error_code", 0.f);
+    GameState::SetSetting("flurry_enabled", 0.f);
+    GameState::SetSetting("cinematic_camera", 1.f);
+    GameState::SetSetting("bot_use_cb", 1.f);
+    // The data files, in LoadSystemConfiguration order (the ones not ported yet are skipped).
+    Contracts::Init("../resource/res_files/1Original/deliveries.xml");
     if (!GameData::Load()) return 1;
     GUI::Init("fonts/ARICYRB.ttf", false);
     GameState::SetCurrentMapID(opt.map);

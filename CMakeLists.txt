@@ -33,6 +33,7 @@ add_executable(rtk
   src/game/MapMovement.cpp
   src/game/Background.cpp
   src/game/StringTable.cpp
+  src/game/Contracts.cpp
   src/game/GameState.cpp
   src/game/MetaData.cpp
   src/game/Setting.cpp

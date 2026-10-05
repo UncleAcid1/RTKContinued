@@ -117,6 +117,11 @@ const char* GetResourceName(int type) {
     return type >= 0 && type < 11 ? names[type] : "";
 }
 
+int ExternalResourceTypeToInternal(unsigned type) {   // table 0x580a4c (gold and crystal first)
+    static const int table[] = {kGold, kCrystal, kLumber, kRocks, kFood, kPlanks, kStones, kMeat, kSausage, kOil, kExpAfter};
+    return table[type];   // (no range check on the original either)
+}
+
 int StringToResourceType(const char* name) {
     static const struct { const char* name; int type; } table[] = {
         {"LUMBER", kLumber}, {"ROCKS", kRocks}, {"FOOD", kFood}, {"PLANKS", kPlanks}, {"STONES", kStones},

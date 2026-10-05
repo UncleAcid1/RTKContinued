@@ -8,6 +8,7 @@
 
 #include "engine/FileManager.h"
 #include "engine/Resources.h"
+#include "game/Contracts.h"
 #include "game/GameState.h"
 #include "game/MetaData.h"
 
@@ -217,14 +218,13 @@ void LoadBuildings() {
         b.hp = n.attribute("hp").as_int();
         if (b.hp == 0) b.hp = 100;
         b.visid = n.attribute("visid").as_int();
-        b.deliveryType = n.attribute("delivery_type").as_uint();
-        if (b.deliveryType == 0) {   // three buildings get their delivery list by id
-            if (id == 0x8e) b.deliveryType = 0x800;
-            else if (id == 0x69) b.deliveryType = 0x801;
-            else if (id == 0x93) b.deliveryType = 0x802;
+        unsigned delivery = n.attribute("delivery_type").as_uint();
+        if (delivery == 0) {   // three buildings get their order list by id
+            if (id == 0x8e) delivery = 0x800;
+            else if (id == 0x69) delivery = 0x801;
+            else if (id == 0x93) delivery = 0x802;
         }
-        // UNVERIFIED (milestone 3, Contracts): b.delivery = Contracts::GetContract(b.deliveryType) for
-        // deliveryType != 0.
+        b.delivery = delivery ? Contracts::GetContract(delivery) : nullptr;
         b.cb = n.attribute("cb").as_uint();
         b.gold = n.attribute("gold").as_uint();
         b.unlockLevel = ParseOptional(n, "unlocklevel");
