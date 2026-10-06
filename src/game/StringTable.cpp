@@ -138,6 +138,21 @@ std::u32string GetTimeString(int t, bool compact) {
     return out.substr(0, 31);
 }
 
+std::u32string GetGenderString(const char32_t* forms, bool male) {
+    std::u32string f = forms ? forms : U"";
+    size_t start = 0;
+    if (!male) {
+        size_t comma = f.find(U',');
+        if (comma == std::u32string::npos) {
+            std::fprintf(stderr, "Gender string format is incorrect\n");
+            return f;
+        }
+        start = comma + 1;
+    }
+    size_t end = f.find(U',', start);
+    return f.substr(start, end == std::u32string::npos ? std::u32string::npos : end - start);
+}
+
 std::u32string GetCountableString(const char32_t* forms, int n) {
     int form;
     if (n % 10 == 1) form = (unsigned)(n - 10) > 10u ? 0 : 2;

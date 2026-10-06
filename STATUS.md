@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e done; next 3f) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3f.1 done; next 3f.2) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3e done, 3f (farms) left:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -111,7 +111,39 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    of a kind is refused, a decoration removal asks and applies on Confirm. Random decorations
    (IsFake, regenerated from the player seed) grow back after a reload; the original's remove
    path does not check IsFake either, so this is faithful.
-   NEXT: 3f farms.
+   3f.1 DONE: the info windows of a tapped building or decoration (a 3e gap found while scoping the
+   farms: factories could not take orders at all). BuildingHovers::OnBuildingClick/OnEntityClick
+   (piles; farm patches are 3f)/OnDecorClick and the windows in src/hud/InfoHoverWindows.cpp:
+   FactoryHoverWindow (orders: five cells with padlocks, cost/time/reward rows, Order / Change /
+   Complete Now / Stop with the PopupSelectionWindow confirm, locked orders -> Improve), the
+   BaseHoverWindow frame and Living (houses: Improve, taxes and their countdown bar, residents ->
+   camera on them), Storage (space, goblins, amounts white/yellow/red; the hire buttons are only
+   shown by the tutorial in 5.11), Castle (Rename, Improve, worker counts), Empty (0x81),
+   ResourceHoverWindow (a worked tree/rock: Collect, Speed Up, next unit, worker, Free Up) and
+   DecorationHoverWindow (tax decorations). OnResourceAssign (tree/rock tap sends a worker) and the
+   "FREE_UP_WORKER" popup (OnFreeWorkerAssign/OnFreeWorkerBuild, also for the builder bubble).
+   New: PopupSelectionWindow (two-choice box), Building::Upgrade + UpgradeBuilding /
+   UpgradeBuildingContinuation (CallbackUpgradeBuilding*), GUI::DuplicateWindow, the soil-patch
+   queries (IsSoilPatch*, GetFirst*SoilPatch, GetNextPatchToBuy), AIBaseState farm virtuals
+   (+0xf8..+0x134), Building farmer/patchEntities fields, GameState GetTutorialType /
+   GetGoblinCount / GetResourceIconName / GetResourceWorkerIconName, StringTable::GetGenderString.
+   Fixed on the way: Building::GetFarmState read the rot timer from patchStart; it is patchArg (+0x9c).
+   Not ported (milestone 4): PersonHoverWindow (only campaign maps reach it), decoration jobs and
+   quest-locked decorations in OnDecorClick, the quest names in the upgrade lock popup (shows
+   "Blocked"), item boosts (Items), tutorial arrows.
+   Verified headless (temporary main.cpp hack: finished workshops, a present house and decoration):
+   Bakery order with the level requirement, order placed (food charged), Complete Now (4 crystals,
+   10 gold reward, order restarts as the original does), Stop + confirm refunds, locked order ->
+   "Improve Bakery and Unlock ..." -> upgrade blocked by its quest; house window, Improve -> 6
+   crystals -> upgrade scaffold with a builder and countdown; storage window; castle window and
+   Rename -> CityRenameWindow; rock tap sends a worker, its window, Speed Up hands over 50 stones for
+   5 crystals (the 3e untested item); decoration window. A castle tap first collects its taxes (the
+   tax hover takes the tap, as the original); hovers refresh once per real second, so a headless
+   run (shorter than a second) cannot tap it twice.
+   NEXT: 3f.2 farm data, the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints) and
+   the patch entities; then 3f.3 farmers (AIFarmerBig/Small, AIPatch), 3f.4 farm HUD
+   (BottomFarmWindow, HUD Enter/ExitFarm), the farm hovers (FarmGrow, FarmRestore, PatchProgress),
+   soil patch buying (LandWindow/LandExpandedWindow patch halves), 3f.5 offline contracts.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),

@@ -569,15 +569,73 @@ int Building::GetFirstGrowingPatchNum() const {
     return -1;
 }
 
-// Patch state: 0 empty, 1 rotten, 2 planted, 3.. growth stage + 3; a crop past its rot time turns
-// 1 once task 0x429 is done, before that it gets 1200 s more and reports 6.
+// The soil patch entity's state: 0x12 empty, 0x13 dirty, 0x15..0x18 growing, 0x19 ready, 0x1a rotten.
+static int PatchState(const Building* b, unsigned i) {
+    Entity* e = b->patchEntities[i];
+    return e ? e->GetAI()->GetState() : -1;
+}
+
+bool Building::IsSoilPatchDirty(unsigned i) const { return PatchState(this, i) == 0x13; }    // @0x11d1f0
+bool Building::IsSoilPatchRotten(unsigned i) const { return PatchState(this, i) == 0x1a; }   // @0x11d224
+bool Building::IsSoilPatchReady(unsigned i) const { return PatchState(this, i) == 0x19; }    // @0x11d258
+bool Building::IsSoilPatchEmpty(unsigned i) const { return PatchState(this, i) == 0x12; }    // @0x11d2f0
+
+// @0x11d28c
+bool Building::IsSoilPatchActive(unsigned i) const {
+    int st = PatchState(this, i);
+    return st > 0x14 && st < 0x19;
+}
+
+// @0x11d324
+bool Building::IsFarmSpeedUp(int i) { return patchEntities[(size_t)i]->GetAI()->SpeedUpProcess(); }
+
+// The first patch whose entity is in `state` (GetFirstDirtySoilPatch @0x11fe84, ...Rotten @0x11fef0,
+// ...Empty @0x11ff5c), -1 if none.
+static int FirstPatchIn(const Building* b, int state) {
+    for (unsigned i = 0; i < b->patchEntities.size(); ++i)
+        if (b->patchEntities[i]->GetAI()->GetState() == state) return (int)i;
+    return -1;
+}
+
+int Building::GetFirstDirtySoilPatch() const { return FirstPatchIn(this, 0x13); }
+int Building::GetFirstRottenSoilPatch() const { return FirstPatchIn(this, 0x1a); }
+int Building::GetFirstEmptySoilPatch() const { return FirstPatchIn(this, 0x12); }
+
+// @0x11ffc8 (sic): a ready patch, else one past its rot time without task 0x429 (state 6).
+int Building::GetFirstReadySoilPath() {
+    int i = FirstPatchIn(this, 0x19);
+    if (i != -1) return i;
+    for (int p = 0; p < 6; ++p)
+        if (GetFarmState(p) == 6) return p;
+    return -1;
+}
+
+// @0x120058
+int Building::GetFirstActiveSoilPatch() const {
+    for (unsigned i = 0; i < patchEntities.size(); ++i) {
+        int st = patchEntities[i]->GetAI()->GetState();
+        if (st > 0x14 && st < 0x19) return (int)i;
+    }
+    return -1;
+}
+
+// @0x11fe34: the first patch still for sale (patch state 0x1b), -1 if none.
+int Building::GetNextPatchToBuy() const {
+    for (unsigned i = 0; i < patchEntities.size(); ++i)
+        if (resources[i] == 0x1b) return (int)i;
+    return -1;
+}
+
+// Patch state: 0 empty, 1 rotten, 2 planted, 3.. growth stage + 3; a crop past its rot time
+// (counted from patchArg) turns 1 once task 0x429 is done, before that it gets 1200 s more and
+// reports 6.
 int Building::GetFarmState(int p) {
     if (p < 0 || patchContract[p] < 1) return 0;
     const auto& m = data->delivery->missions[(size_t)patchContract[p] - 1];
     uint32_t now = Timer::GetGlobalTime();
-    if ((uint32_t)(patchStart[p] + m.timeRot) < now) {
+    if ((uint32_t)(patchArg[p] + m.timeRot) < now) {
         if (GameState::TaskCompleted(0x429)) return 1;
-        patchStart[p] += 0x4b0;
+        patchArg[p] += 0x4b0;
         return 6;
     }
     now = Timer::GetGlobalTime();
@@ -681,6 +739,26 @@ void Building::UpdateResources() {
     workers[1] = pile;
     pile->SetHome(this);
     if (GameState::TutorialStep() == 0x29) pile->Appear(true, true);   // UNVERIFIED: the third argument is not set
+}
+
+// @0x127170
+void Building::Upgrade(unsigned level) {
+    (void)level;   // only the online event log (OG::MakeRequest) reads it
+    const GameData::UpgradeInfo& u = GetNextUpgradeInfo();
+    for (int i = 0; i < 11; ++i) GameState::ChangeResourceAmount(i, -u.cost[i]);
+    SetClosed(true);
+    upgrading = 1;
+    buildLeft = (double)(unsigned)u.time;
+    UpdateStorage();
+    UpdateImage();
+    stateTime = Timer::GetGlobalTime();
+    if (data->buildingClass == 0xd) {
+        if (!livers.empty() && livers[0]) livers[0]->Disappear();   // PORT: guarded (the farmer)
+        if (farmEntity && farmEntity->GetSprite()) Render::SetVisibility(farmEntity->GetSprite(), false);
+    }
+    // PORT (online removed): OG::MakeRequest(1, 1, id, level, 0), the Facebook action log.
+    if (Entity* w = EntityManager::GetFreeWorker()) AssignWorker(w, 0);
+    // SoundsManager::PlaySound("building_upgrade_start", 1, false): sounds are milestone 5.
 }
 
 void Building::SpeedupBuilding() {

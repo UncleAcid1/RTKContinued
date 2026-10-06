@@ -44,6 +44,7 @@ uint32_t g_currentTime = 0;                     // 0x6118c4
 bool g_loaded = false;                          // 0x613798 (set at the end of Map::Load)
 int g_lastWorldX = 0, g_lastWorldY = 0;         // Map::lastWorldX/Y 0x6138dc 0x6138e0
 int g_owned[4] = {};                            // 0x613660 owned extent: min x, min y, max x, max y
+Building* g_currentFarm = nullptr;              // 0x6136b8 the farm shown (Map::ShowFarm, 3f)
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
 std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
@@ -530,6 +531,8 @@ void Building::LinkBaseToBuilding() {
 }
 
 bool IsLoaded() { return g_loaded; }
+
+Building* GetCurrentFarm() { return g_currentFarm; }
 
 Building* GetBuilding(int x, int y) {
     Cell* c = At(x, y);

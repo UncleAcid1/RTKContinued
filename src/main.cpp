@@ -233,6 +233,7 @@ int main(int argc, char** argv) {
     LevelUpWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();
+    PopupSelectionWindow::Queue();
     PopupWindow::Queue();
     SettingsWindow::Queue();
     ShopWindow::Queue();

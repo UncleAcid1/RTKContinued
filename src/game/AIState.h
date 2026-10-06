@@ -97,12 +97,23 @@ public:
     virtual int GetFutureDirection();                 // +0xec @0xe82d8
     virtual int GetState() { return state; }          // +0xf0 @0xe838c
     virtual void Clean() {}                           // +0xf4
+    virtual void SpeedUp(int) {}                      // +0xf8 @0xe8260
+    virtual bool SpeedUpProcess() { return false; }   // +0xfc @0xe8264
+    // +0x100 @0xe826c: a farmer works order `contract` (0-based) on soil patch `patch`.
+    virtual void Farm(int contract, int patch, bool plant) {}
     virtual void AssignToJob(Map::Building*) {}       // +0x104
     virtual bool AssignToJob(Map::Decor*) { return false; }   // +0x108
     virtual void RemoveFromJob() {}                   // +0x10c
     virtual bool TryToInterruptJob() { return false; }   // +0x110
     virtual bool IsWorking() { return false; }        // +0x114
     virtual void CancelWork() {}                      // +0x118
+    virtual void SetCurrentPatch(unsigned) {}         // +0x11c @0xe8294
+    virtual void SetItem(int, int, int) {}            // +0x120 @0xe8298
+    virtual int GetItem() { return 0; }               // +0x124 @0xe829c
+    virtual void Revive() {}                          // +0x128 @0xe82a4
+    virtual void CleanFarm() {}                       // +0x12c @0xe82a8
+    virtual int GetFarmPatchNum() { return 0; }       // +0x130 @0xe82ac
+    virtual void SetFarmPatchNum(unsigned) {}         // +0x134 @0xe82b4
     virtual void ResetOrder(Map::Building*) {}        // +0x138
     virtual void RemoveActionMarker() {}              // +0x13c
     virtual void StopMovement() {}                    // +0x140
@@ -110,7 +121,6 @@ public:
     virtual void CheckAggro() {}                      // +0x148
     virtual void OnMapUnload() {}                     // +0x150
     virtual void UpdateWalking(float dt, int depth);  // +0x154 @0xe8a24
-    // (+0xf8.. +0x134: speed-ups, farming and items, not ported yet)
 
     void SetCustomWalkAnimation(const char* name) { walkAnim = name; }   // @0xe9b88
     void SetCustomIdleAnimation(const char* name, int first, int last);  // @0xe9df0

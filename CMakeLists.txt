@@ -65,6 +65,7 @@ add_executable(rtk
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp
   src/windows/LevelUpWindow.cpp
+  src/windows/PopupSelectionWindow.cpp
   src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
@@ -76,6 +77,7 @@ add_executable(rtk
   src/hud/BottomCityWindow.cpp
   src/hud/TaskHolderWindow.cpp
   src/hud/HoverWindows.cpp
+  src/hud/InfoHoverWindows.cpp
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)

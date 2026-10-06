@@ -6,10 +6,11 @@
 // Port of BuildingHovers (libkingdom.so 5.11): Update @0x26e460, Click @0x27146c,
 // UpdateHovers @0x268430, HoverInfo::SetHoverType @0x267e28, DropResource @0x2707ac.
 //
-// Not ported yet (marked UNVERIFIED where they would run): the info windows of a tapped building
-// (OnBuildingClick, OnEntityClick, OnDecorClick: milestone 3e), the world dialog, the tutorial
-// arrows and steps, item drops (DropItem, Items), farms (DropFarmFood, the farm hovers), the
-// entity hovers (talk, health bars, boss time, player names) and the text cache.
+// A tap that no hover takes opens the tapped object's info window (OnEntityClick, OnBuildingClick,
+// OnDecorClick; the windows are in hud/InfoHoverWindows.cpp).
+// Not ported yet (marked UNVERIFIED where they would run): the world dialog, the tutorial arrows
+// and steps, item drops (DropItem, Items), farms (DropFarmFood, the farm hovers and windows: 3f),
+// the entity hovers (talk, health bars, boss time, player names) and the text cache.
 #pragma once
 #include <cstdint>
 
@@ -105,7 +106,13 @@ int SetArrowClickCallback(GUI::Callback* cb);
 // @0x266088: a tap on a visible arrow runs its callback (on the release) and hides the arrows.
 // UNVERIFIED (tutorial): the +0x24..+0x2c fields it clears are not ported.
 bool ClickOnArrow(int x, int y, bool pressed);
+bool OnBuildingClick(Map::Building* b, int x, int y);   // @0x26726c the building's info window
+int OnEntityClick(Entity* e, int x, int y);             // @0x26aafc 0 not taken, 1 taken, 2 go on
+bool OnDecorClick(Map::Decor* d, int x, int y);         // @0x26a3b0
 void OnBuildingAssignBuilder(Map::Building* b);   // @0x26b4a4
+void OnResourceAssign(Map::Building* b);          // @0x266a24
+void OnFreeWorkerAssign(Map::Building* b);        // @0x263b60
+void OnFreeWorkerBuild();                         // @0x263ae4
 void OnBuildingFinishedClick(Map::Building* b);   // @0x271208
 void CreateDecorationDrop(Map::Decor* d);         // @0x270e08
 

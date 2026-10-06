@@ -47,6 +47,7 @@ void SetCurrentMapID(uint32_t id);             // @0x19056c
 bool IsTutorial();                             // @0x190ad4 tutorial < 0x18 (the opening campaign)
 int GetPlayerWorkersCount();                   // @0x1927bc
 int GetMaxWorkerCount();                       // @0x19a7a8
+int GetGoblinCount();                          // @0x191a2c the storage goblins (entity class 0x10)
 bool IsMalePlayer();                           // @0x190ca8
 void SetPlayerGender(bool male);               // @0x190cbc
 const char32_t* GetPlayerName();               // @0x190cd0
@@ -59,6 +60,7 @@ void SetCastleName(const char32_t* name);      // @0x191e34
 int TutorialStep();
 int SecondTutorialStep();                      // GameState::secondTutorial
 bool IsCityTutorial();                         // @0x190af4
+int GetTutorialType();                         // @0x19067c (0x6129d4, saved in chunk 0x3d)
 // @0x190f90: a combat whose type (vfunc +0x50) is above 2 is running. UNVERIFIED (milestone 4): no
 // combats are ported (GameState::currentCombat is always null), so it is false.
 inline bool IsBossCombatActive() { return false; }
@@ -70,6 +72,8 @@ bool IsTaskStarted(unsigned id);               // @0x190988
 uint32_t GetTaskBeginTime(unsigned id);        // @0x198624 (0 when not begun)
 uint32_t GetGameStartTime();                   // @0x19130c
 
+const char* GetResourceIconName(int type);      // @0x190cfc the 16 px icons (table 0x601594)
+const char* GetResourceWorkerIconName(int type);   // @0x190d2c (table 0x6015ec)
 const char* GetResourceMapIconName(int type);   // @0x190d14 (table 0x6015c0)
 const char32_t* GetResourceGameName(int type);  // @0x191cf8 StringTable name (table 0x601618)
 

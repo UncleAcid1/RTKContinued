@@ -248,6 +248,10 @@ const char* GetFontFile();
 
 // @0x180784 / @0x183400: load "<layout>.xmlb" (falls back to the XML layout, not ported: every
 // layout the game uses exists as .xmlb). scale < 0: fit the layout to the screen (GetScaleFactor).
+// @0x17f334: a copy of `src` (its fields; detached: not linked among src's siblings). deep also
+// copies the children (under newRoot, else src's root) and gives the copy a sprite of src's texture.
+// It joins the window list but not the name table.
+Window* DuplicateWindow(Window* src, bool detached, bool deep, Window* newRoot);
 Window* RegisterUI(const char* layout, const char* rootImage, float scale, int offsetX, int offsetY,
                    int fitExtraW, int fitExtraH, bool async, float fontScale);
 

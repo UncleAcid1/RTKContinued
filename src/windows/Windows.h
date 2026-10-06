@@ -6,6 +6,7 @@
 
 namespace WindowManager { class FunctionalWindow; }
 namespace Map { struct Building; }
+namespace Render { struct Texture; }
 
 namespace CityRenameWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CityRenameWindow" (_INIT_ 0x298ffc)
@@ -13,6 +14,25 @@ void Init();                                // @0x29949c
 void Deinit();                              // @0x29945c
 void Show();                                // @0x299248
 void Hide();                                // @0x2992ec
+}
+
+namespace PopupSelectionWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PopupSelectionWindow" (_INIT_ 0x32c688)
+void Init();                                // @0x32cc84
+void Deinit();                              // @0x32cc44
+// @0x32c7ec: OK alone -> one centred button; with Cancel -> two (Cancel only works with an OK).
+// onExit runs on the close button or Back (null: just Hide).
+void Show(const char32_t* title, const char32_t* text, const char32_t* okText, Render::Texture* okIcon,
+          std::function<void()> onOk, const char32_t* cancelText, Render::Texture* cancelIcon,
+          std::function<void()> onCancel, void (*onExit)() = nullptr);
+void Hide();                                // @0x32cb50
+bool IsVisible();                           // @0x32c36c
+void SetMentorIcon();                       // @0x32c47c
+void SetGoblinIcon();                       // @0x32c508
+void SetCustomIcon(Render::Texture* tex);   // @0x32c594
+void HideClose();                           // @0x32c65c
+void SetFirstGreen();                       // @0x32c7b0
+void SetSecondGreen();                      // @0x32c774
 }
 
 namespace PopupWindow {

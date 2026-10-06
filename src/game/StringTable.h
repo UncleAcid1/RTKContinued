@@ -34,6 +34,8 @@ std::u32string GetNumericTimeString(int seconds, bool compact);
 // @0x228478: the plural form of "{one|few|many}" for n (the Slavic rule: n%10 == 1 and not
 // 11 -> one; n%10 in 2..4 and not 12..14 -> few; else many).
 std::u32string GetCountableString(const char32_t* forms, int n);
+// @0x227ffc: the male or female form of "male,female".
+std::u32string GetGenderString(const char32_t* forms, bool male);
 
 // UTF-8 to wide, using the decoder inlined in Init (invalid bytes are skipped).
 std::u32string DecodeUtf8(const char* s);

@@ -1279,6 +1279,83 @@ Window* RegisterBinaryUI(const char* layout, const char* rootImage, float scale,
     return top;
 }
 
+// @0x17f334
+Window* DuplicateWindow(Window* src, bool detached, bool deep, Window* newRoot) {
+    if (!src || (!src->parent && src->root)) {
+        std::printf("GUI ERROR: cannot duplicate window that is either invalid or has no parent (0x%p)\n", (void*)src);
+        if (!src) return nullptr;
+        if (src->type == Window::kButton) return new Button();
+        if (src->type == Window::kTextfield) return new Textfield(nullptr);
+        return src->type == Window::kWindow ? new Window() : nullptr;
+    }
+    Window* w;
+    if (src->type == Window::kButton) {
+        w = new Button();
+    } else if (src->type == Window::kTextfield) {
+        auto* from = static_cast<Textfield*>(src);
+        auto* t = new Textfield(from->font);
+        t->SetColor(from->color[0], from->color[1], from->color[2]);
+        t->SetAlignment(from->alignH, from->alignV);
+        Render::GlowFilter** tail = &t->glow;
+        for (const Render::GlowFilter* g = from->glow; g; g = g->next) {
+            *tail = new Render::GlowFilter(*g);
+            (*tail)->next = nullptr;
+            tail = &(*tail)->next;
+        }
+        t->fontSize = from->fontSize;
+        w = t;
+    } else {
+        w = new Window();
+    }
+    w->name = src->name;
+    w->symbol = src->symbol;
+    w->type = src->type;
+    w->origX = src->origX;
+    w->origY = src->origY;
+    w->x = src->x;
+    w->y = src->y;
+    w->origW = src->origW;
+    w->origH = src->origH;
+    w->w = src->w;
+    w->h = src->h;
+    w->root = newRoot ? newRoot : src->root;
+    w->visibleSelf = src->visibleSelf;
+    w->visible = src->visible;
+    w->unk28 = src->unk28;
+    w->unk2a = src->unk2a;
+    for (int i = 0; i < 4; ++i) w->border[i] = src->border[i];
+    w->scale = src->scale;
+    if (!detached) {   // inserted right after src among its siblings
+        w->next = src->next;
+        w->prev = src;
+        src->next = w;
+        if (w->next) w->next->prev = w;
+        if (src->parent && src->parent->lastChild == src) src->parent->lastChild = w;
+        w->parent = src->parent;
+    }
+    w->texture = nullptr;
+    w->index = (int)g_all.size();   // the window list only, not the name table
+    g_all.push_back(w);
+    if (deep) {
+        for (Window* c = src->firstChild; c; c = c->next)
+            w->AddChild(DuplicateWindow(c, true, true, w->root ? newRoot : w));
+        if (src->texture) {
+            w->texture = src->texture;
+            w->takesZ = true;
+            w->sprite = Render::CreateSprite(src->texture, Render::kLayerGUI, false, false);
+            Render::SetShaderType(w->sprite, 0);
+            w->sprite->screenSpace = true;
+            w->sprite->h = (float)w->h;
+            w->sprite->w = (float)w->w;
+            Render::SetPosition(w->sprite, (float)w->x, (float)w->y + (float)w->h, 0.001f);
+            Render::SetVisibility(w->sprite, w->visible);
+        }
+        if (src->border[0] != 0 || src->border[1] != 0 || src->border[2] != 0 || src->border[3] != 0)
+            w->Update9Slices();
+    }
+    return w;
+}
+
 Window* RegisterUI(const char* layout, const char* rootImage, float scale, int offsetX, int offsetY,
                    int fitExtraW, int fitExtraH, bool async, float fontScale) {
     Window* w = RegisterBinaryUI(layout, rootImage, scale, offsetX, offsetY, fitExtraW, fitExtraH, async,

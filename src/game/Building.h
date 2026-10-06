@@ -62,8 +62,8 @@ struct Building {
     bool contractDone = false;   // +0x5c
     int lastContract = 0;        // +0x60 the last contract launched, 1-based
     double gatherAcc = 0.0;      // +0x68 gathering progress (seconds)
-    int resources[11] = {};      // +0x70 resources held per type (storage: the player's amounts)
-    uint32_t patchArg[6] = {};   // +0x9c farm patch data (chunk 0x31)
+    int resources[11] = {};      // +0x70 resources held per type (storage: the player's amounts; farm: each soil patch's state)
+    uint32_t patchArg[6] = {};   // +0x9c farm patch rot timer start (chunk 0x31)
     uint32_t patchStart[6] = {}; // +0xb4 farm patch start times (chunk 0x2d)
     const GameData::BuildingData* data = nullptr;  // +0xcc
     float partZ = 0.f;           // +0xd0 z step per part sprite
@@ -89,6 +89,8 @@ struct Building {
     std::vector<Entity*> workers;  // +0x124 one slot per parking point
     std::vector<Entity*> livers; // +0x130 entities living here (AssignLiver)
     Entity* builder = nullptr;   // +0x13c
+    Entity* farmer = nullptr;    // +0x140 the farm view's farmer (AIFarmerBig, 3f)
+    std::vector<Entity*> patchEntities;   // +0x144 one soil patch entity (AIPatch) each (3f)
     int patchContract[6] = {};   // +0x150 farm patch contracts, 1-based (0 empty)
     Entity* farmEntity = nullptr;  // +0x15c
     int farmEntityId = 0;        // +0x160
@@ -153,6 +155,7 @@ struct Building {
     void ResetResource();                        // @0x11d530
     int GetMissionID() const;                    // @0x11c52c
     bool HasActiveContract() const;              // @0x1201d0 (farms: any patch)
+    int GetResidentCount() const { return (int)livers.size(); }   // @0x123d70
     int GetFullGoldAmount() const;               // @0x123d84 5 per liver + collectmoney
     int GetReadyGoldAmount() const;              // @0x123da8 class 0/9: the share of a full collect time
     void CollectResources(bool& full, int& amount);   // @0x11dcac
@@ -167,6 +170,18 @@ struct Building {
     void UpdateGrowing();                        // @0x120a70
     int GetFirstGrowingPatchNum() const;         // @0x11f448
     int GetFarmState(int patch);                 // @0x11d7b4
+    bool IsSoilPatchDirty(unsigned i) const;     // @0x11d1f0
+    bool IsSoilPatchRotten(unsigned i) const;    // @0x11d224
+    bool IsSoilPatchReady(unsigned i) const;     // @0x11d258
+    bool IsSoilPatchActive(unsigned i) const;    // @0x11d28c growing
+    bool IsSoilPatchEmpty(unsigned i) const;     // @0x11d2f0
+    bool IsFarmSpeedUp(int i);                   // @0x11d324
+    int GetFirstDirtySoilPatch() const;          // @0x11fe84
+    int GetFirstRottenSoilPatch() const;         // @0x11fef0
+    int GetFirstEmptySoilPatch() const;          // @0x11ff5c
+    int GetFirstReadySoilPath();                 // @0x11ffc8 (sic)
+    int GetFirstActiveSoilPatch() const;         // @0x120058
+    int GetNextPatchToBuy() const;               // @0x11fe34
     void OnContractCompleted(bool silent);       // @0x11db64
     void OnBuilded();                            // @0x1260d4 (houses get workers, farms a farmer)
     void OnUpgraded();                           // @0x124df0
@@ -176,6 +191,9 @@ struct Building {
     // once (cut down when that empties it); a workshop's order ends now; otherwise the construction
     // or upgrade has no work left.
     void SpeedupBuilding();
+    // @0x127170: start upgrading to `level` (paying the next upgrade's cost): closed while a
+    // builder works off its upgrade time.
+    void Upgrade(unsigned level);
     void HireGolbin();                           // @0x124d74 a delivery goblin from a storage
     void GetDeliveryTile(int& tx, int& ty) const;   // @0x11c5f8
     void SetupSmallFarm();                       // @0x11f498

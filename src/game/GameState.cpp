@@ -412,7 +412,30 @@ void CancelWork(int type) {
     }
 }
 
+int GetTutorialType() { return (int)g_tutorialType; }
+
+int GetGoblinCount() {
+    int n = 0;
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i)
+        if (e->GetEntityData()->clas == 0x10) ++n;
+    return n;
+}
+
 int AdjustCrystalCost(int cost) { return (int)((float)cost * GetSetting("crystal_mult")); }
+
+const char* GetResourceIconName(int type) {
+    static const char* const kIcons[] = {
+        "Icon_16_wood", "Icon_16_rock", "Icon_16_food", "Icon_16_plank", "Icon_16_cut_stone", "Icon_16_meat",
+        "Icon_16_sauage", "Icon_16_oil", "Icon_16_gold", "Icon_16_crystal", "Icon_xp"};
+    return kIcons[type];
+}
+
+const char* GetResourceWorkerIconName(int type) {
+    static const char* const kIcons[] = {
+        "Icon_profession_lumberjack", "Icon_profession_miner", "", "", "Icon_profession_stone_cutter", "", "", "", "",
+        "", ""};
+    return kIcons[type];
+}
 
 const char* GetResourceMapIconName(int type) {
     static const char* const kIcons[] = {

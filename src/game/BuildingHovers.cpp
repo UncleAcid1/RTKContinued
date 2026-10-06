@@ -15,6 +15,7 @@
 #include "game/BuildingPlacement.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
+#include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
@@ -82,6 +83,16 @@ std::vector<TextInfo> g_itemInfo;      // BuildingHovers::itemInfo
 std::vector<ItemMove> g_itemMoves;     // BuildingHovers::itemMoves
 std::vector<ItemDrop> g_itemDrops;     // BuildingHovers::itemDrops
 BuildingHoverWindow* g_currentHover = nullptr;   // 0x618980 the tapped building's info window
+// The info windows (Init), shown one at a time as g_currentHover.
+FactoryHoverWindow* g_factoryWindow = nullptr;            // BuildingHovers::factoryWindow
+BuildProgressHoverWindow* g_progressWindow = nullptr;     // BuildingHovers::progressWindow (screen space)
+LivingHoverWindow* g_livingWindow = nullptr;              // BuildingHovers::livingWindow
+StorageHoverWindow* g_storageWindow = nullptr;            // BuildingHovers::storageWindow
+EmptyHoverWindow* g_emptyWindow = nullptr;                // BuildingHovers::emptyWindow
+CastleHoverWindow* g_castleWindow = nullptr;              // BuildingHovers::castleWindow
+ResourceHoverWindow* g_resourceActiveWindow = nullptr;    // BuildingHovers::resourceActiveWindow
+DecorationHoverWindow* g_decorationWindow = nullptr;      // BuildingHovers::decorationWindow
+bool g_skipHoverCheck = false;         // BuildingHovers::skipHoverCheck
 int g_lastID = 0;                      // 0x618998
 bool g_hoversVisible = true;           // 0x60f138
 uint32_t g_lastTime = 0;               // 0x6189dc
@@ -199,10 +210,19 @@ WindowManager::FunctionalWindow* Queue() {
 }
 
 void Init() {
+    // UNVERIFIED: wndScale is 1.5 below a 320 px screen height (the arrows' scale).
     g_arrows.push_back(new HelperArrow());
-    // UNVERIFIED (milestone 3e / tutorial): the info windows (Empty, Storage, ResourceActive,
-    // Living, Factory, Progress, Castle, Person, FarmGrow, FarmRestore, Decoration) and the world
-    // dialog (WorldHintHoverWindow) are created here; wndScale is 1.5 below a 320 px screen height.
+    // UNVERIFIED: PersonHoverWindow (only shown on campaign maps: milestone 4), FarmGrowHoverWindow and
+    // FarmRestoreWindow (3f) and the world dialog (WorldHintHoverWindow) are created here too.
+    g_emptyWindow = new EmptyHoverWindow();
+    g_storageWindow = new StorageHoverWindow();
+    g_resourceActiveWindow = new ResourceHoverWindow();
+    g_livingWindow = new LivingHoverWindow();
+    g_factoryWindow = new FactoryHoverWindow();
+    g_progressWindow = new BuildProgressHoverWindow(true);
+    g_castleWindow = new CastleHoverWindow();
+    g_decorationWindow = new DecorationHoverWindow();
+    // UNVERIFIED (world dialog): the queue's back function becomes BuildingHovers::OnBack.
 }
 
 // ---- the helper arrow ----
@@ -972,22 +992,224 @@ bool Click(int x, int y, bool pressed) {
             }
         }
     }
-    // UNVERIFIED (milestone 3e): OnEntityClick (a tapped entity), OnBuildingClick (the building's
-    // info window, unless it has an active hover outside a battle) and OnDecorClick.
-    (void)e;
+    if (e && !pressed) {
+        int r = OnEntityClick(e, x, y);
+        if (r != 2) return r != 0;
+    }
+    // UNVERIFIED (milestone 4): in a city battle (g_Combat) a building with an active hover is tapped too.
+    if (b && !pressed && !BuildingHasActiveHover(b) && OnBuildingClick(b, x, y)) return true;
+    if (d && !pressed) return OnDecorClick(d, x, y);
     return false;
+}
+
+// @0x26a3b0: a tapped decoration. In the city one that pays taxes shows its info window.
+bool OnDecorClick(Map::Decor* d, int x, int y) {
+    int step = GameState::tutorial;
+    // UNVERIFIED (tutorial): steps 0x13 and 0x3a hide the world dialog.
+    if (step == 0x14 || step == 0x3a) HideArrow();
+    // UNVERIFIED (milestone 4): in a combat only skipCombatCheck lets a tap through.
+    if (GameState::GetCurrentMapID() == 0 && d->patch && !d->patch->owned) return true;
+    // UNVERIFIED (milestone 4): a quest-locked decoration (Decor::IsLocked: its MetaExpression) goes to
+    // the hero (ClickedDecoration); a decoration job (+0x4c: its resource needs, "REQUIREMENT_GOBLIN",
+    // the hero or a worker sent, the "FREE_UP_WORKER" popup); Decor::OnClick (quest text, portals).
+    // Without a MetaExpression, a job or a portal none of these apply.
+    if (d->f4c != 0) return true;
+    const GameData::DecorData* data = d->GetData();
+    BuildingHoverWindow* w = g_currentHover;
+    if (data && data->collectTime != 0 && GameState::GetCurrentMapID() == 0 && d->patch && d->patch->owned) {
+        for (HoverInfo* h : g_hoverData)
+            if (h->window && h->decor == d) return false;
+        w = g_currentHover = g_decorationWindow;
+    }
+    if (!w) {
+        // UNVERIFIED (milestone 4): a tap the city does not take goes to EntityManager::OnClick at the
+        // decoration's tile when (x, y) is (0, 0).
+        (void)x;
+        (void)y;
+        return false;
+    }
+    bool wasShown = g_wnd->shown;
+    g_wnd->shown = true;
+    g_wnd->MoveWindowOnTop(true);
+    w->SetEntity(nullptr);
+    w->SetDecoration(d);
+    w->SetBuilding(nullptr);
+    Render::Sprite* s = d->sprite;
+    int sx = (int)(s->x + s->w * 0.5f), sy = (int)(s->y - s->h);
+    Map::WorldCoordinatesToScreen(sx, sy);
+    w->SetPosition(sx, sy);
+    w->Show();
+    w->MoveWindowOnTop(true);
+    if (!wasShown) WindowManager::WindowShow(false);
+    return true;
+}
+
+// @0x26aafc: a tapped entity. A tree's or rock's pile is collected; a farm patch shows its window
+// (3f). Returns 0 (not taken), 1 (taken) or 2 (no window: the tap goes on to buildings).
+int OnEntityClick(Entity* e, int x, int y) {
+    if (!GameState::IsPlayerCity()) return 1;
+    int cls = e->GetEntityData()->clas;
+    if (cls == 1) {
+        if (Map::Building* home = e->GetHome()) {
+            int amount = 0;
+            bool full = false;
+            home->CollectResources(full, amount);
+            std::u32string text = full ? std::u32string(StringTable::GetString("WORK_RES_NO_SPACE"))
+                                       : SWPrintf(0x100, U"+%d %s", {amount, GameState::GetResourceGameName(home->data->produceResource)});
+            ShowTextHover(home->baseX, home->baseY, text.c_str(), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true, 2.f,
+                          50.f);
+            return 1;
+        }
+    } else if (cls == 3 || cls == 4 || cls == 7) {
+        // UNVERIFIED (3f): a soil patch for sale (AI state 0x1b) opens LandWindow::SetPatchParameters,
+        // a locked one (0x14) says "SOIL_PATCH_LOCKED", a rotten crop with a full storage
+        // "WORK_RES_NO_SPACE", else ShowFarmHover(false, patch, 1).
+    }
+    if (!g_currentHover) {
+        // UNVERIFIED (milestone 4): on campaign maps (location 2) a live, active entity takes the tap.
+        return 2;
+    }
+    g_wnd->shown = true;
+    g_wnd->MoveWindowOnTop(true);
+    g_currentHover->SetEntity(e);
+    g_currentHover->SetPosition(x, y);
+    g_currentHover->Show();
+    g_currentHover->MoveWindowOnTop(true);
+    WindowManager::WindowShow(false);
+    return 1;
+}
+
+// @0x26726c: the tapped building's info window, placed over it. Returns whether the tap was taken.
+bool OnBuildingClick(Map::Building* b, int, int) {
+    // UNVERIFIED (milestone 4): in a city battle CombatManager::OnBuildingClicked takes the tap.
+    if (GameState::tutorial == 0x3a) {
+        HideArrow();
+        // UNVERIFIED (tutorial): HideWorldDialog.
+        GUI::SetInteractionLock(true);
+        GameState::tutorial = 0x3d;
+        return false;
+    }
+    if (!g_skipHoverCheck) {
+        for (HoverInfo* h : g_hoverData)
+            if (h->window && h->building == b && h->type != kFarmSleeping && h->type != kFarmReady &&
+                h->type != kTraining && h->type != kDelivery)
+                return true;
+    }
+    g_skipHoverCheck = false;
+    bool tutorialFarmLock = GameState::GetTutorialType() == 1 && GameState::secondTutorial != 0x100;
+    if (GameState::GetCurrentMapID() == 0) {
+        if (b->patch && !b->patch->owned) return true;
+        int cls = b->data->buildingClass;
+        if (cls == 0xd && b->IsOpened()) {
+            if (tutorialFarmLock && (unsigned)(GameState::tutorial - 0x3a) > 0x17) return true;
+            // UNVERIFIED (3f): the farm view (GameState::SetCurrentLocation(1), HUDWindow::UpdateTasks,
+            // HUDWindow::SetBottomType(3), Map::ShowFarm(true, b)).
+            return false;
+        }
+        if (cls == 4 && b->WorkerAssigned(0)) {
+            g_currentHover = g_resourceActiveWindow;
+        } else if (b->IsOpened() && b->id == 0x12) {
+            g_currentHover = g_storageWindow;
+        } else if (b->IsOpened() && b->id == 0x81) {
+            g_currentHover = g_emptyWindow;
+        } else if (b->IsOpened() && b->id == 99) {
+            g_currentHover = g_castleWindow;
+        } else if (b->IsOpened() && b->id == 0x8f) {
+            // UNVERIFIED (milestone 4): HireTroopsWindow::ShowForBuilding(id, false).
+        } else if (cls == 4) {
+            OnResourceAssign(b);
+        } else if (b->IsOpened() && cls == 0) {
+            g_currentHover = g_livingWindow;
+        } else if (b->IsOpened() && cls == 2 && b->HasActiveContract() && !b->contractDone) {
+            g_currentHover = g_factoryWindow;
+        } else if (b->IsOpened() && cls == 2) {
+            if (tutorialFarmLock && (unsigned)(GameState::tutorial - 0x3a) > 0x1b) return true;
+            g_currentHover = g_factoryWindow;
+        } else if (b->IsOpened() && cls == 0xc) {
+            // UNVERIFIED (milestone 4): the tavern's HireTroopsWindow (Setting "always_open_tavern"
+            // == 1 outside tutorial step 0x61: building 0x8f's).
+        }
+    }
+    // UNVERIFIED (milestone 4): on other maps the campaign buildings' windows.
+    BuildingHoverWindow* w = g_currentHover;
+    if (!w) return false;
+    bool wasShown = g_wnd->shown;
+    g_wnd->shown = true;
+    g_wnd->MoveWindowOnTop(true);
+    w->SetEntity(nullptr);
+    w->SetDecoration(nullptr);
+    w->SetBuilding(b);
+    int sx = (int)((b->minX + b->maxX) * 0.5f);
+    int sy = (int)((float)b->data->iconY + b->minY);
+    Map::WorldCoordinatesToScreen(sx, sy);
+    w->SetPosition(sx, sy);
+    w->Show();
+    w->MoveWindowOnTop(true);
+    if (w == g_progressWindow) w->Activate(true);
+    // SoundsManager::PlaySound("ui_click_building", 1, true) (not for class 4): milestone 5.
+    if (wasShown) return true;
+    WindowManager::WindowShow(false);
+    return true;
 }
 
 // ---- hover actions ----
 
-void OnBuildingAssignBuilder(Map::Building* b) {
-    if (!b->BuilderAssigned()) {
-        if (Entity* w = EntityManager::GetFreeWorker()) {
+// @0x263ae4
+void OnFreeWorkerBuild() {
+    PopupSelectionWindow::Hide();
+    ShopWindow::ShowBestOfTab(0);
+}
+
+// @0x263b60: a free worker, else the first busy one taken off its job, goes to b.
+void OnFreeWorkerAssign(Map::Building* b) {
+    PopupSelectionWindow::Hide();
+    if (Entity* w = EntityManager::GetFreeWorker()) {
+        b->AssignWorker(w, 0);
+        return;
+    }
+    Entity* w = EntityManager::GetFirstBusyWorker();
+    if (!w) return;
+    if (Map::Building* job = w->GetWorkplace()) job->RemoveWorker(w);
+    // UNVERIFIED (milestone 4): a worker on a decoration job leaves it (Decor::RemoveWorker).
+    b->AssignWorker(w, 0);
+}
+
+namespace {
+// "No free worker": move a busy one (OnFreeWorkerAssign) or build a house (OnFreeWorkerBuild).
+void AskToFreeWorker(Map::Building* b, Render::Texture* icon) {
+    // SoundsManager::PlaySound("ui_show_busyworkers", 1, false): sounds are milestone 5.
+    PopupSelectionWindow::Show(StringTable::GetString("FREE_UP_WORKER"), StringTable::GetString("NO_FREE_WORKER_DESC"),
+                               StringTable::GetString("FIRE_PERSON"), icon, [b] { OnFreeWorkerAssign(b); },
+                               StringTable::GetString("PERFORM_BUILD"), IconManager::GetIcon("gold_build"),
+                               OnFreeWorkerBuild);
+    PopupSelectionWindow::SetMentorIcon();
+}
+}  // namespace
+
+// @0x266a24: a tap on a tree or rock without a worker: a cut stump resets, else a worker goes.
+void OnResourceAssign(Map::Building* b) {
+    if (b->data->buildingClass == 4 && !b->WorkerAssigned(0)) {
+        if (b->resourceLeft == 0 && b->resourceState == 2) {
+            b->ResetResource();
+        } else if (Entity* w = EntityManager::GetFreeWorker()) {
             b->AssignWorker(w, 0);
         } else if (EntityManager::GetFirstBusyWorker()) {
-            // UNVERIFIED (milestone 3e): PopupSelectionWindow "FREE_UP_WORKER" offers to move a busy
-            // worker (OnFreeWorkerAssign) or open the shop (OnFreeWorkerBuild).
+            const char* icon = b->data->id == 0x11 ? "icon_profession_lumberjack"
+                               : b->data->id == 0x14 ? "icon_profession_miner" : "add_person";
+            AskToFreeWorker(b, IconManager::GetIcon(icon));
         }
+    }
+    if (GameState::tutorial == 0x25) {
+        HideArrow();
+        GUI::SetInteractionLock(true);
+        GameState::tutorial = 0x26;
+    }
+}
+
+void OnBuildingAssignBuilder(Map::Building* b) {
+    if (!b->BuilderAssigned()) {
+        if (Entity* w = EntityManager::GetFreeWorker()) b->AssignWorker(w, 0);
+        else if (EntityManager::GetFirstBusyWorker()) AskToFreeWorker(b, IconManager::GetIcon("icon_profession_builder"));
         UpdateHovers();
         return;
     }

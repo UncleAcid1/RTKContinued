@@ -69,6 +69,7 @@ struct UpgradeInfo {             // 0x50 bytes per upgrade level (BuildingData+0
     int population = 0;          // +0x40 "upgrade_population"
     int givePopulation = 0;      // +0x44 "give_upgrade_population"
     int speedupCb = 0;           // +0x48 "speedupcb"[level + 1]
+    int exchangeLimit = 0;       // +0x4c never loaded (0); CallbackUpgradeBuilding's exchange limit
 };
 
 struct ResourceRespawn { int amount = 0, time = 0; };   // "resourcesrespawn" / "...time", 5 entries
@@ -114,6 +115,7 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     MetaData* unlockLevel = nullptr;       // +0x1a8
     uint32_t buildingClass = 0;  // +0x1ac "building_class" (13 forced for 0x96 0x3ea 0x3e9 0x13 0x72 0x3ee 0x433)
     std::vector<BuildingPart> parts;  // +0x1b0 linked list, in file order
+    unsigned GetMaxUpgradeCount() const { return (unsigned)upgrades.size(); }   // @0x123e6c
     bool IsHQ() const { return id - 99u < 2; }   // @0x11c3b0 the castle (99, 100)
 };
 
