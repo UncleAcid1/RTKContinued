@@ -5,9 +5,8 @@ This file is the single source of truth for where the project stands. Update it 
 ## Handoff (last updated 2026-10-06, 3e.3 in progress) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
-boxes, drops), 3d saves (see the 3d entry below). Last commit 52d97a7. Git is local only: there is
-NO remote; the user asked once to push, and still needs to give a repo URL or OK creating a GitHub
-repo. Don't push without that.
+boxes, drops), 3d saves (see the 3d entry below). Last commit 52d97a7. GitHub: https://github.com/UncleAcid1/RTKContinued
+(branch main, first pushed 2026-10-06). Push after a finished step only when the user asks.
 
 **User's standing rules.** 100% faithful to the original (every function has `// @0xADDR`, guesses
 marked UNVERIFIED/PORT); clean, no over-engineering; offline-first; confirm before downloads, installs
