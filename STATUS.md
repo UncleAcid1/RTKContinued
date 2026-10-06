@@ -65,10 +65,12 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    the text) until 3e.4 part 2; the building info windows (BuildingHovers::OnBuildingClick,
    ShowArrowAtUpgrade) for the Find arrows' callbacks; the animated CenterOn at zoom 0.4; the
    upgradable-building purpose block (with the building upgrade window); items/professions (M4).
-   Seen while testing, not caused by 3e.4: during a placement the shop's info panel stays up and
-   the first tap (e.g. on Confirm) is taken as its outer click; "Buttons_confirm_placement.xml z
-   range exhausted" is printed because PlaceBuildingHoverWindow moves itself on top before it
-   counts as visible (the original's order, so its z is the same there).
+   Headless-test timing: after a shop purchase the icon flies for 1 s (BuildingPlacement::Update,
+   as the original) before the placement controls slide in, and taps are ignored while a GUI
+   animation runs (WindowManager::ProcessClick). The harness waits exactly 30 frames after a tap,
+   so a Confirm tap right after the shop tap is lost; put a `--key 4` (30 more frames) before it.
+   "Buttons_confirm_placement.xml z range exhausted" is printed because PlaceBuildingHoverWindow
+   moves itself on top before it counts as visible (the original's order, so its z is the same).
    Next, 3e.4 part 2: ExchangeWindow (decode 0x2abcbc..0x2af8bc; drop OnPayForDollars and the
    dollar packs per the freemium decisions, keep OnPayForCB), then LevelUpWindow
    (0x2f147c..0x2f3740).
