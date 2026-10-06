@@ -24,10 +24,10 @@ void ToggleRotation();               // @0x3a2594
 void Accept();                       // @0x3a37c4 pay, build, place
 void Decline();                      // @0x3a1fe4 back to the shop
 // @0x3a3138: start placing a copy of `b` (the shop's building), at the screen centre or near it.
-// sprite: the shop icon flying to the preview (UNVERIFIED, 3e.3); fromPresents: a present, free.
+// sprite: the shop icon, flown onto the preview over 1 s (null: none); fromPresents: a present, free.
 void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents);
 // @0x3a2cf0: the same for a decoration (taken over, not copied).
 void DecorBought(Map::Decor* d, Render::Sprite* sprite, bool fromPresents);
-void UpdateCost(int extraGold, bool show);   // @0x3a35b0 (UNVERIFIED, 3e.3: the cost line)
+void UpdateCost(int extraGold, bool show);   // @0x3a35b0 (UNVERIFIED: the cost line; its target window is unknown)
 
 }  // namespace BuildingPlacement

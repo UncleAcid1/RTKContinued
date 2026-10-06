@@ -256,7 +256,10 @@ void DumpTree(const Window* w, int depth = 0);   // PORT: debugging aid (prints 
 // GetWindowTyped / GetWindowTypedF (@0x2432f8, @0x243420...): on a miss (or a window of another
 // type) they print a message and return GUI::Init's template window of that type, never null.
 Window* GetWindowTyped(Window* root, const char* name, int type);
-Window* DummyWindow();   // GUI::dummyWindow, the template window (GUI::Init's desktop window)
+Window* DummyWindow();
+// @0x176a28: shows `tex` in `w`, shrunk to fit its width (fitW) and/or height (fitH) but never
+// enlarged past the root's scale; the size passed is unscaled (SetTexture keepSize).
+void FitImageIntoWindow(Window* w, Render::Texture* tex, bool fitW, bool fitH);   // GUI::dummyWindow, the template window (GUI::Init's desktop window)
 template <class T> T* GetWindowTyped(Window* root, const char* name);
 template <> inline Window* GetWindowTyped<Window>(Window* root, const char* name) { return GetWindowTyped(root, name, -1); }
 template <> inline Textfield* GetWindowTyped<Textfield>(Window* root, const char* name) {

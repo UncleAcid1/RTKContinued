@@ -392,6 +392,16 @@ void Decline() {
     g_hidden.Clear(true);
 }
 
+// The tail of BuildingBought / DecorBought: the shop icon `from` flies over 1 s onto `to` (a world
+// sprite), ending at its top-left corner less the icon's height and at its zoomed size.
+void FlyTo(Render::Sprite* from, const Render::Sprite* to) {
+    int x = (int)to->x;
+    int y = (int)(to->y - from->h / Render::GetBaseZoomFactor());
+    Map::WorldCoordinatesToScreen(x, y);
+    BuildingHovers::AddItemMovement(from, x, y, true, 1.f, (int)(to->w * Render::GetBaseZoomFactor()),
+                                    (int)(to->h * Render::GetBaseZoomFactor()), true, false);
+}
+
 void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents) {
     // SoundsManager::PlaySound("spell_fly", 1, false): sounds are milestone 5.
     Activate();
@@ -419,8 +429,8 @@ void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents)
         g_hover->Show();
         return;
     }
-    // UNVERIFIED (3e.3): the shop's icon flies to the preview (BuildingHovers::AddItemMovement over
-    // 1 s, from the sprite to the preview's main sprite), which stays hidden until it lands.
+    // The shop's icon flies for 1 s to the preview's main sprite, which stays hidden until it lands.
+    FlyTo(sprite, g_building->mainSprite);
     Render::SetVisibility(g_building->mainSprite, false);
     g_flyTime = 1.f;
 }
@@ -447,8 +457,7 @@ void DecorBought(Map::Decor* d, Render::Sprite* sprite, bool fromPresents) {
         g_hover->Show();
         return;
     }
-    // UNVERIFIED (3e.3): the shop's icon flies to the preview (BuildingHovers::AddItemMovement over
-    // 1 s), which stays hidden until it lands.
+    FlyTo(sprite, g_decor->sprite);
     g_decor->visible = false;
     Render::SetVisibility(g_decor->sprite, false);
     g_flyTime = 1.f;
@@ -456,7 +465,7 @@ void DecorBought(Map::Decor* d, Render::Sprite* sprite, bool fromPresents) {
 
 void UpdateCost(int extraGold, bool show) {
     g_extraGold += extraGold;
-    // UNVERIFIED (3e.3): the price line under the controls (an SWPrintf of the cost) is not ported.
+    // UNVERIFIED: the price line under the controls (an SWPrintf of the cost) is not ported.
 }
 
 void Accept() {

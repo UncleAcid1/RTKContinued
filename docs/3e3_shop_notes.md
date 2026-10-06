@@ -1,4 +1,4 @@
-# 3e.3 ShopWindow: decoded facts (work in progress)
+# 3e.3 ShopWindow: decoded facts (ported: src/windows/ShopWindow.cpp)
 
 Everything here was read from the decompile/asm of libkingdom.so 5.11. The next step is to write
 `src/windows/ShopWindow.cpp`, replacing the stand-ins (IsVisible/Show/Hide/GetInfoPanelX), then wire
@@ -211,7 +211,7 @@ Caveats:
   the count of non-empty tabs before it. Then OnTabSelect(index); ScrollIntoView; FillBuildings.
 - **ShowArrowOnItem(id):** SetArrowVisibleWindowLimit(2). For each visible cell whose data id == id:
   arrowItem = cell; OnItemInfo(cell, false).
-- **ShowBestOfTab(t):** the building with the highest level (+0x78, ≥ so the last wins); Show();
+- **ShowBestOfTab(t):** the building with the highest level (+0x78, strictly greater, so the first wins); Show();
   OnSelectItemID(its id).
 - **OnItemSelect(i):** Decline the placement if active; selected = i; OnItemInfo(i, true); OnBuy().
   A tap buys straight away.
@@ -241,7 +241,7 @@ Caveats:
     hidden. Image enabled.
   - **otherwise (quest locked):** lock shown; if Tasks::GetTask (M4) → status "SHOP_UNLOCK_TASK".
     Image disabled.
-  - The "%d/%d" argument order is UNVERIFIED; it is read as (count, max).
+  - "%d/%d" is (count, max), checked in the asm at 0x34d130.
 - image_holder_idle->SetEnabled(enabled); FitImageIntoWindow(holder, BuildingImage(data, 0), true,
   true).
 - Then UpdateClip and Sort(14).

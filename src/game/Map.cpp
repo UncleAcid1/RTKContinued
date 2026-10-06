@@ -383,7 +383,7 @@ void Decor::UpdateMapLink() {
 void Decor::UpdateImage() {
     Decor* d = this;
     if (d->sprite) { Render::RemoveSprite(d->sprite); d->sprite = nullptr; }
-    if (!d->data) return;  // UNVERIFIED: decor ids that resolve to buildings (else-branch) not ported
+    if (!d->GetData()) return;  // UNVERIFIED: decor ids that resolve to buildings (else-branch) not ported
     Render::Texture* tex = GameData::DecorImage(d->data);
     if (!tex) return;      // the original shows a debug placeholder texture here
     const GameData::DecorData& D = *d->data;
@@ -416,8 +416,13 @@ void Decor::UpdateImage() {
 
 // MapObject::GetStartTile @0x1c7658 (through Decor::GetData @0x131234): back half the width (the
 // height when mirrored) along the row.
+const GameData::DecorData* Decor::GetData() const {
+    if (!data) data = GameData::GetDecoration(id);
+    return data;
+}
+
 void Decor::GetStartTile(int& tx, int& ty) const {
-    if (!data) { tx = ty = 0; return; }
+    if (!GetData()) { tx = ty = 0; return; }
     tx = x;
     unsigned uy = y;
     ty = (int)uy;
@@ -429,7 +434,7 @@ void Decor::GetStartTile(int& tx, int& ty) const {
 }
 
 void Decor::GetBuildZone(int& w, int& h) const {
-    if (!data) { w = h = 0; return; }
+    if (!GetData()) { w = h = 0; return; }
     w = data->w;
     h = data->h;
 }

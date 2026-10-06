@@ -44,14 +44,20 @@ int GetNotificationState();                 // @0x33de78
 void SetNotificationState(int on);          // @0x33de64
 }
 
-// The shop (3e.3). UNVERIFIED stand-ins until it is ported: the shop is never open.
+// The building and decoration shop.
 namespace ShopWindow {
-bool IsVisible();                           // @0x346d14
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ShopWindow" (_INIT_ 0x346ff4)
+void Init();                                // @0x34a358
+void Deinit();                              // @0x348f30
+bool IsVisible();                           // @0x346d14 the strip or the info panel is up
 void Show();                                // @0x34d73c
 void Hide();                                // @0x3479b8
 // @0x346dd4: the left edge of the shop's info panel (its offset 0x62d6e8 + the screen width - the
 // panel's width).
 int GetInfoPanelX();
+void OnSelectItemID(unsigned id);           // @0x34d67c open the tab holding building `id`
+void ShowArrowOnItem(unsigned id);          // @0x34bd24 the helper arrow on that building's cell
+void ShowBestOfTab(unsigned type);          // @0x34d99c
 }
 
 // The "not enough resources" dialog (3e.4). The requirements are ported; the dialog is not yet.

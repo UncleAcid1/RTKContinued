@@ -2,10 +2,10 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e.3 in progress) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e.3 done) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
-boxes, drops), 3d saves (see the 3d entry below). Last commit 52d97a7. GitHub: https://github.com/UncleAcid1/RTKContinued
+boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
 (branch main, first pushed 2026-10-06). Push after a finished step only when the user asks.
 
 **User's standing rules.** 100% faithful to the original (every function has `// @0xADDR`, guesses
@@ -33,16 +33,17 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    restores everything. Known until 3e.3: the shop's Building instance (opened? level?) and the
    icon flight (AddItemMovement) are unverified; after Cancel the arrow stays because the
    original hides it when the reopened shop counts as a shown window.
-   3e.3 IN PROGRESS (ShopWindow, the building shop behind BottomCity "Build"). Fully decoded; all
-   findings (globals map, every function's logic, open items) are in docs/3e3_shop_notes.md - READ
-   IT FIRST, no need to re-decompile. Done and committed: SWPrintf/ToWideString (unit-tested),
-   StlSort (STLport sort; the shop sorts each tab 3x), GameData shop fields + EnumBuildings/
-   EnumDecors (file order) + GetMaxBuildingCount + BuildingImage, Map worker/building counts,
-   real GetPlayerWorkersCount/GetMaxWorkerCount (TopCity now adds pending workers),
-   NotEnoughWindow requirement kinds, Shared::TabHolder + House*Info, GUI::DummyWindow.
-   Remaining for 3e.3: write src/windows/ShopWindow.cpp (replaces the stand-ins), GUI::
-   FitImageIntoWindow, BuildingHovers::AddItemMovement, wire BottomCityWindow::OnBuild, test
-   headless (--click on Build, then a cell), commit, report to the user.
+   3e.3 DONE: ShopWindow (src/windows/ShopWindow.cpp; decode in docs/3e3_shop_notes.md): tabs
+   from shoptabs.xml, cells with lock/status/crystal looks, info panel (purpose lines, cost lines,
+   level/building requirements), ContentScroller strip, slide in/out, tap-to-buy into
+   BuildingPlacement (building and decoration), NotEnough path, people-limit popup, tutorial 0x5b
+   arrow; BottomCityWindow::OnBuild wired. Also GUI::FitImageIntoWindow, BuildingHovers::
+   AddItemMovement (the icon flight), SetArrowClickCallback/ClickOnArrow/SetArrowVisibleWindowLimit,
+   Map::Decor::GetData (lazy data lookup; a bought decoration has only its id). Verified headless:
+   Build opens the shop, tabs switch, a flowerbed buys/flies/places (confirm charges 15 gold,
+   cancel reopens the shop), a building buys (costs charged, pending worker 1/2), unaffordable ->
+   NotEnough requirements, the close button. Open: Tasks (quest-locked items, M4), Items in
+   producing lines, the "%s$%$d" cost line (BuildingPlacement::UpdateCost), sounds.
    After 3e.3: 3e.4 NotEnough dialog/ConfirmPurchase/speed-up, LevelUp, Exchange; 3e.5
    BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints

@@ -25,7 +25,7 @@ struct Decor {
     bool mirrored = false;             // +0x1c (map flag bit 0)
     bool visible = true;               // +0x1d
     std::string metaText;              // +0x20 MetaExpression (quests)  UNVERIFIED: kept as text
-    const GameData::DecorData* data = nullptr;  // +0x3c
+    mutable const GameData::DecorData* data = nullptr;  // +0x3c (GetData fills it on first use)
     bool fake = false;                 // +0x43 random decoration (Patch::AddRandomDecors)
     // +0x44 (map flag bit 1; also set on unowned city patches and in the tame tutorial). Decor::IsFake
     // is +0x43 || +0x44. UNVERIFIED: only loaded and saved so far.
@@ -38,6 +38,9 @@ struct Decor {
     bool removed = false;
 
     bool IsFake() const { return fake || hidden; }   // @0x130e20
+    // @0x131234: the data of `id`, looked up on first use. UNVERIFIED: an id that is a building's
+    // (the original then looks it up and drops it) gives null.
+    const GameData::DecorData* GetData() const;
     void GetStartTile(int& tx, int& ty) const;       // +0x18 MapObject @0x1c7658
     void GetBuildZone(int& w, int& h) const;         // +0x1c MapObject @0x1c76e4
     void ToggleMirror() { mirrored = !mirrored; }    // +0x28 MapObject @0x1c7724

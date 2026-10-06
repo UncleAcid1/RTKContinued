@@ -11,6 +11,7 @@
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
 #include "hud/Shared.h"
+#include "windows/Windows.h"
 
 namespace BottomCityWindow {
 namespace {
@@ -76,9 +77,14 @@ void SetButton(ButtonBuildingControls& b, Window* hide1, Window* hide2, const ch
     b.text->SetText(StringTable::GetString(text));
 }
 
-// @0x25dbec. UNVERIFIED (later milestones): ShopWindow::Show(), and at tutorial step 0x5b
-// ShopWindow::OnSelectItemID(0x8e) + ShowArrowOnItem(0x8e).
-void OnBuild() {}
+// @0x25dbec: open the shop; at tutorial step 0x5b on the warriors' building, with the arrow on it.
+void OnBuild() {
+    ShopWindow::Show();
+    if (GameState::tutorial == 0x5b) {
+        ShopWindow::OnSelectItemID(0x8e);
+        ShopWindow::ShowArrowOnItem(0x8e);
+    }
+}
 
 // @0x25e924 (BuildingMovement::SetLegacyMode(false), Activate(), ToggleMovement(): milestone 3)
 void OnEdit() {

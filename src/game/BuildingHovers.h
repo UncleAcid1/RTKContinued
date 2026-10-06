@@ -13,6 +13,8 @@
 #pragma once
 #include <cstdint>
 
+#include "gui/GUI.h"
+
 namespace Render { struct Sprite; }
 namespace Map { struct Building; struct Decor; }
 namespace WindowManager { class FunctionalWindow; }
@@ -74,6 +76,11 @@ bool IsItemMoving();                        // @0x26333c
 void DropResource(float x, float y, int type, unsigned amount, bool collectNow, bool bonus);
 // @0x26c534: a collected pickup's sprite flies to the HUD (resources: the top bar or, XP, the
 // level badge), optionally with a glow.
+// @0x26c124: a copy of `sprite` flies (over `duration` seconds) to the screen point (x, y + its
+// height), resizing to w x h (-1: keep). !screenSpace: the sprite is in the world. topLayer draws it
+// on layer 0xd (else 0xf) and plays "building_position" on arrival; fadeOut fades the last 0.25 s.
+void AddItemMovement(Render::Sprite* sprite, int x, int y, bool screenSpace, float duration, int w, int h,
+                     bool topLayer, bool fadeOut);
 void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glow, int type, bool noBelt);
 // @0x269f4c: a rising, fading text popup in the GUI font.
 void ShowTextHover(float x, float y, const char32_t* text, float r, float g, float b, float glowR,
@@ -91,6 +98,13 @@ void HideArrow();                           // @0x2663d8 back to the one (hidden
 void UpdateArrow();                         // @0x264df8 the bobbing
 bool ArrowVisible();                        // @0x264a54
 bool CanAutoHideArrow();                    // @0x26324c
+int GetArrowClickCallbackID();              // @0x2631e8
+void SetArrowVisibleWindowLimit(unsigned limit);   // @0x26330c the arrow hides above this many windows
+// @0x264270: the last arrow calls `cb` (owned) when tapped; returns the new callback id.
+int SetArrowClickCallback(GUI::Callback* cb);
+// @0x266088: a tap on a visible arrow runs its callback (on the release) and hides the arrows.
+// UNVERIFIED (tutorial): the +0x24..+0x2c fields it clears are not ported.
+bool ClickOnArrow(int x, int y, bool pressed);
 void OnBuildingAssignBuilder(Map::Building* b);   // @0x26b4a4
 void OnBuildingFinishedClick(Map::Building* b);   // @0x271208
 void CreateDecorationDrop(Map::Decor* d);         // @0x270e08

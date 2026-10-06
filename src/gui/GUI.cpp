@@ -766,6 +766,16 @@ Textfield* DefaultTextfield() { return g_defaultText; }
 
 Window* DummyWindow() { return g_desktop; }
 
+void FitImageIntoWindow(Window* w, Render::Texture* tex, bool fitW, bool fitH) {
+    if (!tex) return;
+    const float tw = (float)tex->w, th = (float)tex->h;
+    float s = fitW ? (float)w->w / tw : 1.f;
+    if (fitH && (float)w->h / th < s) s = (float)w->h / th;
+    const float cap = w->root ? w->root->scale : 1.f;
+    if (cap < s) s = cap;
+    w->SetTexture(tex, true, (unsigned)(int)(tw * (s / cap)), (unsigned)(int)(th * (s / cap)), true, 0);
+}
+
 Window* GetWindowTyped(Window* root, const char* n, int type) {
     Window* w = GetWindow(root, n);
     if (w && (type < 0 || w->type == type)) return w;

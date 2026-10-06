@@ -89,13 +89,15 @@ int g_styleCounter = 0;                // 0x6188dc (ShowTextHoverWithStyle)
 
 // HelperArrow (0x30 bytes): the bobbing "Arrow_show" pointer (tutorial steps, building placement).
 // arrows[0] always exists (Init); ArrowAt(..., newArrow) adds more, HideArrow drops them again.
-// UNVERIFIED (tutorial): the click callback (+0x10), the tablet attention rings (+0x18, +0x1c,
-// +0x20, +0x24) and the arrow following an entity (+0x28, UpdateArrow) are not ported.
+// UNVERIFIED (tutorial): the tablet attention rings (+0x18, +0x1c, +0x20, +0x24) and the arrow
+// following an entity (+0x28, UpdateArrow) are not ported.
 struct HelperArrow {
     Render::Sprite* sprite = nullptr;  // +0x00
     bool left = false;                 // +0x04 points left (Arrow_show_left), else down
     bool mirror = false, flip = false; // +0x05 +0x06
     float x = 0.f, y = 0.f;            // +0x08 +0x0c the anchor, world space unless screenSpace
+    GUI::Callback* onClick = nullptr;  // +0x10 SetArrowClickCallback (owned)
+    ~HelperArrow() { delete onClick; }
 };
 std::vector<HelperArrow*> g_arrows;    // BuildingHovers::arrows
 bool g_canHideArrow = true;            // BuildingHovers::canHideArrow
@@ -210,6 +212,42 @@ bool ArrowVisible() {
 }
 
 bool CanAutoHideArrow() { return g_canHideArrow; }
+
+int GetArrowClickCallbackID() { return g_arrowCallbackID; }
+
+void SetArrowVisibleWindowLimit(unsigned limit) { g_arrowVisibleWindowLimit = limit; }
+
+int SetArrowClickCallback(GUI::Callback* cb) {
+    HelperArrow* a = g_arrows.back();
+    delete a->onClick;
+    a->onClick = cb;
+    ++g_arrowCallbackID;
+    std::printf("Arrow callbacks created: %d\n", g_arrowCallbackID);
+    return g_arrowCallbackID;
+}
+
+bool ClickOnArrow(int x, int y, bool pressed) {
+    for (HelperArrow* a : g_arrows) {
+        if (!a->onClick) {
+            if (!a->sprite) continue;
+            Render::SetVisibility(a->sprite, false);   // an arrow without a callback goes away
+        }
+        Render::Sprite* s = a->sprite;
+        if (!s || !s->visible) continue;
+        int px = x, py = y;
+        if (!s->screenSpace) Map::MouseCoordinatesToWorld(px, py);
+        if ((float)px < s->x || !((float)px < s->x + s->w)) continue;
+        if ((float)py < s->y - s->h || !((float)py < s->y)) continue;
+        if (pressed) return true;
+        // SoundsManager::PlaySound("ui_arrow_click", 1, false): sounds are milestone 5.
+        for (HelperArrow* o : g_arrows)
+            if (o && o->sprite) Render::SetVisibility(o->sprite, false);
+        (*a->onClick)();
+        ++g_arrowCallbackID;
+        return true;
+    }
+    return false;
+}
 
 void HideArrow() {
     for (size_t i = 1; i < g_arrows.size(); ++i) {
@@ -599,6 +637,33 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
     // CheckForSpecialDrops @0x26fafc: ruby finds while the quests 0x4d7/0x4d9 are active
     // (Tasks::IsTaskActive). UNVERIFIED (milestone 4): quests are not ported, so it drops nothing.
     // UNVERIFIED (tutorial): steps 0x14 (unlock) and 0x21 (lock on the gold drop).
+}
+
+void AddItemMovement(Render::Sprite* sprite, int x, int y, bool screenSpace, float duration, int w, int h,
+                     bool topLayer, bool fadeOut) {
+    if (!sprite) return;
+    g_itemMoves.emplace_back();
+    ItemMove& m = g_itemMoves.back();
+    m.sprite = Render::CreateSprite(sprite->tex, 0xc, false, false);
+    int sx = (int)sprite->x, sy = (int)sprite->y;
+    m.sprite->screenSpace = true;
+    m.sprite->w = sprite->w;
+    m.sprite->h = sprite->h;
+    if (!screenSpace) Map::WorldCoordinatesToScreen(sx, sy);
+    Render::SetPosition(m.sprite, (float)sx, (float)sy, 0.05f);
+    Render::ChangeLayer(m.sprite, topLayer ? 0xd : 0xf);
+    m.startW = sprite->w;
+    m.startH = sprite->h;
+    m.startX = (float)sx;
+    m.startY = (float)sy;
+    m.endW = w == -1 ? sprite->w : (float)w;
+    m.endH = h == -1 ? sprite->h : (float)h;
+    m.endX = (float)x;
+    m.endY = (float)y + sprite->h;
+    m.sound = topLayer;
+    m.t = 0.f;
+    m.fadeOut = fadeOut;
+    m.duration = duration;
 }
 
 void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glow, int type, bool) {

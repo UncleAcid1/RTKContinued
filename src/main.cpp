@@ -225,6 +225,7 @@ int main(int argc, char** argv) {
     PlayerTopWindow::Queue();
     PopupWindow::Queue();
     SettingsWindow::Queue();
+    ShopWindow::Queue();
     TaskHolderWindow::Queue();
     TopCityWindow::Queue();
     // main_Loop_Init: TextStyleManager::Init, the desktop window last (the bottom of the queue),
