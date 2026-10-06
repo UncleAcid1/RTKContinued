@@ -224,6 +224,8 @@ void CancelWork(int type) {
     }
 }
 
+int AdjustCrystalCost(int cost) { return (int)((float)cost * GetSetting("crystal_mult")); }
+
 const char* GetResourceMapIconName(int type) {
     static const char* const kIcons[] = {
         "images/Resources/lumber/stage_5", "images/Resources/rocks/stage_5", "Icon_60_food",

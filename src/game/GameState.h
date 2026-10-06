@@ -28,6 +28,7 @@ bool CheckStorageFull(int type);               // @0x196dd8
 // @0x197018: add (or spend, negative) a resource; XP raises the level. Crystals only go down here.
 void ChangeResourceAmount(int type, int amount);
 void AddCrystals(int amount);                  // @0x196f68
+int AdjustCrystalCost(int cost);               // @0x19a758 cost * Setting "crystal_mult"
 const char* GetResourceName(int type);         // @0x190ce4
 int StringToResourceType(const char* name);
 int ExternalResourceTypeToInternal(unsigned type);   // @0x190d44 data files: 0 gold, 1 crystal, 2.. lumber..    // @0x192580 (case-insensitive; unknown -> GOLD)

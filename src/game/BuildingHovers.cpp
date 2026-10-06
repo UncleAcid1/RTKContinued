@@ -142,9 +142,11 @@ void HoverInfo::SetHoverType(int t) {
     if (t == kAssignBuilder || t == kContractFinished || t == kCutResource || t == kHireTroops ||
         t == kFarmWater || t == kFarmReady || t == kTraining)
         w = new BubbleHoverWindow();
+    else if (t == kResourceRestore)
+        w = new ResourceRestoreHoverWindow();
     else if (t == kTaxes)
         w = new TaxesHoverWindow();
-    // UNVERIFIED (not ported yet): BuildProgressHoverWindow (2), ResourceRestoreHoverWindow (6),
+    // UNVERIFIED (not ported yet): BuildProgressHoverWindow (2),
     // TalkHoverWindow (0xc), HealthbarHoverWindow (0xd), HealthbarTinyHoverWindow (0xe),
     // UseItemHoverWindow (0xf), BossTimeHoverWindow (0x10), SleepingHoverWindow (10, 0xb),
     // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13).

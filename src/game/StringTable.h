@@ -23,6 +23,10 @@ const char* GetLanguage();
 // SetEmptyNameReplacement, is not ported.)
 const char32_t* GetString(const char* key);
 bool StringExists(const char* key);              // @0x22c980
+// @0x22b1a0: a duration with the units of "TIME_STR" ("h,m,s"): "HH:MM h" from an hour, "MM:SS m"
+// from a minute, else "S s"; compact gives "H h" / "M m" instead. (The original writes into a
+// caller buffer; callers pass 0x20 characters.)
+std::u32string GetTimeString(int seconds, bool compact);
 
 // UTF-8 to wide, using the decoder inlined in Init (invalid bytes are skipped).
 std::u32string DecodeUtf8(const char* s);

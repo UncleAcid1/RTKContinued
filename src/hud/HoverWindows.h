@@ -5,9 +5,9 @@
 // Ports of BuildingHoverWindow (vtable 0x609788), BubbleHoverWindow (0x609690, Init @0x370c0c) and
 // TaxesHoverWindow (Init @0x39a7b0). Offsets are the original's.
 #pragma once
+#include "gui/GUI.h"
 #include "gui/WindowManager.h"
 
-namespace GUI { class Window; class Button; }
 namespace Map { struct Building; struct Decor; }
 class Entity;
 
@@ -84,4 +84,49 @@ public:
     bool bonusPulse = false;           // +0x54
     float pulse = 0.f;                 // +0x58 pulse timer (1 s)
     bool bonusReady = false;           // +0x5c full and still in the bonus time
+};
+
+// The compact progress box over a regrowing tree or rock: time left, a progress bar and the hurry
+// button. Port of ResourceRestoreHoverWindow (Init @0x39511c, Update @0x394a48).
+class ResourceRestoreHoverWindow : public BuildingHoverWindow {
+public:
+    ResourceRestoreHoverWindow();                // @0x3955d4
+    ~ResourceRestoreHoverWindow() override;      // @0x395510
+    void Init() override;                        // +0x08 @0x39511c
+    void SetZ(float z) override;                 // +0x10 @0x3944fc
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x394fc8
+    void Show() override;                        // +0x1c @0x3950a4
+    void Hide() override;                        // +0x20 @0x395038
+    void Update(float dt) override;              // +0x24 @0x394a48
+    float ZRange() override { return 0.002f; }   // +0x34 @0x39452c
+    void RemoveWindow() override;                // +0x38 @0x394838
+    void SetPosition(int x, int y) override;     // +0x3c @0x3949e8
+    void SetBuilding(Map::Building* b) override; // +0x40 @0x3948dc
+    void FixWindowPosition(int& x, int& y) override;   // +0x50 @0x39489c
+    void OnSpeedUp(bool confirmed);              // @0x39462c
+    void OnSpeedUpFinished();                    // @0x39459c
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* border = nullptr;     // +0x38 "golden_border_box"
+    int borderH = 0;                   // +0x3c
+    GUI::Window* footer = nullptr;     // +0x40 "hint_window_footer"
+    GUI::Textfield* jobText = nullptr; // +0x44 "text_job"
+    GUI::Window* bar = nullptr;        // +0x48 "unit_info_progress_bar"
+    GUI::Window* barColor = nullptr;   // +0x4c
+    GUI::Textfield* textUnder = nullptr;   // +0x50
+    GUI::Textfield* textOver = nullptr;    // +0x54
+    GUI::ClipRect clip = {0, 0, 0, 0}; // +0x58 the bar's fill
+    GUI::Textfield* hereWorks = nullptr;   // +0x68 "TAP_TO_SPEED_UP"
+    GUI::Window* hurry = nullptr;      // +0x6c "button_hurry_tiny"
+    GUI::Window* crystalIcon = nullptr;    // +0x70
+    GUI::Window* itemIcon = nullptr;   // +0x74
+    GUI::Textfield* priceText = nullptr;   // +0x78
+    bool speedingUp = false;           // +0x7c
+    float speedT = 0.f;                // +0x80
+    bool barStarted = false;           // +0x84
+    float barValue = 0.f;              // +0x88 the shown fill, eased towards the progress
+    float barTick = 0.f;               // +0x8c
+    bool itemBoosts = false;           // +0x90 Setting "item_boosts" == 1
+    unsigned boostItem = 0;            // +0x94
+    int boostAmount = 0;               // +0x98
 };

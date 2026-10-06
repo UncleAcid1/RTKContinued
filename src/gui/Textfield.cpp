@@ -201,8 +201,9 @@ void Textfield::SetRotation(float angle) {
     Render::SetShaderType(sprite, 8);
 }
 
-void Textfield::SetScreenSpace(bool ss) {   // @0x179bfc (the field itself is not stored)
+void Textfield::SetScreenSpace(bool ss) {   // @0x179bfc
     if (sprite) sprite->screenSpace = ss;
+    Window::SetScreenSpace(ss);
 }
 
 void Textfield::SetCustomShader(int type, bool) {   // @0x176ff8

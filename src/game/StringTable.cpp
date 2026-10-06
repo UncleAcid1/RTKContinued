@@ -109,6 +109,35 @@ const char32_t* GetString(const char* key) {
     return s ? s->c_str() : nullptr;
 }
 
+std::u32string GetTimeString(int t, bool compact) {
+    std::u32string units;
+    if (const char32_t* s = GetString("TIME_STR")) units = s;
+    units = units.substr(0, 31);   // SWPrintf(buf, 0x20, TIME_STR)
+    size_t c1 = units.find(U','), c2 = c1 == std::u32string::npos ? c1 : units.find(U',', c1 + 1);
+    if (c1 == std::u32string::npos || c2 == std::u32string::npos) {
+        std::fprintf(stderr, "Incorrect TIME_STR\n");   // ErrorReporter::Printf
+        return U"Incorrect TIME_STR";
+    }
+    std::u32string h = units.substr(0, c1), m = units.substr(c1 + 1, c2 - c1 - 1), s = units.substr(c2 + 1);
+    char buf[32];
+    std::u32string unit;
+    if (t >= 3600) {
+        if (compact) std::snprintf(buf, sizeof buf, "%d ", t / 3600);
+        else std::snprintf(buf, sizeof buf, "%02d:%02d ", t / 3600, t % 3600 / 60);
+        unit = h;
+    } else if (t > 59) {
+        if (compact) std::snprintf(buf, sizeof buf, "%d ", t % 3600 / 60);
+        else std::snprintf(buf, sizeof buf, "%02d:%02d ", t % 3600 / 60, t % 60);
+        unit = m;
+    } else {
+        std::snprintf(buf, sizeof buf, "%d ", t);
+        unit = s;
+    }
+    std::u32string out(buf, buf + std::strlen(buf));
+    out += unit;
+    return out.substr(0, 31);
+}
+
 // @0x22c980 ("%s_%s" with the current language, then "EN_%s")
 bool StringExists(const char* key) {
     return Find(std::string(g_lang) + "_" + key) || Find(std::string("EN_") + key);
