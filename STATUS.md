@@ -3,7 +3,7 @@
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
 ## Handoff (last updated 2026-10-06, 3e done; next 3f) — read this first in a new conversation
-**Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
+**Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3e done, 3f (farms) left:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
 (branch main, first pushed 2026-10-06). Push after a finished step only when the user asks.
