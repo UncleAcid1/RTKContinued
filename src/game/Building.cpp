@@ -709,6 +709,138 @@ void Building::SpeedupBuilding() {
     }
 }
 
+int Building::GetEffectOnPopulation() const {
+    if (!data || data->buildingClass == 4) return 0;
+    int n = -(int)data->costPopulation;
+    for (int i = 0; i < level - 1; ++i) n -= data->upgrades[(size_t)i].population;
+    n += (int)data->givePopulation;
+    for (int i = 0; i < level - 1; ++i) n += data->upgrades[(size_t)i].givePopulation;
+    return n;
+}
+
+void Building::PrepareToAction() {
+    if (data->buildingClass == 0xd) {
+        for (Entity* e : livers)
+            if (e) Render::SetVisibility(e->GetSprite(), false);
+        if (farmEntity) {
+            farmEntity->SetActive(false, false);   // UNVERIFIED: the idle argument (decompile drops it)
+            if (!trainee) return;
+            EntityManager::RemoveEntity(trainee, true);
+            trainee = nullptr;
+            return;
+        }
+    } else if (data->buildingClass == 7) {
+        for (Entity* pile : piles)
+            if (pile) Render::SetVisibility(pile->GetSprite(), false);
+    }
+    if (!trainee) return;
+    EntityManager::RemoveEntity(trainee, true);   // +0x170: the smoke or trainee entity
+    trainee = nullptr;
+}
+
+void Building::UndoAction() {
+    if (data->buildingClass == 0xd) {
+        for (Entity* e : livers)
+            if (e) Render::SetVisibility(e->GetSprite(), true);
+        if (farmEntity) farmEntity->SetActive(true, false);   // UNVERIFIED: the idle argument
+    } else if (data->buildingClass == 7) {
+        for (Entity* pile : piles)
+            if (pile) Render::SetVisibility(pile->GetSprite(), true);
+    }
+    // UNVERIFIED (milestone 5): AddSmoke @0x11e898 (smoke over the workshops).
+}
+
+void Building::OnMoved() {
+    for (Entity* e : livers) {
+        if (!e) continue;
+        if (e->homeX != 0 || e->homeY != 0) {
+            e->homeX = x;
+            e->homeY = y;
+        }
+    }
+    if (data->buildingClass == 0xd) {
+        for (Entity* e : livers) {
+            if (!e) continue;
+            if (e->workX != 0 || e->workY != 0) {
+                e->workX = x;
+                e->workY = y;
+            }
+            e->SetPos(x, y);
+            float wx = 0.f, wy = 0.f;
+            GetParkingSpot(1, wx, wy);
+            e->SetWorldPos(wx, wy);
+            Render::SetVisibility(e->GetSprite(), true);
+        }
+        if (farmEntity) EntityManager::RemoveEntity(farmEntity, true);
+        farmEntity = nullptr;
+        SetupSmallFarm();
+    } else if (data->buildingClass == 7) {
+        for (unsigned i = 0; i < 4; ++i) {
+            Entity* pile = piles[i];
+            if (!pile) continue;
+            pile->SetPos(x, y);
+            float wx = 0.f, wy = 0.f;
+            GetParkingSpot(i, wx, wy);
+            pile->SetWorldPos(wx, wy);
+            Render::SetVisibility(pile->GetSprite(), true);
+        }
+    }
+    // UNVERIFIED (milestone 5): AddSmoke @0x11e898.
+}
+
+void Building::OnDestroy() {
+    if (isCopy) return;
+    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("building_demolitioned").
+    EntityManager::ResetOrders(this);
+    GameState::RemoveAllOrders(this, 9999);
+    GameState::RemoveAllTargetOrders(this, 9999);
+    for (size_t i = 0; i < livers.size(); ++i) {
+        if (!livers[i]) continue;   // PORT: the port's liver slots can be empty
+        if (Building* w = livers[i]->GetWorkplace()) w->RemoveWorker(livers[i]);
+        GameState::RemoveOrderOfWorker(livers[i]);
+        unsigned cls = data->buildingClass;
+        if (cls != 0xc && cls != 7) {
+            EntityManager::RemoveEntity(livers[i], true);
+            if (data->buildingClass != 7) livers[i] = nullptr;
+        } else if (cls != 7) {
+            livers[i] = nullptr;
+        }
+    }
+    if (data->buildingClass == 7) {
+        if (Building* storage = GetNearestStorage(this, true)) {
+            for (Entity* e : livers) {
+                if (!e) continue;   // PORT: see above
+                storage->AssignLiver(e);
+                e->homeX = storage->x;
+                e->homeY = storage->y;
+            }
+        }
+    }
+    CleanUp();
+}
+
+void Building::CleanUp() {
+    if (farmEntity) EntityManager::RemoveEntity(farmEntity, true);
+    if (data) {
+        if (data->buildingClass == 7) {
+            for (Entity*& pile : piles) {
+                if (!pile) continue;
+                EntityManager::RemoveEntity(pile, true);
+                pile = nullptr;
+            }
+        }
+        if (data->buildingClass == 4 && workers.size() > 1 && workers[1]) {
+            EntityManager::RemoveEntity(workers[1], true);
+            workers[1] = nullptr;
+        }
+    }
+    if (trainee) {
+        EntityManager::RemoveEntity(trainee, true);
+        trainee = nullptr;
+    }
+    GameState::RemoveAllOrders(this, 9999);
+}
+
 namespace {
 // OnBuilded/OnUpgraded: a new worker (id 0 or 0x30) at the spawn tile when it is free, else at a
 // free waypoint around the building (w x h tries), else at the start tile.

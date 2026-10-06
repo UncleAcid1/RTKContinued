@@ -118,6 +118,14 @@ struct Building {
     // marked isCopy; its image is built when updateImage.
     Building* Duplicate(bool updateImage) const;
     void LinkBaseToBuilding();   // @0x11e4a4
+    bool Contains(int x, int y) const;           // @0x11e444 a pixel of one of its sprites at the world point
+    // @0x11c900: the people it adds (givePopulation and its upgrades') less those it employs.
+    int GetEffectOnPopulation() const;
+    void PrepareToAction();      // @0x12035c hides its residents/piles while it is moved or removed
+    void UndoAction();           // @0x12029c shows them again
+    void OnMoved();              // @0x120454 residents and piles follow the new position
+    void OnDestroy();            // @0x125b00 workers, orders and residents leave
+    void CleanUp();              // @0x11d6a4 its own entities go
     bool IsOpened() const;       // @0x11c6a8 (class 4 always)
     void SetOpened() { opened = true; }          // @0x11c6c0
     void SetClosed(bool c) { if (c) opened = false; }  // @0x11c6cc

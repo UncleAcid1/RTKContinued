@@ -5,6 +5,7 @@
 #include <string>
 
 class Entity;
+namespace Map { struct Building; }
 struct SpawnPoint;
 
 namespace EntityManager {
@@ -28,6 +29,7 @@ void UpdateGraphics();                           // @0x166868
 Entity* EnumEntities(unsigned i);                // @0x167c38
 int GetEntityCount(bool permanentOnly);          // @0x167c54
 Entity* GetPlayer();                             // @0x165500
+void ResetOrders(Map::Building* b);              // @0x1669dc every AI forgets its orders to b
 Entity* GetEntityAtXY(int x, int y);             // @0x16613c (active, alive)
 // @0x16716c: the entity whose sprite box (Entity::Contains) holds the world point, the nearest
 // (lowest z) first among living non-NPCs, then living ones, then any active one.

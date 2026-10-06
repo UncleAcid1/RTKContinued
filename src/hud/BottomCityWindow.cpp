@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "engine/IconManager.h"
+#include "game/BuildingMovement.h"
 #include "game/GameState.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -86,30 +87,46 @@ void OnBuild() {
     }
 }
 
-// @0x25e924 (BuildingMovement::SetLegacyMode(false), Activate(), ToggleMovement(): milestone 3)
+// @0x25e924: the Tools button: the edit mode, moving.
 void OnEdit() {
     HideMainButton();
     ShowInstruments();
+    BuildingMovement::SetLegacyMode(false);
+    BuildingMovement::Activate();
+    BuildingMovement::ToggleMovement();
     g_mode = 0;
 }
 
-// @0x25dbcc / @0x25dbac / @0x25db8c: BuildingMovement::ToggleMovement / ToggleRotation /
-// ToggleDemolishion (milestone 3) and the mode whose button pulses.
-void OnMove() { g_mode = 0; }
-void OnRotate() { g_mode = 1; }
-void OnDestroy() { g_mode = 2; }
-
-// @0x25eb30. UNVERIFIED: BuildingMovement::Accept() (milestone 3) decides whether the edit ends; until
-// it exists the edit always ends. Then SetLegacyMode(true) and the sound "ui_swing_out".
-void OnAccept() {
-    ShowMainButton();
-    HideInstruments();
+// @0x25dbcc / @0x25dbac / @0x25db8c: the edit mode and the button that pulses.
+void OnMove() {
+    BuildingMovement::ToggleMovement();
+    g_mode = 0;
+}
+void OnRotate() {
+    BuildingMovement::ToggleRotation();
+    g_mode = 1;
+}
+void OnDestroy() {
+    BuildingMovement::ToggleDemolishion();
+    g_mode = 2;
 }
 
-// @0x25ead0 (BuildingMovement::Decline(), SetLegacyMode(true), sound "ui_swing_out": milestone 3)
+// @0x25eb30: the edit ends only when every moved object fits.
+void OnAccept() {
+    if (!BuildingMovement::Accept()) return;
+    ShowMainButton();
+    HideInstruments();
+    BuildingMovement::SetLegacyMode(true);
+    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_swing_out").
+}
+
+// @0x25ead0
 void OnDecline() {
     ShowMainButton();
     HideInstruments();
+    BuildingMovement::Decline();
+    BuildingMovement::SetLegacyMode(true);
+    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_swing_out").
 }
 
 // @0x25eb04: Back cancels an edit in progress.

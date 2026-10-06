@@ -92,6 +92,8 @@ int GetOrderCount(int type);                   // @0x190c20 orders of `type` a g
 // @0x195ab4: drop up to n+1 orders from `from` (their goblins cancel work). Freed orders go back to
 // the original's pool, so a goblin still holding one keeps valid memory; the port keeps them too.
 void RemoveAllOrders(Map::Building* from, int n);
+void RemoveAllTargetOrders(Map::Building* to, int n);   // @0x195a04 (at most n orders delivering to `to`)
+void RemoveOrderOfWorker(Entity* goblin);       // @0x1953c8 the first order the goblin carries
 void CancelWork(int type);                     // @0x191c8c goblins on `type` orders cancel work
 
 // The pause counter (0x612d70): dialogs raise it while shown.

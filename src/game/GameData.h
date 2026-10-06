@@ -114,6 +114,7 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     MetaData* unlockLevel = nullptr;       // +0x1a8
     uint32_t buildingClass = 0;  // +0x1ac "building_class" (13 forced for 0x96 0x3ea 0x3e9 0x13 0x72 0x3ee 0x433)
     std::vector<BuildingPart> parts;  // +0x1b0 linked list, in file order
+    bool IsHQ() const { return id - 99u < 2; }   // @0x11c3b0 the castle (99, 100)
 };
 
 bool Load();

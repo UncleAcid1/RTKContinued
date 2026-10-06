@@ -41,6 +41,14 @@ namespace TopCityWindow {
 bool Click(int x, int y, bool pressed);   // @0x365908 (NotEnoughWindow passes its clicks here first)
 }
 
+namespace TaskHolderWindow {
+void SetTaskVisibility(bool on);   // @0x359648 (hidden while buildings are edited)
+}
+
+namespace CastleTopWindow {
+inline void HideTools() {}         // @0x2769cc (empty in 5.11)
+}
+
 namespace BottomCityWindow {
 void ShowMainButton();        // @0x25e95c
 void HideMainButton();        // @0x25e860

@@ -53,4 +53,16 @@ void Update(float) {}
 
 bool IsVisible() { return true; }   // FunctionalWindow default (no IsVisible function)
 
+namespace {
+bool g_taskVisibility = true;   // 0x60f400
+}
+
+// @0x359648
+void SetTaskVisibility(bool on) {
+    bool was = g_taskVisibility;
+    g_taskVisibility = on;
+    if (was == on) return;
+    // UpdateTasks(): milestone 4
+}
+
 }  // namespace TaskHolderWindow

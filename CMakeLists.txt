@@ -36,6 +36,7 @@ add_executable(rtk
   src/game/StringTable.cpp
   src/game/Building.cpp
   src/game/BuildingHovers.cpp
+  src/game/BuildingMovement.cpp
   src/game/BuildingPlacement.cpp
   src/game/HiddenObjects.cpp
   src/game/Contracts.cpp

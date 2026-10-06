@@ -10,6 +10,8 @@
 #include "engine/Text.h"
 #include "engine/Timer.h"
 #include "game/Building.h"
+#include "game/BuildingMovement.h"
+#include "windows/Windows.h"
 #include "game/BuildingPlacement.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
@@ -873,7 +875,7 @@ void Update(double dtIn, bool force) {
     UpdateArrow();
     if (GameState::IsPaused()) return;
     if (WindowManager::GetShownWindowCount() > g_arrowVisibleWindowLimit && ArrowVisible() &&
-        !BuildingPlacement::Activated() && !GameState::IsTutorial())   // UNVERIFIED (3e.5): BuildingMovement::Activated
+        !BuildingMovement::Activated() && !BuildingPlacement::Activated() && !GameState::IsTutorial())
         HideArrow();
     // UNVERIFIED (tutorial): the tablet attention rings' animation.
     // UNVERIFIED: the world dialog's Update (not ported).
@@ -887,9 +889,9 @@ void Update(double dtIn, bool force) {
 // ---- the city tap ----
 
 bool Click(int x, int y, bool pressed) {
-    // UNVERIFIED (milestone 3e): BuildingMovement/BuildingPlacement activity and the shop window
-    // also make this return false.
-    if (!GameState::IsPlayerCity()) return false;
+    if (!GameState::IsPlayerCity() || BuildingMovement::Activated() || BuildingPlacement::Activated() ||
+        ShopWindow::IsVisible())
+        return false;
     // UNVERIFIED (tutorial): ClickOnArrow, and hiding the arrow on a release.
     if (g_currentHover) {
         if (g_currentHover->Click(x, y, pressed)) return true;

@@ -49,6 +49,9 @@ struct Decor {
     bool CanBePlaced(bool ignoreFake) const;
     void UpdateImage();                              // +0x0c @0x134c14
     void UpdateMapLink();                            // @0x1346b8
+    // +0x2c @0x1344b0: the sprite has a pixel at the world point; a plain decoration (no quest, portal,
+    // worker or collect time) only counts when `any`.
+    bool Contains(int x, int y, bool any) const;
     void ReplaceWith(uint32_t id);                   // @0x131f08
     // @0x131284: the crystal speed-up of a decoration's job: collectStart = now + ~f50.
     void SpeedupDecoration();
@@ -89,6 +92,15 @@ void SetBuilding(int x, int y, Building* b);           // @0x1b6388
 Decor* GetDecoration(int x, int y);
 Decor* GetVirtualDecoration(int x, int y);             // @0x1b6484
 void SetVirtualDecoration(int x, int y, Decor* d);     // @0x1b63cc
+void SetDecoration(int x, int y, Decor* d);            // @0x1b63a8
+// @0x1bafe8: the building at the tile leaves the grid (its footprint, the waypoints' weights back to
+// 1). Unless onlyUnlink it is destroyed (OnDestroy), taken out of its patch and its hovers, and
+// deleted when deleteIt.
+void RemoveBuilding(int x, int y, bool onlyUnlink, bool deleteIt);
+// @0x1bb148: the decoration at the tile leaves the grid; unless onlyUnlink its sprite goes and it
+// is removed from its patch. PORT: kept in the patch list flagged removed (not saved), as
+// RemoveDecorationAt does, so pointers held elsewhere stay valid.
+void RemoveDecoration(int x, int y, bool onlyUnlink);
 Decor* GetDecorationIgnoringBuildzones(int x, int y);  // @0x1c1a98 the one placed on exactly (x, y)
 // @0x1c1828: the patch containing the tile; without one, an error and (unless quiet) a new owned
 // patch covering the whole grid.

@@ -37,6 +37,7 @@
 #include "game/EntityData.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
 #include "game/Animation.h"
 #include "game/EntityData.h"
@@ -242,8 +243,9 @@ int main(int argc, char** argv) {
     TextStyleManager::Init();
     WindowManager::g_desktopWindow = new WindowManager::DesktopWindow();
     WindowManager::InitWindows();
-    // main_Loop_Init: BuildingPlacement::Init (BuildingMovement and SpellMovement: 3e.5, milestone 4).
+    // main_Loop_Init: BuildingPlacement::Init, BuildingMovement::Init (SpellMovement: milestone 4).
     BuildingPlacement::Init();
+    BuildingMovement::Init();
 
     // main_Loop_Init: the save names, SaveManager::Init, the save file, then LoadSavedGame.
     // PORT: the storage folder is the user's application support folder (Android: the app's files).
@@ -294,6 +296,7 @@ int main(int argc, char** argv) {
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
         GUI::UpdateAnimation(dt);
+        BuildingMovement::Update(dt);
         BuildingPlacement::Update(dt);
         MapMovement::Update(dt);
         BuildingHovers::Update(dt, false);
@@ -306,7 +309,7 @@ int main(int argc, char** argv) {
         WindowManager::DestroyPendingWindows();
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
-    // SDL's by a float factor). Not ported (UNVERIFIED): Spell/BuildingMovement (milestone 4, 3e.5),
+    // SDL's by a float factor). Not ported (UNVERIFIED): SpellMovement (milestone 4),
     // the world click (EntityManager, buildings, buying areas), long taps, the touch/pinch path
     // (Game::touchDown) and EditorConsole/Editor.
     int lastX = 0x96, lastY = 0x96;   // 0x60ef50: the previous pointer position
@@ -322,7 +325,8 @@ int main(int argc, char** argv) {
         if (left) {
             if (!Map::IsCameraMoving() && WindowManager::ProcessClick(x, y, true) != WindowManager::g_desktopWindow) {
                 // UNVERIFIED: the tutorial arrow (BuildingHovers::ClickOnArrow / HideArrow) at step 0x80.
-            } else if (!(BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, true, false))) {
+            } else if (!(BuildingMovement::Activated() && BuildingMovement::Click(x, y, true, false)) &&
+                       !(BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, true, false))) {
                 MapMovement::Click(x, y, true, false);
             }
         } else {
@@ -349,9 +353,12 @@ int main(int argc, char** argv) {
         if (!(MapMovement::HasFocus() && MapMovement::IsActive())) hit = WindowManager::ProcessClick(x, y, false);
         MapMovement::RemoveFocus();
         if (hit != WindowManager::g_desktopWindow) return;
+        if (BuildingMovement::Activated() && BuildingMovement::Click(x, y, false, MapMovement::IsActive())) return;
         if (BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, false, MapMovement::IsActive())) return;
         // A for-sale sign opens the land window (not during a drag or a placement).
-        if (!MapMovement::IsActive() && !BuildingPlacement::Activated() && Map::ClickToBuyArea(x, y)) return;
+        if (!MapMovement::IsActive() && !BuildingMovement::Activated() && !BuildingPlacement::Activated() &&
+            Map::ClickToBuyArea(x, y))
+            return;
         // The rest of a click that reaches the desktop window goes to the world: milestones 3-4.
     };
     auto mouseMove = [&](int x, int y) {
@@ -364,6 +371,7 @@ int main(int argc, char** argv) {
             MapMovement::StopDrag();
         }
         MapMovement::Move(x, y, dx, dy);
+        if (BuildingMovement::Activated() && BuildingMovement::Move(x, y, dx, dy)) return;
         if (BuildingPlacement::Activated() && BuildingPlacement::Move(x, y, dx, dy)) return;
         if (!firstMove) {
             GUI::OnMouseMove(x, y, true);

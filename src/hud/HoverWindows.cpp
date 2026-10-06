@@ -9,6 +9,7 @@
 #include "engine/Timer.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
 #include "game/Contracts.h"
 #include "game/GameData.h"
@@ -1042,17 +1043,17 @@ void PlaceBuildingHoverWindow::EnableAccept() { accept.root->SetEnabled(true); }
 
 void PlaceBuildingHoverWindow::OnDecline() {
     if (BuildingPlacement::Activated()) BuildingPlacement::Decline();
-    // UNVERIFIED (3e.5): BuildingMovement::Decline when it is active.
+    if (BuildingMovement::Activated()) BuildingMovement::Decline();
 }
 
 void PlaceBuildingHoverWindow::OnRotate() {
     // SoundsManager::PlaySound("building_flip", 1, false): sounds are milestone 5.
     if (BuildingPlacement::Activated()) BuildingPlacement::ToggleRotation();
-    // UNVERIFIED (3e.5): BuildingMovement::ToggleRotation when it is active.
+    if (BuildingMovement::Activated()) BuildingMovement::ToggleRotation();
 }
 
 void PlaceBuildingHoverWindow::OnAccept() {
     BuildingHovers::HideArrow();
     if (BuildingPlacement::Activated()) BuildingPlacement::Accept();
-    // UNVERIFIED (3e.5): BuildingMovement::Accept when it is active.
+    if (BuildingMovement::Activated()) BuildingMovement::Accept();
 }

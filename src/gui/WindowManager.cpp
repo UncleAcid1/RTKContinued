@@ -5,6 +5,7 @@
 
 #include "engine/Render.h"
 #include "gui/GUI.h"
+#include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
 
 namespace WindowManager {
@@ -202,9 +203,10 @@ void EnqueueWindow(void (*fn)(), float delay) {
 }
 
 void Update(float dt) {
-    // UNVERIFIED: BuildingMovement (3e.5), PlayerTopWindow::IsPlayerDialogVisible and
-    // Entity::IsDeathAnimationRunning (milestone 4) are not ported; they would also hold the queue.
-    if (g_windowQueue.empty() || g_shown != 0 || BuildingPlacement::Activated()) return;
+    // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible and Entity::IsDeathAnimationRunning
+    // (milestone 4) are not ported; they would also hold the queue.
+    if (g_windowQueue.empty() || g_shown != 0 || BuildingMovement::Activated() || BuildingPlacement::Activated())
+        return;
     Enqueued& e = g_windowQueue.front();
     if (e.delay > 0.f) {
         e.delay -= dt;

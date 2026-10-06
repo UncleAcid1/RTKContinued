@@ -386,6 +386,25 @@ void RemoveAllOrders(Map::Building* from, int n) {
     }
 }
 
+void RemoveAllTargetOrders(Map::Building* to, int n) {
+    for (size_t i = 0; i < g_orders.size();) {
+        if (n < 0) return;
+        if (g_orders[i]->to != to) { ++i; continue; }
+        g_orderPool.push_back(std::move(g_orders[i]));
+        g_orders.erase(g_orders.begin() + (long)i);
+        --n;
+    }
+}
+
+void RemoveOrderOfWorker(Entity* goblin) {
+    for (size_t i = 0; i < g_orders.size(); ++i) {
+        if (g_orders[i]->goblin != goblin) continue;
+        g_orderPool.push_back(std::move(g_orders[i]));
+        g_orders.erase(g_orders.begin() + (long)i);
+        return;
+    }
+}
+
 void CancelWork(int type) {
     for (size_t i = 0; i < g_orders.size(); ++i) {
         Order* o = g_orders[i].get();

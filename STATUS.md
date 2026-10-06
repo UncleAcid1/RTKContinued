@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e.4 done; next 3e.5) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e done; next 3f) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -90,8 +90,28 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    so a Confirm tap right after the shop tap is lost; put a `--key 4` (30 more frames) before it.
    "Buttons_confirm_placement.xml z range exhausted" is printed because PlaceBuildingHoverWindow
    moves itself on top before it counts as visible (the original's order, so its z is the same).
-   NEXT: 3e.5
-   BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.
+   3e.5 DONE: land buying (fb1ec73): LandWindow (the area's objects "%dx %s", tree/rock counts,
+   gold and crystal buttons, level lock; Map::ClickToBuyArea on a for-sale sign, Map::BuyArea,
+   crystal path also Map::Save(0)) and LandExpandedWindow (PORT: no share; the empty share backdrop
+   beside Ok is baked into the window's background image). The farm-patch half of both is 3f.
+   BuildingMovement (src/game/BuildingMovement.*, the Tools button): actions with undo (move,
+   remove, continuation), previews (copies) with red blocked tiles, Rotate (mirror), Remove (the
+   "can't destroy the last" popup, the decoration question), Accept (arrows over blocked previews,
+   else applies everything, Map::Save(0)) and Decline (undoes all). Wired in main.cpp (mouse
+   down/move/up before BuildingPlacement), BottomCityWindow, PlaceBuildingHoverWindow (legacy
+   mode), BuildingHovers (no hovers while editing), WindowManager::Update, LevelUpWindow,
+   Game SaveOnExit and Map::SafeSave (Decline first). Added on the way: Map::RemoveBuilding/
+   RemoveDecoration/SetDecoration, Building PrepareToAction/UndoAction/OnMoved/OnDestroy/CleanUp,
+   GameState RemoveAllTargetOrders/RemoveOrderOfWorker, EntityManager::ResetOrders.
+   Not ported (dead in 5.11, nothing calls their toggles): road painting (mode 3) and the
+   warehouse (mode 4). PORT: decoration sprite visibility is set explicitly; Map::RemoveDecoration
+   flags `removed`.
+   Verified headless: move onto blocked tiles (red, Confirm shows "!"), move to grass + Confirm
+   persists after reload, Cancel restores, Rotate mirrors on one tap, removing the last building
+   of a kind is refused, a decoration removal asks and applies on Confirm. Random decorations
+   (IsFake, regenerated from the player seed) grow back after a reload; the original's remove
+   path does not check IsFake either, so this is faithful.
+   NEXT: 3f farms.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
@@ -102,7 +122,7 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    are created but not yet placed in houses), Building::UpdateOfflineState, Decor::UpdateOfflineState,
    Map::UpdateOfflineResources (a stub comment in LoadSavedGame, src/game/Game.cpp). Hook point:
    the UNVERIFIED comment at the end of Map::Load.
-2. 3f farms (see the 3f entry).
+2. 3f farms (see the 3f entry): next.
 3. Milestone 4: hero/army/AI, quests (Tasks, MetaExpression), items (GameState keeps the item list and
    bindings already; Items::GetItemInfo missing), new-game tutorial on map 0x15 (replaces the PORT
    test city in main.cpp), spawns/portals/fog (their map chunks are passed through raw in
@@ -307,9 +327,10 @@ Milestones:
               save is byte-identical. Spawns/portals/fog chunks are passed through (M4).
               Moved to 3e: Map::AssignEntities (residents back into houses) with the offline
               building/decoration states and UpdateOfflineResources.
-       3e [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying;
-              economy dialogs (level-up, NotEnoughWindow, ExchangeWindow, factory/farm hovers),
-              offline resources, Map::AssignEntities and the offline worker states.
+       3e [x] (done 2026-10-06) ShopWindow + BuildingPlacement/BuildingMovement, costs, building
+              limits, area buying; economy dialogs (level-up, NotEnoughWindow, ExchangeWindow),
+              offline resources, Map::AssignEntities and the offline worker states. The farm
+              hovers and the farm-patch halves of the land windows moved to 3f.
        3f [ ] farms: the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints), the
               patch entities (AIPatch), AIFarmerBig/AIFarmerSmall, Building farm functions
               (SpawnFarm, FarmCollectAndReplant, soil patch states), the farm hovers and windows.

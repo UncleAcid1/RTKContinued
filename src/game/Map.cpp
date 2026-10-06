@@ -14,6 +14,8 @@
 #include "game/EntityData.h"
 #include "game/Background.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingPlacement.h"
+#include "game/BuildingMovement.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
@@ -553,6 +555,48 @@ void SetVirtualDecoration(int x, int y, Decor* d) {
     if (Cell* c = At(x, y)) c->virtualDecor = d;
 }
 
+void SetDecoration(int x, int y, Decor* d) {
+    if (Cell* c = At(x, y)) c->decor = d;
+}
+
+void RemoveBuilding(int x, int y, bool onlyUnlink, bool deleteIt) {
+    Building* b = GetBuilding(x, y);
+    if (!b) return;
+    if (!onlyUnlink) b->OnDestroy();
+    Patch* p = b->patch;
+    int sx = 0, sy = 0, w = 0, h = 0;
+    b->GetStartTile(sx, sy);
+    b->GetBuildZone(w, h);
+    ForEachFootprintTileFrom(sx, sy, w, h, [&](int tx, int ty) {
+        SetBuilding(tx, ty, nullptr);
+        if (AI::Waypoint* wp = AI::GetWaypoint(tx, ty, false)) wp->weight = 1.f;
+    });
+    if (onlyUnlink || !p) return;
+    // Swap-removed from the patch's list, as the original's array.
+    const int i = b->index;
+    std::unique_ptr<Building> owned = std::move(p->buildings[(size_t)i]);
+    if ((size_t)i + 1 != p->buildings.size()) {
+        p->buildings[(size_t)i] = std::move(p->buildings.back());
+        p->buildings[(size_t)i]->index = i;
+    }
+    p->buildings.pop_back();
+    BuildingHovers::UnregisterBuilding(b);
+    if (!deleteIt) owned.release();   // the caller keeps it (the warehouse)
+}
+
+void RemoveDecoration(int x, int y, bool onlyUnlink) {
+    Cell* c = At(x, y);
+    Decor* d = c ? c->decor : nullptr;
+    if (!d) return;
+    if (const GameData::DecorData* data = d->GetData()) {
+        ForEachFootprintTile(d->x, d->y, data->w, data->h, [&](int tx, int ty) { SetDecoration(tx, ty, nullptr); });
+    }
+    if (onlyUnlink) return;
+    if (d->sprite) Render::RemoveSprite(d->sprite);
+    d->sprite = nullptr;
+    d->removed = true;
+}
+
 Decor* GetDecorationIgnoringBuildzones(int x, int y) {
     Patch* p = GetPatchForCoordinates(x, y, true);
     if (!p) return nullptr;
@@ -761,6 +805,8 @@ bool BuildingContains(const Building* b, int x, int y) {
     return false;
 }
 
+bool Building::Contains(int x, int y) const { return BuildingContains(this, x, y); }
+
 bool BuildingIsLower(const Building* a, const Building* b) {
     if (!a->sprites.empty() && !b->sprites.empty()) return a->sprites.front()->z < b->sprites.front()->z;
     return a->maxY < b->maxY;
@@ -781,6 +827,8 @@ bool DecorContains(const Decor* d, int x, int y, bool any) {
     if (!d->data || d->data->collectTime == 0) return any;
     return true;
 }
+
+bool Decor::Contains(int x, int y, bool any) const { return DecorContains(this, x, y, any); }
 
 bool DecorIsLower(const Decor* a, const Decor* b) {   // @0x130e34
     if (!a->sprite || !b->sprite) return false;
@@ -1430,7 +1478,10 @@ void Save(int type) {
 // UNVERIFIED (milestone 3e/4): the world dialog, TaskCompleteWindow and the building placement
 // and movement modes are not ported; their closing is skipped.
 void SafeSave() {
+    // UNVERIFIED (milestone 4): BuildingHovers::HideWorldDialog and TaskCompleteWindow::Hide first.
     BuildingHovers::CollectAll();
+    BuildingMovement::Decline();
+    BuildingPlacement::Decline();
     Save(0);
 }
 

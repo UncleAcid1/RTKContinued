@@ -73,6 +73,11 @@ Entity* SpawnEntityAt(const std::string& name, unsigned x, unsigned y, bool appe
 
 void AddEntity(Entity* e) { g_entities.push_back(e); }
 
+void ResetOrders(Map::Building* b) {
+    for (Entity* e : g_entities)
+        if (e->GetAI()) e->GetAI()->ResetOrder(b);
+}
+
 void RemoveEntity(Entity* e, bool any) {
     auto it = std::find_if(g_entities.begin(), g_entities.end(),
                            [&](Entity* x) { return x == e && (any || e->temporary); });
