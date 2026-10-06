@@ -227,6 +227,7 @@ int main(int argc, char** argv) {
     ConfirmPurchaseWindow::Queue();
     ExchangeWindow::Queue();
     HUDWindow::Queue();
+    LevelUpWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();
     PopupWindow::Queue();
@@ -281,12 +282,13 @@ int main(int argc, char** argv) {
     Render::zoom *= opt.zoom;
 
     // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
-    // WindowManager::Update (delayed callbacks, none yet), the window queue, HUDWindow::Update,
+    // WindowManager::Update (the windows waiting to be shown), the window queue, HUDWindow::Update,
     // GUI animations, the movement controllers, BuildingHovers, then when the game is not paused the
     // entities (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's
     // camera step (the camera tween, not ported, and ApplyViewportLimit) and DestroyPendingWindows;
     // its drawing is Render::Frame.
     auto tick = [](float dt) {
+        WindowManager::Update(dt);
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
         GUI::UpdateAnimation(dt);

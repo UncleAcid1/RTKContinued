@@ -97,6 +97,13 @@ WindowQueue* ProcessBack();                   // @0x36f008 (the first window, to
 void WindowShow(bool quiet);                  // @0x36ec60
 void WindowHide(bool quiet);                  // @0x36ebec
 float GetTopWindowRange();                    // @0x36e8f4
+// @0x36eb30: show `fn` once nothing is in the way (no window shown, no placement, ...), after
+// `delay` seconds; a function already waiting is not added twice.
+void EnqueueWindow(void (*fn)(), float delay);
+// @0x36ea6c: the first waiting window, when nothing is in the way: its delay counts down, then it
+// is removed and shown.
+void Update(float dt);
+void ClearQueue();                            // @0x36ea14
 inline float ReturnSmallZRange() { return 0.01f; }    // @0x36e950
 inline float ReturnMediumZRange() { return 0.02f; }   // @0x36e95c
 inline float ReturnBigZRange() { return 0.04f; }      // @0x36e968

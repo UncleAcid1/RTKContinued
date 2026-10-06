@@ -79,6 +79,16 @@ struct SmallLogoWindow {
     void SetLanguage(unsigned langId);                      // @0x340288: 1 Russian, 3 Latvian, else English
 };
 
+// Shared::LargeLogoWindow (0x10 bytes): the large game logo, one image per language.
+struct LargeLogoWindow {
+    GUI::Window* holder = nullptr;   // +0x00 "%s"
+    GUI::Window* eng = nullptr;      // +0x04 logo_large_eng
+    GUI::Window* lv = nullptr;       // +0x08 logo_large_lv
+    GUI::Window* rus = nullptr;      // +0x0c logo_large_rus
+    void LoadFrom(GUI::Window* root, const char* prefix);   // @0x342674
+    void SetLanguage(unsigned langId);                      // @0x340340: 1 Russian, 3 Latvian, else English
+};
+
 // Shared::TabHolder (0x24 bytes): a tab with active / inactive looks (blue and red), a lock and an
 // icon. LoadFrom @0x342294, SetMode @0x340974.
 struct TabHolder {

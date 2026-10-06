@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e.4 part 1 done: NotEnough, ConfirmPurchase, speed-ups) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e.4 done; next 3e.5) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -61,21 +61,36 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    missing requirement goes to the exchange ("short by 3"). Not tested headless: the tree/rock
    speed-up (SpeedupBuilding class 4) and ResourceRestoreHoverWindow (a spawned worker would not
    start gathering in the test runs).
-   Stand-ins (UNVERIFIED): ExchangeWindow::Show/OnTab (src/windows/ExchangeWindow.cpp, prints
-   the text) until 3e.4 part 2; the building info windows (BuildingHovers::OnBuildingClick,
+   Stand-ins (UNVERIFIED): the building info windows (BuildingHovers::OnBuildingClick,
    ShowArrowAtUpgrade) for the Find arrows' callbacks; the animated CenterOn at zoom 0.4; the
    upgradable-building purpose block (with the building upgrade window); items/professions (M4).
+   3e.4 PART 2 DONE: ExchangeWindow (src/windows/ExchangeWindow.cpp; Payment_screen.xml, tabs,
+   6 packs with the original amounts/bonuses/banners, header text, refresh each second). PORT
+   (user decision, see Freemium removal): the real-money store became a two-way exchange - a
+   gold pack costs crystals (confirmed with ConfirmPurchaseWindow), a crystal pack costs gold at a
+   worse rate; rates in the settings port_exchange_gold_per_crystal (200) and
+   port_exchange_gold_per_bought_crystal (400) set in main.cpp, placeholders to tune. After a
+   trade: the original "You've received" popup and Map::SafeSave (so test runs need a fresh
+   --storage). The HUD's Buy button (TopCityWindow::OnCB) opens it. LevelUpWindow
+   (src/windows/LevelUpWindow.cpp): level, greeting, the unlock strip (crystal reward, the shop's
+   buildings of that level; Tasks' "new tasks" cell is M4) with arrows/scrolling and centring,
+   level_up_cb crystals paid on close (dropped at the hero's feet once M4 has a hero), saved on
+   open; shown from GameState::ChangeResourceAmount on a level-up and deferred through the new
+   WindowManager::EnqueueWindow/Update/ClearQueue while another window or a placement is up. PORT:
+   the Facebook/Twitter share is not offered (plain "Ok"). Also Shared::LargeLogoWindow.
+   Verified headless: the exchange from NotEnough's Buy all and from the HUD; 6,000 gold -> 15
+   crystals with the popup; 15 crystals -> 3,000 gold through the confirm dialog; too few
+   crystals -> "short by 65 crystals" in the header, nothing charged. Level 2 (600 XP) shows the
+   crystal reward and 3 buildings centred, Ok pays 2 crystals and the save is written; level 4
+   (2,600 XP) has 5 cells, the right arrow scrolls to Enclosure; a level-up with the shop open
+   waits and shows when the shop closes.
    Headless-test timing: after a shop purchase the icon flies for 1 s (BuildingPlacement::Update,
    as the original) before the placement controls slide in, and taps are ignored while a GUI
    animation runs (WindowManager::ProcessClick). The harness waits exactly 30 frames after a tap,
    so a Confirm tap right after the shop tap is lost; put a `--key 4` (30 more frames) before it.
    "Buttons_confirm_placement.xml z range exhausted" is printed because PlaceBuildingHoverWindow
    moves itself on top before it counts as visible (the original's order, so its z is the same).
-   Next, 3e.4 part 2: ExchangeWindow (decode 0x2abcbc..0x2af8bc; drop OnPayForDollars and the
-   dollar packs per the freemium decisions, keep OnPayForCB), then LevelUpWindow
-   (0x2f147c..0x2f3740).
-
-   After 3e.4: 3e.5
+   NEXT: 3e.5
    BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
@@ -102,6 +117,10 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
   items.
   - The exact amounts are not decided yet; propose them when those systems are ported.
 - **Spending crystals in-game stays:** speed-ups, Buy all, the crystal/gold exchange, and potions.
+- **Exchange (decided 2026-10-06):** 5.11's ExchangeWindow only sold gold and crystal packs for real
+  money. Offline it is a two-way exchange: crystals buy gold, gold buys crystals at a worse rate.
+  Rates are placeholders, to tune so grinding players can afford everything. Future idea from
+  the user: a diamond mine run by the treasury.
 - **Admin/debug mode:** a permission that opens the store menu and grants the items for free, for
   testing throughout the game.
 - **Health (future):** the hero restores health much faster after dying. Potions are bought with

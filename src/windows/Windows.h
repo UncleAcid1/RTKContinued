@@ -88,6 +88,17 @@ bool IsVisible();                           // @0x2abd94
 void OnTab(unsigned tab, const char32_t* text);
 }
 
+// "New level!": the level's unlocks and its crystal reward.
+namespace LevelUpWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LevelUpWindow" (_INIT_ 0x2f1568)
+void Init();                                // @0x2f1b78
+void Deinit();                              // @0x2f1b38
+void Show();                                // @0x2f3740 (waits in WindowManager::EnqueueWindow if needed)
+void Hide();                                // @0x2f1968
+bool IsVisible();                           // @0x2f1508
+void UpdateContents();                      // @0x2f2398
+}
+
 // The "not enough" dialog: the missing requirements, Find buttons and "Buy all" for crystals.
 namespace NotEnoughWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "NotEnoughWindow" (_INIT_ 0x2f6f1c)

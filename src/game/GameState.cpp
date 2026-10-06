@@ -16,6 +16,7 @@
 #include "game/SaveManager.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "windows/Windows.h"
 
 namespace GameState {
 
@@ -235,7 +236,8 @@ void ChangeResourceAmount(int type, int amount) {
             SetResourceAmountValidated(kLevel, GetResourceAmount(kLevel) + 1);
         if ((int)GetResourceAmount(kLevel) > maxLevel) SetResourceAmountValidated(kLevel, maxLevel);
         if (before != (int)GetResourceAmount(kLevel)) {
-            // UNVERIFIED (milestone 4 / 3e): Tasks::CompleteSubtask(7, 0, 1) and LevelUpWindow::Show().
+            // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(7, 0, 1).
+            LevelUpWindow::Show();
         }
         return;
     }

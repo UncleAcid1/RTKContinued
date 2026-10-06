@@ -403,8 +403,9 @@ SetArrowVisibleWindowLimit(2) first. Then, by the line's type:
 
 ## Not yet decoded
 
-- **LevelUpWindow** (0x2f147c..0x2f3740): dumped, not read.
-- **ExchangeWindow** (0x2abcbc..0x2af8bc): dumped, not read.
+- **LevelUpWindow** (0x2f147c..0x2f3740): ported (3e.4 part 2).
+- **ExchangeWindow** (0x2abcbc..0x2af8bc): ported (3e.4 part 2). Every button went to Billing::Process
+  (Android in-app billing); there was no crystal/gold trade. The port's exchange is a PORT design.
   - It is the crystal/gold store: OnPayForCB pays with crystals, OnPayForDollars with real money.
   - NotEnough's gold and crystal paths open it.
   - **Decision for the user before porting:** what to do offline with the real-money purchase

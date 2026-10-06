@@ -1,9 +1,11 @@
 #include "gui/WindowManager.h"
 
 #include <cstdio>
+#include <list>
 
 #include "engine/Render.h"
 #include "gui/GUI.h"
+#include "game/BuildingPlacement.h"
 
 namespace WindowManager {
 namespace {
@@ -187,5 +189,32 @@ float GetTopWindowRange() {   // @0x36e8f4
     if (g_head && g_head->usesZRange && g_head->IsVisible()) return g_head->ZRange();
     return 0.001f;
 }
+
+namespace {
+struct Enqueued { void (*fn)(); float delay; };
+std::list<Enqueued> g_windowQueue;   // WindowManager::windowQueue
+}  // namespace
+
+void EnqueueWindow(void (*fn)(), float delay) {
+    for (const Enqueued& e : g_windowQueue)
+        if (e.fn == fn) return;
+    g_windowQueue.push_back({fn, delay});
+}
+
+void Update(float dt) {
+    // UNVERIFIED: BuildingMovement (3e.5), PlayerTopWindow::IsPlayerDialogVisible and
+    // Entity::IsDeathAnimationRunning (milestone 4) are not ported; they would also hold the queue.
+    if (g_windowQueue.empty() || g_shown != 0 || BuildingPlacement::Activated()) return;
+    Enqueued& e = g_windowQueue.front();
+    if (e.delay > 0.f) {
+        e.delay -= dt;
+        return;
+    }
+    void (*fn)() = e.fn;
+    g_windowQueue.pop_front();
+    if (fn) fn();
+}
+
+void ClearQueue() { g_windowQueue.clear(); }
 
 }  // namespace WindowManager

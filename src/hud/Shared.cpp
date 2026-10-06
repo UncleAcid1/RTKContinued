@@ -116,6 +116,22 @@ void SmallLogoWindow::SetLanguage(unsigned langId) {
     else lv->SetVisibility(true);
 }
 
+void LargeLogoWindow::LoadFrom(Window* r, const char* p) {
+    holder = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    eng = GUI::GetWindowTypedF<Window>(r, "%s.logo_large_eng", p);
+    lv = GUI::GetWindowTypedF<Window>(r, "%s.logo_large_lv", p);
+    rus = GUI::GetWindowTypedF<Window>(r, "%s.logo_large_rus", p);
+}
+
+void LargeLogoWindow::SetLanguage(unsigned langId) {
+    eng->SetVisibility(false);
+    lv->SetVisibility(false);
+    rus->SetVisibility(false);
+    if (langId == 1) rus->SetVisibility(true);
+    else if (langId != 3) eng->SetVisibility(true);
+    else lv->SetVisibility(true);
+}
+
 void TabHolder::LoadFrom(Window* r, const char* p, bool withLock) {
     root = GUI::GetWindowTypedF<Window>(r, "%s", p);
     active = GUI::GetWindowTypedF<Window>(r, "%s.tab_active", p);
