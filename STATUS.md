@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e.3 done) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e.3 done, 3e.4 decoded) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -44,7 +44,11 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    cancel reopens the shop), a building buys (costs charged, pending worker 1/2), unaffordable ->
    NotEnough requirements, the close button. Open: Tasks (quest-locked items, M4), Items in
    producing lines, the "%s$%$d" cost line (BuildingPlacement::UpdateCost), sounds.
-   After 3e.3: 3e.4 NotEnough dialog/ConfirmPurchase/speed-up, LevelUp, Exchange; 3e.5
+   3e.4 DECODED, NOT STARTED IN CODE: NotEnough dialog, ConfirmPurchase, speed-up hooks
+   (SpeedupBuilding/SpeedupDecoration). Everything is in docs/3e4_notenough_notes.md - READ IT
+   FIRST. LevelUp and Exchange are dumped but not read. Ask the user how the Exchange window's
+   real-money buttons should behave offline before porting it.
+   After 3e.4: 3e.5
    BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
