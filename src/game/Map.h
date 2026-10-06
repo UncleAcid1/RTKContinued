@@ -74,6 +74,9 @@ void CreateRoadAI();                                   // @0x1bb868 the waypoint
 // @0x1baba8: an owned building without worker and builder that needs one: a ready tree/rock with
 // resources left, or one waiting for construction or an upgrade.
 Building* GetIdleWorkplace();
+Building* GetBuildingWithID(uint32_t id);              // @0x1b6c04 (BuildingData id)
+void AssignEntities();                                 // @0x1b99f0 (Map::Load)
+void UpdateOfflineResources();                         // @0x1b8af0 (LoadSavedGame)
 // @0x1b8e7c: the storage (class 7) nearest to b in tiles, on any patch; b itself is skipped when
 // notSelf.
 Building* GetNearestStorage(Building* b, bool notSelf);

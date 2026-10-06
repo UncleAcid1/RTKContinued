@@ -28,7 +28,7 @@ bool LoadSavedGame(bool listMaps) {
     GameState::LoadEntities(state);
     GameState::SetCurrentMapID(0);
     Map::Load(city, (uint32_t)Timer::GetGlobalTime());
-    // UNVERIFIED (milestone 3e): Map::UpdateOfflineResources.
+    Map::UpdateOfflineResources();
     return true;
 }
 

@@ -10,6 +10,8 @@
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
 #include "game/AI.h"
+#include "game/AIState.h"
+#include "game/EntityData.h"
 #include "game/Background.h"
 #include "game/BuildingHovers.h"
 #include "game/Entity.h"
@@ -744,12 +746,176 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
                 g_patches.size(), Render::SpriteCount());
     CreateRoadAI();
     if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
-    // UNVERIFIED (milestone 3, later steps): offline contracts, offline goblins, AssignEntities,
-    // portals, spawns, the player's OnSetup and the static meta expressions run here.
+    // (ProcessOfflineContracts is empty.) UNVERIFIED (milestone 4): GameState::RefreshOfflineGoblins
+    // (class 0x10 goblins away on a job), portals, spawns, the player's OnSetup and the static
+    // meta expressions.
+    AssignEntities();
     g_loaded = true;
     // (Map::ExecuteStaticMeta runs with AI::allowWaypointLink off; then every link is redone)
     AI::LinkAdjacentWaypoints();
     return true;
+}
+
+Building* GetBuildingWithID(uint32_t id) {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->id == id) return b.get();
+    return nullptr;
+}
+
+void UpdateOfflineResources() {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings) b->UpdateOfflineResources();
+}
+
+// Puts the loaded entities back: workers to their workplace (which catches up on the time away,
+// Building::UpdateOfflineState) or near their house, residents into their house's livers.
+void AssignEntities() {
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i) {
+        int clas = e->GetEntityData()->clas;
+        if (clas == 5 || clas == 10 || clas == 0x16) {
+            if (e->hasHome)
+                if (Building* home = GetBuilding(e->homeX, e->homeY)) home->AssignLiver(e);
+            if (e->workType > 0) {
+                if (Building* work = GetBuilding(e->workX, e->workY)) {
+                    e->SetOfflineMode(true);
+                    EntityManager::SpawnEntityAt(e, (unsigned)e->workX, (unsigned)e->workY, false, false);
+                    work->AssignWorker(e, 0);
+                    e->SetOfflineMode(false);
+                }
+            }
+            continue;
+        }
+        if (e->GetCurrentMap() != (int)GetMapID()) {
+            e->SetActive(false, false);
+            continue;
+        }
+        e->SetOfflineMode(true);
+        int hx = e->homeX, hy = e->homeY;
+        Building* home = GetBuilding(hx, hy);
+        bool assigned = false;   // LAB_001b9eb0 reached through a job
+        bool jobDone = false;    // LAB_001ba0d0
+        if (e->hasHome && GetMapID() == 0) {
+            e->SetHP(0x400);
+            if (home) home->GetSpawnTile(hx, hy);
+        }
+        if (e->workType > 0) {
+            if (e->workType == 1) {
+                Building* work = GetBuilding(e->workX, e->workY);
+                if (!work) {
+                    e->workType = 0;
+                    e->SetWorkplace(nullptr);
+                    e->SetOfflineMode(false);
+                    std::fprintf(stderr, "ERROR: Map::AssignEntities() building at %dx%d does not exist\n", e->workX, e->workY);
+                    continue;
+                }
+                int tx = 0, ty = 0;
+                work->GetWorkTile(tx, ty);
+                EntityManager::SpawnEntityAt(e, (unsigned)tx, (unsigned)ty, false, false);
+                work->UpdateOfflineState();
+                uint32_t wc = work->data->buildingClass;
+                bool farmer = false;
+                if (wc == 4) {
+                    jobDone = work->resourceLeft == 0;
+                } else if (wc == 0xc && clas == 10) {
+                    jobDone = !work->HasActiveContract();
+                } else if (wc == 0xd && clas == 2) {
+                    farmer = true;
+                } else {
+                    jobDone = work->IsOpened();
+                }
+                if (farmer) {
+                    // UNVERIFIED (3f): the farmer stays the farm's worker (+0x124) and lives there.
+                    if (!work->IsOpened()) e->Disappear();
+                    if (!work->workers.empty()) work->workers[0] = e;
+                    if (home) {
+                        home->AssignLiver(e);
+                        e->SetWorkplace(home);
+                        e->GetAI()->AssignToJob(home);
+                    }
+                } else if (!jobDone) {
+                    work->AssignWorker(e, 0);
+                }
+            } else {
+                // UNVERIFIED (milestone 4, decoration jobs): a decoration's job continues if not
+                // finished (Decor::GetActionPoint, UpdateOfflineState, WorkFinished, AssignWorker);
+                // until then the job ends as for a missing decoration.
+                e->workType = 0;
+                e->SetWorkplace(nullptr);
+                e->SetWorkplaceDecoration(nullptr);
+                e->SetCurrentMap(0);
+                if (GetMapID() == 0) EntityManager::SpawnEntityAt(e, (unsigned)hx, (unsigned)hy, false, false);
+            }
+            if (jobDone) {
+                e->workType = 0;
+                e->SetPos(hx, hy);
+                e->GetAI()->UpdateLastTarget();
+            }
+            assigned = true;
+        }
+        if (!assigned) {
+            AI::Waypoint* wp = AI::GetWaypoint(hx, hy, false);
+            if (!home) {
+                uint32_t id = e->GetEntityData()->id;
+                if (id == 6 && e->GetHP() == 0) {
+                    std::fprintf(stderr, "ERROR: Map::AssignEntities() Skipping tutorial farmer entity");
+                    continue;
+                }
+                if (id != 0x133) {
+                    std::fprintf(stderr, "CRITICAL ERROR: Map::AssignEntities() Entity %d without a home is placed at "
+                                 "the city map at unexisting home %d; %d", id, hx, hy);
+                    continue;
+                }
+                std::fprintf(stderr, "ERROR: Map::AssignEntities() Found a goblin without work at map %d", e->GetCurrentMap());
+                if (e->GetCurrentMap() != 0) {
+                    e->SetCurrentMap(0);
+                    continue;
+                }
+                home = GetBuildingWithID(0x12);
+                if (!home) {
+                    std::fprintf(stderr, "ERROR: Map::AssignEntities() Goblin without a home at home map cannot be "
+                                 "assigned to any stockpile");
+                    continue;
+                }
+                e->homeX = home->x;
+                e->homeY = home->y;
+            }
+            if (!wp || EntityManager::GetEntityAtXY(hx, hy) || GetBuilding(hx, hy)) {
+                int tries = home->data->w * home->data->h;
+                AI::Waypoint* near = nullptr;
+                while (tries != 0) {
+                    near = AI::GetWaypointNearBuilding(home, false);
+                    if (near && (EntityManager::GetEntityAtXY(near->x, near->y) || GetBuilding(near->x, near->y) ||
+                                 GetDecoration(near->x, near->y)))
+                        near = nullptr;
+                    --tries;
+                    if (near) break;
+                }
+                // (the original tests the remaining tries, not the waypoint: one found on the last
+                // try is not used)
+                if (tries == 0) {
+                    int sx = 0, sy = 0;
+                    home->GetStartTile(sx, sy);
+                    EntityManager::SpawnEntityAt(e, (unsigned)sx, (unsigned)sy, false, false);
+                } else {
+                    EntityManager::SpawnEntityAt(e, (unsigned)near->x, (unsigned)near->y, false, false);
+                }
+            } else {
+                EntityManager::SpawnEntityAt(e, (unsigned)hx, (unsigned)hy, false, false);
+            }
+            if (home->data->buildingClass != 7) {
+                if (home->liverAway) e->SetActive(false, false);
+                else home->liverAway = true;
+            }
+        }
+        if (e->hasHome && GetMapID() == 0 && clas != 2 && home) {
+            home->AssignLiver(e);
+            e->SetHome(home);
+        }
+        e->SetOfflineMode(false);
+    }
+    // UNVERIFIED (3f): in the city a farm (class 0xd) without its farmer takes the farmer (ids 6
+    // and 7) living at it.
 }
 
 // ------------------------------------------------------------------------------------- saving

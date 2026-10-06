@@ -787,6 +787,71 @@ void Building::UpdateOfflineStateNoWorker() {
     // AddSmoke(this);
 }
 
+// Catch-up for the time the game was closed: a tree's or rock's gathering, a finished
+// construction or upgrade.
+void Building::UpdateOfflineState() {
+    double now = (double)(uint32_t)Timer::GetGlobalTime();
+    if (data->buildingClass == 4) {
+        int n = (int)(int64_t)((now - (double)(int)lastGather) / (double)(uint32_t)data->collectTime);
+        if (resourceLeft < n) n = resourceLeft;
+        if (n < 0) n = 0;
+        int stack = (int)GameState::GetSetting("stack_size");
+        if (stack < n) n = (int)GameState::GetSetting("stack_size");
+        int& pile = resources[data->produceResource];
+        if (pile < (int)GameState::GetSetting("stack_size")) {
+            if ((int)GameState::GetSetting("stack_size") < n + pile) n = (int)GameState::GetSetting("stack_size") - pile;
+        } else {
+            n = 0;
+        }
+        pile += n;
+        resourceLeft -= n;
+        if (GetGatheredResCount() < (int)GameState::GetSetting("stack_size"))
+            gatherAcc = (double)((uint32_t)(int)(now - (double)(int)lastGather) % (uint32_t)data->collectTime);
+        else
+            gatherAcc = 0.0;
+        if (resourceLeft == 0) {
+            gatherAcc = 0.0;
+            level = data->produceResource == 0 ? 6 : 0;
+            resourceState = 2;
+            UpdateImage();
+        }
+    }
+    if (needsBuilder) {
+        double t = now - (double)stateTime;
+        if (buildLeft <= t) {
+            built = 1;
+            buildLeft = 0.0;
+            needsBuilder = 0;
+            SetOpened();
+            UpdateImage();
+            OnBuilded();
+        } else {
+            buildLeft -= t;
+        }
+    }
+    if (upgrading) {
+        double t = now - (double)stateTime;
+        if (buildLeft <= t) {
+            buildLeft = 0.0;
+            ++level;
+            upgrading = 0;
+            SetOpened();
+            UpdateImage();
+            OnUpgraded();
+            return;
+        }
+        buildLeft -= t;
+    }
+}
+
+// A tree's or rock's gathered pile goes to the storages as delivery orders.
+void Building::UpdateOfflineResources() {
+    if (data->buildingClass != 4) return;
+    for (int i = 0; i < resources[data->produceResource]; ++i)
+        GameState::PlaceOrder(this, Map::GetNearestStorage(this, false), 1, data->produceResource, 0);
+    UpdateResources();
+}
+
 void Building::Update(double dt) {
     anim.Update((float)dt);
     bool opened = IsOpened();

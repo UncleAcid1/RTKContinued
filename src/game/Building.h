@@ -160,6 +160,8 @@ struct Building {
     void GetDeliveryTile(int& tx, int& ty) const;   // @0x11c5f8
     void SetupSmallFarm();                       // @0x11f498
     void UpdateOfflineStateNoWorker();           // @0x11ea90
+    void UpdateOfflineState();                   // @0x126498 (a worker's workplace on load)
+    void UpdateOfflineResources();               // @0x124450
 };
 
 // Map::FilterBuildingParts @0x129838: parts of `type` at `stage` (parts with stage -1 count in file
