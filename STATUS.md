@@ -15,6 +15,18 @@ or anything outward-facing; never share the user's email; base-game parity first
 the handoff; give the user a short update after each finished step (3e, 3f, ...).
 
 **Next work, in order.**
+0. 3e.1 DONE (c8494a3): Map::AssignEntities (residents/workers back to homes and jobs; decoration
+   jobs and the farm-farmer pass UNVERIFIED), Building::UpdateOfflineState/UpdateOfflineResources,
+   Map::UpdateOfflineResources, GetBuildingWithID. Verified: a worker saved on a tree reloads
+   working it; a resident reloads at the castle. RefreshOfflineGoblins (class 0x10) left for M4.
+   Next is 3e.2 BuildingPlacement (decompiled at 0x3a19bc..0x3a4258, ~1300 lines; read once). Its
+   missing dependencies: PlaceBuildingHoverWindow (accept/rotate/decline hover), HiddenObjects,
+   Building vtable CanBePlaced (+0x20) / ToggleRotation (+0x28) / Duplicate, Map::
+   IsValidAreaForBuildZone, GetPatchForCoordinates, GetHQ, SetVirtualDecoration,
+   UpdateRoadConnections, HUDWindow::SetBottomType/SetInfoText, BuildingHovers::ArrowAt/
+   AddItemMovement, NotEnoughWindow requirements, GameState latestUniqueID. Floats in Move/Click/
+   Bought need the asm (softfp). Then 3e.3 ShopWindow (Init alone ~1400 lines), 3e.4 NotEnough/
+   ConfirmPurchase/speed-up, LevelUp, Exchange, 3e.5 BuildingMovement, LandWindow.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
    costs, building limits, LandWindow area buying (also Map::Save(0)), LevelUpWindow (Map::Save(0)),
    NotEnoughWindow/ConfirmPurchase (makes the hover Speed Up buttons work: BuildProgress/
