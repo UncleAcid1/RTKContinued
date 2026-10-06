@@ -75,11 +75,17 @@ void Hide();                                // @0x299f20
 bool IsVisible();                           // @0x299964
 }
 
-// The crystal/gold exchange. UNVERIFIED stand-ins (3e.4, until ExchangeWindow is ported): Show
-// does nothing, OnTab prints its text.
+// The treasury's exchange: gold packs for crystals, crystal packs for gold (PORT: the original
+// sold both for real money).
 namespace ExchangeWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ExchangeWindow" (_INIT_ 0x2abf44)
+void Init();                                // @0x2af8bc
+void Deinit();                              // @0x2af1ec
 void Show();                                // @0x2af0ec
-void OnTab(unsigned tab, const char32_t* text);   // @0x2aed8c tab 0 gold, 1 crystals
+void Hide();                                // @0x2af198
+bool IsVisible();                           // @0x2abd94
+// @0x2aed8c: tab 0 gold, 1 crystals; text replaces the header (null: the tab's name).
+void OnTab(unsigned tab, const char32_t* text);
 }
 
 // The "not enough" dialog: the missing requirements, Find buttons and "Buy all" for crystals.

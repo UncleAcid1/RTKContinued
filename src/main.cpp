@@ -205,6 +205,9 @@ int main(int argc, char** argv) {
     GameState::SetSetting("flurry_enabled", 0.f);
     GameState::SetSetting("cinematic_camera", 1.f);
     GameState::SetSetting("bot_use_cb", 1.f);
+    // PORT (freemium removal): the exchange's rates (ExchangeWindow), placeholders to tune.
+    GameState::SetSetting("port_exchange_gold_per_crystal", 200.f);
+    GameState::SetSetting("port_exchange_gold_per_bought_crystal", 400.f);
     // The data files, in LoadSystemConfiguration order (the ones not ported yet are skipped).
     // UNVERIFIED: Map::LoadPersonList (persons.xml into the map's own 0x58-byte person list) runs
     // first on the original; nothing ported reads that list yet.
@@ -222,6 +225,7 @@ int main(int argc, char** argv) {
     CastleTopWindow::Queue();
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();
+    ExchangeWindow::Queue();
     HUDWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();

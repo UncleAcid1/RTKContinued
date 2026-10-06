@@ -10,6 +10,7 @@
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
 #include "hud/HUD.h"
+#include "windows/Windows.h"
 
 namespace TopCityWindow {
 namespace {
@@ -55,6 +56,13 @@ bool g_buyTextPending = true;         // sets "PERFORM_BUY" on the first update
 std::u32string ToWide(long long v) {
     std::string s = std::to_string(v);
     return std::u32string(s.begin(), s.end());
+}
+
+// @0x364ef8: the exchange on its crystals tab, in the player's city after the opening tutorial.
+void OnCB() {
+    if (!GameState::IsPlayerCity() || GameState::IsTutorial()) return;
+    ExchangeWindow::Show();
+    ExchangeWindow::OnTab(1, nullptr);
 }
 
 }  // namespace
@@ -131,10 +139,10 @@ void Init() {
     g_gold.goldBg = GUI::GetWindowTypedF<Window>(g_root, "%s.hud_resbar_gold", p);
     g_gold.gold = GUI::GetWindowTypedF<Textfield>(g_root, "%s.text_gold_large", p);
     g_gold.crystals = GUI::GetWindowTypedF<Textfield>(g_root, "%s.text_crystals_large", p);
-    // OnCB (exchange window) on both, with the "ui_click" sound. UNVERIFIED: windows not ported.
-    g_gold.goldBg->SetOnClick([] {});
+    // OnCB (the exchange) on both, with the "ui_click" sound.
+    g_gold.goldBg->SetOnClick(OnCB);
     g_gold.goldBg->SetActionSound("ui_click", 1);
-    g_gold.buyHanger->SetOnClick([] {});
+    g_gold.buyHanger->SetOnClick(OnCB);
     g_gold.buyHanger->SetActionSound("ui_click", 1);
 
     Window* mask = GUI::GetWindow(g_root, "mask_resources");
