@@ -7,6 +7,7 @@
 #pragma once
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
+#include "hud/Shared.h"
 
 namespace Map { struct Building; struct Decor; }
 class Entity;
@@ -194,4 +195,31 @@ public:
     bool itemBoosts = false;           // +0xac
     unsigned boostItem = 0;            // +0xb0
     int boostAmount = 0;               // +0xb4
+};
+
+// The confirm / rotate / cancel buttons sliding up at the bottom of the screen while a building
+// or decoration is placed (BuildingPlacement) or moved (BuildingMovement). Confirm is enabled only
+// where the object fits. Port of PlaceBuildingHoverWindow (0xc4 bytes, Init @0x3901e4).
+class PlaceBuildingHoverWindow : public BuildingHoverWindow {
+public:
+    PlaceBuildingHoverWindow();                  // @0x39059c
+    ~PlaceBuildingHoverWindow() override;        // @0x3904b8
+    void Init() override;                        // +0x08 @0x3901e4
+    void SetZ(float z) override;                 // +0x10 @0x38ff28
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x38fbb8
+    void Show() override;                        // +0x1c @0x390010
+    void Hide() override;                        // +0x20 @0x38ffd8
+    void SetPosition(int x, int y) override;     // +0x3c @0x38fda0
+    void EnableAccept();                         // @0x38fbf4
+    void ResetArrow() { arrowCallback = 0; }     // @0x38fc14
+    static void OnAccept();                      // @0x38fd00
+    static void OnRotate();                      // @0x38fcb0
+    static void OnDecline();                     // @0x38fc78
+
+    GUI::Window* root = nullptr;                 // +0x34
+    Shared::ButtonBuildingControls accept;       // +0x38 "button_building_controls_01" (green)
+    Shared::ButtonBuildingControls rotate;       // +0x64 "button_building_controls_02" (blue)
+    Shared::ButtonBuildingControls cancel;       // +0x90 "button_building_controls_03" (red)
+    GUI::MovementEffect* slide = nullptr;        // +0xbc
+    int arrowCallback = 0;                       // +0xc0 the tutorial arrow's callback id
 };

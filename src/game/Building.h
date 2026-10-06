@@ -84,6 +84,7 @@ struct Building {
     int f10c = 0;                // +0x10c
     uint32_t f110 = 0, f114 = 0; // +0x110, +0x114
     std::string resourceText;    // +0x118 "TYPE=n|..." (handed to decorations)
+    bool isCopy = false;         // +0x11c a Duplicate (the placement preview) until placed
     uint32_t uniqueId = 0;       // +0x120
     std::vector<Entity*> workers;  // +0x124 one slot per parking point
     std::vector<Entity*> livers; // +0x130 entities living here (AssignLiver)
@@ -106,9 +107,16 @@ struct Building {
     void UpdateImage();          // +0x0c @0x129bf8
     void GetStartTile(int& tx, int& ty) const;   // +0x18 MapObject @0x1c7658
     void GetBuildZone(int& w, int& h) const;     // +0x1c MapObject @0x1c76e4
+    // +0x20 @0x11e5f0: every footprint tile is free (fake decorations count as free when
+    // ignoreFake), on the grid, on owned land and without an NPC.
+    bool CanBePlaced(bool ignoreFake) const;
     bool IsMirrored() const { return mirrored; } // +0x24 MapObject @0x1c771c
+    void ToggleMirror() { mirrored = !mirrored; }   // +0x28 MapObject @0x1c7724
     void Update(double dt);      // +0x44 @0x1267b0
 
+    // @0x128070: a copy (operator= @0x127c24) without sprites, with its own animation controller,
+    // marked isCopy; its image is built when updateImage.
+    Building* Duplicate(bool updateImage) const;
     void LinkBaseToBuilding();   // @0x11e4a4
     bool IsOpened() const;       // @0x11c6a8 (class 4 always)
     void SetOpened() { opened = true; }          // @0x11c6c0

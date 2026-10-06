@@ -17,6 +17,15 @@ namespace {
 
 std::map<uint32_t, DecorData> g_decors;
 std::map<uint32_t, BuildingData> g_buildings;
+// The road styles (0x6118e4), from the table at 0x57b7b0: plain, and two mirrored styles.
+const RoadData g_roads[3] = {
+    {{1047, 1046, 1052, 1052, 1050, 1048, 1049, 1051, 1060, 1058, 1059, 1057, 1056, 1053, 1055, 1054},
+     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+    {{1306, 1306, 1314, 1314, 1307, 1307, 1311, 1308, 1312, 1312, 1313, 1313, 1310, 1309, 1310, 1309},
+     {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0}},
+    {{1315, 1315, 1317, 1317, 1318, 1318, 1320, 1319, 1323, 1323, 1324, 1324, 1322, 1321, 1322, 1321},
+     {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0}},
+};
 
 bool LoadXml(const char* path, pugi::xml_document& doc) {
     uint32_t n = 0;
@@ -41,8 +50,10 @@ void LoadDecorations() {
         d.name = n.attribute("name").value();
         d.w = (int)n.attribute("lockzoneX").as_uint();
         d.h = (int)n.attribute("lockzoneY").as_uint();
+        d.cost1 = n.attribute("cost1").as_int();
         d.ox = n.attribute("x").as_int();
         d.oy = n.attribute("y").as_int();
+        d.cost2 = n.attribute("cost2").as_int();
         d.layer = n.attribute("layer").as_int();
         d.isRoad = n.attribute("isroad").as_bool();
         d.giveable = n.attribute("giveable").as_bool();
@@ -51,6 +62,13 @@ void LoadDecorations() {
         d.collectExp = n.attribute("collectexp").as_uint();
         d.collectChest = n.attribute("collect_chest").as_uint();
         g_decors[d.id] = d;
+    }
+    // Each decoration points at the road style listing its id (the first of the three).
+    for (auto& [id, d] : g_decors) {
+        for (const RoadData& r : g_roads) {
+            for (uint32_t rid : r.ids) if (rid == id) d.road = &r;
+            if (d.road) break;
+        }
     }
 }
 

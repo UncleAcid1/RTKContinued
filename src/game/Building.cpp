@@ -24,7 +24,6 @@ namespace Map {
 namespace {
 
 std::vector<const GameData::BuildingPart*> g_filtered;   // 0x6117c4
-uint32_t g_latestUniqueId = 0;                            // GameState::latestUniqueID
 bool g_wipLoaded = false;                                 // 0x611800
 Render::Texture* g_wip[7] = {};                           // 0x611804 WipBase_1x1 .. 4x4
 Render::Texture* g_construction[4] = {};                  // 0x611820 stone big/small, wood big/small
@@ -249,11 +248,22 @@ void Building::UpdateImage() {
     TileCoordinatesToLinear(linearX, linearY);
 }
 
+Building* Building::Duplicate(bool updateImage) const {
+    Building* b = new Building(*this);
+    b->sprites.clear();
+    b->isCopy = true;
+    b->anim = BuildingAnim();
+    b->anim.owner = b;
+    b->meta = nullptr;   // the original rebuilds the MetaExpression from its text (always none yet)
+    if (updateImage) b->UpdateImage();
+    return b;
+}
+
 bool Building::IsOpened() const { return data->buildingClass == 4 ? true : opened; }
 
 void Building::SetUniqueID(uint32_t uid) {
     uniqueId = uid;
-    if (g_latestUniqueId < uid) g_latestUniqueId = uid;
+    if (GameState::latestUniqueID < uid) GameState::latestUniqueID = uid;
 }
 
 bool Building::BuilderIsWorking() const { return builder && builder->GetAI()->IsWorking(); }

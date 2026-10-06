@@ -82,6 +82,15 @@ void ShowTextHover(float x, float y, const char32_t* text, float r, float g, flo
 // @0x26b6b8: a text popup in a TextStyleManager style; returns the text height without its glow.
 int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, float fade, float rise,
                            bool topLayer, bool screenSpace);
+// The helper arrow. ArrowAt @0x266cb8 points it at (x, y): hide hides it instead; left points it
+// left (else down); mirror/flip mirror its sprite; screenSpace draws it in GUI space at the hover
+// scale; newArrow adds another arrow instead of moving the last.
+void ArrowAt(float x, float y, bool hide, bool left, bool mirror, bool flip, bool screenSpace, bool tablet,
+             bool newArrow);
+void HideArrow();                           // @0x2663d8 back to the one (hidden) arrow
+void UpdateArrow();                         // @0x264df8 the bobbing
+bool ArrowVisible();                        // @0x264a54
+bool CanAutoHideArrow();                    // @0x26324c
 void OnBuildingAssignBuilder(Map::Building* b);   // @0x26b4a4
 void OnBuildingFinishedClick(Map::Building* b);   // @0x271208
 void CreateDecorationDrop(Map::Decor* d);         // @0x270e08

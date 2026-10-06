@@ -6,6 +6,7 @@
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingPlacement.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/SaveManager.h"
@@ -47,6 +48,9 @@ void SetSaveNames() {
 
 void SaveOnExit() {
     BuildingHovers::CollectAll();
+    // UNVERIFIED (3e.5, milestone 4): BuildingMovement and SpellMovement decline and deinit too.
+    BuildingPlacement::Decline();
+    BuildingPlacement::Deinit();
     if (GameState::IsCityTutorial()) return;
     Map::Save(0);
 }

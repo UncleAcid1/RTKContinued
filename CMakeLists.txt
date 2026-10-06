@@ -36,6 +36,8 @@ add_executable(rtk
   src/game/StringTable.cpp
   src/game/Building.cpp
   src/game/BuildingHovers.cpp
+  src/game/BuildingPlacement.cpp
+  src/game/HiddenObjects.cpp
   src/game/Contracts.cpp
   src/game/EntityData.cpp
   src/game/Animation.cpp
@@ -59,6 +61,8 @@ add_executable(rtk
   src/windows/CityRenameWindow.cpp
   src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
+  src/windows/ShopWindow.cpp
+  src/windows/NotEnoughWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp
   src/hud/BeltBarWindow.cpp

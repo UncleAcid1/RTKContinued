@@ -68,20 +68,21 @@ def sub_amp(m):
     try: return resolve((u32(lit) + off) & 0xffffffff)
     except Exception: return m.group(0)
 
-src = sys.stdin.read()
-src = re.sub(r"\(int\)&DAT_([0-9a-f]{8}) \+ DAT_([0-9a-f]{8})", sub_amp, src)
-src = re.sub(r"DAT_([0-9a-f]{8}) \+ 0x([0-9a-f]+)", sub_pair, src)
-# `v = GOTBASE; ... *(T **)(v + DAT_<lit>)`: the GOT slot at GOTBASE + u32(lit) points at a global.
-def sub_slot(m):
-    try:
-        t = u32(GOT[0] + u32(int(m.group(1), 16)))
-        return f"&[{name(t + 0x10000)}]"
-    except Exception: return m.group(0)
-for v in set(re.findall(r"(\w+) = GOTBASE;", src)):
-    src = re.sub(rf"\b{v} \+ DAT_([0-9a-f]{{8}})", sub_slot, src)
-# Collapse STLport container template spellings.
-prev = None
-while prev != src:
-    prev = src
-    src = re.sub(r"(_Rb_tree|vector|_Select1st|_MapTraitsT|_SetTraitsT|allocator|pair|less|_Identity|_String_base|basic_string|_List_base|list)<[^<>]*>", r"\1<>", src)
-sys.stdout.write(src)
+if __name__ == "__main__":
+    src = sys.stdin.read()
+    src = re.sub(r"\(int\)&DAT_([0-9a-f]{8}) \+ DAT_([0-9a-f]{8})", sub_amp, src)
+    src = re.sub(r"DAT_([0-9a-f]{8}) \+ 0x([0-9a-f]+)", sub_pair, src)
+    # `v = GOTBASE; ... *(T **)(v + DAT_<lit>)`: the GOT slot at GOTBASE + u32(lit) points at a global.
+    def sub_slot(m):
+        try:
+            t = u32(GOT[0] + u32(int(m.group(1), 16)))
+            return f"&[{name(t + 0x10000)}]"
+        except Exception: return m.group(0)
+    for v in set(re.findall(r"(\w+) = GOTBASE;", src)):
+        src = re.sub(rf"\b{v} \+ DAT_([0-9a-f]{{8}})", sub_slot, src)
+    # Collapse STLport container template spellings.
+    prev = None
+    while prev != src:
+        prev = src
+        src = re.sub(r"(_Rb_tree|vector|_Select1st|_MapTraitsT|_SetTraitsT|allocator|pair|less|_Identity|_String_base|basic_string|_List_base|list)<[^<>]*>", r"\1<>", src)
+    sys.stdout.write(src)

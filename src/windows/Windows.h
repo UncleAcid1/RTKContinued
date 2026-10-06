@@ -42,3 +42,23 @@ void SetMusicMutedState(int muted);         // @0x33de50
 int GetNotificationState();                 // @0x33de78
 void SetNotificationState(int on);          // @0x33de64
 }
+
+// The shop (3e.3). UNVERIFIED stand-ins until it is ported: the shop is never open.
+namespace ShopWindow {
+bool IsVisible();                           // @0x346d14
+void Show();                                // @0x34d73c
+void Hide();                                // @0x3479b8
+// @0x346dd4: the left edge of the shop's info panel (its offset 0x62d6e8 + the screen width - the
+// panel's width).
+int GetInfoPanelX();
+}
+
+// The "not enough resources" dialog (3e.4). The requirements are ported; the dialog is not yet.
+namespace NotEnoughWindow {
+void ResetRequirements();                   // @0x2f6cfc
+void AddRequirement(int type, unsigned amount);   // @0x2f6ea4 a resource amount needed
+// @0x2f8c60: true when nothing is missing. UNVERIFIED (3e.4): the level, profession, item, worker,
+// building and upgrade requirements (other Add* functions, not ported) are always met.
+bool CheckRequirements();
+void Show();                                // @0x2fc7f8 UNVERIFIED stand-in (3e.4): prints the shortfall
+}

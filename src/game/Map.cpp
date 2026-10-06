@@ -26,8 +26,9 @@ namespace Map {
 namespace {
 
 struct Cell {               // grid cell, 0x10 bytes on the original
-    Decor* decor = nullptr;        // +0x04 / +0x08 (SetDecoration)
     Building* building = nullptr;  // +0x00 (SetBuilding)
+    Decor* decor = nullptr;        // +0x04 (SetDecoration)
+    Decor* virtualDecor = nullptr; // +0x08 (SetVirtualDecoration: a road tile being placed)
     bool block = false;            // SetBlock (walk mask)
 };
 
@@ -49,15 +50,12 @@ Cell* At(int x, int y) {
     return &g_grid[(size_t)y * g_gridW + x];
 }
 
-// Tile walk shared by Decor::UpdateMapLink @0x1346b8, Map::RemoveDecoration @0x1bb148 and
-// Building::LinkBaseToBuilding @0x11e4a4 (start tile = MapObject::GetStartTile @0x1c7658).
+// The footprint walk from a start tile (MapObject::GetStartTile @0x1c7658), shared by
+// Building::LinkBaseToBuilding @0x11e4a4, Building::CanBePlaced @0x11e5f0 and Decor::CanBePlaced
+// @0x134554: h rows of w tiles, each row stepping up-right, the rows stepping up-left.
 template <class Fn>
-void ForEachFootprintTile(int bx, int by, int w, int h, Fn&& fn) {
-    unsigned x = (unsigned)bx, y = (unsigned)by;
-    for (int i = 0; i < w / 2; ++i) {
-        if (((unsigned)(by + i) & 1) == 0) x -= 1;
-    }
-    y += (unsigned)(w / 2);
+void ForEachFootprintTileFrom(int sx, int sy, int w, int h, Fn&& fn) {
+    unsigned x = (unsigned)sx, y = (unsigned)sy;
     for (int r = 0; r < h; ++r) {
         unsigned cx = x, cy = y;
         for (int c = 0; c < w; ++c) {
@@ -71,62 +69,22 @@ void ForEachFootprintTile(int bx, int by, int w, int h, Fn&& fn) {
     }
 }
 
+// The same walk with the start tile computed inline from w (no mirroring), as Decor::UpdateMapLink
+// @0x1346b8 and Map::RemoveDecoration @0x1bb148 do.
+template <class Fn>
+void ForEachFootprintTile(int bx, int by, int w, int h, Fn&& fn) {
+    int x = bx, y = by;
+    for (int i = 0; i < w / 2; ++i) {
+        if (((unsigned)(by + i) & 1) == 0) x -= 1;
+    }
+    y += w / 2;
+    ForEachFootprintTileFrom(x, y, w, h, fn);
+}
+
 int DecorLayer(int layer) {  // Decor::UpdateImage: table at 0x57b79c for layer+1 in [0,4], else 8
     static const int table[5] = {11, 8, 3, 3, 2};
     unsigned i = (unsigned)(layer + 1);
     return i < 5 ? table[i] : 8;
-}
-
-// ------------------------------------------------------------------------------- decorations
-// @0x1346b8 Map::Decor::UpdateMapLink (home-map fake/real precedence included)
-void DecorUpdateMapLink(Decor* d) {
-    if (!d->data) return;
-    ForEachFootprintTile(d->x, d->y, d->data->w, d->data->h, [&](int x, int y) {
-        Cell* c = At(x, y);
-        if (!c) return;
-        if (g_mapId == 0 && c->decor) {
-            if (c->decor->fake && !d->fake) {
-                // RemoveDecoration(x, y, false) of the fake one happens in the original; fakes are
-                // only created on free tiles at load, so this path does not trigger during load.
-            } else if (!c->decor->fake && d->fake) {
-                return;  // real decoration keeps the tile
-            }
-        }
-        c->decor = d;
-    });
-}
-
-// @0x134c14 Map::Decor::UpdateImage with Map::depthStyle == 0 (never written; verified by xrefs).
-void DecorUpdateImage(Decor* d) {
-    if (d->sprite) { Render::RemoveSprite(d->sprite); d->sprite = nullptr; }
-    if (!d->data) return;  // UNVERIFIED: decor ids that resolve to buildings (else-branch) not ported
-    Render::Texture* tex = GameData::DecorImage(d->data);
-    if (!tex) return;      // the original shows a debug placeholder texture here
-    const GameData::DecorData& D = *d->data;
-    Render::Sprite* s = Render::CreateSprite(tex, DecorLayer(D.layer), d->mirrored, false);
-    d->sprite = s;
-    if (tex->frames > 0) Render::SetFrame(s, tex->h / tex->frames, 0);  // BaseAnimController, frame 0
-    float wx = (float)(d->x * 84) + ((d->y & 1) ? 42.f : 0.f);
-    float wy = (float)d->y * 42.f * 0.5f;
-    int w = D.w, h = D.h;
-    float X, Y;
-    if (!d->mirrored) {
-        X = 42.f + (float)(w / 2) * -42.f - (float)D.ox + wx;
-        Y = (float)(h / 2) * 21.f - (float)D.oy + wy;
-    } else {  // 0x134ecc
-        int k = 0;
-        if (w > h && (w % 2) == 0) k = w - h;
-        if (w < h && (w % 2) == 1) k = w - h;
-        if (k == 3) k = 2;
-        X = 42.f + (float)(w / 2) * -42.f + (float)D.ox + (float)k * 84.f * 0.5f + wx;
-        Y = (float)(h / 2) * 21.f - (float)D.oy + (float)k * 42.f * -0.5f + wy;
-    }
-    float half = s->w * 0.5f;
-    // UNVERIFIED: GetSpriteZ's third argument (r2) is not set by this caller; it only adds a
-    // (c % 5) / 10000 tie-break. Passed as 0.
-    float z = GetSpriteZ(wy, half, 0);
-    Render::SetPosition(s, X - (float)(int)half, Y, z);
-    s->visible = d->visible;
 }
 
 void RemoveDecorationAt(int x, int y) {  // @0x1bb148 RemoveDecoration(x, y, false)
@@ -165,8 +123,8 @@ void LoadDecors(Patch* p, const SaveManager::Chunk& c) {  // @0x1e271c, one chun
     d->resourceText = r.str16();   // UNVERIFIED: not parsed into the per-resource amounts (+0x5c) yet
     d->metaText = r.str16();       // UNVERIFIED (milestone 4): MetaExpression not ported; kept as text
     if (!d->metaText.empty() && city) d->hidden = false;
-    DecorUpdateImage(d.get());
-    DecorUpdateMapLink(d.get());
+    d->UpdateImage();
+    d->UpdateMapLink();
     // UNVERIFIED (milestone 4): decorations with a meta expression (+0x20) or hit points (+0xb8,
     // DecorData +0x7c) register too.
     if (d->f4c != 0 || (d->data && d->data->collectTime != 0)) BuildingHovers::RegisterDecoration(d.get());
@@ -240,8 +198,8 @@ void LoadBuilding(Patch* p, SaveManager::SaveBlock* block) {
         dec->id = b->id;
         dec->data = dd;
         dec->mirrored = b->mirrored;
-        DecorUpdateImage(dec.get());
-        DecorUpdateMapLink(dec.get());
+        dec->UpdateImage();
+        dec->UpdateMapLink();
         p->decors.push_back(std::move(dec));
         return;
     }
@@ -298,8 +256,8 @@ void AddRandomDecors(Patch* p) {
         d->fake = true;
         d->id = ids[(unsigned long)Rand48::lrand48() % (sizeof ids / sizeof ids[0])];
         d->data = GameData::GetDecoration(d->id);
-        DecorUpdateImage(d.get());
-        DecorUpdateMapLink(d.get());
+        d->UpdateImage();
+        d->UpdateMapLink();
         p->decors.push_back(std::move(d));
     }
 }
@@ -401,6 +359,137 @@ void UpdateAreaBorders() {
 
 }  // namespace
 
+// ------------------------------------------------------------------------------- decorations
+// @0x1346b8 Map::Decor::UpdateMapLink (home-map fake/real precedence included)
+void Decor::UpdateMapLink() {
+    Decor* d = this;
+    if (!d->data) return;
+    ForEachFootprintTile(d->x, d->y, d->data->w, d->data->h, [&](int x, int y) {
+        Cell* c = At(x, y);
+        if (!c) return;
+        if (g_mapId == 0 && c->decor) {
+            if (c->decor->fake && !d->fake) {
+                // RemoveDecoration(x, y, false) of the fake one happens in the original; fakes are
+                // only created on free tiles at load, so this path does not trigger during load.
+            } else if (!c->decor->fake && d->fake) {
+                return;  // real decoration keeps the tile
+            }
+        }
+        c->decor = d;
+    });
+}
+
+// @0x134c14 Map::Decor::UpdateImage with Map::depthStyle == 0 (never written; verified by xrefs).
+void Decor::UpdateImage() {
+    Decor* d = this;
+    if (d->sprite) { Render::RemoveSprite(d->sprite); d->sprite = nullptr; }
+    if (!d->data) return;  // UNVERIFIED: decor ids that resolve to buildings (else-branch) not ported
+    Render::Texture* tex = GameData::DecorImage(d->data);
+    if (!tex) return;      // the original shows a debug placeholder texture here
+    const GameData::DecorData& D = *d->data;
+    Render::Sprite* s = Render::CreateSprite(tex, DecorLayer(D.layer), d->mirrored, false);
+    d->sprite = s;
+    if (tex->frames > 0) Render::SetFrame(s, tex->h / tex->frames, 0);  // BaseAnimController, frame 0
+    float wx = (float)(d->x * 84) + ((d->y & 1) ? 42.f : 0.f);
+    float wy = (float)d->y * 42.f * 0.5f;
+    int w = D.w, h = D.h;
+    float X, Y;
+    if (!d->mirrored) {
+        X = 42.f + (float)(w / 2) * -42.f - (float)D.ox + wx;
+        Y = (float)(h / 2) * 21.f - (float)D.oy + wy;
+    } else {  // 0x134ecc
+        int k = 0;
+        if (w > h && (w % 2) == 0) k = w - h;
+        if (w < h && (w % 2) == 1) k = w - h;
+        if (k == 3) k = 2;
+        X = 42.f + (float)(w / 2) * -42.f + (float)D.ox + (float)k * 84.f * 0.5f + wx;
+        Y = (float)(h / 2) * 21.f - (float)D.oy + (float)k * 42.f * -0.5f + wy;
+    }
+    float half = s->w * 0.5f;
+    // UNVERIFIED: GetSpriteZ's third argument (r2) is not set by this caller; it only adds a
+    // (c % 5) / 10000 tie-break. Passed as 0.
+    float z = GetSpriteZ(wy, half, 0);
+    Render::SetPosition(s, X - (float)(int)half, Y, z);
+    s->visible = d->visible;
+}
+
+
+// MapObject::GetStartTile @0x1c7658 (through Decor::GetData @0x131234): back half the width (the
+// height when mirrored) along the row.
+void Decor::GetStartTile(int& tx, int& ty) const {
+    if (!data) { tx = ty = 0; return; }
+    tx = x;
+    unsigned uy = y;
+    ty = (int)uy;
+    int n = (mirrored ? data->h : data->w) / 2;
+    for (int i = 0; i < n; ++i) {
+        if ((uy & 1) == 0) --tx;
+        uy = (unsigned)++ty;
+    }
+}
+
+void Decor::GetBuildZone(int& w, int& h) const {
+    if (!data) { w = h = 0; return; }
+    w = data->w;
+    h = data->h;
+}
+
+bool Decor::CanBePlaced(bool ignoreFake) const {
+    const GameData::DecorData* d = GameData::GetDecoration(id);
+    if (!d) return false;
+    int sx, sy;
+    GetStartTile(sx, sy);
+    bool ok = true;
+    ForEachFootprintTileFrom(sx, sy, d->w, d->h, [&](int tx, int ty) {
+        if (!ok) return;
+        if (GetBuilding(tx, ty)) { ok = false; return; }
+        Decor* o = GetDecoration(tx, ty);
+        if (o != GetVirtualDecoration(tx, ty) && o && ((!ignoreFake && !o->fake) || !o->IsFake())) {
+            ok = false;
+            return;
+        }
+        if (tx < 0 || tx >= GetGridWidth() || ty < 0 || ty >= GetGridHeight()) { ok = false; return; }
+        Patch* p = GetPatchForCoordinates(tx, ty, false);
+        if (p && !p->owned) ok = false;
+    });
+    return ok;
+}
+
+void Decor::ReplaceWith(uint32_t newId) {
+    if (GameState::GetCurrentMapID() == 0 && GameData::GetBuilding(newId)) {
+        // UNVERIFIED (milestone 4): Map::EnqueueBuildingPlacement(x, y, id) turns it into a building.
+        return;
+    }
+    id = newId;
+    data = GameData::GetDecoration(newId);
+    UpdateImage();
+    Render::SortRenderLayer(Render::kLayerObjects, 1);
+}
+
+// @0x11e5f0: every tile of the footprint is free of other buildings and of decorations (fake ones
+// count as free when ignoreFake), on the grid, not on unowned land and without an NPC on it.
+bool Building::CanBePlaced(bool ignoreFake) const {
+    int sx, sy, w, h;
+    GetStartTile(sx, sy);
+    GetBuildZone(w, h);
+    bool ok = true;
+    ForEachFootprintTileFrom(sx, sy, w, h, [&](int tx, int ty) {
+        if (!ok) return;
+        Building* b = GetBuilding(tx, ty);
+        Decor* d = GetDecoration(tx, ty);
+        if ((b && b != this) || (d && ((!ignoreFake && !d->fake) || !d->IsFake())) ||
+            tx < 0 || tx >= GetGridWidth() || ty < 0 || ty >= GetGridHeight()) {
+            ok = false;
+            return;
+        }
+        Patch* p = GetPatchForCoordinates(tx, ty, false);
+        if (p && !p->owned) { ok = false; return; }
+        Entity* e = EntityManager::GetEntityAtXY(tx, ty);
+        if (e && e->IsNPC()) ok = false;
+    });
+    return ok;
+}
+
 int GetGridWidth() { return g_gridW; }
 int GetGridHeight() { return g_gridH; }
 uint32_t GetMapID() { return g_mapId; }
@@ -415,8 +504,10 @@ void TileCoordinatesToLinear(int& x, int& y) {
 
 // @0x11e4a4
 void Building::LinkBaseToBuilding() {
-    if (!data) return;
-    ForEachFootprintTile(x, y, data->w, data->h, [&](int tx, int ty) {
+    int sx, sy, w, h;
+    GetStartTile(sx, sy);
+    GetBuildZone(w, h);
+    ForEachFootprintTileFrom(sx, sy, w, h, [&](int tx, int ty) {
         Cell* c = At(tx, ty);
         if (!c) return;
         if (GameState::GetCurrentMapID() == 0) RemoveDecorationAt(tx, ty);
@@ -433,9 +524,123 @@ Building* GetBuilding(int x, int y) {
     return c ? c->building : nullptr;
 }
 
+void SetBuilding(int x, int y, Building* b) {
+    if (Cell* c = At(x, y)) c->building = b;
+}
+
 Decor* GetDecoration(int x, int y) {
     Cell* c = At(x, y);
-    return c ? c->decor : nullptr;
+    if (!c) return nullptr;
+    return c->decor ? c->decor : c->virtualDecor;
+}
+
+Decor* GetVirtualDecoration(int x, int y) {
+    Cell* c = At(x, y);
+    return c ? c->virtualDecor : nullptr;
+}
+
+void SetVirtualDecoration(int x, int y, Decor* d) {
+    if (Cell* c = At(x, y)) c->virtualDecor = d;
+}
+
+Decor* GetDecorationIgnoringBuildzones(int x, int y) {
+    Patch* p = GetPatchForCoordinates(x, y, true);
+    if (!p) return nullptr;
+    for (auto& d : p->decors)
+        if (d->x == x && d->y == y) return d.get();
+    return nullptr;
+}
+
+Patch* GetPatchForCoordinates(int x, int y, bool quiet) {
+    for (auto& p : g_patches)
+        if (p->x <= x && x < p->x + p->w && p->y <= y && y < p->y + p->h) return p.get();
+    std::printf("Map::GetPatchForCoordinates() Failed to find patch for coordinates %d %d\n", x, y);
+    if (quiet) return nullptr;
+    auto p = std::make_unique<Patch>();
+    p->owned = true;
+    p->bordered = true;
+    p->w = g_gridW;
+    p->h = g_gridH;
+    g_patches.push_back(std::move(p));
+    return g_patches.back().get();
+}
+
+bool IsValidAreaForBuildZone(int x, int y, int w, int h) {
+    unsigned ux = (unsigned)x, uy = (unsigned)y;
+    for (int i = 0; i < w / 2; ++i)
+        if (((uy + (unsigned)i) & 1) == 0) --ux;
+    if (w / 2 > 0) uy += (unsigned)(w / 2);
+    bool ok = true;
+    ForEachFootprintTileFrom((int)ux, (int)uy, w, h, [&](int tx, int ty) {
+        if (!ok) return;
+        Patch* p = GetPatchForCoordinates(tx, ty, true);
+        if (!p || !p->owned) ok = false;
+    });
+    return ok;
+}
+
+Building* GetHQ() {
+    if (Building* b = GetBuildingWithID(99)) return b;
+    return GetBuildingWithID(100);
+}
+
+// A road tile on (x, y) of the given style; a large decoration covering the tile counts only when it
+// was placed on exactly that tile. @0x1312cc
+Decor* GetRoadNeighbor(int x, int y, const GameData::RoadData* road) {
+    Decor* d = GetDecoration(x, y);
+    if (!d || !d->data) return nullptr;
+    if (d->data->road == road) return d;
+    if (d->data->w > 1 || d->data->h > 1) {
+        Decor* e = GetDecorationIgnoringBuildzones(x, y);
+        if (e && e->data && e->data->road == road) return e;
+    }
+    return nullptr;
+}
+
+int GetRoadConnectionType(const Decor* d) {
+    if (!d->data || !d->data->road) return 1;
+    const GameData::RoadData* road = d->data->road;
+    int x = d->x, y = d->y;
+    bool even = (y & 1) == 0;
+    // Neighbours: up-left, up-right, down-left, down-right.
+    int mask = (GetRoadNeighbor(even ? x - 1 : x, y - 1, road) ? 1 : 0) |
+               (GetRoadNeighbor(even ? x : x + 1, y - 1, road) ? 2 : 0) |
+               (GetRoadNeighbor(even ? x - 1 : x, y + 1, road) ? 4 : 0) |
+               (GetRoadNeighbor(even ? x : x + 1, y + 1, road) ? 8 : 0);
+    // The original's branch tree, tabulated by mask.
+    static const int kType[16] = {1, 10, 11, 6, 9, 5, 0, 12, 8, 1, 4, 14, 7, 15, 13, 3};
+    return kType[mask];
+}
+
+void UpdateRoadConnections(int x0, int y0, int x1, int y1) {
+    if (GameState::GetCurrentMapID() != 0) return;
+    if (x0 > g_gridW || x1 < x0 || y0 > g_gridH || y1 < y0) return;
+    int ys = y0 < 0 ? 0 : y0, xs = x0 < 0 ? 0 : x0;
+    if ((unsigned)x1 >= (unsigned)g_gridW) x1 = g_gridW - 1;
+    if ((unsigned)y1 >= (unsigned)g_gridH) y1 = g_gridH - 1;
+    for (int y = ys; y <= y1; ++y) {
+        for (int x = xs; x <= x1; ++x) {
+            Decor* d = GetDecoration(x, y);
+            if (!d) continue;
+            // A large decoration covering the tile is looked up by its own tile unless it is
+            // hidden (+0x44) and small.
+            if (d->hidden && d->data && (d->data->w > 1 || d->data->h > 1)) {
+                d = GetDecorationIgnoringBuildzones(x, y);
+                if (!d) continue;
+            }
+            if (!d->metaText.empty() || !d->data || !d->data->road) continue;
+            int type = GetRoadConnectionType(d);
+            const GameData::RoadData* road = d->data->road;
+            if (road->ids[type] != d->id) {
+                d->ReplaceWith(road->ids[type]);
+                road = d->data->road;
+            }
+            if (road->mirror[type] != (uint8_t)d->mirrored) {
+                d->ToggleMirror();
+                d->UpdateImage();
+            }
+        }
+    }
 }
 
 // UNVERIFIED: both read the farm's own grid (0x613794) while the current location is the farm;

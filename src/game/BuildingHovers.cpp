@@ -10,6 +10,7 @@
 #include "engine/Text.h"
 #include "engine/Timer.h"
 #include "game/Building.h"
+#include "game/BuildingPlacement.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
@@ -85,6 +86,21 @@ uint32_t g_lastTime = 0;               // 0x6189dc
 bool g_updatingDrops = false;          // 0x6188e1
 int g_textCounter = 0;                 // 0x6188d8 (ShowTextHover)
 int g_styleCounter = 0;                // 0x6188dc (ShowTextHoverWithStyle)
+
+// HelperArrow (0x30 bytes): the bobbing "Arrow_show" pointer (tutorial steps, building placement).
+// arrows[0] always exists (Init); ArrowAt(..., newArrow) adds more, HideArrow drops them again.
+// UNVERIFIED (tutorial): the click callback (+0x10), the tablet attention rings (+0x18, +0x1c,
+// +0x20, +0x24) and the arrow following an entity (+0x28, UpdateArrow) are not ported.
+struct HelperArrow {
+    Render::Sprite* sprite = nullptr;  // +0x00
+    bool left = false;                 // +0x04 points left (Arrow_show_left), else down
+    bool mirror = false, flip = false; // +0x05 +0x06
+    float x = 0.f, y = 0.f;            // +0x08 +0x0c the anchor, world space unless screenSpace
+};
+std::vector<HelperArrow*> g_arrows;    // BuildingHovers::arrows
+bool g_canHideArrow = true;            // BuildingHovers::canHideArrow
+int g_arrowCallbackID = 1;             // BuildingHovers::arrowCallbackID
+unsigned g_arrowVisibleWindowLimit = 0;   // BuildingHovers::arrowVisibleWindowLimit
 
 HoverInfo* NewHover() {
     auto* h = new HoverInfo();
@@ -179,10 +195,84 @@ WindowManager::FunctionalWindow* Queue() {
 }
 
 void Init() {
+    g_arrows.push_back(new HelperArrow());
     // UNVERIFIED (milestone 3e / tutorial): the info windows (Empty, Storage, ResourceActive,
-    // Living, Factory, Progress, Castle, Person, FarmGrow, FarmRestore, Decoration), the world dialog
-    // (WorldHintHoverWindow) and the tutorial HelperArrow are created here; wndScale is 1.5 below
-    // a 320 px screen height.
+    // Living, Factory, Progress, Castle, Person, FarmGrow, FarmRestore, Decoration) and the world
+    // dialog (WorldHintHoverWindow) are created here; wndScale is 1.5 below a 320 px screen height.
+}
+
+// ---- the helper arrow ----
+
+bool ArrowVisible() {
+    for (HelperArrow* a : g_arrows)
+        if (a->sprite && a->sprite->visible) return true;
+    return false;
+}
+
+bool CanAutoHideArrow() { return g_canHideArrow; }
+
+void HideArrow() {
+    for (size_t i = 1; i < g_arrows.size(); ++i) {
+        if (!g_arrows[i]) continue;
+        Render::RemoveSprite(g_arrows[i]->sprite);
+        delete g_arrows[i];
+    }
+    g_arrows.resize(1);
+    HelperArrow* a = g_arrows[0];
+    if (a->sprite) Render::SetVisibility(a->sprite, false);
+    ++g_arrowCallbackID;
+}
+
+// The arrows bob 8 px at 15 rad/s: down-pointing ones vertically, left-pointing ones sideways.
+void UpdateArrow() {
+    for (HelperArrow* a : g_arrows) {
+        Render::Sprite* s = a->sprite;
+        if (!s || !s->visible) continue;
+        double bob = std::cos(Timer::GetTime() * 15.0) * 8.0;
+        if (!a->left) Render::SetPosition(s, a->x, (float)((double)a->y + bob), s->z);
+        else Render::SetPosition(s, (float)((double)a->x + bob), a->y, s->z);
+    }
+}
+
+void ArrowAt(float x, float y, bool hide, bool left, bool mirror, bool flip, bool screenSpace, bool tablet,
+             bool newArrow) {
+    if (hide) {
+        HideArrow();
+        return;
+    }
+    if (newArrow) g_arrows.push_back(new HelperArrow());
+    HelperArrow* a = g_arrows.back();
+    if (!a->sprite) a->sprite = Render::CreateSprite(IconManager::GetIcon("Arrow_show"), Render::kLayer15, false, false);
+    Render::Sprite* s = a->sprite;
+    Render::SetTexture(s, IconManager::GetIcon(left ? "Arrow_show_left" : "Arrow_show"));
+    Render::SetMirror(s, mirror, flip);
+    float w = (float)s->tex->w, h = (float)s->tex->h;
+    if (screenSpace) {
+        s->w = w * GUI::GetHoverScaleFactor(1.f, 1.f);
+        s->h = h * GUI::GetHoverScaleFactor(1.f, 1.f);
+    } else {
+        s->w = w;
+        s->h = h * 1.f;
+    }
+    a->left = left;
+    a->mirror = mirror;
+    a->flip = flip;
+    a->x = x;
+    a->y = y;
+    if (left) {
+        if (mirror) a->x = x - s->w;
+        a->y = y + s->h * 0.5f;
+    } else {
+        if (flip) a->y = s->h + y;
+        a->x = x + s->w * -0.5f;
+    }
+    s->screenSpace = screenSpace;
+    Render::SetVisibility(s, true);
+    // UNVERIFIED (tutorial): the tablet attention rings (tablet, or second tutorial 0x86/0x87 on a
+    // tablet) and, after the tutorial (0x100) in a combat with more than two sides, centring the
+    // camera on an arrow off screen.
+    g_canHideArrow = true;
+    UpdateArrow();
 }
 
 void Deinit() {
@@ -715,8 +805,12 @@ void Update(double dtIn, bool force) {
             ++i;
         }
     }
-    // UNVERIFIED (tutorial): UpdateArrow, and hiding the arrow while windows are shown.
+    UpdateArrow();
     if (GameState::IsPaused()) return;
+    if (WindowManager::GetShownWindowCount() > g_arrowVisibleWindowLimit && ArrowVisible() &&
+        !BuildingPlacement::Activated() && !GameState::IsTutorial())   // UNVERIFIED (3e.5): BuildingMovement::Activated
+        HideArrow();
+    // UNVERIFIED (tutorial): the tablet attention rings' animation.
     // UNVERIFIED: the world dialog's Update (not ported).
     UpdateHoverPositions();
     if (Timer::GetGlobalTime() != g_lastTime || force) {

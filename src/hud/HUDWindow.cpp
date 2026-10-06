@@ -9,6 +9,7 @@
 #include "game/GameState.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
+#include "windows/Windows.h"
 
 namespace HUDWindow {
 namespace {
@@ -184,6 +185,24 @@ void UpdateFrameBorder() {
         else g_frameBorder = s;
         prev = s;
     }
+}
+
+void SetInfoText(const char32_t* text) {
+    // UNVERIFIED (milestone 4): 30 px lower while ArenaTurnWindow is visible.
+    g_mapName2->SetPosition((GUI::ScreenWidth() - g_mapName2->w) / 2, g_mapName2->h + 0x50);
+    g_mapName2->SetVisibility(text != nullptr);
+    if (text) g_mapName2Text->SetText(text);
+}
+
+void SetBottomType(int type) {
+    // UNVERIFIED (3f): type 3 shows BottomFarmWindow, every other type hides it.
+    // UNVERIFIED (milestone 4): GlobalMapWindow::IsVisible also keeps the city bar hidden.
+    if (type == 0 && GameState::GetCurrentMapID() == 0 && !ShopWindow::IsVisible()) {
+        if (!BottomCityWindow::IsVisible()) BottomCityWindow::Show();
+    } else {
+        BottomCityWindow::Hide();
+    }
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
 }
 
 float GetZ() { return g_z; }

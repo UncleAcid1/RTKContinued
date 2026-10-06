@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, end of 3d) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e.2 done) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below). Last commit 52d97a7. Git is local only: there is
@@ -19,14 +19,25 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    jobs and the farm-farmer pass UNVERIFIED), Building::UpdateOfflineState/UpdateOfflineResources,
    Map::UpdateOfflineResources, GetBuildingWithID. Verified: a worker saved on a tree reloads
    working it; a resident reloads at the castle. RefreshOfflineGoblins (class 0x10) left for M4.
-   Next is 3e.2 BuildingPlacement (decompiled at 0x3a19bc..0x3a4258, ~1300 lines; read once). Its
-   missing dependencies: PlaceBuildingHoverWindow (accept/rotate/decline hover), HiddenObjects,
-   Building vtable CanBePlaced (+0x20) / ToggleRotation (+0x28) / Duplicate, Map::
-   IsValidAreaForBuildZone, GetPatchForCoordinates, GetHQ, SetVirtualDecoration,
-   UpdateRoadConnections, HUDWindow::SetBottomType/SetInfoText, BuildingHovers::ArrowAt/
-   AddItemMovement, NotEnoughWindow requirements, GameState latestUniqueID. Floats in Move/Click/
-   Bought need the asm (softfp). Then 3e.3 ShopWindow (Init alone ~1400 lines), 3e.4 NotEnough/
-   ConfirmPurchase/speed-up, LevelUp, Exchange, 3e.5 BuildingMovement, LandWindow.
+   3e.2 DONE: BuildingPlacement (src/game/BuildingPlacement.*: BuildingBought/DecorBought, the
+   free-spot search, drag/tap/edge-scroll, rotate, Accept/Decline, red/green footprint),
+   PlaceBuildingHoverWindow (hud/HoverWindows), HiddenObjects, the helper arrow (BuildingHovers
+   ArrowAt/HideArrow/UpdateArrow), Map grid/patch/road helpers (GetPatchForCoordinates,
+   IsValidAreaForBuildZone, GetHQ, virtual decorations, UpdateRoadConnections + RoadData table),
+   Building/Decor CanBePlaced, Building::Duplicate, GameState::RemoveItem/latestUniqueID,
+   HUDWindow::SetInfoText/SetBottomType, NotEnoughWindow requirements (dialog: 3e.4), ShopWindow
+   stand-ins (src/windows/ShopWindow.cpp: never open; 3e.3 replaces them). Fixed on the way: AI
+   waypoint marker starts at 1 (search found nothing before), LinkBaseToBuilding uses the
+   mirror-aware start tile. Verified headless (a temporary RTK_BUY hook in main, removed): buy,
+   free spot, drag onto trees -> red + confirm disabled, tap/drag to grass, confirm charges the
+   costs, builds a site with unique id, saves and reloads with its build bubble; rotate; cancel
+   restores everything. Known until 3e.3: the shop's Building instance (opened? level?) and the
+   icon flight (AddItemMovement) are unverified; after Cancel the arrow stays because the
+   original hides it when the reopened shop counts as a shown window.
+   Next: 3e.3 ShopWindow (Init alone ~1400 lines; calls BuildingBought/DecorBought with its icon
+   sprite, UpdateCost), 3e.4 NotEnough dialog/ConfirmPurchase/speed-up, LevelUp, Exchange,
+   3e.5 BuildingMovement (shares PlaceBuildingHoverWindow; its UNVERIFIED hooks are marked
+   "3e.5"), LandWindow. Tools: tools/picvar.py resolves `iVarN + 0x......` after picsym.py.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
    costs, building limits, LandWindow area buying (also Map::Save(0)), LevelUpWindow (Map::Save(0)),
    NotEnoughWindow/ConfirmPurchase (makes the hover Speed Up buttons work: BuildProgress/

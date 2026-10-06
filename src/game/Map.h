@@ -36,6 +36,17 @@ struct Decor {
     std::string resourceText;          // +0x58 "TYPE=n|..." (parsed into +0x5c per resource)
     Render::Sprite* sprite = nullptr;  // +0x88
     bool removed = false;
+
+    bool IsFake() const { return fake || hidden; }   // @0x130e20
+    void GetStartTile(int& tx, int& ty) const;       // +0x18 MapObject @0x1c7658
+    void GetBuildZone(int& w, int& h) const;         // +0x1c MapObject @0x1c76e4
+    void ToggleMirror() { mirrored = !mirrored; }    // +0x28 MapObject @0x1c7724
+    // +0x20 @0x134554: every tile of the footprint is free (a fake decoration counts as free when
+    // ignoreFake; the tile's virtual decoration never blocks), on the grid and not on unowned land.
+    bool CanBePlaced(bool ignoreFake) const;
+    void UpdateImage();                              // +0x0c @0x134c14
+    void UpdateMapLink();                            // @0x1346b8
+    void ReplaceWith(uint32_t id);                   // @0x131f08
 };
 
 struct Patch {
@@ -67,7 +78,21 @@ uint32_t GetMapID();
 int GetTileset();
 
 Building* GetBuilding(int x, int y);                   // @0x1b63f0
-Decor* GetDecoration(int x, int y);                    // @0x1b6434
+void SetBuilding(int x, int y, Building* b);           // @0x1b6388
+// @0x1b6434: the tile's decoration, else its virtual decoration (a road being placed).
+Decor* GetDecoration(int x, int y);
+Decor* GetVirtualDecoration(int x, int y);             // @0x1b6484
+void SetVirtualDecoration(int x, int y, Decor* d);     // @0x1b63cc
+Decor* GetDecorationIgnoringBuildzones(int x, int y);  // @0x1c1a98 the one placed on exactly (x, y)
+// @0x1c1828: the patch containing the tile; without one, an error and (unless quiet) a new owned
+// patch covering the whole grid.
+Patch* GetPatchForCoordinates(int x, int y, bool quiet);
+// @0x1c19cc: every tile of a w x h zone starting at (x, y) lies on owned land.
+bool IsValidAreaForBuildZone(int x, int y, int w, int h);
+Building* GetHQ();                                     // @0x1b6c94 the castle (99, else 100)
+// @0x1c1b00 (city only): road tiles in the rectangle switch to the tile matching their neighbours.
+void UpdateRoadConnections(int x0, int y0, int x1, int y1);
+int GetRoadConnectionType(const Decor* d);             // @0x131350
 bool GetBlock(int x, int y);                           // @0x1b8fd8
 void SetBlock(int x, int y, bool block);               // @0x1b9078
 void CreateRoadAI();                                   // @0x1bb868 the waypoint graph (AI.h)

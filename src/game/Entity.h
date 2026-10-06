@@ -99,6 +99,9 @@ public:
 
     EntityData* GetEntityData() const { return data; }   // @0x150034
     bool IsPlayer() const { return player; }     // @0x1505b0
+    // @0x15058c: spawned by a spawn point flagged NPC (+0x10). UNVERIFIED (milestone 4): spawn
+    // points are not ported, so no entity is an NPC yet.
+    bool IsNPC() const { return false; }
     bool IsMale() const;                         // @0x152b08
     bool IsFat() const;                          // @0x152c50
     bool IsSpeedRunning() const { return speedRunning; }   // @0x150890

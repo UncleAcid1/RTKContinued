@@ -18,6 +18,7 @@
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -36,6 +37,7 @@
 #include "game/EntityData.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingPlacement.h"
 #include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -230,6 +232,8 @@ int main(int argc, char** argv) {
     TextStyleManager::Init();
     WindowManager::g_desktopWindow = new WindowManager::DesktopWindow();
     WindowManager::InitWindows();
+    // main_Loop_Init: BuildingPlacement::Init (BuildingMovement and SpellMovement: 3e.5, milestone 4).
+    BuildingPlacement::Init();
 
     // main_Loop_Init: the save names, SaveManager::Init, the save file, then LoadSavedGame.
     // PORT: the storage folder is the user's application support folder (Android: the app's files).
@@ -279,6 +283,7 @@ int main(int argc, char** argv) {
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
         GUI::UpdateAnimation(dt);
+        BuildingPlacement::Update(dt);
         MapMovement::Update(dt);
         BuildingHovers::Update(dt, false);
         if (!GameState::IsPaused()) {
@@ -290,18 +295,23 @@ int main(int argc, char** argv) {
         WindowManager::DestroyPendingWindows();
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
-    // SDL's by a float factor). Not ported (UNVERIFIED): BuildingHovers, Spell/BuildingMovement,
-    // BuildingPlacement, the world click (EntityManager, buildings, buying areas), long taps, the
-    // touch/pinch path (Game::touchDown) and EditorConsole/Editor.
+    // SDL's by a float factor). Not ported (UNVERIFIED): Spell/BuildingMovement (milestone 4, 3e.5),
+    // the world click (EntityManager, buildings, buying areas), long taps, the touch/pinch path
+    // (Game::touchDown) and EditorConsole/Editor.
     int lastX = 0x96, lastY = 0x96;   // 0x60ef50: the previous pointer position
+    bool held = false;                // 0x6122ec: a button is down
+    float edgeX = 0.f, edgeY = 0.f;   // 0x612314 0x612318: edge-scroll drag not yet passed on
     bool firstMove = true;            // only the first motion event of a frame reaches ProcessMove
     auto mouseDown = [&](int x, int y, bool left) {
+        lastX = x;
+        lastY = y;
+        held = true;
         WindowManager::SetMousePosition(x, y);
         GUI::OnMouseMove(x, y, true);
         if (left) {
             if (!Map::IsCameraMoving() && WindowManager::ProcessClick(x, y, true) != WindowManager::g_desktopWindow) {
                 // UNVERIFIED: the tutorial arrow (BuildingHovers::ClickOnArrow / HideArrow) at step 0x80.
-            } else {
+            } else if (!(BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, true, false))) {
                 MapMovement::Click(x, y, true, false);
             }
         } else {
@@ -311,29 +321,37 @@ int main(int argc, char** argv) {
     auto mouseUp = [&](int x, int y, bool left) {
         if (MapMovement::IsActive()) MapMovement::Click(x, y, false, false);
         else GUI::OnMouseClick(x, y, false);
+        held = false;
         if (!left) {
             MapMovement::Click(x, y, false, true);
+            return;
+        }
+        if (BuildingPlacement::IsInDragProcess()) {
+            BuildingPlacement::Click(x, y, false, false);
             return;
         }
         if (Map::IsCameraMoving()) {
             MapMovement::RemoveFocus();
             return;
         }
-        if (!(MapMovement::HasFocus() && MapMovement::IsActive())) WindowManager::ProcessClick(x, y, false);
+        WindowManager::WindowQueue* hit = WindowManager::g_desktopWindow;
+        if (!(MapMovement::HasFocus() && MapMovement::IsActive())) hit = WindowManager::ProcessClick(x, y, false);
         MapMovement::RemoveFocus();
-        // A click that reaches the desktop window goes to the world: milestones 3-4.
+        if (hit != WindowManager::g_desktopWindow) return;
+        if (BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, false, MapMovement::IsActive())) return;
+        // The rest of a click that reaches the desktop window goes to the world: milestones 3-4.
     };
     auto mouseMove = [&](int x, int y) {
         int dx = x - lastX, dy = y - lastY;
         lastX = x;
         lastY = y;
         if (std::abs(dx) + std::abs(dy) > 400) return;   // a jump (a new touch), not a move
-        // UNVERIFIED: ShopWindow::IsVisible / BuildingHovers::IsHoverVisible also keep the drag.
-        if (WindowManager::GetShownWindowCount() != 0) {
+        if (WindowManager::GetShownWindowCount() != 0 && !ShopWindow::IsVisible() && !BuildingHovers::IsHoverVisible()) {
             MapMovement::RemoveFocus();
             MapMovement::StopDrag();
         }
         MapMovement::Move(x, y, dx, dy);
+        if (BuildingPlacement::Activated() && BuildingPlacement::Move(x, y, dx, dy)) return;
         if (!firstMove) {
             GUI::OnMouseMove(x, y, true);
         } else {
@@ -341,6 +359,37 @@ int main(int argc, char** argv) {
             GUI::OnMouseMove(x, y, false);
             firstMove = false;
         }
+    };
+    // main_Loop_Func after the events: a preview dragged within 100 px of a screen edge scrolls the
+    // view 300 world units a second that way and is moved along (whole pixels; the rest is kept).
+    auto edgeScroll = [&](double frameDt) {
+        if (!BuildingPlacement::IsBuildingDragged() || !held) return;
+        const float viewW = 2.f / Render::zoom, viewH = 2.f / Render::zoom / Render::aspect;
+        const float speed = (float)(frameDt * 300.0);
+        const int W = Render::ScreenWidth(), H = Render::ScreenHeight();
+        if (lastX + 99 >= W) {
+            Render::offsetX -= speed;
+            edgeX = ((float)W * speed) / viewW + edgeX;
+        }
+        if (lastX <= 99) {
+            Render::offsetX += speed;
+            edgeX = edgeX - ((float)W * speed) / viewW;
+        }
+        if (lastY + 99 >= H) {
+            Render::offsetY += speed;
+            edgeY = ((float)H * speed) / viewH + edgeY;
+        }
+        if (lastY <= 99) {
+            Render::offsetY -= speed;
+            edgeY = edgeY - ((float)H * speed) / viewH;
+        }
+        if (std::fabs(edgeX) > 1.f) BuildingPlacement::Move(lastX, lastY, (int)edgeX, std::fabs(edgeY) > 1.f ? (int)edgeY : 0);
+        else if (std::fabs(edgeY) > 1.f) BuildingPlacement::Move(lastX, lastY, 0, (int)edgeY);
+        else return;
+        if (edgeX > 1.f) edgeX -= (float)(int)edgeX;
+        if (edgeX < -1.f) edgeX += (float)(int)(-edgeX);
+        if (edgeY > 1.f) edgeY -= (float)(int)edgeY;
+        if (edgeY < -1.f) edgeY += (float)(int)(-edgeY);
     };
     // The mouse wheel zooms the map when no window is shown and no farm is visited (milestone 3);
     // otherwise WindowQueue::ProcessWheel (UNVERIFIED, not ported). The original reads the event's
@@ -467,11 +516,13 @@ int main(int argc, char** argv) {
                 case SDL_EVENT_QUIT: running = false; break;
                 case SDL_EVENT_WILL_ENTER_BACKGROUND:
                     // The app's pause (main_Loop_Func): outside the city tutorial the drops are
-                    // collected and the game saved. UNVERIFIED (milestone 3e/4): TaskCompleteWindow,
-                    // the placement, movement and spell modes close first; the notifications are
-                    // not ported. (Desktop systems do not send this event; the exit saves.)
+                    // collected, the placement closed and the game saved. UNVERIFIED (milestone 3e/4):
+                    // TaskCompleteWindow, the movement and spell modes close first; the
+                    // notifications are not ported. (Desktop systems do not send this event; the
+                    // exit saves.)
                     if (!GameState::IsCityTutorial()) {
                         BuildingHovers::CollectAll();
+                        BuildingPlacement::Decline();
                         Map::Save(0);
                     }
                     break;
@@ -515,6 +566,7 @@ int main(int argc, char** argv) {
         uint64_t now = SDL_GetTicks();
         float dt = (float)(now - lastTicks) / 1000.f;
         lastTicks = now;
+        edgeScroll(dt);
         tick(dt > 0.1f ? 0.1f : dt);
         Render::Frame();
         SDL_GL_SwapWindow(win);

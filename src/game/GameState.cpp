@@ -34,6 +34,7 @@ int secondTutorial = 0x81;       // 0x60efd0
 int lastSentStep = 0;            // 0x6134b0
 uint32_t playerSeed = 0;         // 0x613408
 uint32_t mHPTS = 0;              // 0x613454
+uint32_t latestUniqueID = 0;     // GameState::latestUniqueID (Building::SetUniqueID)
 
 namespace {
 // std::map<ResourceType,int> (tree header 0x612f78): every value v of type t is kept three times, as [t] = v,
@@ -53,6 +54,7 @@ bool g_male = true;             // 0x60efbc
 
 using U32Map = std::map<uint32_t, uint32_t>;
 std::vector<std::unique_ptr<PlayerItem>> g_items;   // 0x612f90 (records from the pool 0x612f68)
+std::vector<std::unique_ptr<PlayerItem>> g_itemPool;   // 0x612f68 removed records (kept alive)
 uint32_t g_itemUniqueId = 1;    // 0x60efc4 the highest item unique id
 ItemBinding g_itemBindings[10];     // 0x612ad8
 ItemBinding g_customBindings[32];   // 0x612b50 (customization)
@@ -415,6 +417,27 @@ int GetItemAmount(uint32_t id, bool belt) {
             if (it->uniqueId == u) { ++n; break; }
     }
     return n;
+}
+
+// Each removal moves the last item into the freed slot.
+void RemoveItem(uint32_t id, int count) {
+    if (count < 1) {
+        std::fprintf(stderr, "ERROR: GameState::RemoveItem() Item %d count is %d\n", id, count);
+        return;
+    }
+    for (size_t i = 0; i < g_items.size() && count != 0;) {
+        if (g_items[i]->id != id) {
+            ++i;
+            continue;
+        }
+        g_itemPool.push_back(std::move(g_items[i]));
+        g_items[i] = std::move(g_items.back());
+        g_items.pop_back();
+        --count;
+    }
+    if (count != 0)
+        std::fprintf(stderr, "ERROR: GameState::RemoveItem() Could not remove %d items with ID = %d - player has no items with this ID\n",
+                     count, id);
 }
 
 PlayerItem* GetItemByUniqueID(uint32_t uniqueId) {

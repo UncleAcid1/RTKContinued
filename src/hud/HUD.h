@@ -14,6 +14,11 @@ void Update(float dt);        // @0x2c81c8
 int UpdateNumberToTarget(int current, int target);   // @0x2c6560 (animated counters)
 inline int GetDeltaTimeMultiplier() { return 1; }    // @0x2c6664
 WindowManager::FunctionalWindow* Queue();
+// @0x2c6948: a line of text under the top bar (the second map-name popup), or none.
+void SetInfoText(const char32_t* text);
+// @0x2c8d64: which bottom bar shows. 0: the city's (when no shop or world map is open), 3: the
+// farm's, anything else: none.
+void SetBottomType(int type);
 }
 
 // Panels: Init/Show/Hide/SetZ/Update/IsVisible as on the original.

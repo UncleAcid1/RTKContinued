@@ -25,7 +25,7 @@ std::vector<Waypoint*> g_grid;        // 0x610af4, width 0x60ef04, height 0x60ef
 int g_gridW = 0, g_gridH = 0;
 std::vector<Waypoint*> g_search;      // 0x610b38
 std::vector<Waypoint*> g_nearWeighted, g_nearAll;   // 0x610b48, 0x610b54
-int g_marker = 0;                     // 0x60ef08
+int g_marker = 1;                     // 0x60ef08 (data: starts at 1)
 
 void ClassifyWaypoint(Waypoint* wp, unsigned part) {   // @0xe1648
     wp->part = part;

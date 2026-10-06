@@ -12,6 +12,14 @@ namespace Contracts { struct Contract; }
 
 namespace GameData {
 
+// Map::RoadData (0x50 bytes): one road style, the table 0x57b7b0 copied by LoadDecorationList. A
+// decoration whose id is among `ids` is a road tile of that style (DecorData+0x78); the tile at
+// connection type i (Map::GetRoadConnectionType) is ids[i], mirrored when mirror[i].
+struct RoadData {
+    uint32_t ids[16];            // +0x00
+    uint8_t mirror[16];          // +0x40
+};
+
 struct DecorData {               // DecorData
     uint32_t id = 0;             // +0x00 "id"
     std::string name;            // +0x04 "name"
@@ -24,6 +32,9 @@ struct DecorData {               // DecorData
     uint32_t collectMoney = 0;   // +0x38 "collectmoney"
     uint32_t collectExp = 0;     // +0x3c "collectexp"
     uint32_t collectChest = 0;   // +0x40 "collect_chest"
+    int cost1 = 0;               // +0x44 "cost1" gold
+    int cost2 = 0;               // +0x48 "cost2" crystals
+    const RoadData* road = nullptr;  // +0x78 the road style it belongs to
     std::string img;             // +0x50 "img"
     Render::Texture* image = nullptr;  // +0x4c (DecorData::LoadImage)
     bool imageLoaded = false;

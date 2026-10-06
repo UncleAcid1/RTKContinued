@@ -8,6 +8,7 @@
 #include "engine/Timer.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingPlacement.h"
 #include "game/Contracts.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
@@ -15,6 +16,7 @@
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
+#include "windows/Windows.h"
 
 // ---- BuildingHoverWindow ----
 
@@ -871,4 +873,111 @@ void BuildProgressHoverWindow::Update(float dt) {
     }
     // UNVERIFIED (decoration jobs): the decoration branch (job progress, goblin horn / hourglass
     // items, GetProgressMessage).
+}
+
+// ---- PlaceBuildingHoverWindow ----
+
+PlaceBuildingHoverWindow::PlaceBuildingHoverWindow() {
+    name = "PlaceBuildingHoverWindow";
+    usesZRange = true;
+}
+
+PlaceBuildingHoverWindow::~PlaceBuildingHoverWindow() {
+    delete root;
+    GUI::RemoveMovementEffect(slide);
+    slide = nullptr;
+}
+
+void PlaceBuildingHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Buttons_confirm_placement.xml",
+                           "Buttons_confirm_placement.png", GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    slide = GUI::CreateMovementEffect(root);
+    accept.LoadFrom(root, "button_building_controls_01");
+    rotate.LoadFrom(root, "button_building_controls_02");
+    cancel.LoadFrom(root, "button_building_controls_03");
+    accept.red->SetVisibility(false);
+    accept.blue->SetVisibility(false);
+    rotate.red->SetVisibility(false);
+    rotate.green->SetVisibility(false);
+    cancel.green->SetVisibility(false);
+    cancel.blue->SetVisibility(false);
+    accept.icon->SetTexture(IconManager::GetIcon("gold_confirm"), true);
+    rotate.icon->SetTexture(IconManager::GetIcon("gold_rotate"), true);
+    cancel.icon->SetTexture(IconManager::GetIcon("gold_cancel"), true);
+    accept.clickArea->SetOnClick(OnAccept);
+    rotate.clickArea->SetOnClick(OnRotate);
+    cancel.clickArea->SetOnClick(OnDecline);
+}
+
+// Centred, or left of the shop's info panel if that is further left; up from below the screen.
+void PlaceBuildingHoverWindow::Show() {
+    if (shownHover) return;
+    if (!PopupWindow::IsVisible()) MoveWindowOnTop(true);
+    shownHover = true;
+    root->SetVisibility(true);
+    int x = ShopWindow::GetInfoPanelX() - root->w;
+    int centred = (GUI::ScreenWidth() - root->w) / 2;
+    if (centred <= x) x = centred;
+    const int H = GUI::ScreenHeight();
+    root->SetPosition(x, H);
+    slide->Animate(x, H, x, H - root->h, true);
+    accept.root->SetEnabled(true);
+    rotate.root->SetEnabled(true);
+    cancel.root->SetEnabled(!GameState::IsCityTutorial());
+    accept.text->SetText(StringTable::GetString("building_controls_confirm"));
+    rotate.text->SetText(StringTable::GetString("building_controls_rotate"));
+    cancel.text->SetText(StringTable::GetString("building_controls_cancel"));
+}
+
+void PlaceBuildingHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+void PlaceBuildingHoverWindow::SetZ(float z) {
+    int x = ShopWindow::GetInfoPanelX() - root->w;
+    if (!slide->active) {
+        int centred = (GUI::ScreenWidth() - root->w) / 2;
+        if (centred <= x) x = centred;
+        root->SetPosition(x, GUI::ScreenHeight() - root->h);
+    }
+    root->SetZ(z - 0.0001f);
+}
+
+bool PlaceBuildingHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    return root->Click(x, y, pressed, true);
+}
+
+// Called every frame with the object's screen position (unused): confirm follows CanBePlaced.
+void PlaceBuildingHoverWindow::SetPosition(int, int) {
+    if (!shownHover) return;
+    if (building) {
+        accept.root->SetEnabled(building->CanBePlaced(true));
+        // UNVERIFIED (tutorial): at step 0x5c with confirm enabled, the arrow points at it and its
+        // click confirms (BuildingHovers::SetArrowClickCallback(OnAccept), arrowCallback).
+        if (!shownHover) return;
+    }
+    if (decor) accept.root->SetEnabled(decor->CanBePlaced(true));
+}
+
+void PlaceBuildingHoverWindow::EnableAccept() { accept.root->SetEnabled(true); }
+
+void PlaceBuildingHoverWindow::OnDecline() {
+    if (BuildingPlacement::Activated()) BuildingPlacement::Decline();
+    // UNVERIFIED (3e.5): BuildingMovement::Decline when it is active.
+}
+
+void PlaceBuildingHoverWindow::OnRotate() {
+    // SoundsManager::PlaySound("building_flip", 1, false): sounds are milestone 5.
+    if (BuildingPlacement::Activated()) BuildingPlacement::ToggleRotation();
+    // UNVERIFIED (3e.5): BuildingMovement::ToggleRotation when it is active.
+}
+
+void PlaceBuildingHoverWindow::OnAccept() {
+    BuildingHovers::HideArrow();
+    if (BuildingPlacement::Activated()) BuildingPlacement::Accept();
+    // UNVERIFIED (3e.5): BuildingMovement::Accept when it is active.
 }

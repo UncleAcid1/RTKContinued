@@ -105,6 +105,7 @@ extern int secondTutorial;      // 0x60efd0 GameState::secondTutorial
 extern int lastSentStep;        // 0x6134b0 GameState::lastSentStep
 extern uint32_t playerSeed;     // 0x613408 GameState::playerSeed (random decorations)
 extern uint32_t mHPTS;          // 0x613454 GameState::mHPTS (hit point regeneration time)
+extern uint32_t latestUniqueID; // the highest building unique id (Building::SetUniqueID)
 
 struct PlayerItem {             // 0x18 bytes, the player's items (vector 0x612f90)
     uint32_t id = 0;            // +0x00
@@ -135,6 +136,7 @@ void ClearOfflineBuildings();                  // @0x19bda8
 uint32_t GetBeltSlotCount();                   // @0x190788
 uint32_t GetBeltItemAt(unsigned slot);         // @0x1907e8
 int GetItemAmount(uint32_t id, bool belt);     // @0x19bdc8
+void RemoveItem(uint32_t id, int count);       // @0x19510c
 PlayerItem* GetItemByUniqueID(uint32_t uniqueId);   // @0x19623c
 PlayerItem* GetFirstItemByID(uint32_t id, bool belt);   // @0x1962a4
 
