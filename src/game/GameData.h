@@ -19,6 +19,11 @@ struct DecorData {               // DecorData
     int ox = 0, oy = 0;          // +0x10 "x", +0x14 "y"
     int layer = 0;               // +0x20 "layer"
     bool isRoad = false;         // +0x6e "isroad" (waypoint weight 0.1)
+    bool giveable = false;       // +0x31 "giveable"
+    uint32_t collectTime = 0;    // +0x34 "collecttime" seconds between a decoration's taxes
+    uint32_t collectMoney = 0;   // +0x38 "collectmoney"
+    uint32_t collectExp = 0;     // +0x3c "collectexp"
+    uint32_t collectChest = 0;   // +0x40 "collect_chest"
     std::string img;             // +0x50 "img"
     Render::Texture* image = nullptr;  // +0x4c (DecorData::LoadImage)
     bool imageLoaded = false;

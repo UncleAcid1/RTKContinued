@@ -13,12 +13,13 @@ bool Init();  // loads the one-file animation registry (res_files/1Original/AllA
 // "<pack>/2Optimized/<name>.png|.jpg", then "1Original"; returns the resource path or "".
 std::string GetDecoratedImageName(const char* pack, const char* name);
 // Packs A2Static then A3MergedAnims; one-file animations resolve to "<name>_anim" in A3MergedAnims
-// with Texture::frames set from the registry. Returns nullptr if not found.
-Render::Texture* GetImage(const char* name);
+// with Texture::frames set from the registry. Returns nullptr if not found. pixelMask (the
+// original's 4th argument) gives a texture created by this call its hit mask (Render::HasPixelAt).
+Render::Texture* GetImage(const char* name, bool pixelMask = false);
 // @0x205b58: the frame count of a registered one-file animation, else 1.
 int GetFrameCount(const char* name);
 // "images/Decor/%s", "images/Buildings/%s", "images/%s", then the name itself.
-Render::Texture* GetDecoration(const char* name);
+Render::Texture* GetDecoration(const char* name, bool pixelMask = false);
 // A plain resource path (e.g. "images/grass_01.png"), no pack decoration.
 Render::Texture* GetDirectImage(const char* path);
 // @0x205e3c GetUIImage(name, quiet, async): the name as given, then

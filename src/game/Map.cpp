@@ -10,6 +10,7 @@
 #include "engine/Timer.h"
 #include "game/AI.h"
 #include "game/Background.h"
+#include "game/BuildingHovers.h"
 #include "game/GameData.h"
 #include "game/Setting.h"
 #include "game/GameState.h"
@@ -32,6 +33,7 @@ std::vector<std::unique_ptr<Patch>> g_patches;
 std::vector<Render::Sprite*> g_borderSprites;  // dark grass, posts, signs
 uint32_t g_currentTime = 0;                     // 0x6118c4
 bool g_loaded = false;                          // 0x613798 (set at the end of Map::Load)
+int g_lastWorldX = 0, g_lastWorldY = 0;         // Map::lastWorldX/Y 0x6138dc 0x6138e0
 int g_owned[4] = {};                            // 0x613660 owned extent: min x, min y, max x, max y
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 
@@ -144,9 +146,14 @@ void LoadDecors(Patch* p, SaveManager::Chunk& c) {  // @0x1e271c, one chunk 0xb
     d->data = GameData::GetDecoration(d->id);
     uint8_t flags = r.u8();
     d->mirrored = (flags & 1) != 0;
-    // remaining fields (timers, resources, meta expression) are gameplay state: not needed yet
+    d->collectStart = r.u32();
+    d->f4c = r.u8();
+    // remaining fields (job timers, resources, meta expression) are gameplay state: not needed yet
     DecorUpdateImage(d.get());
     DecorUpdateMapLink(d.get());
+    // UNVERIFIED (milestone 4): decorations with a meta expression (+0x20) or hit points (+0xb8,
+    // DecorData +0x7c) register too.
+    if (d->f4c != 0 || (d->data && d->data->collectTime != 0)) BuildingHovers::RegisterDecoration(d.get());
     p->decors.push_back(std::move(d));
 }
 
@@ -235,7 +242,7 @@ void LoadBuilding(Patch* p, std::vector<SaveManager::Chunk>& chunks, size_t& ci)
         b->SetClosed(true);
     }
     b->UpdateImage();
-    // UNVERIFIED (3b): BuildingHovers::RegisterBuilding(b).
+    BuildingHovers::RegisterBuilding(b);
     b->workers.assign(d->parkingCount, nullptr);
     b->builder = nullptr;
     auto nextIs = [&](uint32_t type) { return ci < chunks.size() && chunks[ci].type == type; };
@@ -404,6 +411,8 @@ void Building::LinkBaseToBuilding() {
     });
 }
 
+bool IsLoaded() { return g_loaded; }
+
 Building* GetBuilding(int x, int y) {
     Cell* c = At(x, y);
     return c ? c->building : nullptr;
@@ -480,6 +489,88 @@ void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY) {
     maxY = g_owned[3];
 }
 
+// @0x1b6004 (also remembers the result as Map::lastWorldX/Y 0x6138dc/0x6138e0)
+void MouseCoordinatesToWorld(int& x, int& y) {
+    float k = 2.f / Render::zoom;
+    x = (int)((((float)x / (float)Render::ScreenWidth()) * k - Render::offsetX) + k * -0.5f);
+    float ky = k / Render::aspect;
+    y = (int)(Render::offsetY + ((float)y / (float)Render::ScreenHeight()) * ky + ky * -0.5f);
+    g_lastWorldX = x;
+    g_lastWorldY = y;
+}
+
+void WorldCoordinatesToTile(int& x, int& y) {
+    int wy = y + 0x2a0;
+    y = wy;
+    int ry = wy % 0x2a;
+    int tx = x / 0x54;
+    int rx = x % 0x54;
+    int ty = ((int)((float)wy + 42.f) / 0x2a) * 2;
+    if (ry < 0x15) {
+        float f = (float)ry;
+        if (rx < (int)(42.f + (f / 21.f) * -42.f)) {
+            --ty;
+            --tx;
+        }
+        if ((int)(42.f + (f / 21.f) * 42.f) < rx) --ty;
+    } else if (ry != 0x15) {
+        float f = ((float)ry / 21.f) * 42.f - 42.f;
+        if (rx < (int)f) {
+            ++ty;
+            --tx;
+        }
+        if ((int)(84.f - f) < rx) ++ty;
+    }
+    x = tx;
+    y = ty - 0x20;
+}
+
+bool BuildingContains(const Building* b, int x, int y) {
+    for (Render::Sprite* s : b->sprites)
+        if (Render::HasPixelAt(s, (float)x, (float)y)) return true;
+    return false;
+}
+
+bool BuildingIsLower(const Building* a, const Building* b) {
+    if (!a->sprites.empty() && !b->sprites.empty()) return a->sprites.front()->z < b->sprites.front()->z;
+    return a->maxY < b->maxY;
+}
+
+Building* GetBuildingAtCoords(int x, int y) {
+    Building* best = nullptr;
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (BuildingContains(b.get(), x, y) && (!best || BuildingIsLower(b.get(), best))) best = b.get();
+    return best;
+}
+
+// Decor::Contains @0x1344b0. UNVERIFIED (milestones 3-4): quest decorations (MetaExpression +0x20),
+// portals (+0x90) and decorations with a worker (+0x4c) always count; none exist in the port yet.
+bool DecorContains(const Decor* d, int x, int y, bool any) {
+    if (!d->visible || !d->sprite || !Render::HasPixelAt(d->sprite, (float)x, (float)y)) return false;
+    if (!d->data || d->data->collectTime == 0) return any;
+    return true;
+}
+
+bool DecorIsLower(const Decor* a, const Decor* b) {   // @0x130e34
+    if (!a->sprite || !b->sprite) return false;
+    if (a->data && b->data && a->data->layer != b->data->layer) return (unsigned)a->data->layer < (unsigned)b->data->layer;
+    return a->sprite->z < b->sprite->z;
+}
+
+Decor* GetDecorAtCoords(int x, int y, bool any) {
+    Decor* best = nullptr;
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (DecorContains(d.get(), x, y, any) && (!best || DecorIsLower(d.get(), best))) best = d.get();
+    if (!best) {
+        for (auto& p : g_patches)
+            for (auto& d : p->decors)
+                if (DecorContains(d.get(), x, y, true) && (!best || DecorIsLower(d.get(), best))) best = d.get();
+    }
+    return best;
+}
+
 void WorldCoordinatesToScreen(int& x, int& y) {
     float sx = 2.f / Render::zoom;
     float sy = sx / Render::aspect;
@@ -545,7 +636,11 @@ float GetSpriteZ(float a, float b, int c) {
 void Free() {
     AI::FreeWaypoints();
     for (auto& p : g_patches) {
-        for (auto& d : p->decors) if (d->sprite) Render::RemoveSprite(d->sprite);
+        for (auto& b : p->buildings) BuildingHovers::UnregisterBuilding(b.get());
+        for (auto& d : p->decors) {
+            BuildingHovers::UnregisterDecoration(d.get());   // ~Decor
+            if (d->sprite) Render::RemoveSprite(d->sprite);
+        }
     }
     g_patches.clear();
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);

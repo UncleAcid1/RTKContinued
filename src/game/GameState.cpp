@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "game/AIState.h"
+#include "game/Entity.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 
@@ -167,6 +169,7 @@ bool TaskCompleted(unsigned id) { (void)id; return false; }
 
 namespace {
 std::vector<std::unique_ptr<Order>> g_orders;   // 0x612d50 (pool-allocated on the original)
+std::vector<std::unique_ptr<Order>> g_orderPool; // freed orders (the pool's free list)
 }
 
 void PlaceOrder(Map::Building* from, Map::Building* to, int amount, int type, int kind) {
@@ -193,6 +196,47 @@ Order* GetTopOrder() {
         return o;
     }
     return nullptr;
+}
+
+int GetOrderCount(int type) {
+    int n = 0;
+    for (auto& o : g_orders)
+        if (o->type == type && o->goblin) ++n;
+    return n;
+}
+
+void RemoveAllOrders(Map::Building* from, int n) {
+    for (size_t i = 0; i < g_orders.size();) {
+        if (n < 0) return;
+        Order* o = g_orders[i].get();
+        if (o->from != from) { ++i; continue; }
+        if (o->goblin && o->goblin->GetAI()) o->goblin->GetAI()->CancelWork();
+        g_orderPool.push_back(std::move(g_orders[i]));
+        g_orders.erase(g_orders.begin() + i);
+        --n;
+    }
+}
+
+void CancelWork(int type) {
+    for (size_t i = 0; i < g_orders.size(); ++i) {
+        Order* o = g_orders[i].get();
+        if (o->type == type && o->goblin) o->goblin->GetAI()->CancelWork();
+    }
+}
+
+const char* GetResourceMapIconName(int type) {
+    static const char* const kIcons[] = {
+        "images/Resources/lumber/stage_5", "images/Resources/rocks/stage_5", "Icon_60_food",
+        "images/Resources/planks/stage_5", "images/Resources/stones/stage_5", "images/Resources/meat/stage_5",
+        "images/Resources/sausage/stage_5", "images/Resources/oil/stage_5", "Icon_bugs", "Icon_crystal_60",
+        "Icon_xp"};
+    return kIcons[type];
+}
+
+const char32_t* GetResourceGameName(int type) {
+    static const char* const kNames[] = {"RES_LUMBER", "RES_ROCKS", "REC_FOOD", "RES_PLANKS", "RES_STONES",
+        "RES_MEAT", "RES_SAUSAGE", "RES_OIL", "RES_GOLD", "RES_CRYSTAL", "EXP_AFTER"};
+    return StringTable::GetString(kNames[type]);
 }
 
 void RaiseGamePauseState() { ++g_pause; }

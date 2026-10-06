@@ -421,6 +421,17 @@ void Entity::OnStartedToWork() {
     if (player && GameState::TutorialStep() == 0x14) Render::CenterOn(worldX, worldY);
 }
 
+bool Entity::Contains(int x, int y) const {
+    if (!sprite || !f9c) return false;
+    // UNVERIFIED (milestone 4): IsBoss (meta expressions) divides the width by 3 instead.
+    float half = sprite->w * 0.5f;
+    float fx = (float)x;
+    if (fx < worldX - half || fx > half + worldX) return false;
+    float fy = (float)y;
+    if (fy < worldY - sprite->h) return false;
+    return fy <= worldY;
+}
+
 void Entity::OnClick() {
     // (GetSpawnPointID: spawn points are not ported, so always 0)
     std::printf("Clicked on entity: %d (spawn %d)\n", data->id, 0);

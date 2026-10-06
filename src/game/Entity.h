@@ -81,6 +81,9 @@ public:
     void OnWaypointRemove(AI::Waypoint* wp);     // @0x150800
     void OnStartedToWork();                      // @0x151260
     void OnClick();                              // @0x151f7c
+    // @0x1519a4: the world point is within the sprite's width around worldX (a third of it for a
+    // boss) and its height above worldY.
+    bool Contains(int x, int y) const;
 
     void SetWorkplace(Map::Building* b);         // @0x1500e8
     Map::Building* GetWorkplace() const { return workplace; }        // @0x1500b8

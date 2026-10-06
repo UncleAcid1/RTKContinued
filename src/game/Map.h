@@ -25,6 +25,8 @@ struct Decor {
     bool visible = true;               // +0x1d
     bool fake = false;                 // random decoration (Patch::AddRandomDecors), Decor::IsFake
     const GameData::DecorData* data = nullptr;  // +0x3c
+    uint32_t collectStart = 0;         // +0x48 when its taxes (DecorData collectTime) started
+    uint32_t f4c = 0;                  // +0x4c (saved byte)
     Render::Sprite* sprite = nullptr;  // +0x88
     bool removed = false;
 };
@@ -63,6 +65,15 @@ void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b
 // @0x1b8bfc: the storage limit is the sum of every storage's "storage_space" at its level.
 void UpdateStorageMax();
 void WorldCoordinatesToScreen(int& x, int& y);         // @0x1b60fc
+void MouseCoordinatesToWorld(int& x, int& y);          // @0x1b6004 screen pixels to world
+void WorldCoordinatesToTile(int& x, int& y);           // @0x1b61cc
+bool IsLoaded();                                       // gameLoaded 0x613798
+// @0x1bb414: the building with an opaque sprite pixel at the world point (the lowest one: the
+// nearest to the viewer). Building::Contains @0x11e444, IsLower @0x11c658.
+Building* GetBuildingAtCoords(int x, int y);
+// @0x1bb280: the decoration hit at the world point, preferring interactive ones (any = false
+// skips plain decorations in the first pass).
+Decor* GetDecorAtCoords(int x, int y, bool any);
 
 void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
 void TileCoordinatesToLinear(int& x, int& y);          // @0x1b62f4

@@ -4,8 +4,10 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/Render.h"
 #include "engine/Timer.h"
 #include "game/AIState.h"
+#include "game/BuildingHovers.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
@@ -39,7 +41,7 @@ Entity* CreateEntity(int id, bool noPlayer, bool temporary) {
 Entity* SpawnEntityAt(Entity* e, unsigned x, unsigned y, bool appear, bool glow) {
     e->SetPos((int)x, (int)y);
     e->SetCurrentMap((int)GameState::GetCurrentMapID());
-    // UNVERIFIED (milestone 3e): BuildingHovers::SafeRegisterEntity.
+    BuildingHovers::SafeRegisterEntity(e);
     e->SetActive(true, true);
     e->UpdateGraphics();
     if (e->IsDead() && !e->player) e->SetActive(false, false);
@@ -81,7 +83,7 @@ void RemoveEntity(Entity* e, bool any) {
 
 void DestroyEntity(Entity* e) {
     // UNVERIFIED (milestone 4): class 10 soldiers leave SoldierSlots and the player's squad.
-    // UNVERIFIED (milestone 3e): BuildingHovers::UnregisterEntity.
+    BuildingHovers::UnregisterEntity(e);
     delete e;
 }
 
@@ -157,6 +159,38 @@ Entity* GetPlayer() { return g_player; }
 Entity* GetEntityAtXY(int x, int y) {
     for (Entity* e : g_entities)
         if (e->IsActive() && !e->IsDead() && e->tileX == x && e->tileY == y) return e;
+    return nullptr;
+}
+
+Entity* GetEntityAtWorldXY(int x, int y) {
+    // UNVERIFIED (milestone 4): the first pass also skips NPCs (spawn point +0x10); spawn points
+    // are not ported, so it is the same as the second.
+    Entity* best = nullptr;
+    float z = 100000.f;
+    for (int pass = 0; pass < 3 && !best; ++pass) {
+        for (Entity* e : g_entities) {
+            if (!e->IsActive() || (pass < 2 && e->IsDead()) || !e->Contains(x, y)) continue;
+            Render::Sprite* s = e->GetSprite();
+            if (!s || z <= s->z) continue;
+            best = e;
+            z = s->z;
+        }
+    }
+    return best;
+}
+
+Entity* GetFreeWorker() {
+    for (Entity* e : g_entities) {
+        // UNVERIFIED (milestone 4): IsNPC (spawn points) is always false.
+        if (e->GetEntityData()->clas == 0 && !e->GetWorkplace() && !e->GetWorkplaceDecoration() && e->IsActive())
+            return e;
+    }
+    return nullptr;
+}
+
+Entity* GetFirstBusyWorker() {
+    for (Entity* e : g_entities)
+        if (e->GetEntityData()->clas == 0 && e->GetWorkplace() && !e->GetWorkplaceDecoration()) return e;
     return nullptr;
 }
 

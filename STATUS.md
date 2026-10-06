@@ -124,7 +124,21 @@ Milestones:
               roads and mines it; the pile appears, a spawned goblin carries it to the storage and the
               HUD rocks count rises. PORT test aids: `--spawn ID X Y`, `--walk X Y`, `--frames N`,
               `--dump-entities`.
-              Next: AIPlayer (world clicks, SendGoblinToWork), OnBuilded/OnUpgraded, CollectResources,
+              Building::OnBuilded/OnUpgraded (house workers via SpawnLiver, the farm's farmer, storage
+              limit), called from Update when construction/an upgrade finishes.
+              BuildingHovers (the city tap layer): hover records for buildings/decorations/entities,
+              the hover types (UpdateHovers, SetHoverType), BubbleHoverWindow (build, cut tree,
+              finished order, training) and TaxesHoverWindow (taxes with the bonus pulse), dropped
+              resources (DropResource, ItemDrop bounce/timeout/collect), the fly-to-HUD moves
+              (OnCollect), text popups (ShowTextHover, ShowTextHoverWithStyle + TextStyleManager),
+              OnBuildingAssignBuilder, OnBuildingFinishedClick (LaunchContract, AddDeliveryOrder),
+              Building gold/CollectResources, GameState order helpers, WindowManager
+              DestroyPendingWindows, sprite pixel masks and the world hit tests (buildings,
+              decorations, entities). Verified headless: the castle's tax button drops gold piles that
+              bounce, a tap flies one to the HUD with "+100 Gold", the rest collect themselves after
+              10 s. Not yet: BuildProgress/ResourceRestore hover windows (types 2 and 6), the tapped
+              building's info windows (OnBuildingClick, 3e), items/farms/tutorial hooks.
+              Next: BuildProgress + ResourceRestore hovers, AIPlayer (world clicks, SendGoblinToWork),
               AIPatch and the farmers, Decor jobs, then the entity save/load with 3d.
        3d [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
               save/load, save file on disk + backup, autosave timing.

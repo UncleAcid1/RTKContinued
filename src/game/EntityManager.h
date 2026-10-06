@@ -29,6 +29,13 @@ Entity* EnumEntities(unsigned i);                // @0x167c38
 int GetEntityCount(bool permanentOnly);          // @0x167c54
 Entity* GetPlayer();                             // @0x165500
 Entity* GetEntityAtXY(int x, int y);             // @0x16613c (active, alive)
+// @0x16716c: the entity whose sprite box (Entity::Contains) holds the world point, the nearest
+// (lowest z) first among living non-NPCs, then living ones, then any active one.
+Entity* GetEntityAtWorldXY(int x, int y);
+// @0x166594: an active worker (class 0, not an NPC) with neither a workplace nor a decoration job.
+Entity* GetFreeWorker();
+// @0x16632c: a worker (class 0) working at a building (not a decoration).
+Entity* GetFirstBusyWorker();
 int GetEntityCountAtXY(int x, int y);            // @0x1668dc
 unsigned GetEntityCountByID(unsigned id);        // @0x1667c8
 // @0x165d30: an active, living non-player entity whose AI's last target (or patrol end) is (x, y).

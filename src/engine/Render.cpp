@@ -4,6 +4,7 @@
 #include <png.h>
 
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -335,6 +336,7 @@ Sprite* RemoveSprite(Sprite* s) {
             break;
         }
     }
+    if (s->isText && s->tex) RemoveTexture(s->tex);   // Layer::RemoveSprite @0x1fc9b8
     delete s;
     return next;
 }
@@ -432,6 +434,39 @@ void SetFrameMirror(Sprite* s, bool mirror) {
     s->mirrorFrames = mirror;
     s->u0 = mirror ? 1.f : 0.f;
     s->u1 = mirror ? 0.f : 1.f;
+}
+
+bool HasPixelAt(const Sprite* s, float x, float y) {
+    float u = (x - s->x) / s->w;
+    if (!(0.f <= u && u <= 1.f)) return false;
+    float h = std::fabs(s->h);
+    float v = (y - (s->y - h)) / h;
+    if (!(0.f <= v && v <= 1.f)) return false;
+    const Texture* t = s->tex;
+    if (!t || t->pixelMask.empty()) return true;
+    v = s->vTop + (s->vBottom - s->vTop) * v;
+    u = s->u0 + (s->u1 - s->u0) * u;
+    // (Atlas sub-images rescale u, v to the part first; the port has no atlases.)
+    unsigned col = (unsigned)(int)((float)(t->w - 1) * u);
+    unsigned row = (unsigned)(int)((float)(t->h - 1) * v);
+    unsigned pitch = (((unsigned)t->w + 1) >> 1) + 7 >> 3;
+    return (t->pixelMask[(col >> 4) + pitch * (row >> 1)] >> ((col >> 1) & 7)) & 1;
+}
+
+std::vector<uint8_t> GeneratePixelMask(const uint8_t* rgba, int w, int h) {
+    unsigned pitch = (((unsigned)w + 1) >> 1) + 7 >> 3;
+    std::vector<uint8_t> m((((unsigned)h + 1) >> 1) * pitch, 0);
+    for (int y = 0; y < h; y += 2) {
+        for (int x = 0, bit = 0; x < w; x += 2, ++bit) {
+            unsigned sum = 0;
+            for (int r = y; r < y + 2 && r < h; ++r) {
+                sum += rgba[((size_t)r * w + x) * 4 + 3];
+                if (x + 1 < w) sum += rgba[((size_t)r * w + x + 1) * 4 + 3];
+            }
+            if (sum > 0x80) m[(size_t)(y >> 1) * pitch + (bit >> 3)] |= (uint8_t)(1 << (bit & 7));
+        }
+    }
+    return m;
 }
 
 int GetFrameWidth(const Texture* t) { return t->w; }

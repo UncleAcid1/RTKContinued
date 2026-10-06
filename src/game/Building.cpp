@@ -410,6 +410,95 @@ int Building::GetReadyTime() const {
     return (int)(now - stateTime - (uint32_t)data->collectTime);
 }
 
+int Building::GetMissionID() const { return contract - 1; }
+
+bool Building::HasActiveContract() const {
+    if (data->buildingClass != 0xd) return contract != 0;
+    for (int c : patchContract)
+        if (c != 0) return true;
+    return false;
+}
+
+int Building::GetFullGoldAmount() const { return (int)livers.size() * 5 + data->collectMoney; }
+
+int Building::GetReadyGoldAmount() const {
+    if (data->buildingClass != 0 && data->buildingClass != 9) return 0;
+    float r = (float)(Timer::GetGlobalTime() - stateTime) / (float)(uint32_t)data->collectTime;
+    if (r < 0.f) r = 0.f;
+    else if (r > 1.f) r = 1.f;
+    return (int)((float)(uint32_t)GetFullGoldAmount() * r);
+}
+
+void Building::OnStorageFull(int type) { GameState::CancelWork(type); }
+
+// Class 4: the gathered pile goes to the player's resources, as much as the storage takes. Class 0/9:
+// the taxes restart.
+void Building::CollectResources(bool& full, int& amount) {
+    int cls = (int)data->buildingClass;
+    if (cls == 4) {
+        int type = data->produceResource;
+        int pile = resources[type];
+        if (pile == 0) return;
+        int max = GameState::resourceAmountMax;
+        if ((int)GameState::GetResourceAmount(type) < max) {
+            if ((int)GameState::GetResourceAmount(type) + pile < max) {
+                GameState::ChangeResourceAmount(type, pile);
+                resources[type] -= pile;
+                amount = pile;
+                // SoundsManager::PlaySound("collect_resource", 1, false): sounds are not ported yet.
+                GameState::RemoveAllOrders(this, pile);
+                EntityManager::RemoveEntity(workers[1], true);
+                workers[1] = nullptr;
+                return;
+            }
+            int take = max - (int)GameState::GetResourceAmount(type) - GameState::GetOrderCount(type);
+            GameState::ChangeResourceAmount(type, take);
+            resources[type] -= take;
+            amount = take;
+            // SoundsManager::PlaySound("collect_resource", 1, false)
+            GameState::RemoveAllOrders(this, take);
+        }
+        OnStorageFull(type);
+        full = true;
+        return;
+    }
+    if (cls != 0 && cls != 9) return;
+    stateTime = Timer::GetGlobalTime();
+}
+
+void Building::LaunchContract(unsigned index, int patch) {
+    int c = (int)index + 1;
+    const auto& missions = data->delivery->missions;
+    contract = c;
+    lastContract = c;
+    contractDone = false;
+    uint32_t now = Timer::GetGlobalTime();
+    f54 = (uint32_t)GetContractTime(patch) + now;
+    if (data->buildingClass == 0xd) {
+        patchContract[patch] = c;
+        patchArg[patch] = Timer::GetGlobalTime() + (uint32_t)missions[index].growTotal;
+        uint32_t t = Timer::GetGlobalTime();
+        patchStart[patch] = t;
+        if (GameState::TutorialStep() < 0x61)   // the tutorial's orders start half done
+            patchStart[patch] = t - (uint32_t)(int)((float)(unsigned)GetContractTime(0) * 0.5f);
+    }
+    // UNVERIFIED (milestone 4, Tasks): Tasks::CompleteSubtask(0xc, index + delivery id * 10, 1).
+    uint32_t t = Timer::GetGlobalTime();
+    stateTime = t;
+    if (GameState::TutorialStep() < 0x61)
+        stateTime = t - (uint32_t)(int)((float)(unsigned)GetContractTime(-1) * 0.5f);
+    // UNVERIFIED: AddSmoke @0x11e898 (the smoke entity 0x17c over workshops 0x6b 0x3ef 0x86 0x66 0x65
+    // 0x6a 0x3f0) needs the BuildingData smoke positions, not parsed yet.
+    AddDeliveryOrder();
+}
+
+void Building::AddDeliveryOrder() {
+    uint32_t id = data->id;
+    if (id != 0x6b && id != 0x3ef && id != 0x86 && id != 0x66 && id != 0x65 && id != 0x3f0) return;
+    if (Building* storage = Map::GetNearestStorage(this, false))
+        GameState::PlaceOrder(storage, this, 0, data->delivery->missions[(size_t)contract - 1].priceResource, 1);
+}
+
 void Building::ResetResource() {
     if (data->buildingClass != 4) return;
     resourceState = 0;

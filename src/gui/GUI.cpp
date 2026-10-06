@@ -182,6 +182,11 @@ Window::~Window() {
     while (sprite) sprite = Render::RemoveSprite(sprite);
     Unregister(this);
     delete sound;
+    for (Window* c = firstChild; c;) {   // the children go with their parent
+        Window* n = c->next;
+        delete c;
+        c = n;
+    }
 }
 
 // @0x175cc0: children (whose positions are root-relative) move with their parent.

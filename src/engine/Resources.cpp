@@ -24,7 +24,8 @@ std::string Lower(std::string s) {
 
 // Render::CreateTexture: load the file; for non-alpha images the alpha mask is the same path with
 // the extension replaced by "_.png" (memcpy of "_.png" over the '.'). Premultiplied (GetImageData).
-Render::Texture* LoadTexture(const std::string& path) {
+// With pixelMask a 32-bit image (own alpha or an alpha mask) also gets its hit mask.
+Render::Texture* LoadTexture(const std::string& path, bool pixelMask = false) {
     uint32_t n = 0;
     uint8_t* data = FileManager::LoadFile(path.c_str(), n);
     if (!data) return nullptr;
@@ -45,7 +46,10 @@ Render::Texture* LoadTexture(const std::string& path) {
             FileManager::FreeFile(m);
         }
     }
-    return Render::CreateTexture(MakePremultiplied(color, hasMask ? &alpha : nullptr), path);
+    ImageRGBA img = MakePremultiplied(color, hasMask ? &alpha : nullptr);
+    Render::Texture* t = Render::CreateTexture(img, path);
+    if (pixelMask && (color.channels == 4 || hasMask)) t->pixelMask = Render::GeneratePixelMask(img.px.data(), img.w, img.h);
+    return t;
 }
 
 }  // namespace
@@ -76,7 +80,7 @@ std::string GetDecoratedImageName(const char* pack, const char* name) {
     return "";
 }
 
-Render::Texture* GetImage(const char* name) {
+Render::Texture* GetImage(const char* name, bool pixelMask) {
     if (!name || !*name) return nullptr;
     std::string key = Lower(name);
     auto it = g_cache.find(key);
@@ -85,10 +89,10 @@ Render::Texture* GetImage(const char* name) {
     std::string path = GetDecoratedImageName("A2Static", name);
     if (path.empty()) path = GetDecoratedImageName("A3MergedAnims", name);
     if (!path.empty()) {
-        t = LoadTexture(path);
+        t = LoadTexture(path, pixelMask);
     } else if (auto a = g_anims.find(key); a != g_anims.end()) {
         path = GetDecoratedImageName("A3MergedAnims", (std::string(name) + "_anim").c_str());
-        if (!path.empty() && (t = LoadTexture(path))) {
+        if (!path.empty() && (t = LoadTexture(path, pixelMask))) {
             t->frames = a->second;
             // GetImage: "fir5_stump"/"tree5_stump" textures are forced to one frame
             if (std::strstr(name, "fir5_stump") || std::strstr(name, "tree5_stump")) t->frames = 1;
@@ -104,14 +108,14 @@ int GetFrameCount(const char* name) {
     return a != g_anims.end() ? a->second : 1;
 }
 
-Render::Texture* GetDecoration(const char* name) {
+Render::Texture* GetDecoration(const char* name, bool pixelMask) {
     static const char* fmts[] = {"images/Decor/%s", "images/Buildings/%s", "images/%s"};
     char buf[1024];
     for (const char* f : fmts) {
         std::snprintf(buf, sizeof buf, f, name);
-        if (Render::Texture* t = GetImage(buf)) return t;
+        if (Render::Texture* t = GetImage(buf, pixelMask)) return t;
     }
-    return GetImage(name);
+    return GetImage(name, pixelMask);
 }
 
 Render::Texture* GetDirectImage(const char* path) {

@@ -45,6 +45,11 @@ void LoadDecorations() {
         d.oy = n.attribute("y").as_int();
         d.layer = n.attribute("layer").as_int();
         d.isRoad = n.attribute("isroad").as_bool();
+        d.giveable = n.attribute("giveable").as_bool();
+        d.collectTime = n.attribute("collecttime").as_uint();
+        d.collectMoney = n.attribute("collectmoney").as_uint();
+        d.collectExp = n.attribute("collectexp").as_uint();
+        d.collectChest = n.attribute("collect_chest").as_uint();
         g_decors[d.id] = d;
     }
 }
@@ -288,7 +293,7 @@ const BuildingData* GetBuilding(uint32_t id) {
 Render::Texture* DecorImage(const DecorData* d) {
     auto* m = const_cast<DecorData*>(d);
     if (!m->imageLoaded) {
-        m->image = Resources::GetDecoration(m->img.c_str());
+        m->image = Resources::GetDecoration(m->img.c_str(), true);   // DecorData::LoadImage @0x134bb8
         m->imageLoaded = true;
         if (!m->image && !m->img.empty()) std::printf("DecorData::LoadImage() can't load %s\n", m->img.c_str());
     }
@@ -298,7 +303,7 @@ Render::Texture* DecorImage(const DecorData* d) {
 Render::Texture* PartImage(const BuildingPart* p) {
     auto* m = const_cast<BuildingPart*>(p);
     if (!m->imageLoaded) {
-        m->image = Resources::GetImage(m->partImg.c_str());
+        m->image = Resources::GetImage(m->partImg.c_str(), true);    // BuildingPart::LoadImage @0x11ee40
         m->imageLoaded = true;
     }
     return m->image;

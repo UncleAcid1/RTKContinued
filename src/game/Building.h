@@ -60,6 +60,7 @@ struct Building {
     uint32_t f54 = 0;            // +0x54
     int contract = 0;            // +0x58 active contract, 1-based
     bool contractDone = false;   // +0x5c
+    int lastContract = 0;        // +0x60 the last contract launched, 1-based
     double gatherAcc = 0.0;      // +0x68 gathering progress (seconds)
     int resources[11] = {};      // +0x70 resources held per type (storage: the player's amounts)
     uint32_t patchArg[6] = {};   // +0x9c farm patch data (chunk 0x31)
@@ -134,6 +135,16 @@ struct Building {
     bool IsBusy() const { return busy != 0; }    // @0x11cb2c
     int GetReadyTime() const;                    // @0x11d4a0
     void ResetResource();                        // @0x11d530
+    int GetMissionID() const;                    // @0x11c52c
+    bool HasActiveContract() const;              // @0x1201d0 (farms: any patch)
+    int GetFullGoldAmount() const;               // @0x123d84 5 per liver + collectmoney
+    int GetReadyGoldAmount() const;              // @0x123da8 class 0/9: the share of a full collect time
+    void CollectResources(bool& full, int& amount);   // @0x11dcac
+    void OnStorageFull(int type);                // @0x11d43c
+    // @0x11eb40: start order `index` (0-based) of the delivery list, on farm patch `patch` (-1:
+    // the building's own order).
+    void LaunchContract(unsigned index, int patch);
+    void AddDeliveryOrder();                     // @0x11dc14 a storage delivers the order's price resource
     void UpdateGrowing();                        // @0x120a70
     int GetFirstGrowingPatchNum() const;         // @0x11f448
     int GetFarmState(int patch);                 // @0x11d7b4

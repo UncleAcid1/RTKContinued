@@ -52,6 +52,9 @@ bool IsCityTutorial();                         // @0x190af4
 // @0x1908ac a quest task finished. UNVERIFIED stand-in (milestone 4, Tasks): false.
 bool TaskCompleted(unsigned id);
 
+const char* GetResourceMapIconName(int type);   // @0x190d14 (table 0x6015c0)
+const char32_t* GetResourceGameName(int type);  // @0x191cf8 StringTable name (table 0x601618)
+
 // Delivery orders (0x612d50): resources a goblin carries from a building (a tree's or rock's pile)
 // to a storage. Taken orders stay in the list (the removal functions run on building removal and
 // game reloads, not ported yet).
@@ -67,6 +70,11 @@ struct Order {                 // 0x1c bytes
 void PlaceOrder(Map::Building* from, Map::Building* to, int amount, int type, int kind);   // @0x19c3e0
 // @0x196e0c: the newest order not taken (and not a pile pickup of a full resource), now taken.
 Order* GetTopOrder();
+int GetOrderCount(int type);                   // @0x190c20 orders of `type` a goblin carries
+// @0x195ab4: drop up to n+1 orders from `from` (their goblins cancel work). Freed orders go back to
+// the original's pool, so a goblin still holding one keeps valid memory; the port keeps them too.
+void RemoveAllOrders(Map::Building* from, int n);
+void CancelWork(int type);                     // @0x191c8c goblins on `type` orders cancel work
 
 // The pause counter (0x612d70): dialogs raise it while shown.
 void RaiseGamePauseState();                    // @0x191064

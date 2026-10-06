@@ -34,6 +34,7 @@ add_executable(rtk
   src/game/Background.cpp
   src/game/StringTable.cpp
   src/game/Building.cpp
+  src/game/BuildingHovers.cpp
   src/game/Contracts.cpp
   src/game/EntityData.cpp
   src/game/Animation.cpp
@@ -48,6 +49,7 @@ add_executable(rtk
   src/engine/IconManager.cpp
   src/gui/GUI.cpp
   src/gui/Textfield.cpp
+  src/gui/TextStyleManager.cpp
   src/gui/WindowManager.cpp
   src/hud/HUDWindow.cpp
   src/hud/Shared.cpp
@@ -62,6 +64,7 @@ add_executable(rtk
   src/hud/BattleBarWindow.cpp
   src/hud/BottomCityWindow.cpp
   src/hud/TaskHolderWindow.cpp
+  src/hud/HoverWindows.cpp
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)

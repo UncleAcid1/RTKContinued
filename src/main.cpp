@@ -32,12 +32,14 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/AIState.h"
+#include "game/BuildingHovers.h"
 #include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Setting.h"
 #include "gui/GUI.h"
+#include "gui/TextStyleManager.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
@@ -209,6 +211,7 @@ int main(int argc, char** argv) {
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
     BottomCityWindow::Queue();
+    BuildingHovers::Queue();
     CastleTopWindow::Queue();
     CityRenameWindow::Queue();
     HUDWindow::Queue();
@@ -217,7 +220,9 @@ int main(int argc, char** argv) {
     SettingsWindow::Queue();
     TaskHolderWindow::Queue();
     TopCityWindow::Queue();
-    // main_Loop_Init: the desktop window goes last (the bottom of the queue), then InitWindows.
+    // main_Loop_Init: TextStyleManager::Init, the desktop window last (the bottom of the queue),
+    // then InitWindows.
+    TextStyleManager::Init();
     WindowManager::g_desktopWindow = new WindowManager::DesktopWindow();
     WindowManager::InitWindows();
     HUDWindow::Show();
@@ -237,20 +242,23 @@ int main(int argc, char** argv) {
 
     // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
     // WindowManager::Update (delayed callbacks, none yet), the window queue, HUDWindow::Update,
-    // GUI animations, the movement controllers, then when the game is not paused the entities
-    // (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's camera
-    // step (the camera tween, not ported, and ApplyViewportLimit); its drawing is Render::Frame.
+    // GUI animations, the movement controllers, BuildingHovers, then when the game is not paused the
+    // entities (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's
+    // camera step (the camera tween, not ported, and ApplyViewportLimit) and DestroyPendingWindows;
+    // its drawing is Render::Frame.
     auto tick = [](float dt) {
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
         GUI::UpdateAnimation(dt);
         MapMovement::Update(dt);
+        BuildingHovers::Update(dt, false);
         if (!GameState::IsPaused()) {
             Entity::SetCurrentTime((uint32_t)Timer::GetGlobalTime());
             EntityManager::Update(dt);
             Map::Update(dt);
         }
         Render::ApplyViewportLimit();
+        WindowManager::DestroyPendingWindows();
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
     // SDL's by a float factor). Not ported (UNVERIFIED): BuildingHovers, Spell/BuildingMovement,

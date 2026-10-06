@@ -14,6 +14,7 @@ struct Texture {
     int w = 0, h = 0;      // +0x04, +0x08 (pixel size of the full image / sheet)
     float frameTime = 0.f; // +0x0c seconds per frame (set by the users of animated textures)
     int frames = 0;        // +0x4c  frame count of a one-file animation sheet (0/1 = static)
+    std::vector<uint8_t> pixelMask;   // +0x50 GeneratePixelMask (empty: none), for HasPixelAt
     bool wrap = false;     // Texture::SetWrapping
     std::string name;
 };
@@ -68,6 +69,12 @@ void SetMirror(Sprite* s, bool mirror, bool flip);    // @0x1fdfc8
 void SetTexture(Sprite* s, Texture* t);     // @0x1fe8cc
 // @0x1fddac (no atlas): u = 0..1, swapped when mirrored; does nothing if already in that state.
 void SetFrameMirror(Sprite* s, bool mirror);
+// @0x1fe090 Sprite::HasPixelAt: (x, y) inside the sprite and, if its texture has a pixel mask, on
+// an opaque mask cell.
+bool HasPixelAt(const Sprite* s, float x, float y);
+// @0x1fb9d4: one bit per 2x2 pixel block whose summed alpha is over 0x80 (rows of
+// ((w + 1) / 2 + 7) / 8 bytes). CreateTexture builds it for 32-bit images when asked.
+std::vector<uint8_t> GeneratePixelMask(const uint8_t* rgba, int w, int h);
 int GetFrameWidth(const Texture* t);        // @0x201464
 int GetFrameHeight(const Texture* t);       // @0x20146c h / frames for a one-file sheet
 void ChangeLayer(Sprite* s, int layer);     // @0x1fc55c

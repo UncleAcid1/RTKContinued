@@ -162,6 +162,14 @@ void ProcessMove(int x, int y) {
     for (WindowQueue* w = g_tail; w; w = w->prev) w->Move(x, y);
 }
 
+void DestroyPendingWindows() {
+    for (WindowQueue* w = g_head; w;) {
+        WindowQueue* n = w->next;
+        if (w->pendingDestroy) delete w;
+        w = n;
+    }
+}
+
 int GetShownWindowCount() { return g_shown; }
 
 void WindowShow(bool quiet) {   // @0x36ec60 (BuildingHovers arrow handling: milestone 3)
