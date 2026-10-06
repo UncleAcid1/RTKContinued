@@ -79,4 +79,64 @@ struct SmallLogoWindow {
     void SetLanguage(unsigned langId);                      // @0x340288: 1 Russian, 3 Latvian, else English
 };
 
+// Shared::TabHolder (0x24 bytes): a tab with active / inactive looks (blue and red), a lock and an
+// icon. LoadFrom @0x342294, SetMode @0x340974.
+struct TabHolder {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* active = nullptr;       // +0x04 tab_active
+    GUI::Window* inactive = nullptr;     // +0x08 tab_inactive
+    GUI::Window* activeRed = nullptr;    // +0x0c tab_active_red
+    GUI::Window* inactiveRed = nullptr;  // +0x10 tab_inactive_red
+    GUI::Window* locked = nullptr;       // +0x14 tab_locked (hidden; GUI::dummyWindow without lock)
+    GUI::Window* icon = nullptr;         // +0x18 icon_place_holder (takes a depth slot)
+    GUI::Window* lockIcon = nullptr;     // +0x1c icon_gold_16_lock (takes a depth slot)
+    int unk20 = 0;                       // +0x20
+    void LoadFrom(GUI::Window* root, const char* prefix, bool withLock);
+    // The active tab shows its active look and lifts its icon 4 px (scaled); red picks the red looks.
+    void SetMode(bool isActive, bool red);
+};
+
+// The purpose lines of the shop's info panel (Building_info_panel.xml), one per building kind.
+struct HouseLivingInfo {                 // 0x10 bytes, LoadFrom @0x3441a0
+    GUI::Window* root = nullptr;         // +0x00
+    GUI::Textfield* time = nullptr;      // +0x04 text_time
+    GUI::Window* icon = nullptr;         // +0x08 icon_60_converted_to (takes a depth slot)
+    GUI::Textfield* tax = nullptr;       // +0x0c text_tax
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+struct HouseTrainingInfo {               // 0xc bytes, LoadFrom @0x344130
+    GUI::Window* root = nullptr;         // +0x00
+    GUI::Window* icon = nullptr;         // +0x04 icon_60 (takes a depth slot)
+    GUI::Textfield* text = nullptr;      // +0x08 text_hired
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+struct HouseConvertingInfo {             // 0x10 bytes, LoadFrom @0x3440a0
+    GUI::Window* root = nullptr;         // +0x00
+    GUI::Textfield* text = nullptr;      // +0x04 text_converts
+    GUI::Window* from = nullptr;         // +0x08 icon_60_converted_from (takes a depth slot)
+    GUI::Window* to = nullptr;           // +0x0c icon_60_converted_to (takes a depth slot)
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+struct HouseProducingInfo {              // 0x44 bytes, LoadFrom @0x343fa8
+    GUI::Window* root = nullptr;         // +0x00
+    GUI::Textfield* text = nullptr;      // +0x04 text_converts
+    GUI::Window* icons[5] = {};          // +0x08 upgrade_unlocked_item_holder_%02d.icon_active_01
+    GUI::Window* confirms[5] = {};       // +0x1c ...icon_gold_confirm
+    GUI::Window* locks[5] = {};          // +0x30 ...icon_lock
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+struct HouseDecorationInfo {             // 8 bytes, LoadFrom @0x343f60
+    GUI::Window* root = nullptr;         // +0x00
+    GUI::Textfield* text = nullptr;      // +0x04 text_decor
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+struct HouseLivingWorkerInfo {           // 0x14 bytes, LoadFrom @0x343ebc
+    GUI::Window* root = nullptr;         // +0x00
+    GUI::Textfield* time = nullptr;      // +0x04 text_time
+    GUI::Window* icon = nullptr;         // +0x08 icon_60_converted_to (takes a depth slot)
+    GUI::Textfield* tax = nullptr;       // +0x0c text_tax
+    GUI::Textfield* workers = nullptr;   // +0x10 text_worker
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+
 }  // namespace Shared

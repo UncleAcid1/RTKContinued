@@ -116,4 +116,88 @@ void SmallLogoWindow::SetLanguage(unsigned langId) {
     else lv->SetVisibility(true);
 }
 
+void TabHolder::LoadFrom(Window* r, const char* p, bool withLock) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    active = GUI::GetWindowTypedF<Window>(r, "%s.tab_active", p);
+    inactive = GUI::GetWindowTypedF<Window>(r, "%s.tab_inactive", p);
+    activeRed = GUI::GetWindowTypedF<Window>(r, "%s.tab_active_red", p);
+    inactiveRed = GUI::GetWindowTypedF<Window>(r, "%s.tab_inactive_red", p);
+    locked = withLock ? GUI::GetWindowTypedF<Window>(r, "%s.tab_locked", p) : GUI::DummyWindow();
+    locked->SetVisibility(false);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_place_holder", p);
+    icon->takesZ = true;
+    lockIcon = GUI::GetWindowTypedF<Window>(r, "%s.icon_gold_16_lock", p);
+    unk20 = 0;
+    lockIcon->takesZ = true;
+}
+
+void TabHolder::SetMode(bool isActive, bool red) {
+    icon->RestorePosition();
+    if (isActive) {
+        if (icon->root) icon->MoveWindow(0, (int)(icon->root->scale * -4.f));
+        icon->UpdatePosition();
+        active->SetVisibility(!red);
+        inactive->SetVisibility(false);
+        activeRed->SetVisibility(red);
+        inactiveRed->SetVisibility(false);
+    } else {
+        icon->UpdatePosition();
+        active->SetVisibility(false);
+        inactive->SetVisibility(!red);
+        activeRed->SetVisibility(false);
+        inactiveRed->SetVisibility(red);
+    }
+}
+
+void HouseLivingInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    time = GUI::GetWindowTypedF<Textfield>(r, "%s.text_time", p);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_60_converted_to", p);
+    icon->takesZ = true;
+    tax = GUI::GetWindowTypedF<Textfield>(r, "%s.text_tax", p);
+}
+
+void HouseTrainingInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_60", p);
+    icon->takesZ = true;
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_hired", p);
+}
+
+void HouseConvertingInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_converts", p);
+    from = GUI::GetWindowTypedF<Window>(r, "%s.icon_60_converted_from", p);
+    from->takesZ = true;
+    to = GUI::GetWindowTypedF<Window>(r, "%s.icon_60_converted_to", p);
+    to->takesZ = true;
+}
+
+void HouseProducingInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_converts", p);
+    for (int i = 0; i < 5; ++i) {
+        icons[i] = GUI::GetWindowTypedF<Window>(r, "%s.upgrade_unlocked_item_holder_%02d.icon_active_01", p, i + 1);
+        icons[i]->takesZ = true;
+    }
+    for (int i = 0; i < 5; ++i)
+        confirms[i] = GUI::GetWindowTypedF<Window>(r, "%s.upgrade_unlocked_item_holder_%02d.icon_gold_confirm", p, i + 1);
+    for (int i = 0; i < 5; ++i)
+        locks[i] = GUI::GetWindowTypedF<Window>(r, "%s.upgrade_unlocked_item_holder_%02d.icon_lock", p, i + 1);
+}
+
+void HouseDecorationInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_decor", p);
+}
+
+void HouseLivingWorkerInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    time = GUI::GetWindowTypedF<Textfield>(r, "%s.text_time", p);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_60_converted_to", p);
+    icon->takesZ = true;
+    tax = GUI::GetWindowTypedF<Textfield>(r, "%s.text_tax", p);
+    workers = GUI::GetWindowTypedF<Textfield>(r, "%s.text_worker", p);
+}
+
 }  // namespace Shared

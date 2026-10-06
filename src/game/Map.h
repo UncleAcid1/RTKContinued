@@ -100,6 +100,14 @@ void CreateRoadAI();                                   // @0x1bb868 the waypoint
 // resources left, or one waiting for construction or an upgrade.
 Building* GetIdleWorkplace();
 Building* GetBuildingWithID(uint32_t id);              // @0x1b6c04 (BuildingData id)
+int GetBuildingCount(uint32_t id, bool built);         // @0x1b7068 (built: no builder needed any more)
+int GetBuildingMaxUpgrade(uint32_t id);                // @0x1b7118 1 + the highest level of that id, 0 if none
+// @0x1ba618: the people that sites under construction (givePopulation) and upgrades in progress
+// (their upgrade's givePopulation) will add.
+int GetPendingWorkerCount();
+// @0x1ba6dc: the people buildings employ: cost_population plus every passed upgrade's population,
+// less the 4 free ones.
+int GetUsedWorkerCount();
 void AssignEntities();                                 // @0x1b99f0 (Map::Load)
 void UpdateOfflineResources();                         // @0x1b8af0 (LoadSavedGame)
 // @0x1b8e7c: the storage (class 7) nearest to b in tiles, on any patch; b itself is skipped when

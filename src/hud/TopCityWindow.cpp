@@ -4,6 +4,7 @@
 
 #include "engine/Render.h"
 #include "game/GameState.h"
+#include "game/Map.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
@@ -234,7 +235,7 @@ void Update(float dt) {
                 s.textLimit->SetVisibility(limit <= g_shown[i]);
                 s.textLimit->SetText(ToWide(g_shown[i]).c_str());
             }
-            int workers = GameState::GetPlayerWorkersCount();   // + Map::GetPendingWorkerCount()
+            int workers = GameState::GetPlayerWorkersCount() + Map::GetPendingWorkerCount();
             int maxWorkers = GameState::GetMaxWorkerCount();
             std::string t = std::to_string(workers) + "/" + std::to_string(maxWorkers);   // L"%d/%d"
             std::u32string w(t.begin(), t.end());

@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e.2 done) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e.3 in progress) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below). Last commit 52d97a7. Git is local only: there is
@@ -34,10 +34,20 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    restores everything. Known until 3e.3: the shop's Building instance (opened? level?) and the
    icon flight (AddItemMovement) are unverified; after Cancel the arrow stays because the
    original hides it when the reopened shop counts as a shown window.
-   Next: 3e.3 ShopWindow (Init alone ~1400 lines; calls BuildingBought/DecorBought with its icon
-   sprite, UpdateCost), 3e.4 NotEnough dialog/ConfirmPurchase/speed-up, LevelUp, Exchange,
-   3e.5 BuildingMovement (shares PlaceBuildingHoverWindow; its UNVERIFIED hooks are marked
-   "3e.5"), LandWindow. Tools: tools/picvar.py resolves `iVarN + 0x......` after picsym.py.
+   3e.3 IN PROGRESS (ShopWindow, the building shop behind BottomCity "Build"). Fully decoded; all
+   findings (globals map, every function's logic, open items) are in docs/3e3_shop_notes.md - READ
+   IT FIRST, no need to re-decompile. Done and committed: SWPrintf/ToWideString (unit-tested),
+   StlSort (STLport sort; the shop sorts each tab 3x), GameData shop fields + EnumBuildings/
+   EnumDecors (file order) + GetMaxBuildingCount + BuildingImage, Map worker/building counts,
+   real GetPlayerWorkersCount/GetMaxWorkerCount (TopCity now adds pending workers),
+   NotEnoughWindow requirement kinds, Shared::TabHolder + House*Info, GUI::DummyWindow.
+   Remaining for 3e.3: write src/windows/ShopWindow.cpp (replaces the stand-ins), GUI::
+   FitImageIntoWindow, BuildingHovers::AddItemMovement, wire BottomCityWindow::OnBuild, test
+   headless (--click on Build, then a cell), commit, report to the user.
+   After 3e.3: 3e.4 NotEnough dialog/ConfirmPurchase/speed-up, LevelUp, Exchange; 3e.5
+   BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.
+   Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
+   UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
    costs, building limits, LandWindow area buying (also Map::Save(0)), LevelUpWindow (Map::Save(0)),
    NotEnoughWindow/ConfirmPurchase (makes the hover Speed Up buttons work: BuildProgress/

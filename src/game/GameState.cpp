@@ -284,8 +284,21 @@ void SetCurrentMapID(uint32_t id) {
     g_mapId = id;
 }
 bool IsTutorial() { return tutorial < 0x18; }
-int GetPlayerWorkersCount() { return 0; }
-int GetMaxWorkerCount() { return 0; }
+// @0x1927bc: the city's own people (entity class 0, on the city map, not NPCs).
+int GetPlayerWorkersCount() {
+    int n = 0;
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i)
+        if (e->data->clas == 0 && e->GetCurrentMap() == 0 && !e->IsNPC()) ++n;
+    return n;
+}
+
+// @0x19a7a8: Setting "max_population_per_level" at the player's level (the last entry beyond).
+int GetMaxWorkerCount() {
+    unsigned i = (unsigned)(GetLevel() - 1);
+    Setting s("max_population_per_level");
+    if (s.GetChildrenCount() <= i) i = s.GetChildrenCount() - 1;
+    return s.GetChild(i).GetInt();
+}
 bool IsMalePlayer() { return g_male; }
 void SetPlayerGender(bool male) { g_male = male; }
 const char32_t* GetPlayerName() { return g_playerName.c_str(); }

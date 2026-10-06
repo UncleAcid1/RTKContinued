@@ -961,6 +961,46 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     return true;
 }
 
+int GetBuildingCount(uint32_t id, bool built) {
+    int n = 0;
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->id == id && (!built || b->needsBuilder == 0)) ++n;
+    return n;
+}
+
+int GetBuildingMaxUpgrade(uint32_t id) {
+    int best = 0;
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->id == id && best <= b->level) best = b->level + 1;
+    return best;
+}
+
+int GetPendingWorkerCount() {
+    int n = 0;
+    for (auto& p : g_patches) {
+        for (auto& b : p->buildings) {
+            if (b->data->buildingClass == 4) continue;
+            if (b->needsBuilder != 0) n += (int)b->data->givePopulation;
+            if (b->upgrading != 0) n += b->GetNextUpgradeInfo().givePopulation;
+        }
+    }
+    return n;
+}
+
+int GetUsedWorkerCount() {
+    unsigned n = 0;
+    for (auto& p : g_patches) {
+        for (auto& b : p->buildings) {
+            if (b->data->buildingClass == 4) continue;
+            n += b->data->costPopulation;
+            for (int i = 0; i < b->level - 1; ++i) n += (unsigned)b->data->upgrades[(size_t)i].population;
+        }
+    }
+    return n > 4 ? (int)(n - 4) : 0;
+}
+
 Building* GetBuildingWithID(uint32_t id) {
     for (auto& p : g_patches)
         for (auto& b : p->buildings)

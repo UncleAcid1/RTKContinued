@@ -45,8 +45,8 @@ int GetCurrentLocation();                      // @0x190530: 0 city, 1 farm, 2 c
 uint32_t GetCurrentMapID();                    // @0x190558
 void SetCurrentMapID(uint32_t id);             // @0x19056c
 bool IsTutorial();                             // @0x190ad4 tutorial < 0x18 (the opening campaign)
-int GetPlayerWorkersCount();                   // UNVERIFIED stand-in: 0
-int GetMaxWorkerCount();                       // UNVERIFIED stand-in: 0
+int GetPlayerWorkersCount();                   // @0x1927bc
+int GetMaxWorkerCount();                       // @0x19a7a8
 bool IsMalePlayer();                           // @0x190ca8
 void SetPlayerGender(bool male);               // @0x190cbc
 const char32_t* GetPlayerName();               // @0x190cd0

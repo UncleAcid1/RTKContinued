@@ -17,6 +17,8 @@ namespace {
 
 std::map<uint32_t, DecorData> g_decors;
 std::map<uint32_t, BuildingData> g_buildings;
+std::vector<DecorData*> g_decorList;        // 0x6118e4 file order
+std::vector<BuildingData*> g_buildingList;  // 0x6117dc file order
 // The road styles (0x6118e4), from the table at 0x57b7b0: plain, and two mirrored styles.
 const RoadData g_roads[3] = {
     {{1047, 1046, 1052, 1052, 1050, 1048, 1049, 1051, 1060, 1058, 1059, 1057, 1056, 1053, 1055, 1054},
@@ -55,13 +57,20 @@ void LoadDecorations() {
         d.oy = n.attribute("y").as_int();
         d.cost2 = n.attribute("cost2").as_int();
         d.layer = n.attribute("layer").as_int();
+        d.tab = n.attribute("tab").as_int();
+        d.subtab = n.attribute("subtab").as_int();
+        d.visid = n.attribute("visid").as_int();
+        d.buy = n.attribute("buy").as_bool();
+        d.needLevel = n.attribute("need_level").as_int();
         d.isRoad = n.attribute("isroad").as_bool();
         d.giveable = n.attribute("giveable").as_bool();
         d.collectTime = n.attribute("collecttime").as_uint();
         d.collectMoney = n.attribute("collectmoney").as_uint();
         d.collectExp = n.attribute("collectexp").as_uint();
         d.collectChest = n.attribute("collect_chest").as_uint();
+        bool fresh = g_decors.find(d.id) == g_decors.end();
         g_decors[d.id] = d;
+        if (fresh) g_decorList.push_back(&g_decors[d.id]);
     }
     // Each decoration points at the road style listing its id (the first of the three).
     for (auto& [id, d] : g_decors) {
@@ -90,6 +99,7 @@ void LoadBuildings() {
     if (!LoadXml("../resource/res_files/1Original/buildings.xml", doc)) return;
     for (auto n : doc.child("BuildingsOptionsDefault").children("Building")) {
         uint32_t id = n.attribute("id").as_uint();
+        if (g_buildings.find(id) == g_buildings.end()) g_buildingList.push_back(&g_buildings[id]);
         BuildingData& b = g_buildings[id];   // (a repeated id is reloaded in place)
         b = BuildingData();
         b.id = id;
@@ -295,6 +305,34 @@ bool Load() {
     LoadBuildings();
     std::printf("GameData: %zu decorations, %zu buildings\n", g_decors.size(), g_buildings.size());
     return !g_decors.empty() && !g_buildings.empty();
+}
+
+BuildingData* EnumBuildings(unsigned i) { return i < g_buildingList.size() ? g_buildingList[i] : nullptr; }
+DecorData* EnumDecors(unsigned i) { return i < g_decorList.size() ? g_decorList[i] : nullptr; }
+
+// 1024 without an "unlocklevel" list; a single 0 entry: 1; else 1 + the entries at or below the
+// player's level.
+int GetMaxBuildingCount(const BuildingData& d) {
+    if (!d.unlockLevel) return 0x400;
+    unsigned n = d.unlockLevel->GetChildrenCount();
+    if (n == 1 && d.unlockLevel->GetChild(0)->GetInt() == 0) return 1;
+    int count = 1;
+    for (unsigned i = 0; i < d.unlockLevel->GetChildrenCount(); ++i)
+        if ((unsigned)d.unlockLevel->GetChild(i)->GetInt() <= (unsigned)GameState::GetLevel()) ++count;
+    return count;
+}
+
+// The image of part `part` (counted along the part list, the last one if there are fewer), else
+// the first part's.
+Render::Texture* BuildingImage(const BuildingData* d, unsigned part) {
+    if (d->parts.empty()) return nullptr;
+    size_t i = 0;
+    while (part != 0 && i + 1 < d->parts.size()) {
+        ++i;
+        if (--part == 0) break;
+    }
+    if (Render::Texture* t = PartImage(&d->parts[i])) return t;
+    return PartImage(&d->parts[0]);
 }
 
 const DecorData* GetDecoration(uint32_t id) {

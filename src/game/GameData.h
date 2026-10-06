@@ -26,6 +26,10 @@ struct DecorData {               // DecorData
     int w = 0, h = 0;            // +0x08 "lockzoneX", +0x0c "lockzoneY"
     int ox = 0, oy = 0;          // +0x10 "x", +0x14 "y"
     int layer = 0;               // +0x20 "layer"
+    int tab = 0, subtab = 0;     // +0x24 "tab", +0x28 "subtab" (shop)
+    int visid = 0;               // +0x2c "visid" (0: numbered from 500 by ShopWindow::Init)
+    bool buy = false;            // +0x30 "buy" (sold in the shop)
+    int needLevel = 0;           // +0x54 "need_level"
     bool isRoad = false;         // +0x6e "isroad" (waypoint weight 0.1)
     bool giveable = false;       // +0x31 "giveable"
     uint32_t collectTime = 0;    // +0x34 "collecttime" seconds between a decoration's taxes
@@ -115,6 +119,12 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
 bool Load();
 const DecorData* GetDecoration(uint32_t id);     // Map::GetDecoration(unsigned) @0x130ebc
 const BuildingData* GetBuilding(uint32_t id);    // Map::GetBuilding @0x11c3cc
+// Map::EnumBuildings @0x1201a8 / EnumDecors @0x13b75c: in file order (first occurrence of an id),
+// null past the end.
+BuildingData* EnumBuildings(unsigned i);
+DecorData* EnumDecors(unsigned i);
+int GetMaxBuildingCount(const BuildingData& d);  // @0x11f1d8 BuildingData::GetMaxBuildingCount
+Render::Texture* BuildingImage(const BuildingData* d, unsigned part);   // @0x11eea8 BuildingData::GetImage
 
 Render::Texture* DecorImage(const DecorData* d);         // DecorData::LoadImage @0x134bb8
 Render::Texture* PartImage(const BuildingPart* p);       // BuildingPart::LoadImage @0x11ee40

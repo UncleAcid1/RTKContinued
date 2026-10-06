@@ -1,6 +1,7 @@
 // Game dialogs (the windows beyond the HUD). Each is a set of static functions behind a
 // WindowManager::FunctionalWindow, as on the original.
 #pragma once
+#include <functional>
 
 namespace WindowManager { class FunctionalWindow; }
 
@@ -57,8 +58,15 @@ int GetInfoPanelX();
 namespace NotEnoughWindow {
 void ResetRequirements();                   // @0x2f6cfc
 void AddRequirement(int type, unsigned amount);   // @0x2f6ea4 a resource amount needed
-// @0x2f8c60: true when nothing is missing. UNVERIFIED (3e.4): the level, profession, item, worker,
-// building and upgrade requirements (other Add* functions, not ported) are always met.
+void AddLevelRequirement(unsigned level);         // @0x2f6ebc
+void AddPopulaionRequirement(unsigned people);    // @0x2f6ee8 free people needed (sic)
+void AddBuildingLevelRequirement(unsigned id, unsigned level);   // @0x2f8ad4
+void SetExchangeLimit(unsigned limit);            // @0x2f6efc
+// @0x2f8c60: true when nothing is missing. UNVERIFIED (milestone 4): the profession requirement.
 bool CheckRequirements();
-void Show();                                // @0x2fc7f8 UNVERIFIED stand-in (3e.4): prints the shortfall
+// UNVERIFIED stand-ins (3e.4): the dialog. Show prints the shortfall.
+void SetDescriptionText(const char32_t* text, const char32_t* title);   // @0x2f7134
+void SetActionCallback(std::function<void()> cb, const char32_t* text, bool arg);   // @0x2f6e2c
+void Show();                                // @0x2fc7f8
+void Hide();                                // @0x2f73f4
 }

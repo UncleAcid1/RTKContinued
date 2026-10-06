@@ -764,6 +764,8 @@ void Deinit() {
 const char* GetFontFile() { return g_fontFile; }
 Textfield* DefaultTextfield() { return g_defaultText; }
 
+Window* DummyWindow() { return g_desktop; }
+
 Window* GetWindowTyped(Window* root, const char* n, int type) {
     Window* w = GetWindow(root, n);
     if (w && (type < 0 || w->type == type)) return w;

@@ -5,6 +5,7 @@
 // File format: <ts><t i="XX_KEY">text</t>...</ts>, where XX is a language code. Keys are matched
 // case-insensitively. Strings are wide (wchar_t, 32-bit on Android); the port uses char32_t.
 #pragma once
+#include <initializer_list>
 #include <string>
 
 namespace StringTable {
@@ -38,3 +39,28 @@ std::u32string GetCountableString(const char32_t* forms, int n);
 std::u32string DecodeUtf8(const char* s);
 
 }  // namespace StringTable
+
+// StringArgument (0x10 bytes: type +0x00, value +0x08): one argument of SWPrintf.
+struct StringArgument {
+    enum Type { kNone = 0, kInt = 1, kLong = 2, kDouble = 3, kUtf8 = 4, kWide = 5 };
+    int type = kNone;
+    int i = 0;
+    double d = 0.0;
+    const char* s = nullptr;
+    const char32_t* w = nullptr;
+    StringArgument() = default;
+    StringArgument(int v) : type(kInt), i(v) {}
+    StringArgument(unsigned v) : type(kInt), i((int)v) {}
+    StringArgument(double v) : type(kDouble), d(v) {}
+    StringArgument(const char* v) : type(kUtf8), s(v) {}
+    StringArgument(const char32_t* v) : type(kWide), w(v) {}
+};
+
+// @0x22d84c SWPrintf(buf, size, format, up to 13 arguments): the game's wide printf. Specifiers:
+// %% ; %[+][0n|.n][$]d / u (0n: at least n digits; .n only applies to %f; $: groups of three split by ","); %[.n]f;
+// %s (wide); %S (UTF-8); %c. Its checks follow each other, so a matched specifier's next character
+// is tested as the next specifier ("%ds" takes two arguments). A wrong argument type prints an
+// error and ends the text; at `size` characters the text is cut (size - 1 kept).
+std::u32string SWPrintf(unsigned size, const char32_t* format, std::initializer_list<StringArgument> args = {});
+// @0x22e0f8: L"%d" into one of 16 rotating buffers (the pointer stays valid for 15 more calls).
+const char32_t* ToWideString(int n);
