@@ -326,8 +326,8 @@ every purpose root and text_req_upgrade.
   ("REQUIREMENT_BUILD"), SetActionCallback(OnItemSelect(selected), "PERFORM_BUY"), Show.
 - Buildings: return if atMax or quest-locked; the rest is the same with the building requirements.
 
-## Still to decode
-- BuildingHovers::AddItemMovement @0x26c124.
+## Still open
 - BuildingPlacement::UpdateCost: format "%s$%$d" at 0x5a86d4; its target window is unknown.
-- The Training strings above.
-- BattleBarWindow::HideAllTasks/ShowAllTasks (quest lines, M4: leave a comment).
+- BattleBarWindow::HideAllTasks/ShowAllTasks (quest lines, M4).
+- Resolved since: AddItemMovement (ported), the Training strings (BUILDING_HIRE_GOBLINS /
+  WARRIORS / ARCHERS, icons goblin_60 / army_warrior_60).
