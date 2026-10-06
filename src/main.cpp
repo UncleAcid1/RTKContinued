@@ -227,6 +227,8 @@ int main(int argc, char** argv) {
     ConfirmPurchaseWindow::Queue();
     ExchangeWindow::Queue();
     HUDWindow::Queue();
+    LandExpandedWindow::Queue();
+    LandWindow::Queue();
     LevelUpWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();
@@ -348,6 +350,8 @@ int main(int argc, char** argv) {
         MapMovement::RemoveFocus();
         if (hit != WindowManager::g_desktopWindow) return;
         if (BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, false, MapMovement::IsActive())) return;
+        // A for-sale sign opens the land window (not during a drag or a placement).
+        if (!MapMovement::IsActive() && !BuildingPlacement::Activated() && Map::ClickToBuyArea(x, y)) return;
         // The rest of a click that reaches the desktop window goes to the world: milestones 3-4.
     };
     auto mouseMove = [&](int x, int y) {

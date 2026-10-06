@@ -21,6 +21,7 @@
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
+#include "windows/Windows.h"
 
 namespace Map {
 namespace {
@@ -292,6 +293,7 @@ void UpdateOwnedAreaBorders() {
 void UpdateAreaBorders() {
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
     g_borderSprites.clear();
+    for (auto& p : g_patches) p->sign = nullptr;
     // bordered = owned, or edge-adjacent to an owned patch
     for (auto& a : g_patches) {
         a->bordered = a->owned;
@@ -309,6 +311,7 @@ void UpdateAreaBorders() {
         float Y = (float)(p->y + p->h / 2) * 42.f * 0.5f;
         Render::SetPosition(s, X, Y, GetSpriteZ(Y, s->w * 0.5f, 0));
         g_borderSprites.push_back(s);
+        p->sign = s;
     }
     // dark grass patches, layer 1
     Render::Texture* grass[6] = {};
@@ -1036,6 +1039,30 @@ Building* GetUpgradeableBuildingWithID(uint32_t id) {
         for (auto& b : p->buildings)
             if (b->data->id == id && b->IsOpened() && b->level != (int)b->data->upgrades.size()) return b.get();
     return nullptr;
+}
+
+bool ClickToBuyArea(int x, int y) {
+    if (GameState::IsTutorial() || GameState::IsCityTutorial() || !GameState::IsPlayerCity()) return false;
+    int wx = x, wy = y;
+    MouseCoordinatesToWorld(wx, wy);
+    for (auto& p : g_patches) {
+        const Render::Sprite* s = p->sign;
+        if (!s) continue;
+        float fx = (float)wx, fy = (float)wy;
+        if (fx < s->x || s->x + s->w < fx) continue;
+        if (fy < s->y - s->h || s->y < fy) continue;
+        LandWindow::SetAreaParameters(p->areaId);
+        LandWindow::Show();
+        return true;
+    }
+    return false;
+}
+
+void BuyArea(uint32_t areaId) {
+    for (auto& p : g_patches)
+        if (p->areaId == areaId) p->owned = true;
+    UpdateAreaBorders();
+    // OG::MakeRequest(0x13, 0xf, area, -1, 0): online, not ported.
 }
 
 void UpdateOfflineResources() {

@@ -60,6 +60,7 @@ struct Patch {
     bool bordered = false;             // +0xe9 (recomputed in UpdateAreaBorders)
     int x = 0, y = 0, w = 0, h = 0;    // +0x8c..+0x98 (from AreaInfo)
     bool buyable = false;              // +0xa8
+    Render::Sprite* sign = nullptr;    // +0xec the for-sale sign (UpdateAreaBorders), tapped to buy
     std::vector<std::unique_ptr<Decor>> decors;      // +0xac
     std::vector<std::unique_ptr<Building>> buildings;
     std::string mask;                  // chunk 7 ('0'/'1' per tile, x-major)
@@ -105,6 +106,11 @@ void CreateRoadAI();                                   // @0x1bb868 the waypoint
 // resources left, or one waiting for construction or an upgrade.
 Building* GetIdleWorkplace();
 Building* GetBuildingWithID(uint32_t id);              // @0x1b6c04 (BuildingData id)
+// @0x1ba4b8: a tap on a for-sale sign opens LandWindow for that area (in the player's city,
+// after the tutorials). Screen coordinates.
+bool ClickToBuyArea(int x, int y);
+// @0x1bdb58: every patch of the area becomes owned and the borders are redrawn.
+void BuyArea(uint32_t areaId);
 // @0x1b6dd4: a building of that id being upgraded (upgrading) or waiting for its construction.
 Building* GetUnfinishedBuildingWithID(uint32_t id, bool upgrading);
 // @0x1b6ea0: a construction site or an upgrade that will add people (givePopulation).

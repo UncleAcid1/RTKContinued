@@ -88,6 +88,30 @@ bool IsVisible();                           // @0x2abd94
 void OnTab(unsigned tab, const char32_t* text);
 }
 
+// "Land expanded!" after a land (or farm patch) purchase.
+namespace LandExpandedWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LandExpandedWindow" (_INIT_ 0x2e7400)
+void Init();                                // @0x2e79f4
+void Deinit();                              // @0x2e79b4
+void SetAreaParameters(uint32_t areaId);    // @0x2e73c8
+void SetPatchParameters(uint32_t farmId, int patch);   // @0x2e73e0 (3f)
+void Show();                                // @0x2e7778
+void Hide();                                // @0x2e77f8
+bool IsVisible();                           // @0x2e73b4
+}
+
+// Buying a piece of land (tapping its for-sale sign).
+namespace LandWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LandWindow" (_INIT_ 0x2e7da0)
+void Init();                                // @0x2e8888
+void Deinit();                              // @0x2e8848
+void SetAreaParameters(uint32_t areaId);    // @0x2e8cc0
+void Show();                                // @0x2e82f0
+void Hide();                                // @0x2e8370
+bool IsVisible();                           // @0x2e7d8c
+// UNVERIFIED (3f): SetPatchParameters @0x2e7ef4 and OnBuyPatch @0x2e83bc, a farm's soil patches.
+}
+
 // "New level!": the level's unlocks and its crystal reward.
 namespace LevelUpWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LevelUpWindow" (_INIT_ 0x2f1568)
