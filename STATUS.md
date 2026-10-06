@@ -106,7 +106,7 @@ Milestones:
        3b [ ] Building runtime (Map::Building, 0x1d0 bytes; vtable 0x608100): state from Map::LoadBuidings
               @0x1e2bdc / Patch::SaveBuilding @0x1e1f50, Update @0x1267b0 (construction/upgrade timers,
               contracts, resource gathering, farms), UpdateImage, world click, BuildingHovers.
-       3c [ ] workers: goblin entities, EntityManager/EntityFactory, pathing and the worker AI.
+       3c [x] workers: goblin entities, EntityManager/EntityFactory, pathing and the worker AI.
               Moved here from M4: Building::Update only advances construction while a builder entity is
               at work (BuilderAssigned && BuilderIsWorking), gathering/factories need a working worker
               entity, and farms drive an entity's animation, so the economy cannot run without them.
@@ -138,17 +138,27 @@ Milestones:
               bounce, a tap flies one to the HUD with "+100 Gold", the rest collect themselves after
               10 s. Not yet: BuildProgress/ResourceRestore hover windows (types 2 and 6), the tapped
               building's info windows (OnBuildingClick, 3e), items/farms/tutorial hooks.
-              Next: BuildProgress + ResourceRestore hovers, AIPlayer (world clicks, SendGoblinToWork),
-              AIPatch and the farmers, Decor jobs, then the entity save/load with 3d.
+              ResourceRestoreHoverWindow (regrowing trees/rocks) and BuildProgressHoverWindow
+              (construction, upgrades, orders), StringTable GetTimeString/GetNumericTimeString/
+              GetCountableString, the original's hover refreshes from the worker AI and buildings,
+              the goblin's "+n resource" delivery popup. Verified headless: a construction site's
+              hammer bubble sends the worker; while it builds the box counts down.
+              Done 2026-10-05. Moved out of 3c (they need later systems): decoration jobs and
+              AIPlayer (hero world taps, SendGoblinToWork) need MetaExpression, Tasks and the hero
+              (milestone 4); farms need saved patch state (3d) and the planting windows (3e): 3f.
        3d [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
               save/load, save file on disk + backup, autosave timing.
        3e [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying;
               economy dialogs (level-up, NotEnoughWindow, ExchangeWindow, factory/farm hovers),
               offline resources.
+       3f [ ] farms: the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints), the
+              patch entities (AIPatch), AIFarmerBig/AIFarmerSmall, Building farm functions
+              (SpawnFarm, FarmCollectAndReplant, soil patch states), the farm hovers and windows.
        Note: with no save, LoadSavedGame (@0x1885e0) starts a new game on campaign map 0x15 with the
        hero entity (the tutorial), which needs M4. Until then the port boots the city from a Reset
        GameState (PORT test path).
-4. [ ] Hero/army entities and AI, quests (Tasks), combat, campaign maps (worker entities: 3c).
+4. [ ] Hero/army entities and AI (AIPlayer), quests (Tasks, MetaExpression), decoration jobs (Decor
+       Update/WorkStarted/teleports), combat, campaign maps (worker entities: 3c).
 5. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.
 6. [ ] Mac release and polish: .app bundle, settings/persistence paths, Retina/fullscreen,
