@@ -27,6 +27,12 @@ bool StringExists(const char* key);              // @0x22c980
 // from a minute, else "S s"; compact gives "H h" / "M m" instead. (The original writes into a
 // caller buffer; callers pass 0x20 characters.)
 std::u32string GetTimeString(int seconds, bool compact);
+// @0x22a30c (the non-compact form): "00:SS", "MM:SS", "HH:MM:SS", from a day "D days HH:MM:SS".
+// UNVERIFIED: the compact form (second argument true) is not ported; it formats as false.
+std::u32string GetNumericTimeString(int seconds, bool compact);
+// @0x228478: the plural form of "{one|few|many}" for n (the Slavic rule: n%10 == 1 and not
+// 11 -> one; n%10 in 2..4 and not 12..14 -> few; else many).
+std::u32string GetCountableString(const char32_t* forms, int n);
 
 // UTF-8 to wide, using the decoder inlined in Init (invalid bytes are skipped).
 std::u32string DecodeUtf8(const char* s);

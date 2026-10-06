@@ -130,3 +130,68 @@ public:
     unsigned boostItem = 0;            // +0x94
     int boostAmount = 0;               // +0x98
 };
+
+// The progress box of a building under construction, being upgraded or working an order (and of a
+// decoration job): time left, the progress bar and the hurry button. The info windows use it in
+// screen space; as a hover it is in world space. Port of BuildProgressHoverWindow (Init @0x373f40,
+// Update @0x3720f8).
+class BuildProgressHoverWindow : public BuildingHoverWindow {
+public:
+    explicit BuildProgressHoverWindow(bool screenSpace);   // @0x374470
+    ~BuildProgressHoverWindow() override;        // @0x3743ac
+    void Init() override;                        // +0x08 @0x373f40
+    void SetZ(float z) override;                 // +0x10 @0x370e28
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x373ab0
+    void Show() override;                        // +0x1c @0x373dac
+    void Hide() override;                        // +0x20 @0x373d6c
+    void Update(float dt) override;              // +0x24 @0x3720f8
+    float ZRange() override { return 0.002f; }   // +0x34 @0x370e58
+    void SetPosition(int x, int y) override;     // +0x3c @0x371fc0
+    void SetBuilding(Map::Building* b) override; // +0x40 @0x371b90
+    void SetEntity(Entity* e) override;          // +0x44 @0x3717a8
+    void SetDecoration(Map::Decor* d) override;  // +0x48 @0x37183c
+    void Activate(bool on) override;             // +0x4c @0x370e64
+    void FixWindowPosition(int& x, int& y) override;   // +0x50 @0x370fec
+    int GetSpeedUpCost();                        // @0x3710ac
+    int GetRemainingTime();                      // @0x37163c
+    void OnSpeedUp(bool confirmed);              // @0x371430
+    void OnSpeedUpFinished();                    // @0x37116c
+    void FakeSpeedup();                          // @0x370f6c
+    // The repeated layout step: the hurry button and "tap to speed up" lines shown or hidden, the
+    // border box resized to them and the footer moved under it.
+    void Relayout(bool hurryVisible);
+
+    bool screen = false;               // +0x34
+    GUI::Window* root = nullptr;       // +0x38
+    GUI::Window* border = nullptr;     // +0x3c "golden_border_box"
+    int borderH = 0;                   // +0x40
+    GUI::Window* footer = nullptr;     // +0x44 "hint_window_footer"
+    GUI::Textfield* jobText = nullptr; // +0x48 "text_job"
+    GUI::Window* bar = nullptr;        // +0x4c
+    GUI::Window* barColor = nullptr;   // +0x50
+    GUI::Textfield* textUnder = nullptr;   // +0x54
+    GUI::Textfield* textOver = nullptr;    // +0x58
+    GUI::ClipRect clip = {0, 0, 0, 0}; // +0x5c
+    GUI::Textfield* hereWorks = nullptr;   // +0x6c
+    GUI::Window* hurry = nullptr;      // +0x70
+    GUI::Window* crystalIcon = nullptr;    // +0x74
+    GUI::Window* itemIcon = nullptr;   // +0x78
+    GUI::Textfield* priceText = nullptr;   // +0x7c
+    float left = 0.f;                  // +0x80 the share of the work still to do
+    float leftNext = 0.f;              // +0x84 the same one second later (orders interpolate)
+    uint32_t second = 0;               // +0x88
+    float secondFrac = 0.f;            // +0x8c
+    bool speedingUp = false;           // +0x90
+    bool fake = false;                 // +0x91
+    float speedT = 0.f;                // +0x94
+    bool barStarted = false;           // +0x98
+    float barValue = 0.f;              // +0x9c
+    float barTick = 0.f;               // +0xa0
+    bool canSpeedUp = false;           // +0xa4
+    bool expanded = true;              // +0xa5
+    bool showHereWorks = true;         // +0xa6
+    int hideSpeedup = 0;               // +0xa8 Setting "hide_speedup" (after the tutorial)
+    bool itemBoosts = false;           // +0xac
+    unsigned boostItem = 0;            // +0xb0
+    int boostAmount = 0;               // +0xb4
+};

@@ -138,6 +138,48 @@ std::u32string GetTimeString(int t, bool compact) {
     return out.substr(0, 31);
 }
 
+std::u32string GetCountableString(const char32_t* forms, int n) {
+    int form;
+    if (n % 10 == 1) form = (unsigned)(n - 10) > 10u ? 0 : 2;
+    else form = ((unsigned)(n % 10 - 2) > 2u || (unsigned)(n - 10) < 0xbu) ? 2 : 1;
+    std::u32string f = forms ? forms : U"";
+    if (f.empty() || f[0] != U'{') {
+        std::fprintf(stderr, "Countable string format is incorrect\n");
+        return f;
+    }
+    size_t p = 1;
+    for (int i = 0; i < form; ++i) {
+        size_t bar = f.find(U'|', p);
+        if (bar == std::u32string::npos) {
+            std::fprintf(stderr, "Countable string format is incorrect\n");
+            return f;
+        }
+        p = bar + 1;
+    }
+    size_t end = f.find_first_of(U"|}", p);
+    return f.substr(p, end == std::u32string::npos ? std::u32string::npos : end - p);
+}
+
+std::u32string GetNumericTimeString(int t, bool) {
+    char buf[64];
+    std::u32string out;
+    if (t > 0x1517f) {
+        int d = t / 86400, r = t - d * 86400;
+        std::snprintf(buf, sizeof buf, "%d ", d);
+        out.assign(buf, buf + std::strlen(buf));
+        out += GetCountableString(GetString("COUNT_DAYS"), d);
+        std::snprintf(buf, sizeof buf, " %02d:%02d:%02d", r / 3600, r % 3600 / 60, r % 60);
+    } else if (t >= 3600) {
+        std::snprintf(buf, sizeof buf, "%02d:%02d:%02d", t / 3600, t % 3600 / 60, t % 60);
+    } else if (t > 59) {
+        std::snprintf(buf, sizeof buf, "%02d:%02d", t % 3600 / 60, t % 60);
+    } else {
+        std::snprintf(buf, sizeof buf, "00:%02d", t);
+    }
+    out.append(buf, buf + std::strlen(buf));
+    return out.substr(0, 31);
+}
+
 // @0x22c980 ("%s_%s" with the current language, then "EN_%s")
 bool StringExists(const char* key) {
     return Find(std::string(g_lang) + "_" + key) || Find(std::string("EN_") + key);

@@ -18,7 +18,7 @@
 #include <vector>
 
 namespace Render { struct Sprite; struct Texture; }
-namespace GameData { struct BuildingData; struct BuildingPart; }
+namespace GameData { struct BuildingData; struct BuildingPart; struct UpgradeInfo; }
 class MetaData;
 class Entity;
 
@@ -144,6 +144,9 @@ struct Building {
     // @0x11eb40: start order `index` (0-based) of the delivery list, on farm patch `patch` (-1:
     // the building's own order).
     void LaunchContract(unsigned index, int patch);
+    const GameData::UpgradeInfo& GetNextUpgradeInfo() const;   // @0x11c6e4 upgrades[level]
+    int GetContractSpeedUpCost() const;          // @0x11d020
+    const char32_t* GetContractName() const;     // @0x11de3c
     void AddDeliveryOrder();                     // @0x11dc14 a storage delivers the order's price resource
     void UpdateGrowing();                        // @0x120a70
     int GetFirstGrowingPatchNum() const;         // @0x11f448

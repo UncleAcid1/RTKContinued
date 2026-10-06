@@ -7,15 +7,18 @@
 #include "engine/Resources.h"
 #include "engine/Timer.h"
 #include "game/AIState.h"
+#include "game/BuildingHovers.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
+#include "game/EntityData.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/MetaData.h"
 #include "game/Setting.h"
+#include "game/StringTable.h"
 
 namespace Map {
 namespace {
@@ -326,7 +329,7 @@ void Building::WorkStarted() {
 }
 
 void Building::WorkEnded() {
-    // UNVERIFIED (milestone 3e): BuildingHovers::Update(0, true).
+    BuildingHovers::Update(0.0, true);
     if (data->buildingClass == 4) {
         if (data->id == 0x11 || data->id == 0x95) anim.paused = true;
     }
@@ -492,6 +495,19 @@ void Building::LaunchContract(unsigned index, int patch) {
     AddDeliveryOrder();
 }
 
+const GameData::UpgradeInfo& Building::GetNextUpgradeInfo() const { return data->upgrades[(size_t)level]; }
+
+int Building::GetContractSpeedUpCost() const {
+    if (contract == 0) return 0;
+    if (data->buildingClass == 0xc) return workers[0]->GetEntityData()->speedupCost;
+    return (int)data->delivery->missions[(size_t)contract - 1].speedupCost2;
+}
+
+const char32_t* Building::GetContractName() const {
+    if (data->buildingClass != 0xc) return data->delivery->missions[(size_t)contract - 1].title;
+    return StringTable::GetString(data->name.c_str());
+}
+
 void Building::AddDeliveryOrder() {
     uint32_t id = data->id;
     if (id != 0x6b && id != 0x3ef && id != 0x86 && id != 0x66 && id != 0x65 && id != 0x3f0) return;
@@ -576,7 +592,7 @@ void Building::OnContractCompleted(bool silent) {
     // the map is not loading.
     // UNVERIFIED (3c): the trainee entity (+0x170) is removed, class 0xc calls TrainingCompleted.
     trainee = nullptr;
-    // UNVERIFIED (3b): BuildingHovers::Update(0, true).
+    BuildingHovers::Update(0.0, true);
     (void)silent;
 }
 

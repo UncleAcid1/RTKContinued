@@ -536,3 +536,339 @@ void ResourceRestoreHoverWindow::Update(float dt) {
         SetPosition((int)((building->minX + building->maxX) * 0.5f), (int)building->minY);
     }
 }
+
+// ---- BuildProgressHoverWindow ----
+
+BuildProgressHoverWindow::BuildProgressHoverWindow(bool screenSpace) : screen(screenSpace) {
+    name = "BuildProgressHoverWindow";
+    usesZRange = true;
+    if (GameState::SecondTutorialStep() == 0x100)
+        hideSpeedup = (int)(GameState::GetSetting("hide_speedup") + 0.5f);   // Setting::GetInt
+    itemBoosts = (int)(GameState::GetSetting("item_boosts") + 0.5f) == 1;
+}
+
+BuildProgressHoverWindow::~BuildProgressHoverWindow() { delete root; }
+
+void BuildProgressHoverWindow::Init() {
+    float scale = screen ? GUI::GetHoverScaleFactor(1.f, 1.f) : 1.f;
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Compact_progress_holder.xml",
+                           "Compact_progress_holder.png", scale, 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    border = GUI::GetWindowTyped<GUI::Window>(root, "golden_border_box");
+    borderH = border->h;
+    footer = GUI::GetWindowTyped<GUI::Window>(root, "hint_window_footer");
+    jobText = GUI::GetWindowTyped<GUI::Textfield>(root, "text_job");
+    if (!screen) jobText->SetWorldOverscale(true);
+    bar = GUI::GetWindowTyped<GUI::Window>(root, "unit_info_progress_bar");
+    barColor = GUI::GetWindowTyped<GUI::Window>(root, "unit_info_progress_bar.progres_bar_color");
+    textUnder = GUI::GetWindowTyped<GUI::Textfield>(root, "unit_info_progress_bar.text_under");
+    textOver = GUI::GetWindowTyped<GUI::Textfield>(root, "unit_info_progress_bar.text_over");
+    clip = {bar->x, 0, bar->w + bar->x, 0x400};
+    barColor->SetClipRect(&clip);
+    if (!GUI::IsSmallScreenVersion()) textOver->SetClipRect(&clip);
+    if (!screen && GUI::IsSmallScreenVersion()) {
+        textUnder->SetWorldOverscale(true);
+        textOver->SetWorldOverscale(true);
+    }
+    hereWorks = GUI::GetWindowTyped<GUI::Textfield>(root, "sepparator_here_works.text_here_works");
+    hereWorks->SetText(StringTable::GetString("TAP_TO_SPEED_UP"));
+    if (!screen) hereWorks->SetWorldOverscale(true);
+    hurry = GUI::GetWindowTyped<GUI::Window>(root, "button_hurry_tiny");
+    hurry->SetOnClick([this] { OnSpeedUp(false); });
+    crystalIcon = GUI::GetWindowTyped<GUI::Window>(root, "button_hurry_tiny.icon_35_crystal");
+    crystalIcon->SetTexture(IconManager::GetIcon("35_crystal"), true);
+    itemIcon = GUI::GetWindowTyped<GUI::Window>(root, "button_hurry_tiny.speed_up_item");
+    itemIcon->takesZ = true;
+    priceText = GUI::GetWindowTyped<GUI::Textfield>(root, "button_hurry_tiny.text_price");
+    GUI::Textfield* boost = GUI::GetWindowTyped<GUI::Textfield>(root, "button_hurry_tiny.text");
+    boost->SetText(StringTable::GetString("BUILDING_BOOST"));
+    if (!screen) {
+        priceText->SetWorldOverscale(true);
+        boost->SetWorldOverscale(true);
+    }
+    border->SetBorders(10, 10, 10, 10);
+    root->SetScreenSpace(screen);
+    if (hideSpeedup != 0) {
+        expanded = false;
+        if (hideSpeedup == 2) showHereWorks = false;
+    }
+}
+
+void BuildProgressHoverWindow::Relayout(bool hurryVisible) {
+    hurry->SetVisibility(hurryVisible);
+    hereWorks->SetVisibility(!expanded && canSpeedUp ? showHereWorks : false);
+    footer->MoveWindow(0, borderH - border->h);
+    int h = (borderH - (hurry->visibleSelf ? 0 : hurry->h)) + (hereWorks->visibleSelf ? hereWorks->h : 0);
+    border->SetSize((unsigned)border->w, (unsigned)h);
+    footer->MoveWindow(0, border->h - borderH);
+}
+
+void BuildProgressHoverWindow::SetZ(float z) { root->SetZ(z - 0.0001f); }
+
+void BuildProgressHoverWindow::Show() {
+    if (shownHover) return;
+    BuildingHoverWindow::Show();
+    root->SetVisibility(true);
+    canSpeedUp = GameState::SecondTutorialStep() == 0x100 && building && GetSpeedUpCost() > 0;
+    hurry->SetVisibility(expanded && canSpeedUp);
+    hereWorks->SetVisibility(!expanded && canSpeedUp ? showHereWorks : false);
+    footer->SetVisibility(showHereWorks);
+    footer->MoveWindow(0, borderH - border->h);
+    int h = (borderH - (hurry->visibleSelf ? 0 : hurry->h)) + (hereWorks->visibleSelf ? hereWorks->h : 0);
+    border->SetSize((unsigned)border->w, (unsigned)h);
+    footer->MoveWindow(0, border->h - borderH);
+    barTick = 0.f;
+    barValue = 0.f;
+    barStarted = false;
+}
+
+void BuildProgressHoverWindow::Hide() {
+    if (!shownHover) return;
+    BuildingHoverWindow::Hide();
+    root->SetVisibility(false);
+    fake = false;
+    speedingUp = false;
+}
+
+void BuildProgressHoverWindow::Activate(bool on) {
+    if (!on || expanded) return;
+    expanded = true;
+    Relayout(canSpeedUp);
+}
+
+bool BuildProgressHoverWindow::Click(int x, int y, bool pressed) {
+    if (speedingUp) return true;
+    if (!shownHover) return false;
+    int wx = x, wy = y;
+    if (!screen) Map::MouseCoordinatesToWorld(wx, wy);
+    if (root->Click(wx, wy, pressed, false)) {
+        if (expanded) return true;
+        expanded = true;
+        Relayout(canSpeedUp);
+        return true;
+    }
+    // UNVERIFIED (tutorial): at step 0x54 the click goes to the tutorial arrow.
+    if (expanded && hideSpeedup != 0) {
+        expanded = false;
+        Relayout(false);
+    }
+    return false;
+}
+
+void BuildProgressHoverWindow::SetPosition(int x, int y) {
+    if (building) y += building->data->iconY;
+    int nx = x - root->w / 2, ny;
+    if (hideSpeedup == 1) {
+        ny = ((hurry->h - borderH) + 10 - footer->h) + y;
+    } else if (hideSpeedup == 2) {
+        ny = (hurry->h - borderH) + 10 + y;
+    } else {
+        int extra = hurry->visibleSelf ? 0 : hurry->h + 0x14;
+        ny = ((10 - borderH) - footer->h) + y + extra;
+    }
+    if (screen) FixWindowPosition(nx, ny);
+    BuildingHoverWindow::SetPosition(nx, ny);
+    root->SetPosition(nx, ny);
+}
+
+void BuildProgressHoverWindow::FixWindowPosition(int& x, int& y) {
+    BuildingHoverWindow::FixWindowPosition(x, y);
+    if (Render::ScreenWidth() < root->w + x) x = Render::ScreenWidth() - root->w;
+}
+
+void BuildProgressHoverWindow::SetBuilding(Map::Building* b) {
+    itemBoosts = (int)(GameState::GetSetting("item_boosts") + 0.5f) == 1;
+    BuildingHoverWindow::SetBuilding(b);
+    if (!building) return;
+    jobText->SetText(StringTable::GetString(building->data->name.c_str()));   // "%s" (name, level + 1)
+    // UNVERIFIED (farms): on the farm map the farm's order name too.
+    if (building->data->buildingClass == 2 && building->HasActiveContract())
+        jobText->SetText(building->GetContractName());
+    int cost = GetSpeedUpCost();
+    canSpeedUp = cost != 0;
+    Relayout(expanded && cost != 0);
+}
+
+void BuildProgressHoverWindow::SetEntity(Entity* e) {
+    BuildingHoverWindow::SetEntity(e);
+    // UNVERIFIED (farms): on the farm map, the patch the farmer works names the box.
+}
+
+void BuildProgressHoverWindow::SetDecoration(Map::Decor* d) {
+    itemBoosts = (int)(GameState::GetSetting("item_boosts") + 0.5f) == 1;
+    BuildingHoverWindow::SetDecoration(d);
+    // UNVERIFIED (milestone 3c, decoration jobs): a decoration's job (hint message or name, the
+    // tutorial's automatic speed-up, MoveRectIntoView) is not ported yet.
+}
+
+int BuildProgressHoverWindow::GetSpeedUpCost() {
+    if (building) {
+        int cost = 0;
+        if (building->upgrading != 0) cost = building->GetNextUpgradeInfo().speedupCb;
+        if (building->needsBuilder != 0) cost = building->data->speedupCb;
+        if (building->data->buildingClass == 2 && building->HasActiveContract())
+            cost = building->GetContractSpeedUpCost();
+        return GameState::AdjustCrystalCost(cost);
+    }
+    // UNVERIFIED (decoration jobs): AdjustCrystalCost(decor +0x54).
+    return 0;
+}
+
+int BuildProgressHoverWindow::GetRemainingTime() {
+    if (!building) return 0;   // UNVERIFIED (decoration jobs): the decoration's job end - now
+    int t = (int)std::ceil(building->buildLeft);
+    unsigned cls = building->data->buildingClass;
+    if ((cls == 2 || cls == 0xc) && building->HasActiveContract())
+        return (int)(0.5f + (float)(unsigned)building->GetContractTime(-1) * left);
+    return t;
+}
+
+void BuildProgressHoverWindow::FakeSpeedup() {
+    fake = true;
+    speedT = 0.f;
+    speedingUp = true;
+}
+
+void BuildProgressHoverWindow::OnSpeedUp(bool confirmed) {
+    // UNVERIFIED (milestone 3e): NotEnoughWindow checks the crystals (or the speed-up item, with
+    // ItemShopWindow) and ConfirmPurchaseWindow asks first, calling OnSpeedUp(true) on yes; then the
+    // bar runs out in two seconds (speedT from 1 - left) and OnSpeedUpFinished pays and completes.
+    // Without those dialogs the button does nothing yet.
+    (void)confirmed;
+}
+
+void BuildProgressHoverWindow::OnSpeedUpFinished() {
+    // UNVERIFIED (tutorial): steps 0x1f, 0x3b, 0x54 and 0x5f advance here.
+    fake = false;
+    speedingUp = false;
+    int cost = GetSpeedUpCost();
+    if (building) {
+        if (!itemBoosts) GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
+        // UNVERIFIED (Items): with item boosts GameState::RemoveItem(boostItem, boostAmount).
+        // Billing::LogCBPurchase: online logging, not ported.
+        Map::Building* b = building;
+        if (b->upgrading == 0 && b->needsBuilder == 0 && b->data->buildingClass == 2 && b->HasActiveContract()) {
+            // UNVERIFIED (Tasks): Tasks::CompleteSubtask(0xf, contract - 1 + delivery id * 10).
+            b->contractDone = true;
+            b->OnContractCompleted(false);
+        } else {
+            // UNVERIFIED (milestone 3e): Building::SpeedupBuilding @? finishes the construction or
+            // upgrade; it comes with the speed-up purchase.
+        }
+    }
+    BuildingHovers::Hide();
+    if (shownHover) Hide();
+    BuildingHovers::Update(0.0, true);
+}
+
+void BuildProgressHoverWindow::Update(float dt) {
+    if (!shownHover) return;
+    if (speedingUp) {
+        speedT += (fake ? 1.f : 0.5f) * dt;
+        if (speedT > 1.f) {
+            if (fake) {
+                BuildingHovers::Hide();
+                if (shownHover) Hide();
+                return;
+            }
+            OnSpeedUpFinished();
+        }
+    }
+    // UNVERIFIED (tutorial): at steps 0x53/0x5e (hurry button shown, no speed-up running) the arrow
+    // points at the hurry button.
+    secondFrac += dt / (float)1;   // HUDWindow::GetDeltaTimeMultiplier() is 1
+    uint32_t now = Timer::GetGlobalTime();
+    if (now == second) {
+        if (secondFrac > 1.f) secondFrac = 1.f;
+    } else {
+        second = now;
+        secondFrac = 0.f;
+    }
+    crystalIcon->SetVisibility(!itemBoosts);
+    itemIcon->SetVisibility(itemBoosts);
+    boostItem = 0;
+    Map::Building* b = building;
+    if (b) {
+        if (screen) {   // UNVERIFIED (farms): not on the farm map
+            int sx = (int)((b->minX + b->maxX) * 0.5f), sy = (int)((float)b->data->iconY + b->minY);
+            Map::WorldCoordinatesToScreen(sx, sy);
+            SetPosition(sx, sy);
+        }
+        left = (float)(b->buildLeft / (double)(unsigned)b->data->constructionTime);
+        double t = std::ceil(b->buildLeft);
+        auto setPrice = [&](int crystals) {
+            // UNVERIFIED (Items): boostAmount = Items::GetAmountToBoostTime(boostItem, ...).
+            int v = itemBoosts ? boostAmount : crystals;
+            std::string s = std::to_string(v);
+            priceText->SetText(std::u32string(s.begin(), s.end()).c_str());
+        };
+        if (b->upgrading != 0) {
+            const GameData::UpgradeInfo& u = b->GetNextUpgradeInfo();
+            left = (float)(b->buildLeft / (double)(unsigned)u.time);
+            itemIcon->SetTexture(IconManager::GetIcon("golden_hammers_35"), true);
+            boostItem = 0x264;
+            setPrice(GameState::AdjustCrystalCost(u.speedupCb));
+        }
+        if (b->needsBuilder != 0) {
+            itemIcon->SetTexture(IconManager::GetIcon("golden_hammers_35"), true);
+            boostItem = 0x264;
+            setPrice(GameState::AdjustCrystalCost(b->data->speedupCb));
+        }
+        int secs;
+        bool order = false, interpolate = false;
+        unsigned cls = b->data->buildingClass;
+        if ((cls == 2 || cls == 0xc) && b->HasActiveContract()) {
+            left = 1.f - b->GetContractProgress(0, -1);
+            leftNext = 1.f - b->GetContractProgress(1, -1);
+            secs = (int)(0.5f + (float)(unsigned)b->GetContractTime(-1) * left);
+            interpolate = cls == 0xc ? b->WorkerIsWorking(0) : true;
+            itemIcon->SetTexture(IconManager::GetIcon("hourglass_speed_35"), true);
+            boostItem = 0x269;
+            setPrice(GameState::AdjustCrystalCost(b->GetContractSpeedUpCost()));
+            order = true;
+            if (b->contractDone) {
+                Hide();
+                BuildingHovers::Hide();
+                BuildingHovers::Update(0.0, true);
+            }
+        } else {
+            secs = (int)(long long)t;
+        }
+        if (speedingUp) {
+            left = 1.f - speedT;
+            secs = (int)(left * (float)(unsigned)secs);
+        }
+        if (leftNext < 0.f) leftNext = 0.f;
+        if (interpolate && !speedingUp) left = left + (leftNext - left) * secondFrac;
+        std::u32string time = StringTable::GetNumericTimeString(secs, false);
+        const char* key = order ? "BUILDING_BAKERY_PROGRESS" : b->upgrading == 0 ? "BUILDING_BUILD" : "BUILDING_UPGRADING";
+        std::u32string text;
+        if (const char32_t* fmt = StringTable::GetString(key)) {
+            std::u32string f = fmt;
+            size_t p = f.find(U"%s");
+            text = p == std::u32string::npos ? f : f.substr(0, p) + time + f.substr(p + 2);
+            size_t cut = text.find(U'%');
+            if (cut != std::u32string::npos) text.resize(cut);
+        }
+        textUnder->SetText(text.c_str());
+        textOver->SetText(text.c_str());
+        // UNVERIFIED (farms): the farm's patch states (GROW_PLANT_%02d, FARM_HARVESTING, ...).
+        float v = 1.f - left;
+        if (order) {
+            float tick = dt + barTick;
+            if (!barStarted) barValue = v;
+            barStarted = true;
+            barTick = tick;
+            if (tick > 1.f / 30.f) {
+                barTick = 0.f;
+                barValue = (float)((double)barValue + (double)-(v - barValue) * -0.1339745962155614);
+            }
+            v = barValue;
+        }
+        if (speedingUp) v = speedT;
+        clip.right = (int)((float)clip.left + (float)bar->w * (0.125f + v * 0.75f));
+        bar->UpdatePosition();
+    }
+    // UNVERIFIED (decoration jobs): the decoration branch (job progress, goblin horn / hourglass
+    // items, GetProgressMessage).
+}

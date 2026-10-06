@@ -7,6 +7,7 @@
 #include "engine/Render.h"
 #include "game/Animation.h"
 #include "game/Building.h"
+#include "game/BuildingHovers.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -446,7 +447,7 @@ void AIWorker::StartWorking() {
     } else {
         std::fprintf(stderr, "ERROR: AIWorker::StartWorking() Cannot start work, no target specified\n");
     }
-    // UNVERIFIED (milestone 3e): BuildingHovers::Update(0, true).
+    BuildingHovers::Update(0.0, true);
     float px = 0.f, py = 0.f;
     if (Map::Building* b = entity->GetWorkplace()) {
         if (job == 2 || job == 4) {
@@ -721,7 +722,14 @@ void AIGoblin::WalkCompleted() {
         }
     } else {
         // (step 1, a pile delivered: tutorial step 0x30 moves to 0x33)
-        // UNVERIFIED (milestone 3e): BuildingHovers::ShowTextHover "+n <resource>" over the storage.
+        {
+            std::string n = std::to_string(order->amount);
+            std::u32string text = U"+" + std::u32string(n.begin(), n.end()) + U" ";   // "+%d %s"
+            if (const char32_t* name = GameState::GetResourceGameName(order->type)) text += name;
+            if (Map::Building* to = order->to)
+                BuildingHovers::ShowTextHover(to->baseX, to->minY, text.c_str(), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f,
+                                              0x19, 5, 5.f, true, 2.f, 50.f);
+        }
         if (step != 0) {
             GameState::ChangeResourceAmount(order->type, order->amount);
             if (order->to) order->to->UpdateResources();
