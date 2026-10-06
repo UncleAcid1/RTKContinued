@@ -2,6 +2,58 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
+## Handoff (last updated 2026-10-06, end of 3d) — read this first in a new conversation
+**Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
+3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
+boxes, drops), 3d saves (see the 3d entry below). Last commit 52d97a7. Git is local only: there is
+NO remote; the user asked once to push, and still needs to give a repo URL or OK creating a GitHub
+repo. Don't push without that.
+
+**User's standing rules.** 100% faithful to the original (every function has `// @0xADDR`, guesses
+marked UNVERIFIED/PORT); clean, no over-engineering; offline-first; confirm before downloads, installs
+or anything outward-facing; never share the user's email; base-game parity first; keep this file as
+the handoff; give the user a short update after each finished step (3e, 3f, ...).
+
+**Next work, in order.**
+1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
+   costs, building limits, LandWindow area buying (also Map::Save(0)), LevelUpWindow (Map::Save(0)),
+   NotEnoughWindow/ConfirmPurchase (makes the hover Speed Up buttons work: BuildProgress/
+   ResourceRestore OnSpeedUp), ExchangeWindow, factory/farm hovers. Then the offline catch-up:
+   Map::AssignEntities @0x1b99f0 (decompiled and read; residents loaded by GameState::LoadEntities
+   are created but not yet placed in houses), Building::UpdateOfflineState, Decor::UpdateOfflineState,
+   Map::UpdateOfflineResources (a stub comment in LoadSavedGame, src/game/Game.cpp). Hook point:
+   the UNVERIFIED comment at the end of Map::Load.
+2. 3f farms (see the 3f entry).
+3. Milestone 4: hero/army/AI, quests (Tasks, MetaExpression), items (GameState keeps the item list and
+   bindings already; Items::GetItemInfo missing), new-game tutorial on map 0x15 (replaces the PORT
+   test city in main.cpp), spawns/portals/fog (their map chunks are passed through raw in
+   Map.cpp g_otherChunks), the hero/soldier entity chunks (kept raw in GameState g_keptEntities),
+   presents (chunk 8 raw).
+
+**How to work.**
+- Decompile: `tools/fn.sh 'regex' | python3 tools/picsym.py`; asm in `out/asm_all.txt`;
+  `tools/elfread.py` rd/u32/cstr (Ghidra addresses). PIC globals: value = u32(DAT_lit) + constant
+  shown by Ghidra (no +0x10000); GOT slots: `u32(picsym.GOT[0] + u32(DAT))`. A scratch resolver
+  that rewrites `iVarN + 0x...` into addresses was useful (track `iVarN = DAT_...` assignments,
+  including ones inside `for(...;iVar = DAT, ...)`); exported data names via `objdump -T --demangle`.
+- Build: `cmake --build build`. Headless test: `./build/rtk --root .. --screenshot out.png
+  [--storage DIR] [--save] [--click X Y] [--spawn ID X Y] [--frames N] [--camera X Y Z]
+  [--dump-entities]`. Always pass `--storage <scratch dir>` in tests so the user's real save
+  (~/Library/Application Support/Rule the Kingdom/save.bin) is untouched. `--save` runs
+  Map::SafeSave before the shot. Save files are gzip; decode with a few lines of Python
+  ([u32 count][u32 mapId][u32 size][chunks] big-endian; chunk = [type][size][data], ends 0x13).
+- Temporary test hacks go in src/main.cpp; back it up first, restore before committing.
+- Timer::GetGlobalTime is wall-clock seconds (+ saved time advance), so time-based states need
+  real seconds or forced refreshes (BuildingHovers::Update(0, true)).
+
+**3d facts worth knowing.** Save format: SaveManager (src/game/SaveManager.*), version 0x400,
+blocks per map plus the game state (mapId 0xffffffff). GameState::Save/Load in src/game/GameState.cpp
+mirror every chunk of the original (chunk names table in SaveManager.cpp). Map::Load now takes a
+SaveBlock and a time (lrand48 seed); random decorations use GameState::playerSeed. Offline the
+original never saves on a timer (only the "fb" profile does): it saves on exit, app pause and game
+events. GameState::tutorial/secondTutorial are real now (Reset gives 0 / 0x81; the PORT test path
+sets tutorial 0x100).
+
 ## Goal
 A native, open-source C++ port of Rule the Kingdom (Game Insight, 2012–2014). It has to match the original
 game's code exactly, run on macOS (Apple Silicon) first and then any OS, and be developable going forward.
