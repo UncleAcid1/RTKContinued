@@ -46,8 +46,9 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    producing lines, the "%s$%$d" cost line (BuildingPlacement::UpdateCost), sounds.
    3e.4 DECODED, NOT STARTED IN CODE: NotEnough dialog, ConfirmPurchase, speed-up hooks
    (SpeedupBuilding/SpeedupDecoration). Everything is in docs/3e4_notenough_notes.md - READ IT
-   FIRST. LevelUp and Exchange are dumped but not read. Ask the user how the Exchange window's
-   real-money buttons should behave offline before porting it.
+   FIRST. LevelUp and Exchange are dumped but not read. Exchange follows the "Freemium removal"
+   decisions below.
+
    After 3e.4: 3e.5
    BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
@@ -66,6 +67,22 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    test city in main.cpp), spawns/portals/fog (their map chunks are passed through raw in
    Map.cpp g_otherChunks), the hero/soldier entity chunks (kept raw in GameState g_keptEntities),
    presents (chunk 8 raw).
+
+**Freemium removal (user decisions, 2026-10-06). These override "100% faithful" for monetisation.**
+- **No real-money purchases anywhere.** Remove every "buy" or "pay" mention for real money: the
+  Exchange window's dollar packs, Billing, and offers.
+- **Crystals (diamonds) come from play.** Small passive rewards from most quests, task-completion
+  systems, the hunts/grinding system and the arena. They should add up over time to afford shop
+  items.
+  - The exact amounts are not decided yet; propose them when those systems are ported.
+- **Spending crystals in-game stays:** speed-ups, Buy all, the crystal/gold exchange, and potions.
+- **Admin/debug mode:** a permission that opens the store menu and grants the items for free, for
+  testing throughout the game.
+- **Health (future):** the hero restores health much faster after dying. Potions are bought with
+  earned crystals.
+- **Standing rule:** when a gameplay feature was built for the mobile/freemium model or needs
+  online content (energy timers, paid speed-ups, friends, PvP servers, offers ...), ask the user
+  how it should work offline before porting it.
 
 **How to work.**
 - Decompile: `tools/fn.sh 'regex' | python3 tools/picsym.py`; asm in `out/asm_all.txt`;
