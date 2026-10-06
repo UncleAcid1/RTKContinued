@@ -7,10 +7,13 @@
 #include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
 #include "game/AI.h"
 #include "game/Background.h"
 #include "game/BuildingHovers.h"
+#include "game/Entity.h"
+#include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/Setting.h"
 #include "game/GameState.h"
@@ -36,6 +39,8 @@ bool g_loaded = false;                          // 0x613798 (set at the end of M
 int g_lastWorldX = 0, g_lastWorldY = 0;         // Map::lastWorldX/Y 0x6138dc 0x6138e0
 int g_owned[4] = {};                            // 0x613660 owned extent: min x, min y, max x, max y
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
+int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
+std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
 
 Cell* At(int x, int y) {
     if ((unsigned)x >= (unsigned)g_gridW || (unsigned)y >= (unsigned)g_gridH) return nullptr;
@@ -136,19 +141,28 @@ void RemoveDecorationAt(int x, int y) {  // @0x1bb148 RemoveDecoration(x, y, fal
 }
 
 // ------------------------------------------------------------------------------- chunk decode
-void LoadDecors(Patch* p, SaveManager::Chunk& c) {  // @0x1e271c, one chunk 0xb
+void LoadDecors(Patch* p, const SaveManager::Chunk& c) {  // @0x1e271c, one chunk 0xb
     SaveManager::Reader r(c);
+    bool city = GameState::GetCurrentMapID() == 0;
     auto d = std::make_unique<Decor>();
     d->patch = p;
     d->x = r.u8();
     d->y = r.u8();
     d->id = r.u32();
     d->data = GameData::GetDecoration(d->id);
+    // UNVERIFIED (milestone 4): a decoration type without hit points (+0x7c) gets 50, on the type and
+    // the decoration (+0xb8, +0xbc).
     uint8_t flags = r.u8();
+    d->hidden = (flags & 2) != 0;
     d->mirrored = (flags & 1) != 0;
+    if ((city && GameState::tutorial == 0x17) || (city && !p->owned)) d->hidden = true;
     d->collectStart = r.u32();
     d->f4c = r.u8();
-    // remaining fields (job timers, resources, meta expression) are gameplay state: not needed yet
+    d->f50 = r.u32();
+    d->f54 = r.u32();
+    d->resourceText = r.str16();   // UNVERIFIED: not parsed into the per-resource amounts (+0x5c) yet
+    d->metaText = r.str16();       // UNVERIFIED (milestone 4): MetaExpression not ported; kept as text
+    if (!d->metaText.empty() && city) d->hidden = false;
     DecorUpdateImage(d.get());
     DecorUpdateMapLink(d.get());
     // UNVERIFIED (milestone 4): decorations with a meta expression (+0x20) or hit points (+0xb8,
@@ -159,8 +173,8 @@ void LoadDecors(Patch* p, SaveManager::Chunk& c) {  // @0x1e271c, one chunk 0xb
 
 // @0x1e2bdc Map::LoadBuidings, one building: chunk 0xc, then the optional 0x2d (farm patch start
 // times), 0x2f (farm patch contracts), 0x31 (farm patch data) and 0x50 (unique id) chunks.
-void LoadBuilding(Patch* p, std::vector<SaveManager::Chunk>& chunks, size_t& ci) {
-    SaveManager::Reader r(chunks[ci++]);
+void LoadBuilding(Patch* p, SaveManager::SaveBlock* block) {
+    SaveManager::Reader r(block->GetChunk());
     auto bp = std::make_unique<Building>();
     Building* b = bp.get();
     b->x = r.u8();
@@ -245,29 +259,28 @@ void LoadBuilding(Patch* p, std::vector<SaveManager::Chunk>& chunks, size_t& ci)
     BuildingHovers::RegisterBuilding(b);
     b->workers.assign(d->parkingCount, nullptr);
     b->builder = nullptr;
-    auto nextIs = [&](uint32_t type) { return ci < chunks.size() && chunks[ci].type == type; };
-    if (nextIs(0x2d)) {
-        SaveManager::Reader cr(chunks[ci++]);
+    if (block->NextChunkID() == 0x2d) {
+        SaveManager::Reader cr(block->GetChunk());
         for (auto& v : b->patchStart) v = cr.u32();
     }
-    if (nextIs(0x2f)) {
-        SaveManager::Reader cr(chunks[ci++]);
+    if (block->NextChunkID() == 0x2f) {
+        SaveManager::Reader cr(block->GetChunk());
         for (auto& v : b->patchContract) v = (int)cr.u32();
     }
-    if (nextIs(0x31)) {
-        SaveManager::Reader cr(chunks[ci++]);
+    if (block->NextChunkID() == 0x31) {
+        SaveManager::Reader cr(block->GetChunk());
         for (auto& v : b->patchArg) v = cr.u32();
     }
-    if (nextIs(0x50)) {
-        SaveManager::Reader cr(chunks[ci++]);
+    if (block->NextChunkID() == 0x50) {
+        SaveManager::Reader cr(block->GetChunk());
         b->SetUniqueID(cr.u32());
     }
 }
 
 // ------------------------------------------------------------------------- random decorations
 // @0x1e3a9c Map::Patch::AddRandomDecors (re-seeds with playerSeed for every patch)
-void AddRandomDecors(Patch* p, long seed) {
-    Rand48::srand48(seed);
+void AddRandomDecors(Patch* p) {
+    Rand48::srand48((long)GameState::playerSeed);
     if (!(g_mapId == 0 && g_tileset == 0)) return;
     static const uint32_t ids[] = {0x12, 0x16, 0x20, 0x22, 0x23, 0x24, 0x25, 0x27, 0x28, 0x2a, 0x2e, 0x2f, 0x30, 0x31, 0x32};
     int count = (p->w * p->h) / 0x23;
@@ -316,7 +329,7 @@ void UpdateOwnedAreaBorders() {
     g_owned[3] = GetGridHeight();
 }
 
-void UpdateAreaBorders(long seed) {
+void UpdateAreaBorders() {
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
     g_borderSprites.clear();
     // bordered = owned, or edge-adjacent to an owned patch
@@ -347,7 +360,7 @@ void UpdateAreaBorders(long seed) {
         }
     }
     unsigned count = (unsigned)(g_gridW * g_gridH) / 0x3c;
-    Rand48::srand48(seed);
+    Rand48::srand48((long)GameState::playerSeed);
     for (unsigned i = 0; i < count; ++i) {
         unsigned long r1 = (unsigned long)Rand48::lrand48();
         unsigned long r2 = (unsigned long)Rand48::lrand48();
@@ -648,34 +661,33 @@ void Free() {
     g_grid.clear();
 }
 
-bool Load(uint32_t mapId, long playerSeed) {
+bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     Free();
+    Rand48::srand48((long)time);
     g_loaded = false;
     g_blockedTiles.clear();
-    char name[64];
-    std::snprintf(name, sizeof name, "maps/map_%u.bin", mapId);
-    uint32_t n = 0;
-    uint8_t* data = FileManager::LoadFile(name, n);
-    if (!data) { std::fprintf(stderr, "Map::Load: %s not found\n", name); return false; }
-    std::vector<SaveManager::Chunk> chunks;
-    bool ok = SaveManager::ParseDataIntoChunks(data, n, mapId, chunks);
-    FileManager::FreeFile(data);
-    if (!ok) { std::fprintf(stderr, "Map::Load: %s does not parse\n", name); return false; }
-
-    size_t ci = 0;
-    auto next = [&](uint32_t type) -> SaveManager::Chunk* {  // SkipToChunk + GetChunk
-        while (ci < chunks.size() && chunks[ci].type != type && chunks[ci].type != SaveManager::kEnd) ++ci;
-        return ci < chunks.size() && chunks[ci].type == type ? &chunks[ci++] : nullptr;
+    if (!block) return false;
+    block->next = 0;
+    auto next = [&](uint32_t type) -> const SaveManager::Chunk* {  // SkipToChunk + BeginChunkLoading
+        block->SkipToChunk(type);
+        return block->NextChunkID() == type ? &block->GetChunk() : nullptr;
     };
     // LoadPlayer: header chunk 0xe
-    SaveManager::Chunk* hc = next(SaveManager::kHeader);
+    const SaveManager::Chunk* hc = next(SaveManager::kHeader);
     if (!hc) return false;
     SaveManager::Reader hr(*hc);
-    hr.u32();                // version
+    hr.u32();                // version (FileManager::ResaveVersion: online)
     g_mapId = hr.u32();
+    GameState::SetCurrentMapID(g_mapId);
     g_gridW = hr.u8();
     g_gridH = hr.u8();
-    hr.s8(); hr.s8();        // start position (validated against the grid)
+    g_startX = hr.s8();      // the player's position (0x60eff0, validated against the grid)
+    g_startY = hr.s8();
+    if (g_startX >= 0 && g_startY >= 0 && (g_startX >= g_gridW || g_startY >= g_gridH)) {
+        std::fprintf(stderr, "ERROR Map::LoadPlayer() Player position %d;%d is outside the map bounds %d;%d\n",
+                     g_startX, g_startY, g_gridW, g_gridH);
+        g_startX = g_startY = -1;
+    }
     g_tileset = hr.u8();
     int patchCount = hr.u8();
     g_grid.assign((size_t)g_gridW * g_gridH, Cell{});
@@ -683,7 +695,7 @@ bool Load(uint32_t mapId, long playerSeed) {
     Background::CreateLand((unsigned)g_tileset);  // Map::Load calls it after LoadPlayer; layer order is
                                                   // per-layer, so creating it first changes nothing.
     for (int i = 0; i < patchCount; ++i) {
-        SaveManager::Chunk* pc = next(SaveManager::kPatch);
+        const SaveManager::Chunk* pc = next(SaveManager::kPatch);
         if (!pc) break;
         auto p = std::make_unique<Patch>();
         p->areaId = pc->data.size() > 0 ? pc->data[0] : 0;
@@ -699,19 +711,19 @@ bool Load(uint32_t mapId, long playerSeed) {
         Patch* raw = p.get();
         g_patches.push_back(std::move(p));
         // Patch::Load: LoadDecors (5 + n*0xb), LoadBuidings (6 + n*0xc), then mask (7)
-        if (SaveManager::Chunk* dc = next(SaveManager::kDecorCount)) {
+        if (const SaveManager::Chunk* dc = next(SaveManager::kDecorCount)) {
             int cnt = SaveManager::Reader(*dc).s16();
             for (int k = 0; k < cnt; ++k) if (auto* c = next(SaveManager::kDecor)) LoadDecors(raw, *c);
         }
-        if (SaveManager::Chunk* bc = next(SaveManager::kBuildingCount)) {
+        if (const SaveManager::Chunk* bc = next(SaveManager::kBuildingCount)) {
             int cnt = SaveManager::Reader(*bc).s16();
             for (int k = 0; k < cnt; ++k) {
-                if (!next(SaveManager::kBuilding)) continue;
-                --ci;   // LoadBuilding reads the chunk itself, then its optional followers
-                LoadBuilding(raw, chunks, ci);
+                block->SkipToChunk(SaveManager::kBuilding);
+                if (block->NextChunkID() != SaveManager::kBuilding) continue;
+                LoadBuilding(raw, block);   // the chunk, then its optional followers
             }
         }
-        if (SaveManager::Chunk* mc = next(SaveManager::kPatchMask)) {
+        if (const SaveManager::Chunk* mc = next(SaveManager::kPatchMask)) {
             SaveManager::Reader mr(*mc);
             raw->mask = mr.str16();
             if (g_mapId != 0 && (int)raw->mask.size() == g_gridW * g_gridH) {
@@ -720,9 +732,14 @@ bool Load(uint32_t mapId, long playerSeed) {
             }
         }
     }
+    // PORT (milestone 4): spawn points (2, 9 and followers), portals (3, 10) and the fog (0x17, 0x30)
+    // are not loaded yet; their chunks are kept for SaveMap.
+    g_otherChunks.clear();
+    while (block->NextChunkID() != SaveManager::kEnd) g_otherChunks.push_back(block->GetChunk());
     // Map::Load: CreateRandomDecors, UpdateAreaBorders (spawns/portals/fog not rendered yet)
-    for (auto& p : g_patches) AddRandomDecors(p.get(), playerSeed);
-    UpdateAreaBorders(playerSeed);
+    for (auto& p : g_patches) AddRandomDecors(p.get());
+    UpdateAreaBorders();
+    Rand48::srand48((long)time);
     std::printf("Map %u: %dx%d tileset %d, %zu patches, %zu sprites\n", g_mapId, g_gridW, g_gridH, g_tileset,
                 g_patches.size(), Render::SpriteCount());
     CreateRoadAI();
@@ -734,5 +751,220 @@ bool Load(uint32_t mapId, long playerSeed) {
     AI::LinkAdjacentWaypoints();
     return true;
 }
+
+// ------------------------------------------------------------------------------------- saving
+namespace {
+using SaveManager::BeginChunk;
+using SaveManager::EndChunk;
+using SaveManager::SaveChar;
+using SaveManager::SaveShort;
+using SaveManager::SaveUnsigned;
+
+void SaveString(const std::string& s) {   // a short length and the characters
+    SaveShort((int16_t)s.size());
+    for (char c : s) SaveChar((uint8_t)c);
+}
+
+// @0x1e1f50 Map::Patch::SaveBuilding: chunk 0xc, the farm chunks 0x2d, 0x2f and 0x31 (class 0xd)
+// and the unique id (0x50).
+void SaveBuilding(const Building* b) {
+    BeginChunk(SaveManager::kBuilding);
+    SaveChar(b->x);
+    SaveChar(b->y);
+    SaveUnsigned(b->id);
+    SaveUnsigned(b->stateTime);
+    SaveUnsigned(b->buildLeft > 0.0 ? (uint32_t)(int64_t)b->buildLeft : 0);
+    SaveUnsigned(b->f54);
+    SaveChar(b->mirrored);
+    SaveChar(0);
+    SaveChar((uint8_t)b->level);
+    SaveChar(0);
+    SaveChar(0);
+    SaveChar(0);
+    SaveUnsigned(0);
+    SaveUnsigned(0);
+    SaveChar((uint8_t)b->built);
+    SaveChar((uint8_t)b->upgrading);
+    SaveUnsigned(b->ff8);
+    SaveUnsigned(b->lastGather);
+    SaveUnsigned((uint32_t)b->resourceLeft);
+    SaveChar(0xb);
+    for (int v : b->resources) SaveShort((int16_t)v);
+    SaveChar((uint8_t)b->resourceState);
+    SaveUnsigned(b->growStart);
+    SaveChar((uint8_t)b->f10c);
+    SaveUnsigned(b->f110);
+    SaveUnsigned(b->f114);
+    SaveString(b->resourceText);
+    SaveString(b->metaText);
+    SaveUnsigned((uint32_t)b->contract);
+    EndChunk();
+    if (b->data->buildingClass == 0xd) {
+        BeginChunk(0x2d);
+        for (uint32_t v : b->patchStart) SaveUnsigned(v);
+        EndChunk();
+        BeginChunk(0x2f);
+        for (int v : b->patchContract) SaveUnsigned((uint32_t)v);
+        EndChunk();
+        BeginChunk(0x31);
+        for (uint32_t v : b->patchArg) SaveUnsigned(v);
+        EndChunk();
+    }
+    if (b->uniqueId == 0) return;
+    BeginChunk(0x50);
+    SaveUnsigned(b->uniqueId);
+    EndChunk();
+}
+
+// @0x1e21f0 Map::Patch::Save: the decorations (not the random ones), the buildings and, off the
+// city, the walk mask. (Removed decorations leave the original's list; the port keeps them
+// flagged.)
+void SavePatch(const Patch* p) {
+    BeginChunk(SaveManager::kDecorCount);
+    int16_t n = 0;
+    for (auto& d : p->decors) if (!d->fake && !d->removed) ++n;
+    SaveShort(n);
+    EndChunk();
+    for (auto& d : p->decors) {
+        if (d->fake || d->removed) continue;
+        BeginChunk(SaveManager::kDecor);
+        SaveChar(d->x);
+        SaveChar(d->y);
+        SaveUnsigned(d->id);
+        SaveChar((uint8_t)((d->hidden ? 2 : 0) | (d->mirrored ? 1 : 0)));
+        SaveUnsigned(d->collectStart);
+        SaveChar((uint8_t)d->f4c);
+        SaveUnsigned(d->f50);
+        SaveUnsigned(d->f54);
+        SaveString(d->resourceText);
+        SaveString(d->metaText);
+        EndChunk();
+    }
+    BeginChunk(SaveManager::kBuildingCount);
+    SaveShort((int16_t)p->buildings.size());
+    EndChunk();
+    for (auto& b : p->buildings) SaveBuilding(b.get());
+    BeginChunk(SaveManager::kPatchMask);
+    if (GetMapID() == 0) {
+        SaveShort(0);
+    } else {
+        SaveShort((int16_t)p->mask.size());
+        if (!p->mask.empty())
+            for (int x = 0; x < GetGridWidth(); ++x)
+                for (int y = 0; y < GetGridHeight(); ++y) SaveChar(GetBlock(x, y) ? '1' : '0');
+    }
+    EndChunk();
+}
+}  // namespace
+
+// PORT: Expansions::IsRequiredUpdateRunning is false (every pack ships with the port) and the
+// flag 0x6137f8 that blocks the save is never set.
+bool SaveMap() {
+    std::puts("Map::SaveMap() Began save");
+    if (GameState::GetCurrentMapID() == 0) {
+        size_t buildings = 0;
+        for (auto& p : g_patches) buildings += p->buildings.size();
+        if (buildings == 0) {
+            std::fprintf(stderr, "ERROR: Map::SaveMap() Cannot save town map - no buildings");
+            return false;
+        }
+    }
+    SaveManager::GetMainSave()->BeginData();
+    BeginChunk(SaveManager::kHeader);
+    SaveUnsigned(SaveManager::GetCurrentVersion());
+    SaveUnsigned(g_mapId);
+    SaveChar((uint8_t)g_gridW);
+    SaveChar((uint8_t)g_gridH);
+    // The player's position (EntityManager::GetPlayer +0x54/+0x58). PORT (milestone 4): with no
+    // player in the port the loaded position is kept.
+    if (Entity* player = EntityManager::GetPlayer()) {
+        g_startX = player->spawnX;
+        g_startY = player->spawnY;
+    }
+    SaveChar((uint8_t)g_startX);
+    SaveChar((uint8_t)g_startY);
+    SaveChar((uint8_t)g_tileset);
+    SaveChar((uint8_t)g_patches.size());
+    EndChunk();
+    for (auto& p : g_patches) {
+        BeginChunk(SaveManager::kPatch);
+        SaveChar((uint8_t)p->areaId);
+        SaveChar(p->owned);
+        SaveChar(p->bordered);
+        EndChunk();
+        SavePatch(p.get());
+    }
+    // SaveSpawnPoints, SavePortals, the fog list (0x17) and Fog::SaveFog (0x30). PORT (milestone 4):
+    // the chunks as loaded (a map from its file has no 0x30 chunk until the fog is ported).
+    for (const SaveManager::Chunk& c : g_otherChunks) {
+        BeginChunk(c.type);
+        for (uint8_t v : c.data) SaveChar(v);
+        EndChunk();
+    }
+    BeginChunk(SaveManager::kEnd);
+    SaveUnsigned(0);
+    EndChunk();
+    SaveManager::GetMainSave()->EndMapData(g_mapId);
+    std::puts("Map::SaveMap() Finished save");
+    return true;
+}
+
+void SaveState() {
+    std::puts("Map::SaveState() Began save");
+    SaveManager::GetMainSave()->BeginData();
+    GameState::Save(SaveManager::GetCurrentVersion());
+    SaveManager::GetMainSave()->EndGameStateData();
+    std::puts("Map::SaveState() Finished save");
+}
+
+// (LoadSampling's steps are a load-time profiler: not ported.)
+void Save(int type) {
+    if (GameState::IsPvPTutorial() || GameState::IsTameTutorial()) return;
+    int gold = SystemFuncs::GetSetting_Int("pre_resetgame_gold", 0, "settings");
+    int crystals = SystemFuncs::GetSetting_Int("pre_resetgame_crystals", 0, "settings");
+    bool resetCurrency = !GameState::IsTutorial() && (gold > 0 ? gold : crystals) > 0;
+    if (GameState::GetCurrentMapID() == 0) {
+        GameState::ClearOfflineBuildings();
+        for (auto& p : g_patches) {
+            for (auto& bp : p->buildings) {
+                Building* b = bp.get();
+                if (b->data->buildingClass == 0xc && b->HasActiveContract()) b->OnContractCompleted(true);
+                GameState::OfflineBuilding o;
+                o.id = b->id;
+                o.level = (uint32_t)b->level;
+                o.contract = (uint32_t)b->contract;
+                o.flags = GameState::GetCurrentMapID();
+                if (b->IsOpened()) o.flags |= 1;
+                if (b->needsBuilder) o.flags |= 2;
+                if (b->upgrading) o.flags |= 4;
+                o.stateTime = b->stateTime;
+                // (+0x14 and +0x15 are left unset on the original's stack)
+                o.x = b->x;
+                o.y = b->y;
+                GameState::AddOfflineBuilding(o);
+            }
+        }
+    }
+    // UNVERIFIED (milestone 4): the player's decoration job ends (Decor::ReturnCost, RemoveWorker).
+    SaveState();
+    bool ok = SaveMap();
+    if (type == 1) {
+        // the online save (SendPlayerData2, SendPlayerItems, SaveOnlineSave): not ported
+    } else {
+        SaveManager::Save(nullptr);
+    }
+    if (ok && resetCurrency) {
+        SystemFuncs::SetSetting_Int("pre_resetgame_gold", 0, "settings");
+        SystemFuncs::SetSetting_Int("pre_resetgame_crystals", 0, "settings");
+    }
+}
+
+// UNVERIFIED (milestone 3e/4): the world dialog, TaskCompleteWindow and the building placement
+// and movement modes are not ported; their closing is skipped.
+void SafeSave() {
+    BuildingHovers::CollectAll();
+    Save(0);
+}
+
 
 }  // namespace Map

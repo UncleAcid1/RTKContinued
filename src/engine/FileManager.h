@@ -34,6 +34,19 @@ void FreeFile(uint8_t* p);
 
 size_t EntryCount();
 
+// The writable storage folder for saves (GetStoragePath @0x16d568: the app's files dir on
+// Android). PORT: set by main (SDL_GetPrefPath, or --storage); ends with a '/'.
+void SetStoragePath(const std::string& path);
+std::string GetStoragePath();
+bool SaveExists(const char* name);   // @0x16ca20 (Java saveExists)
+// @0x16f618: a save file from the storage folder, gzip-inflated; a new[] buffer with a 0 after
+// the data, or nullptr.
+uint8_t* LoadSave(const char* name, uint32_t& size, bool quiet);
+// @0x16f9f0: only in the player's city. The data is gzipped into <name>temp (online saves:
+// <name>_onlinetemp), read back to check its size, then the old save becomes <name>prev and the
+// temp file the save.
+void SaveSave(const char* name, const uint8_t* data, uint32_t size, bool online);
+
 // Text input for the edited Textfield. The callback gets the whole text after every change, with
 // final = true when editing ends.
 using TextInputCallback = void (*)(const char32_t* text, bool final);

@@ -146,11 +146,19 @@ Milestones:
               Done 2026-10-05. Moved out of 3c (they need later systems): decoration jobs and
               AIPlayer (hero world taps, SendGoblinToWork) need MetaExpression, Tasks and the hero
               (milestone 4); farms need saved patch state (3d) and the planting windows (3e): 3f.
-       3d [ ] saves: SaveManager (SaveBlock/SaveData, chunks), GameState::Save/Load, Map player
-              save/load, save file on disk + backup, autosave timing.
+       3d [x] saves (done 2026-10-06): SaveManager (blocks/chunks, save file, gzip, temp+prev
+              backup), GameState Reset/Save/Load (every chunk; unported systems' data kept as
+              loaded), Map::Save/SaveMap/SaveState/SafeSave, Patch::Save, SaveBuilding, Map::Load
+              from a save block, SaveEntities/LoadEntities (workers; hero/soldiers kept raw: M4),
+              LoadSavedGame, save names, Timer time advance. Saves on exit and app pause; offline
+              there is no timed autosave (the original's is for the fb profile only); event saves
+              (level-up, placement, land buy) come with their windows. Verified: save -> load ->
+              save is byte-identical. Spawns/portals/fog chunks are passed through (M4).
+              Moved to 3e: Map::AssignEntities (residents back into houses) with the offline
+              building/decoration states and UpdateOfflineResources.
        3e [ ] ShopWindow + BuildingPlacement/BuildingMovement, costs, building limits, area buying;
               economy dialogs (level-up, NotEnoughWindow, ExchangeWindow, factory/farm hovers),
-              offline resources.
+              offline resources, Map::AssignEntities and the offline worker states.
        3f [ ] farms: the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints), the
               patch entities (AIPatch), AIFarmerBig/AIFarmerSmall, Building farm functions
               (SpawnFarm, FarmCollectAndReplant, soil patch states), the farm hovers and windows.

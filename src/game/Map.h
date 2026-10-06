@@ -12,6 +12,7 @@
 
 namespace Render { struct Sprite; }
 namespace GameData { struct DecorData; }
+namespace SaveManager { struct SaveBlock; }
 
 namespace Map {
 
@@ -23,10 +24,16 @@ struct Decor {
     uint32_t id = 0;                   // +0x18
     bool mirrored = false;             // +0x1c (map flag bit 0)
     bool visible = true;               // +0x1d
-    bool fake = false;                 // random decoration (Patch::AddRandomDecors), Decor::IsFake
+    std::string metaText;              // +0x20 MetaExpression (quests)  UNVERIFIED: kept as text
     const GameData::DecorData* data = nullptr;  // +0x3c
+    bool fake = false;                 // +0x43 random decoration (Patch::AddRandomDecors)
+    // +0x44 (map flag bit 1; also set on unowned city patches and in the tame tutorial). Decor::IsFake
+    // is +0x43 || +0x44. UNVERIFIED: only loaded and saved so far.
+    bool hidden = false;
     uint32_t collectStart = 0;         // +0x48 when its taxes (DecorData collectTime) started
     uint32_t f4c = 0;                  // +0x4c (saved byte)
+    uint32_t f50 = 0, f54 = 0;         // +0x50 +0x54
+    std::string resourceText;          // +0x58 "TYPE=n|..." (parsed into +0x5c per resource)
     Render::Sprite* sprite = nullptr;  // +0x88
     bool removed = false;
 };
@@ -42,8 +49,17 @@ struct Patch {
     std::string mask;                  // chunk 7 ('0'/'1' per tile, x-major)
 };
 
-bool Load(uint32_t mapId, long playerSeed);  // reads "maps/map_<id>.bin"
+// @0x1c3518 (with LoadPlayer @0x1c0cd8): a map from its save block (SaveManager::GetMapData);
+// the header sets the current map id. lrand48 is seeded with time (the random decorations and
+// the dark grass use GameState::playerSeed).
+bool Load(SaveManager::SaveBlock* block, uint32_t time);
 void Free();
+// @0x1bbbcc: the game state and the current map into the main save, then the save file (type 1:
+// the online save, not ported). In the city the buildings' offline records are refreshed first.
+void Save(int type);
+bool SaveMap();                                        // @0x1bb930 false: a city without buildings
+void SaveState();                                      // @0x1bbb80
+void SafeSave();                                       // @0x1bbe90 (closes dialogs, collects drops)
 
 int GetGridWidth();
 int GetGridHeight();

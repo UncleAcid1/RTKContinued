@@ -10,7 +10,9 @@
 #include <cstring>
 #include <map>
 
+#include "engine/SystemFuncs.h"
 #include "engine/TextInput.h"
+#include "game/GameState.h"
 
 namespace FileManager {
 namespace {
@@ -213,6 +215,76 @@ uint8_t* LoadFile(const char* name, uint32_t& size) {
 void FreeFile(uint8_t* p) { std::free(p); }
 
 size_t EntryCount() { return g_files.size(); }
+
+// ------------------------------------------------------------------------------------- saves
+namespace {
+std::string g_storagePath;
+}
+
+void SetStoragePath(const std::string& path) { g_storagePath = path; }
+std::string GetStoragePath() { return g_storagePath; }
+
+bool SaveExists(const char* name) {
+    FILE* f = std::fopen((g_storagePath + name).c_str(), "rb");
+    if (f) std::fclose(f);
+    return f != nullptr;
+}
+
+uint8_t* LoadSave(const char* name, uint32_t& size, bool quiet) {
+    std::string path = g_storagePath + name;
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) {
+        if (!quiet) std::printf("File '%s' cannot be opened\n", name);
+        return nullptr;
+    }
+    std::fseek(f, 0, SEEK_END);
+    size = (uint32_t)std::ftell(f);
+    std::fseek(f, 0, SEEK_SET);
+    uint8_t* raw = new uint8_t[size + 1];
+    size = (uint32_t)std::fread(raw, 1, size, f);
+    std::fclose(f);
+    raw[size] = 0;
+    uint8_t* data = SystemFuncs::GZIP_Decompress(raw, size);
+    delete[] raw;
+    return data;
+}
+
+void SaveSave(const char* name, const uint8_t* data, uint32_t size, bool online) {
+    if (!GameState::IsPlayerCity()) return;
+    std::string path = g_storagePath + name;
+    uint8_t* gz = SystemFuncs::GZIP_Compress(data, size);
+    std::printf("FileManager::EndSave() Compressed save - %d bytes\n", size);
+    std::string temp = path, prev = path;
+    if (online) {
+        temp += "_online";
+        prev += "_online";
+    }
+    temp += "temp";
+    prev += "prev";
+    std::remove(temp.c_str());
+    std::remove(prev.c_str());
+    if (FILE* f = std::fopen(temp.c_str(), "wb")) {
+        std::fwrite(gz, 1, size, f);
+        std::fclose(f);
+        if ((f = std::fopen(temp.c_str(), "rb"))) {
+            std::fseek(f, 0, SEEK_END);
+            uint32_t n = (uint32_t)std::ftell(f);
+            std::fclose(f);
+            if (n == size) {
+                std::rename(path.c_str(), prev.c_str());
+                std::rename(temp.c_str(), path.c_str());
+                std::printf("FileManager::EndSave() Saving done!\n");
+            } else {
+                std::printf("Created save file has invalid size of %d instead of %d\n", n, size);
+            }
+        } else {
+            std::puts("Failed to read created save file");
+        }
+    } else {
+        std::puts("Failed to create save file");
+    }
+    delete[] gz;
+}
 
 // ---------------------------------------------------------------------------------------------
 // Text input

@@ -219,6 +219,15 @@ void Hide() {
 bool IsHoverVisible() { return g_currentHover && g_currentHover->shownHover; }
 void ScheduleUpdate() { g_lastTime = 0; }
 bool HasDroppedItems() { return !g_itemDrops.empty(); }
+
+void CollectAll() {
+    for (size_t i = 0; i < g_itemDrops.size(); ++i) {
+        g_itemDrops[i].Collect(true, false);
+        g_itemDrops[i].sprite = Render::RemoveSprite(g_itemDrops[i].sprite);
+        g_itemDrops[i].glow = Render::RemoveSprite(g_itemDrops[i].glow);
+    }
+    g_itemDrops.clear();
+}
 bool IsItemMoving() { return !g_itemMoves.empty(); }
 
 void SetHoverVisiblity(bool visible, bool) {

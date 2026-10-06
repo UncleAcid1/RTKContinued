@@ -12,6 +12,9 @@
 //                                    (PORT test aid: spawn entities at tiles after the map loads;
 //                                    the last one walks to a tile; N more frames before the shot)
 //            [--dump-entities]               (PORT test aid: print every entity's state at the end)
+//            [--storage DIR]                 (the save folder; default: the user's application
+//                                    support folder for the game)
+//            [--save]                        (PORT test aid: save (Map::SafeSave) before the shot)
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
@@ -47,13 +50,16 @@
 #include "game/GameData.h"
 #include "game/Map.h"
 #include "game/MapMovement.h"
+#include "game/SaveManager.h"
 
 namespace {
 
 struct Options {
     std::string root = "..";  // the backup folder that contains "Android files", "files", "_extract"
     unsigned map = 0;
-    long seed = 1;            // GameState::playerSeed (per player on the original)
+    long seed = 1;            // GameState::playerSeed of the test city (no save)
+    std::string storage;      // the save folder (FileManager::GetStoragePath)
+    bool save = false;        // PORT test aid: save at the end of a headless run
     std::string screenshot;
     float camX = 2520.f, camY = 300.f, zoom = 1.f;  // centre of the starting area (area 1)
     enum InputType { kClick, kPress, kDrag, kType, kKey };
@@ -101,6 +107,8 @@ Options Parse(int argc, char** argv) {
         }
         else if (a == "--frames") o.frames = std::atoi(next());
         else if (a == "--dump-entities") o.dumpEntities = true;
+        else if (a == "--storage") o.storage = next();
+        else if (a == "--save") o.save = true;
         else if (a == "--type") {
             o.inputs.push_back({Options::kType, 0, 0, 0, 0, next()});
         }
@@ -203,11 +211,8 @@ int main(int argc, char** argv) {
     Contracts::Init("../resource/res_files/1Original/deliveries.xml");
     if (!GameData::Load()) return 1;
     GUI::Init("fonts/ARICYRB.ttf", false);
-    GameState::SetCurrentMapID(opt.map);
-    if (!Map::Load(opt.map, opt.seed)) return 1;
     // The game's windows: their static FunctionalWindow objects are constructed in the binary's
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
-    GameState::Reset();
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
     BottomCityWindow::Queue();
@@ -225,10 +230,34 @@ int main(int argc, char** argv) {
     TextStyleManager::Init();
     WindowManager::g_desktopWindow = new WindowManager::DesktopWindow();
     WindowManager::InitWindows();
+
+    // main_Loop_Init: the save names, SaveManager::Init, the save file, then LoadSavedGame.
+    // PORT: the storage folder is the user's application support folder (Android: the app's files).
+    if (opt.storage.empty()) {
+        char* pref = SDL_GetPrefPath("", "Rule the Kingdom");
+        if (pref) opt.storage = pref;
+        SDL_free(pref);
+    } else if (opt.storage.back() != '/') {
+        opt.storage += '/';
+    }
+    FileManager::SetStoragePath(opt.storage);
+    SetSaveNames();
+    SaveManager::Init();
+    bool corrupt = false;
+    SaveManager::Load(nullptr, &corrupt);
+    if (!LoadSavedGame(false)) {
+        // PORT test path: without a save the original starts the tutorial on campaign map 0x15
+        // (milestone 4); the port boots map opt.map with the finished city tutorial instead.
+        GameState::Reset();
+        GameState::playerSeed = (uint32_t)opt.seed;
+        GameState::tutorial = 0x100;
+        GameState::SetCurrentMapID(opt.map);
+        if (!Map::Load(SaveManager::GetMapData(opt.map), (uint32_t)Timer::GetGlobalTime())) return 1;
+    }
     HUDWindow::Show();
     Render::SortRenderLayer(Render::kLayerGUI, 1);
 
-    // PORT test aid: without saves (3d) or the new-game flow (milestone 4) the city has no entities.
+    // PORT test aid: without the new-game flow (milestone 4) a city without a save has no entities.
     Entity* lastSpawned = nullptr;
     for (const Options::Spawn& sp : opt.spawns)
         lastSpawned = EntityManager::SpawnEntityAt(sp.id, (unsigned)sp.x, (unsigned)sp.y, false, false);
@@ -402,6 +431,7 @@ int main(int argc, char** argv) {
             for (int i = 0; i < 30; ++i) tick(dt);
         }
         for (int i = 0; i < opt.frames; ++i) tick(dt);
+        if (opt.save) Map::SafeSave();
         for (unsigned i = 0; opt.dumpEntities && EntityManager::EnumEntities(i); ++i) {
             Entity* e = EntityManager::EnumEntities(i);
             AnimationController* ac = e->GetAnimController();
@@ -435,6 +465,16 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
                 case SDL_EVENT_QUIT: running = false; break;
+                case SDL_EVENT_WILL_ENTER_BACKGROUND:
+                    // The app's pause (main_Loop_Func): outside the city tutorial the drops are
+                    // collected and the game saved. UNVERIFIED (milestone 3e/4): TaskCompleteWindow,
+                    // the placement, movement and spell modes close first; the notifications are
+                    // not ported. (Desktop systems do not send this event; the exit saves.)
+                    if (!GameState::IsCityTutorial()) {
+                        BuildingHovers::CollectAll();
+                        Map::Save(0);
+                    }
+                    break;
                 case SDL_EVENT_KEY_DOWN:
                     // PORT aids: Esc quits (not while typing), F12 saves a screenshot.
                     if (e.key.key == SDLK_ESCAPE && !TextInput::enabled) running = false;
@@ -479,6 +519,7 @@ int main(int argc, char** argv) {
         Render::Frame();
         SDL_GL_SwapWindow(win);
     }
+    SaveOnExit();   // main_Exit_Func
     Map::Free();
     Render::Shutdown();
     SDL_GL_DestroyContext(gl);

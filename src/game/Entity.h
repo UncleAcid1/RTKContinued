@@ -105,6 +105,13 @@ public:
     float GetBaseSpeedMultiplier() const;        // @0x151434
     bool IsDead() const { return hp < 1; }       // @0x150064
     int GetHP() const { return hp; }             // @0x150078
+    int GetHpMax() const { return hpMax; }       // @0x150298
+    int GetAP() const { return f100; }           // @0x150080
+    int GetHpOverlimit();                        // @0x151c30 (the player's, capped by "hp_gift_overlimit")
+    int GetOverrideAttack() const { return overrideAttack; }     // @0x150340
+    int GetOverrideDefense() const { return overrideDefense; }   // @0x150398
+    uint32_t GetUniqueID() const { return uniqueId; }            // @0x1508cc
+    void SetUniqueID(uint32_t id) { uniqueId = id; }             // @0x1508c4
     void SetHP(int v);                           // @0x150b74
     void ResetStats(bool hpToo);                 // @0x154d84
     bool NeedRemove() const { return needRemove; }   // @0x150878
@@ -188,4 +195,5 @@ public:
     bool walkAwayOnEnd = false;      // +0x1a9
     bool f1aa = true;                // +0x1aa
     int overrideAttack = 0, overrideDefense = 0;   // +0x1bc +0x1c0
+    uint32_t uniqueId = 0;           // +0x1c4
 };

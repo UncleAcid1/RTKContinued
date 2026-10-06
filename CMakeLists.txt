@@ -21,6 +21,7 @@ add_executable(rtk
   src/main.cpp
   src/engine/FileManager.cpp
   src/engine/SystemFuncs.cpp
+  src/engine/Timer.cpp
   src/engine/TextInput.cpp
   src/engine/Image.cpp
   src/engine/Render.cpp

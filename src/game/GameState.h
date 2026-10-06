@@ -2,8 +2,14 @@
 // milestone 3; the settings and areas are in game/Setting.h.
 #pragma once
 #include <cstdint>
+#include <map>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace Map { struct Building; }
+namespace SaveManager { struct SaveBlock; }
 class Entity;
 
 namespace GameState {
@@ -18,6 +24,7 @@ extern int resourceAmountMax;    // storage limit
 extern int lastResourceAmountMax; // the last non-zero storage limit
 extern int maxLevel;
 extern int totalGoldSpent, totalGoldEarned, totalCrystalsSpent, totalXPEarned;
+extern double totalTimeSpent;    // 0x613410 (Timer::AdvanceGlobalTime)
 
 void Reset();
 uint32_t GetResourceAmount(int type);          // @0x196e08
@@ -37,21 +44,28 @@ bool IsPlayerCity();                           // @0x1905b8: city state 0 or 1
 int GetCurrentLocation();                      // @0x190530: 0 city, 1 farm, 2 campaign, 3 arena
 uint32_t GetCurrentMapID();                    // @0x190558
 void SetCurrentMapID(uint32_t id);             // @0x19056c
-bool IsTutorial();                             // UNVERIFIED stand-in: false
+bool IsTutorial();                             // @0x190ad4 tutorial < 0x18 (the opening campaign)
 int GetPlayerWorkersCount();                   // UNVERIFIED stand-in: 0
 int GetMaxWorkerCount();                       // UNVERIFIED stand-in: 0
-bool IsMalePlayer();                           // UNVERIFIED stand-in: true
+bool IsMalePlayer();                           // @0x190ca8
+void SetPlayerGender(bool male);               // @0x190cbc
+const char32_t* GetPlayerName();               // @0x190cd0
+void SetPlayerName(const char32_t* name);      // @0x191e88
 // The player's castle name; without one, StringTable "world_node_player_no_name".
 const char32_t* GetCastleName();               // @0x191d98
 void SetCastleName(const char32_t* name);      // @0x191e34
-// TutorialWindow's step (global 0x6134ac). HUD panels appear once it passes their thresholds;
-// 0x100 is the finished city tutorial. UNVERIFIED stand-in: always 0x100.
+// The tutorial step (GameState::tutorial). HUD panels appear once it passes their thresholds;
+// 0x100 is the finished city tutorial.
 int TutorialStep();
-// GameState::secondTutorial (0x60efd0, .data initial 0x81). UNVERIFIED stand-in: the initial value.
-int SecondTutorialStep();
+int SecondTutorialStep();                      // GameState::secondTutorial
 bool IsCityTutorial();                         // @0x190af4
-// @0x1908ac a quest task finished. UNVERIFIED stand-in (milestone 4, Tasks): false.
-bool TaskCompleted(unsigned id);
+bool IsTameTutorial();                         // @0x190bb4
+// @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.
+bool IsPvPTutorial();
+bool TaskCompleted(unsigned id);               // @0x1908ac (the 0x1000-entry lookup cache is not ported)
+bool IsTaskStarted(unsigned id);               // @0x190988
+uint32_t GetTaskBeginTime(unsigned id);        // @0x198624 (0 when not begun)
+uint32_t GetGameStartTime();                   // @0x19130c
 
 const char* GetResourceMapIconName(int type);   // @0x190d14 (table 0x6015c0)
 const char32_t* GetResourceGameName(int type);  // @0x191cf8 StringTable name (table 0x601618)
@@ -81,5 +95,47 @@ void CancelWork(int type);                     // @0x191c8c goblins on `type` or
 void RaiseGamePauseState();                    // @0x191064
 void DropGamePauseState();                     // @0x191080 (never below 0)
 bool IsPaused();                               // @0x191104
+
+// ------------------------------------------------------------------------------ saved state
+// Everything GameState::Save writes (GameStateSave.cpp). The containers of systems that are not
+// ported yet (tasks, items, events, arena, soldiers, PvP, ...) are kept as the original holds
+// them, so a save passes through the port unchanged.
+extern int tutorial;            // 0x6134ac GameState::tutorial
+extern int secondTutorial;      // 0x60efd0 GameState::secondTutorial
+extern int lastSentStep;        // 0x6134b0 GameState::lastSentStep
+extern uint32_t playerSeed;     // 0x613408 GameState::playerSeed (random decorations)
+extern uint32_t mHPTS;          // 0x613454 GameState::mHPTS (hit point regeneration time)
+
+struct PlayerItem {             // 0x18 bytes, the player's items (vector 0x612f90)
+    uint32_t id = 0;            // +0x00
+    const void* info = nullptr; // +0x04 Items::GetItemInfo. UNVERIFIED (milestone 4, Items): null
+    uint32_t uniqueId = 0;      // +0x08
+    uint32_t f0c = 0, f10 = 0;  // +0x0c +0x10
+    bool f14 = false;           // +0x14
+};
+struct ItemBinding {            // 0xc bytes: the item bindings 0x612ad8 (10) and 0x612b50 (32)
+    uint32_t id = 0;            // +0x00 an item id to bind after loading
+    uint32_t uniqueId = 0;      // +0x04
+    PlayerItem* item = nullptr; // +0x08
+};
+struct OfflineBuilding {        // BuildingInfoOffline, 0x20 bytes (vector 0x612d64)
+    uint32_t id = 0, level = 0, contract = 0;   // +0x00 +0x04 +0x08
+    uint32_t flags = 0;         // +0x0c the map id | 1 opened | 2 needs a builder | 4 upgrading
+    uint32_t stateTime = 0;     // +0x10
+    bool f14 = false, f15 = false;              // +0x14 +0x15
+    uint32_t x = 0, y = 0;      // +0x18 +0x1c
+};
+
+void Save(uint32_t version);                   // @0x19d428 into the main save's current block
+void Load(SaveManager::SaveBlock* block);      // @0x1a4934
+void SaveEntities();                           // @0x192844
+void LoadEntities(SaveManager::SaveBlock* block);   // @0x1930bc
+void AddOfflineBuilding(const OfflineBuilding& b);   // @0x194928
+void ClearOfflineBuildings();                  // @0x19bda8
+uint32_t GetBeltSlotCount();                   // @0x190788
+uint32_t GetBeltItemAt(unsigned slot);         // @0x1907e8
+int GetItemAmount(uint32_t id, bool belt);     // @0x19bdc8
+PlayerItem* GetItemByUniqueID(uint32_t uniqueId);   // @0x19623c
+PlayerItem* GetFirstItemByID(uint32_t id, bool belt);   // @0x1962a4
 
 }  // namespace GameState

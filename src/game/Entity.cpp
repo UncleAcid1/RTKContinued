@@ -542,3 +542,9 @@ void Entity::ResetStats(bool hpToo) {
     f130 = 0x32;
     // UNVERIFIED (milestone 4): GameState::SetBeltSlotCount(2), SetBeltSize(0).
 }
+
+int Entity::GetHpOverlimit() {
+    if (!player) return 0;
+    if (Setting("hp_gift_overlimit").GetInt() < ffc) ffc = Setting("hp_gift_overlimit").GetInt();
+    return ffc;
+}
