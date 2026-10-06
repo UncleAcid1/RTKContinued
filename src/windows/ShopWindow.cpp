@@ -460,6 +460,8 @@ void OnItemSelect(unsigned i) {
     OnBuy();
 }
 
+}  // namespace
+
 // @0x34d570
 void OnTabSelect(unsigned i) {
     const unsigned type = TabIndexToType(i);
@@ -474,6 +476,8 @@ void OnTabSelect(unsigned i) {
     OnItemInfo(0, false);
     FillBuildings();
 }
+
+namespace {
 
 // @0x34bdcc
 void FillDecorations() {

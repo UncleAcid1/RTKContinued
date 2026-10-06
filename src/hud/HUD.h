@@ -37,6 +37,10 @@ RTK_HUD_PANEL(BottomCityWindow)
 RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
 
+namespace TopCityWindow {
+bool Click(int x, int y, bool pressed);   // @0x365908 (NotEnoughWindow passes its clicks here first)
+}
+
 namespace BottomCityWindow {
 void ShowMainButton();        // @0x25e95c
 void HideMainButton();        // @0x25e860

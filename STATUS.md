@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3e.3 done, 3e.4 decoded) — read this first in a new conversation
+## Handoff (last updated 2026-10-06, 3e.4 part 1 done: NotEnough, ConfirmPurchase, speed-ups) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3d done, about 60%:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -44,10 +44,34 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    cancel reopens the shop), a building buys (costs charged, pending worker 1/2), unaffordable ->
    NotEnough requirements, the close button. Open: Tasks (quest-locked items, M4), Items in
    producing lines, the "%s$%$d" cost line (BuildingPlacement::UpdateCost), sounds.
-   3e.4 DECODED, NOT STARTED IN CODE: NotEnough dialog, ConfirmPurchase, speed-up hooks
-   (SpeedupBuilding/SpeedupDecoration). Everything is in docs/3e4_notenough_notes.md - READ IT
-   FIRST. LevelUp and Exchange are dumped but not read. Exchange follows the "Freemium removal"
-   decisions below.
+   3e.4 PART 1 DONE (decode in docs/3e4_notenough_notes.md): ConfirmPurchaseWindow
+   (src/windows/ConfirmPurchaseWindow.cpp; skipped, buying at once, unless secondTutorial == 0x100
+   - the PORT test city is 0x81, so it buys without asking there), the NotEnoughWindow dialog (Show
+   with the single-missing popups/exchange, UpdateContents lines and layout, Buy all, Find with
+   OnFindActual/FindResourceHelp, the requirement setters), the hover speed-ups
+   (BuildProgress/ResourceRestore OnSpeedUp, BuildProgress OnSpeedUpFinished with its tutorial
+   steps), Building::SpeedupBuilding, Decor::SpeedupDecoration, Map::GetUnfinishedBuildingWithID /
+   GetUnfinishedBuildingedWithPopulation / GetUpgradeableBuildingWithID, GameState::
+   IsBossCombatActive (false until M4), ShopWindow::OnTabSelect and TopCityWindow::Click made public.
+   Verified headless: an unaffordable Wattle Shack opens the dialog (4 lines, Find, Buy all 8);
+   Find Wood closes it and points the arrow at the tree; Buy all with 50 crystals tops each
+   resource up to exactly what is needed, charges 8 and starts the placement; a construction
+   site's Speed Up (5) opens the confirm dialog (with secondTutorial forced to 0x100), Okay
+   finishes the building and charges 5, Cancel charges nothing; with 2 crystals the single
+   missing requirement goes to the exchange ("short by 3"). Not tested headless: the tree/rock
+   speed-up (SpeedupBuilding class 4) and ResourceRestoreHoverWindow (a spawned worker would not
+   start gathering in the test runs).
+   Stand-ins (UNVERIFIED): ExchangeWindow::Show/OnTab (src/windows/ExchangeWindow.cpp, prints
+   the text) until 3e.4 part 2; the building info windows (BuildingHovers::OnBuildingClick,
+   ShowArrowAtUpgrade) for the Find arrows' callbacks; the animated CenterOn at zoom 0.4; the
+   upgradable-building purpose block (with the building upgrade window); items/professions (M4).
+   Seen while testing, not caused by 3e.4: during a placement the shop's info panel stays up and
+   the first tap (e.g. on Confirm) is taken as its outer click; "Buttons_confirm_placement.xml z
+   range exhausted" is printed because PlaceBuildingHoverWindow moves itself on top before it
+   counts as visible (the original's order, so its z is the same there).
+   Next, 3e.4 part 2: ExchangeWindow (decode 0x2abcbc..0x2af8bc; drop OnPayForDollars and the
+   dollar packs per the freemium decisions, keep OnPayForCB), then LevelUpWindow
+   (0x2f147c..0x2f3740).
 
    After 3e.4: 3e.5
    BuildingMovement (shares PlaceBuildingHoverWindow; hooks marked "3e.5"), LandWindow.

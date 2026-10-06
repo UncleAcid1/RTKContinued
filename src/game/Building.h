@@ -164,6 +164,10 @@ struct Building {
     void OnUpgraded();                           // @0x124df0
     void UpdateStorage();                        // @0x1244e4 the storage's resource piles
     void UpdateResources();                      // @0x123f50 a tree's or rock's gathered pile
+    // @0x124308: the crystal speed-up. A tree/rock hands its "speedupresources" amount to goblins at
+    // once (cut down when that empties it); a workshop's order ends now; otherwise the construction
+    // or upgrade has no work left.
+    void SpeedupBuilding();
     void HireGolbin();                           // @0x124d74 a delivery goblin from a storage
     void GetDeliveryTile(int& tx, int& ty) const;   // @0x11c5f8
     void SetupSmallFarm();                       // @0x11f498

@@ -460,6 +460,8 @@ bool Decor::CanBePlaced(bool ignoreFake) const {
     return ok;
 }
 
+void Decor::SpeedupDecoration() { collectStart = Timer::GetGlobalTime() + ~f50; }
+
 void Decor::ReplaceWith(uint32_t newId) {
     if (GameState::GetCurrentMapID() == 0 && GameData::GetBuilding(newId)) {
         // UNVERIFIED (milestone 4): Map::EnqueueBuildingPlacement(x, y, id) turns it into a building.
@@ -1010,6 +1012,29 @@ Building* GetBuildingWithID(uint32_t id) {
     for (auto& p : g_patches)
         for (auto& b : p->buildings)
             if (b->data->id == id) return b.get();
+    return nullptr;
+}
+
+Building* GetUnfinishedBuildingWithID(uint32_t id, bool upgrading) {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->id == id && (upgrading ? b->upgrading : b->needsBuilder) != 0) return b.get();
+    return nullptr;
+}
+
+Building* GetUnfinishedBuildingedWithPopulation() {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings) {
+            if (b->needsBuilder != 0 && b->data && b->data->givePopulation != 0) return b.get();
+            if (b->upgrading != 0 && b->data && b->GetNextUpgradeInfo().givePopulation != 0) return b.get();
+        }
+    return nullptr;
+}
+
+Building* GetUpgradeableBuildingWithID(uint32_t id) {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->id == id && b->IsOpened() && b->level != (int)b->data->upgrades.size()) return b.get();
     return nullptr;
 }
 

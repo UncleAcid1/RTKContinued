@@ -683,6 +683,32 @@ void Building::UpdateResources() {
     if (GameState::TutorialStep() == 0x29) pile->Appear(true, true);   // UNVERIFIED: the third argument is not set
 }
 
+void Building::SpeedupBuilding() {
+    if (data->buildingClass == 4) {
+        // The smaller of what is left and the speed-up amount (compared unsigned).
+        int n = (unsigned)resourceLeft < (unsigned)data->speedupAmount ? resourceLeft : data->speedupAmount;
+        for (int i = 0; i < n; ++i)
+            GameState::PlaceOrder(this, GetNearestStorage(this, false), 1, data->speedupResource, 0);
+        resourceLeft -= n;
+        resources[data->speedupResource] += n;
+        if (resourceLeft == 0) {
+            level = data->produceResource == 0 ? 6 : 0;   // a tree (lumber) shows its stump
+            gatherAcc = 0.0;
+            resourceState = 2;
+            UpdateImage();
+            RemoveWorker(workers[0]);
+        }
+        UpdateResources();
+        gatherAcc = 0.0;
+    } else if (data->buildingClass == 2 && contract != 0) {
+        uint32_t t = Timer::GetGlobalTime() - (uint32_t)GetContractTime(-1);
+        stateTime = t;
+        f54 = t;
+    } else {
+        buildLeft = 0.0;
+    }
+}
+
 namespace {
 // OnBuilded/OnUpgraded: a new worker (id 0 or 0x30) at the spawn tile when it is free, else at a
 // free waypoint around the building (w x h tries), else at the start tile.

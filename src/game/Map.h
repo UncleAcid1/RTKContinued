@@ -50,6 +50,8 @@ struct Decor {
     void UpdateImage();                              // +0x0c @0x134c14
     void UpdateMapLink();                            // @0x1346b8
     void ReplaceWith(uint32_t id);                   // @0x131f08
+    // @0x131284: the crystal speed-up of a decoration's job: collectStart = now + ~f50.
+    void SpeedupDecoration();
 };
 
 struct Patch {
@@ -103,6 +105,12 @@ void CreateRoadAI();                                   // @0x1bb868 the waypoint
 // resources left, or one waiting for construction or an upgrade.
 Building* GetIdleWorkplace();
 Building* GetBuildingWithID(uint32_t id);              // @0x1b6c04 (BuildingData id)
+// @0x1b6dd4: a building of that id being upgraded (upgrading) or waiting for its construction.
+Building* GetUnfinishedBuildingWithID(uint32_t id, bool upgrading);
+// @0x1b6ea0: a construction site or an upgrade that will add people (givePopulation).
+Building* GetUnfinishedBuildingedWithPopulation();
+// @0x1bad78: an opened building of that id below its last upgrade.
+Building* GetUpgradeableBuildingWithID(uint32_t id);
 int GetBuildingCount(uint32_t id, bool built);         // @0x1b7068 (built: no builder needed any more)
 int GetBuildingMaxUpgrade(uint32_t id);                // @0x1b7118 1 + the highest level of that id, 0 if none
 // @0x1ba618: the people that sites under construction (givePopulation) and upgrades in progress

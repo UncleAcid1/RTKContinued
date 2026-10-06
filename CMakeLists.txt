@@ -59,6 +59,8 @@ add_executable(rtk
   src/hud/ContentScroller.cpp
   src/hud/TopCityWindow.cpp
   src/windows/CityRenameWindow.cpp
+  src/windows/ConfirmPurchaseWindow.cpp
+  src/windows/ExchangeWindow.cpp
   src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp

@@ -1,6 +1,7 @@
 #include "hud/HoverWindows.h"
 
 #include <cmath>
+#include <cstdio>
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
@@ -457,18 +458,44 @@ void ResourceRestoreHoverWindow::SetBuilding(Map::Building* b) {
     boostItem = 0x269;
 }
 
-// The hurry button: the crystal price (or a speed-up item) is confirmed in ConfirmPurchaseWindow,
-// then the bar runs to the end in two seconds (OnSpeedUpFinished).
+// The hurry button: the crystal price (or a speed-up item) is checked (NotEnoughWindow) and
+// confirmed (ConfirmPurchaseWindow, which calls back with confirmed = true), then the bar runs to
+// the end in two seconds (OnSpeedUpFinished pays).
 void ResourceRestoreHoverWindow::OnSpeedUp(bool confirmed) {
     if (!building) return;
     if (!itemBoosts) {
-        // UNVERIFIED (milestone 3e): NotEnoughWindow checks the crystals (AdjustCrystalCost of
-        // speedupcb) and ConfirmPurchaseWindow asks first (OnSpeedUp(true) on yes); neither is
-        // ported, so the button does nothing yet.
-        (void)confirmed;
-        return;
+        unsigned cost = (unsigned)GameState::AdjustCrystalCost(building->data->speedupCb);
+        NotEnoughWindow::ResetRequirements();
+        NotEnoughWindow::AddRequirement(GameState::kCrystal, cost);
+        if (!NotEnoughWindow::CheckRequirements()) {
+            BuildingHovers::Hide();
+            NotEnoughWindow::Show();
+            return;
+        }
+        if (!confirmed) {
+            ConfirmPurchaseWindow::SetParameters([this] { OnSpeedUp(true); }, cost, false);
+            ConfirmPurchaseWindow::Show();
+            return;
+        }
+    } else if (boostItem == 0) {
+        std::printf("ERROR: BuildProgressHoverWindow::OnSpeedUp() Cannot find a speed up item type for this case");
+    } else {
+        NotEnoughWindow::ResetRequirements();
+        NotEnoughWindow::AddItemRequirement(boostItem, (unsigned)boostAmount);
+        if (!NotEnoughWindow::CheckRequirements()) {
+            BuildingHovers::Hide();
+            // UNVERIFIED (milestone 4, Items): ItemShopWindow::Show + ShowShopItem(boostItem).
+            return;
+        }
     }
-    // UNVERIFIED (Items): the speed-up item path (NotEnoughWindow item check, ItemShopWindow).
+    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_on_speedup").
+    speedT = barValue;
+    speedingUp = true;
+    hurry->SetVisibility(false);
+    hereWorks->SetVisibility(false);
+    footer->MoveWindow(0, borderH - border->h);
+    border->SetSize((unsigned)border->w, (unsigned)(borderH - hurry->h));
+    footer->MoveWindow(0, border->h - borderH);
 }
 
 void ResourceRestoreHoverWindow::OnSpeedUpFinished() {
@@ -731,32 +758,80 @@ void BuildProgressHoverWindow::FakeSpeedup() {
     speedingUp = true;
 }
 
+// The hurry button: as ResourceRestoreHoverWindow::OnSpeedUp (the confirmation is skipped away
+// from the home map); the bar then runs out in two seconds from where it stands.
 void BuildProgressHoverWindow::OnSpeedUp(bool confirmed) {
-    // UNVERIFIED (milestone 3e): NotEnoughWindow checks the crystals (or the speed-up item, with
-    // ItemShopWindow) and ConfirmPurchaseWindow asks first, calling OnSpeedUp(true) on yes; then the
-    // bar runs out in two seconds (speedT from 1 - left) and OnSpeedUpFinished pays and completes.
-    // Without those dialogs the button does nothing yet.
-    (void)confirmed;
+    if (!itemBoosts) {
+        NotEnoughWindow::ResetRequirements();
+        NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)GetSpeedUpCost());
+        if (!NotEnoughWindow::CheckRequirements()) {
+            BuildingHovers::Hide();
+            NotEnoughWindow::Show();
+            return;
+        }
+        if (!confirmed) {
+            ConfirmPurchaseWindow::SetParameters([this] { OnSpeedUp(true); }, (unsigned)GetSpeedUpCost(),
+                                                 GameState::GetCurrentMapID() != 0);
+            ConfirmPurchaseWindow::Show();
+            return;
+        }
+    } else if (boostItem == 0) {
+        std::printf("ERROR: BuildProgressHoverWindow::OnSpeedUp() Cannot find a speed up item type for this case");
+    } else {
+        NotEnoughWindow::ResetRequirements();
+        NotEnoughWindow::AddItemRequirement(boostItem, (unsigned)boostAmount);
+        if (!NotEnoughWindow::CheckRequirements()) {
+            BuildingHovers::Hide();
+            // UNVERIFIED (milestone 4, Items): ItemShopWindow::Show + ShowShopItem(boostItem).
+            return;
+        }
+    }
+    int step = GameState::TutorialStep();
+    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_on_speedup") unless at steps 0x3b, 0x1f.
+    speedT = 1.f - left;
+    speedingUp = true;
+    fake = false;
+    if (step == 0x1f || step == 0x3b || step == 0x54 || step == 0x5f) {
+        GUI::SetInteractionLock(true);
+        BuildingHovers::HideArrow();
+        // UNVERIFIED (milestone 4): at 0x1f and 0x5f BuildingHovers::HideWorldDialog(nullptr) too.
+    }
 }
 
 void BuildProgressHoverWindow::OnSpeedUpFinished() {
-    // UNVERIFIED (tutorial): steps 0x1f, 0x3b, 0x54 and 0x5f advance here.
+    int& step = GameState::tutorial;
+    if (step == 0x1f) {
+        step = 0x20;
+    } else if (step == 0x3b) {
+        step = 0x3c;
+    } else if (step == 0x54) {
+        // UNVERIFIED: the animated CenterOn at zoom 0.4 (the port's is instant).
+        Render::CenterOn(building->baseX, (building->maxY + building->minY) * 0.5f);
+        BuildingHovers::Hide();
+        step = 0x55;
+    } else if (step == 0x5f) {
+        GUI::SetInteractionLock(true);
+    }
     fake = false;
     speedingUp = false;
     int cost = GetSpeedUpCost();
     if (building) {
         if (!itemBoosts) GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
-        // UNVERIFIED (Items): with item boosts GameState::RemoveItem(boostItem, boostAmount).
-        // Billing::LogCBPurchase: online logging, not ported.
+        else GameState::RemoveItem(boostItem, boostAmount);
         Map::Building* b = building;
         if (b->upgrading == 0 && b->needsBuilder == 0 && b->data->buildingClass == 2 && b->HasActiveContract()) {
-            // UNVERIFIED (Tasks): Tasks::CompleteSubtask(0xf, contract - 1 + delivery id * 10).
+            // Billing::LogCBPurchase: online logging, not ported.
+            // UNVERIFIED (Tasks): Tasks::CompleteSubtask(0xf, contract - 1 + delivery id * 10, 1).
             b->contractDone = true;
             b->OnContractCompleted(false);
         } else {
-            // UNVERIFIED (milestone 3e): Building::SpeedupBuilding @? finishes the construction or
-            // upgrade; it comes with the speed-up purchase.
+            b->SpeedupBuilding();
         }
+    }
+    if (decor) {
+        if (!itemBoosts) GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
+        else GameState::RemoveItem(boostItem, boostAmount);
+        decor->SpeedupDecoration();
     }
     BuildingHovers::Hide();
     if (shownHover) Hide();

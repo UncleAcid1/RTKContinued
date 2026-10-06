@@ -1,9 +1,11 @@
 # 3e.4 decode notes: NotEnoughWindow dialog, ConfirmPurchaseWindow, speed-up
 
-Read from the decompile/asm of libkingdom.so 5.11. No 3e.4 code has been written yet. The
-requirement half of NotEnoughWindow (Add*/CheckRequirements) is already ported, in
-src/windows/NotEnoughWindow.cpp. The dialog functions there (SetDescriptionText,
-SetActionCallback, Show, Hide) are still stand-ins.
+Read from the decompile/asm of libkingdom.so 5.11. Ported in 3e.4 part 1 (see STATUS.md):
+ConfirmPurchaseWindow, the NotEnoughWindow dialog and the speed-up hooks. Corrections found
+while porting: SpeedupBuilding's +0x184 is BuildingData::produceResource (a tree, lumber 0,
+gets level 6), not produceAmount; the Find arrow callbacks use the screen point of
+(minX +0x28, minY +0x38) and ArrowAt(baseX, minY +0x38) (port field names); ToWideString(format,
+...) @0x22df6c formats into 4 rotating 0x80-character buffers.
 
 Dump the functions again with:
 `tools/fn.sh '^NotEnoughWindow::' | python3 tools/picsym.py | python3 tools/picvar.py`

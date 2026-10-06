@@ -221,7 +221,9 @@ int main(int argc, char** argv) {
     BuildingHovers::Queue();
     CastleTopWindow::Queue();
     CityRenameWindow::Queue();
+    ConfirmPurchaseWindow::Queue();
     HUDWindow::Queue();
+    NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();
     PopupWindow::Queue();
     SettingsWindow::Queue();

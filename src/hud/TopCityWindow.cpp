@@ -57,6 +57,8 @@ std::u32string ToWide(long long v) {
     return std::u32string(s.begin(), s.end());
 }
 
+}  // namespace
+
 // @0x365908. The leftmost 30 pixels of the bar never take clicks; while a dialog is open over the
 // bar (bar at depth 0.01) its lowest 40 pixels do not either. UNVERIFIED (later milestones): with
 // the shop or screenshot window open or BuildingMovement/BuildingPlacement active the bar only
@@ -77,6 +79,8 @@ bool Click(int x, int y, bool pressed) {
     if (shrunk) g_root->h += 0x28;
     return r;
 }
+
+namespace {
 
 // @0x3658ec
 void Move(int x, int y) { g_res.scroller.Move(x, y); }

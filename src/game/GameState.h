@@ -59,6 +59,9 @@ void SetCastleName(const char32_t* name);      // @0x191e34
 int TutorialStep();
 int SecondTutorialStep();                      // GameState::secondTutorial
 bool IsCityTutorial();                         // @0x190af4
+// @0x190f90: a combat whose type (vfunc +0x50) is above 2 is running. UNVERIFIED (milestone 4): no
+// combats are ported (GameState::currentCombat is always null), so it is false.
+inline bool IsBossCombatActive() { return false; }
 bool IsTameTutorial();                         // @0x190bb4
 // @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.
 bool IsPvPTutorial();

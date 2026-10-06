@@ -1,9 +1,11 @@
 // Game dialogs (the windows beyond the HUD). Each is a set of static functions behind a
 // WindowManager::FunctionalWindow, as on the original.
 #pragma once
+#include <cstdint>
 #include <functional>
 
 namespace WindowManager { class FunctionalWindow; }
+namespace Map { struct Building; }
 
 namespace CityRenameWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CityRenameWindow" (_INIT_ 0x298ffc)
@@ -55,24 +57,56 @@ void Hide();                                // @0x3479b8
 // @0x346dd4: the left edge of the shop's info panel (its offset 0x62d6e8 + the screen width - the
 // panel's width).
 int GetInfoPanelX();
+void OnTabSelect(unsigned i);               // @0x34d570 the tab at index i
 void OnSelectItemID(unsigned id);           // @0x34d67c open the tab holding building `id`
 void ShowArrowOnItem(unsigned id);          // @0x34bd24 the helper arrow on that building's cell
 void ShowBestOfTab(unsigned type);          // @0x34d99c
 }
 
-// The "not enough resources" dialog (3e.4). The requirements are ported; the dialog is not yet.
+// "Spend n crystals?" before a crystal purchase.
+namespace ConfirmPurchaseWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ConfirmPurchaseWindow" (_INIT_ 0x299a00)
+void Init();                                // @0x29a034
+void Deinit();                              // @0x299fb8
+// @0x2999ac: the purchase (run on OK, once the dialog is gone), its price; skip runs it without asking.
+void SetParameters(std::function<void()> cb, unsigned price, bool skip);
+void Show();                                // @0x299e4c
+void Hide();                                // @0x299f20
+bool IsVisible();                           // @0x299964
+}
+
+// The crystal/gold exchange. UNVERIFIED stand-ins (3e.4, until ExchangeWindow is ported): Show
+// does nothing, OnTab prints its text.
+namespace ExchangeWindow {
+void Show();                                // @0x2af0ec
+void OnTab(unsigned tab, const char32_t* text);   // @0x2aed8c tab 0 gold, 1 crystals
+}
+
+// The "not enough" dialog: the missing requirements, Find buttons and "Buy all" for crystals.
 namespace NotEnoughWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "NotEnoughWindow" (_INIT_ 0x2f6f1c)
+void Init();                                // @0x2fd9a4
+void Deinit();                              // @0x2f7810
+bool IsVisible();                           // @0x2f6ce8
 void ResetRequirements();                   // @0x2f6cfc
 void AddRequirement(int type, unsigned amount);   // @0x2f6ea4 a resource amount needed
 void AddLevelRequirement(unsigned level);         // @0x2f6ebc
+void AddReputationRequirement(unsigned profession, unsigned level);   // @0x2f6ed0 (milestone 4)
 void AddPopulaionRequirement(unsigned people);    // @0x2f6ee8 free people needed (sic)
+void AddItemRequirement(unsigned id, unsigned count);            // @0x2f87bc (milestone 4)
+void AddBuildingCountRequirement(unsigned id, unsigned count);   // @0x2f8948
 void AddBuildingLevelRequirement(unsigned id, unsigned level);   // @0x2f8ad4
-void SetExchangeLimit(unsigned limit);            // @0x2f6efc
+void SetExchangeLimit(unsigned limit);            // @0x2f6efc the most Buy all may cost
+void SetLevelFailMessage(const char32_t* text);   // @0x2f6dd0 replaces "SHOP_UNLOCK"
+void SetGoldFailMesage(const char32_t* text);     // @0x2f6de4 replaces "NO_GOLD" (sic)
+void SetUpgradableBuilding(Map::Building* b);     // @0x2f6df8
+void SetItemToProduce(uint32_t item, uint32_t amount, float x, float y);   // @0x2f6e0c (milestone 4)
 // @0x2f8c60: true when nothing is missing. UNVERIFIED (milestone 4): the profession requirement.
 bool CheckRequirements();
-// UNVERIFIED stand-ins (3e.4): the dialog. Show prints the shortfall.
 void SetDescriptionText(const char32_t* text, const char32_t* title);   // @0x2f7134
-void SetActionCallback(std::function<void()> cb, const char32_t* text, bool arg);   // @0x2f6e2c
+void SetActionCallback(std::function<void()> cb, const char32_t* text, bool flag);   // @0x2f6e2c
+void UpdateContents();                      // @0x2f8ecc
 void Show();                                // @0x2fc7f8
 void Hide();                                // @0x2f73f4
+void RunLastHelpItem();                     // @0x2f8790
 }
