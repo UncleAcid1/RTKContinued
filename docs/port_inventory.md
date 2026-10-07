@@ -10,6 +10,73 @@ is unplaced.
 Milestone numbers below follow the proposed layout (section 1). Numbers like `12/40` are
 ported/total functions at the time of writing.
 
+## 0. Per-function coverage (added 2026-10-07, before 4b.4)
+
+The class-level placement below is now backed by a per-function plan. `python3 tools/inventory.py`
+groups all 7,846 game functions (library code and container templates left out) and counts one as
+ported when src/ carries its `// @0xADDR` (or names its `FUN_xxxxxxxx` in a comment). Every
+unported function is placed in a step by the rules in `tools/port_plan.txt` (first match wins):
+
+| Flag | Shows |
+|---|---|
+| `--steps` | unported functions per step (and plan rules that match nothing) |
+| `--functions [STEP]` | every unported function with its step |
+| `--unplanned` | functions no rule places: must stay empty |
+| `--holes` | unported functions that ported code calls (stand-ins, inlined or missing work) |
+| `--unmarked` | unported names that src/ defines anyway: likely ported without the `@0x` marker (a hint: two false positives, `ArenaEventWindow`/`CampaignInfoWindow::ButtonInfo::LoadFrom`) |
+| `--trace` | the unnamed functions with their owner and the evidence |
+
+Unnamed functions (474 game ones: `FUN_`, `_INIT_`) are traced by `tools/funtrace.py`: 178 by their
+callers or the code taking their address, 259 static initialisers (listed in `.init_array`; they
+belong to the source file before them), 36 by the named code around them; only the loader stub
+`entry` stays unattributed. No unnamed function sits in an exported vtable (every virtual is named).
+Callback-object factories (`new GUI::ClassCallback...`) are tagged and counted as implicit.
+
+Counts on 2026-10-07 (1,954 ported, 5,892 unported):
+
+| Step | Unported | What |
+|---|---|---|
+| 4b.4 | 141 | the item windows |
+| 4b.5 | 334 | **new**: holes in finished work found by this pass (below) |
+| 4c / 4d / 4e / 4f / 4g / 4h | 152 / 197 / 104 / 335 / 550 / 62 | as planned in section 3 |
+| 5 / 6 / 7 | 1,241 / 114 / 185 | as planned in sections 4-6 |
+| online | 1,336 | dormant stubs (section 7) |
+| removed | 60 | real-money paths |
+| dead | 48 | no caller and no address taken in 5.11 (FarmGrowHoverWindow, AI::GetShortPathFrom & co., BuildingHovers' invest/collect-all set, ExchangeWindow's unused getters ...) |
+| implicit | 987 | constructors, destructors, static initialisers, callback factories, Deinit/Free, empty base virtuals |
+| util | 59 | string/hash/Splitter helpers replaced by the C++ library |
+| lib | 2 | `entry`, an SDL helper |
+
+### 4b.5: holes in finished work (closed after 4b.4, before 4c)
+
+Real gaps (behaviour the port lacks or stands in for):
+- **Startup and shutdown**: the splash screens (`Game::splashLoop`, `showBackground`,
+  `hideBackground`, `showKoreanLogo`), `Game::LoadLanguageTable`, `LoadSystemConfiguration`,
+  `LoadEntityFactoryData`, `main_Loop_BeforeInit`, `main_Exit_Func` and `RepeatedMain`;
+  `main_Loop_Init`/`main_Loop_Func` are partly in src/main.cpp with no `@0x` markers.
+  `ReloadSavedGame`, `OnResume`, `MainExitNoSave`, `OnRestartGame`/`OnShowRestartGame`,
+  `OnSystemErrorOK/Cancel`, `LanguageSelect/Decline`, `turnMusic`, `UpdateTagState`,
+  `GameState::InitDefaultSettings`/`Clean`/`CleanBeforeLoading`, `Contracts::InitSpecial`,
+  `Map::BuildingDeinit`/`DecorDeinit`.
+- **Every frame**: `Background::Update` (the horizon strips' parallax, from Map::Update),
+  `Map::PrepareImages` + `Map::UpdateNotifications` (the city's ambient birds, images/bird/),
+  `GameState::Update`, `GameState::UpdateNotifications`, `EntityManager::RemoveEntitiesByID`
+  (Map::Update), `BuildingHovers::MoveWindowDown` (the HUD return of the KNOWN BUG),
+  `BuildingHovers::SetArrowAlpha` (PopupWindow), `BuildingHovers::HideWorldDialog`.
+- **Economy**: `Map::GetTotalStorageLimit` (TopCityWindow's stand-in), `Map::UpdateStorages`
+  (ChangeResourceAmount's stand-in), `Map::GetAreaByID` and `ShopWindow::FillPatches`, GameState's
+  building counts and limits (`AddBulding`, `RemoveBuilding`, `GetBuildingCount`,
+  `ExtendBuildingLimit`), the unique-ID checks (`Map::AssignUniqueIDs`/`CheckUniqueIDs`), the
+  random-decoration entry points (`Map::CreateRandomDecors`, `AddPatches`, `AddOnePatch`,
+  `AddRandomDecorations`; the port reaches Patch::AddRandomDecors its own way), `Map::UpdateResources`.
+
+Verify and mark (about 200): helpers that ported code calls, ported inline or without a marker:
+renderer internals (layers, shaders, textures, atlases: the SDL3/OpenGL renderer stands in; mark
+what it follows, record the rest as PORT), RegisterBinaryUI's helpers, WindowManager's
+FunctionalWindow virtuals, Resources lookups, SaveChunk/GetData readers, StringTable helpers,
+AnimationController getters, Entity/EntityManager accessors, the `FUN_` helpers of ported classes,
+and the `--unmarked` list (e.g. `GameState::Reset`, `FileManager::LoadFile`, `Render::Init`).
+
 ## 1. Milestone layout
 
 | # | Milestone | Status |
@@ -17,7 +84,7 @@ ported/total functions at the time of writing.
 | 1 | Map rendering | done |
 | 2 | GUI, input, dialogs | done |
 | 3 | City economy (buildings, workers, shop, farms, saves) | done |
-| 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial (4a-4h) | in progress (4a.1 done) |
+| 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial (4a-4h) | in progress (4a, 4b.1-4b.3 done; 4b.5 added) |
 | 5 | The rest of the game: spells, boss/siege fights, global map, hire/heal army, item shop, chests, crafting, collections, sets, tavern, daily bonus, events, arena and the offline replacements of the online features | planned |
 | 6 | Sound and effects (music, SFX, particles, screen effects) | planned |
 | 7 | Mac release and polish (settings persistence, .app, Retina, playthrough check) | planned |
@@ -86,6 +153,7 @@ Partly ported, with the rest in these milestones:
   UseItemHoverWindow, FoundItemsWindow, NeedItemWindow, CharacterInfoWindow (equipment, stats),
   PlayerInfoWindow, PlayerNameHoverWindow, BuildingHovers::ItemDrop's item kind,
   Map::ItemPlaceContinuation.
+- **4b.5 holes in finished work**: see section 0 (found by the per-function pass).
 - **4c quest engine**: MetaExpression (the parser is in 4b.1), Tasks (+TaskInfo, TaskSubtask), tasks.xml, Tags (ported in 4b.1),
   Override, Bonus (check: task/level bonuses), the task events in Entity/EntityManager/Map.
 - **4d quest UI**: TaskHolderWindow (+QuickTaskWindow), TaskInfoWindow, TaskCompleteWindow,

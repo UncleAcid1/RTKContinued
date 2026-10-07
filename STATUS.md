@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 4b.3 done; next 4b.4) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, coverage pass done; next 4b.4, then 4b.5) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -289,8 +289,24 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    level, gold and 3 cookies needed shows the item line and "Buy Donut 5", tapping it takes 5 of 50
    crystals and drops a donut; the shop's Bakery shows its five products; city, reload and a real
    save load as before.
+   COVERAGE PASS DONE (before 4b.4): tools/inventory.py is per function now. Every unported game
+   function has a step from tools/port_plan.txt (`--steps`, `--functions STEP`, `--unplanned` must
+   stay empty, `--holes`, `--unmarked`, `--trace`); tools/funtrace.py traces the unnamed functions
+   (callers/address taken, .init_array static initialisers, neighbouring code; none sit in vtables).
+   Details and counts: docs/port_inventory.md section 0. It found a new step, 4b.5 (after 4b.4,
+   before 4c): holes in finished work. Real gaps: the splash screens, Game::LoadLanguageTable /
+   LoadSystemConfiguration / main_Exit_Func (main_Loop_Init/Func are partly in main.cpp without
+   markers), ReloadSavedGame / OnResume / MainExitNoSave and the restart/error/language callbacks,
+   Background::Update (the horizon parallax), Map::PrepareImages / UpdateNotifications (birds),
+   GameState::Update / UpdateNotifications, EntityManager::RemoveEntitiesByID, BuildingHovers::
+   MoveWindowDown (the KNOWN BUG's HUD return) / SetArrowAlpha / HideWorldDialog, Map::
+   GetTotalStorageLimit / UpdateStorages (stand-ins), GetAreaByID, ShopWindow::FillPatches, GameState
+   building counts/limits, the unique-ID checks. The rest of 4b.5 (~200) is "verify and mark":
+   helpers ported inline or without their `// @0x` (e.g. GameState::Reset, Render::Init,
+   FileManager::LoadFile, RegisterBinaryUI's helpers, FunctionalWindow's virtuals); renderer
+   internals get a marker where followed, else a PORT note.
    NEXT: milestone 4, step 4b.4 (the item windows: ItemHoverWindow, UseItemHoverWindow,
-   FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder).
+   FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder), then 4b.5.
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
@@ -383,8 +399,10 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
   how it should work offline before porting it.
 
 **How to work.**
-- Plan coverage: docs/port_inventory.md places every class of the binary in a milestone. After a
-  step, `python3 tools/inventory.py` and make sure nothing new is unplaced.
+- Plan coverage: docs/port_inventory.md places every class in a milestone and tools/port_plan.txt
+  every function in a step. After a step: `python3 tools/inventory.py --unplanned` (must print
+  nothing) and `--steps`; when a step's functions are done its count drops. New work found while
+  porting gets a rule in port_plan.txt.
 - Decompile: `tools/fn.sh 'regex' | python3 tools/picsym.py`; asm in `out/asm_all.txt`;
   `tools/elfread.py` rd/u32/cstr (Ghidra addresses). PIC globals: value = u32(DAT_lit) + constant
   shown by Ghidra (no +0x10000); GOT slots: `u32(picsym.GOT[0] + u32(DAT))`. A scratch resolver
@@ -423,14 +441,11 @@ sets tutorial 0x100).
   designed, not recovered.
 - The user cannot run the original; they can describe how it behaved. Ask them when behaviour is
   ambiguous in the code.
-- Work stays in milestone order (4b.4, 4c, ... 4h).
+- Work stays in milestone order (4b.4, 4b.5, 4c, ... 4h).
 - Defaults kept where unanswered: original quirks/bugs stay; saves stay in the original format;
   death/revive, quick-complete and the item shop stay, paid with earned crystals; the Settings bug
   is revisited after 4c.
-- Planned before 4b.4: a per-function coverage pass (tools/inventory.py: every unported game
-  function tagged with its step; unnamed functions traced through callbacks/vtables). Found gaps so
-  far: the city's ambient birds (Map::PrepareImages / UpdateNotifications, images/bird/), the splash
-  screens and Game::LoadLanguageTable, ReloadSavedGame / OnResume / MainExitNoSave.
+- The per-function coverage pass asked for before 4b.4 is done (2026-10-07); its gaps are step 4b.5.
 
 ## Goal
 A native, open-source C++ port of Rule the Kingdom (Game Insight, 2012–2014). It has to match the original
@@ -615,7 +630,8 @@ Milestones:
               GetSummaryEffectsValue / CanApplyItemEffect, Entity stat getters). 4b.3 (done): item drops
               (ItemDrop item kind, Map::ItemPlaceContinuation), items in the shop's producing lines
               and factory boosts. 4b.4: the item windows (ItemHoverWindow, UseItemHoverWindow,
-              FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder).
+              FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder). 4b.5: holes in finished
+              work from the coverage pass (docs/port_inventory.md section 0).
        4c [ ] quests core: MetaExpression's quest/map parts, tasks.xml (Tasks, TaskInfo, TaskSubtask),
               task state in the save (chunks already kept), progress events (the OnTaskStarted/
               OnSubTaskCompleted/OnTaskCompleted/OnTagUpdate hooks in Entity/EntityManager/Map),

@@ -1,0 +1,224 @@
+# Port plan per function: `step  regex  # note`. First match wins; matched against `Class::Method`
+# (nested classes included), a free function's name, or `Owner::FUN_xxxxxxxx [(callback)|(static-init)]`
+# for unnamed functions (owner traced by tools/funtrace.py). `python3 tools/inventory.py --unplanned`
+# lists every unported function no rule places; `--steps` counts them per step.
+#
+# Steps: 4b.4 .. 4h, 5, 6, 7 = milestone steps (STATUS.md). 4b.5 = holes in finished work found by the
+# coverage pass (closed after 4b.4, before 4c). online = ported later as a dormant stub (project
+# decision). removed = real money (freemium removal). dead = nothing reaches it in 5.11.
+# implicit = constructors, destructors, static initialisers, callback-object factories, allocators:
+# the port's own class definitions and globals carry them (field defaults are read with the class).
+# util = string/hash/parse helpers the port replaces with the C++ library or ports with a caller.
+
+# ---- 4b.4: the item windows ------------------------------------------------------------------
+4b.4  ^ItemHoverWindow::
+4b.4  ^UseItemHoverWindow::
+4b.4  ^FoundItemsWindow::
+4b.4  ^NeedItemWindow::
+4b.4  ^Items::GetItemOffsetInHolder
+4b.4  ^Items::FUN_001af000   # GetItemOffsetInHolder's table helper (static init caller)
+4b.4  ^Items::FUN_001afa68
+4b.4  ^GetProbabilityString$   # ItemHoverWindow's drop chances
+4b.4  ^GetChanceString$
+4b.4  ^Map::Decor::ShowUseItemHover   # opens UseItemHoverWindow
+4b.4  ^Shared::(ItemHolder|ItemIconHolder)::
+
+# ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
+4b.5  ^(FileManager::LoadFile|Map::Free|MetaExpression::OnApplyItemEffect|BattleBarWindow::Update|HUDWindow::(OnFindTask|OnFarmTimer)|TaskHolderWindow::QuickTaskWindow::(Init|Update)|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::Building::LaunchContract|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|EntityManager::SpawnEntityAt|GameState::Reset|GUI::Window::SetOnClick)$
+
+# ---- online and removed first, so their constructors stay with them --------------------------
+online  ^(CMyServer|CConnection|CGZIP2AT|NeighboursServer|NeighboursServerNS|Neighbours|MyNeighbours|MyFacebook|SocNets|SocialConnectWindow|FacebookSyncWindow|VisitFriendWindow|FriendInfoHoverWindow|SelectFriendsWindow|Window_switch_profiles|WallPost|ViralFeatures|OG|OG2|ServerFlags|CouponEntryWindow|CouponGetWindow|CouponSetWindow|DownloadManager|AsyncImageLoader|LoadingInternetWindow|ToS|Save|PlayerCompetitionWindow)::
+removed  ^(Billing|CMyPayment_CBMoneyLog|CMyPayment_PurchaseLog|CMyPayment_PurchaseLogRecord|CBMoneyLogRecord)::
+removed  ^ExchangeWindow::(OnPayForDollarsYES|GetRealCost|GetProductDataForIndex|GetGemItemIDChange)   # the dollar packs
+online  ^(Expansions|ExpansionDownloadWindow)::   # the port reads every pack from disk
+online  ^(Cmd(Sync|GetServer|SetServer|GetMySave|SendMySave|SetConnectionDelay|SetInetrnetOnOff|OfflineAllow|ToggleSyncMode|VisitPlayer|ApplyDiff|MinifySave|DiffSaves|BatchCompareSaves|LoadSaveGid|ActionFromBlog)|ContextServerType)
+online  ^(AsyncRequestRunner|FB_Socnet\w+|PutFacebookPictureInHolder|ServerEncode|ServerDecode|ServerMessageOk|UpdateFacebookQuestion|UpdateGetSave|UpdateSendSave|CheckExpansion|UpdateExpansionRequired|OnShowInstallUpgrade|OnInstallUpgrade|OnInstallUpgradeCancel|OnOpenUpgrade|OnShowFailedUpgrade|CanShowOffers|OnToS|CommonSetAction|CommonSetFlags|CommonFullPauseEvent|SortByValor|SortByTimeAgo|SortByName|SetMonetaryThousandsDelimeter)$
+online  ^free:(SortBy|CommonSet)
+online  ^GameState::(Send|GetServer|SetServer|IsServerSettingSet|GetOnlineExtra|GetFacebookConnection|SetFacebookConnection|GetTwitterConnection|SetTwitterConnection|IsNeighboursEnabled|SetNeighboursEnabled|GoHomeFromFriend|VisitFriendCity|ParsePvPData|SavePvPSave|GetPvPRefreshTime|SetPvPRefreshTime|UpdateServerFlags|GetMainExpansion|SetMainExpansion|GetPlayerExtraExpansion|GetPlayerMainExpansionVersion|GetPlayerPatchExpansionVersion|GetVFC|IsDailyChestRequestProcessing|SendDailyChestRequest|IsPurchaseActive|SetPurchaseActive|UpdatePaymentItems|AddItemPayment|GetGameMapVersion|GetMapVersion|SetMapVersion)
+online  ^Map::SaveOnline
+online  ^SaveManager::(ApplyBlockDiff|ApplySaveDiff|DuplicateBlock|GetDifference|GetGameStateDataFromSave|GetMapDataFromLoadedSave|MinifyBlock|MinifySave|QueueSendSave|SaveOnlineSave|SavePvPSave|SetEnableSavePing|SetSaveDelay|SetSavePeriod|SetSendSavePeriod|SaveData::)
+online  ^SystemFuncs::(FB|GetFBToken|IsConnectedTo|LikeGame|Log|LoginTo|LogoutFromFB|OpenFAQ|OpenMarketURL|OpenSupport|RateGame|SendPaymentDataToServer|SetProcessPayments|ShowConnectionError|ShowToSPP|callExternalBrowser|geUniqFBID|getDeviceToken|getEmails|getGCID|getGID|getPushID|getReferral|getSID|getSecret|getUniqueIDs|launchApp|showGPGS|signInGPGS|signOutGPGS|IsAppInstalled|SetGUID|getPlatformForServer|getPlatformJailbreak|getDeviceExtendedInfo)
+online  ^FileManager::(Billing|Blog|Coupon|Facebook|FlowGameCurrency|GetChestContents|GetFriendMap|GetServerUpdate|LogAndroid|LogCBPurchase|MakeFBRequest|MoreGamesRequest|NotifyTutorialStep|OnAmazonAchievements|OnFacebookToggle|OnItemBought|OnKoreanMoreGames|OnLevelUpEvent|OnTwitterToggle|PayForItem|PostImage|PushNotification|Send|SetChapterNow|SetFlagStage|ShowOffers|ToggleStatEvent|UpdateFriend|CheckDailyBonusAvailability|JNI_|RegisterExpansionFile|RemoveExpansionFile|ValidateExpansionFile|DoesExpansionFileExist|EnumExpansionFileInfo|GetExpansionCount|GetExpansionFileInfo|SetGameState|SetLastLoadedCity|AddResetCount|GameLoaded|ResaveVersion|DebugUpdate|BlobFileDescriptor|RegisterBlob|DataHash|FileDataHash)
+online  ^SettingsWindow::(GetFacebook|SetFacebook|ToggleFacebook|GetTwitter|SetTwitter|ToggleTwitter|OnGameCenter|OnGames|OnInvite)
+online  ^(LevelUpWindow|LandExpandedWindow)::OnFacebookToggle   # the share toggle is not offered (PORT)
+online  ^Shared::ShareButtonsHolder::
+online  ^CastleTopWindow::(OnFriends|OnFindPlayer|UpdateGICounter)
+online  ^HUDWindow::(ToggleInternet|UpdateInternet)
+online  ^EntityManager::(GetFriendPlayer|MarkVisitigFriend)
+online  ^(Items|Contracts|Tags|EntityFactory)::(Change\w*Attribute|ChangeItemsOf|SetTransactionTime|GetTransactionTime)   # server patches of the data (4b.1)
+online  ^Items::FUN_001ad364   # the server attribute tables' static init
+
+# ---- implicit ----------------------------------------------------------------------------------
+implicit  \((callback|static-init)\)$
+implicit  (^|::)(\w+)::~?\2$   # constructors and destructors
+implicit  ::operator\.(new|delete)$
+implicit  ::operator=$
+implicit  ::(Deinit|Destroy|DeinitWindows|Free)$   # shutdown: the process exits; resources are released by the port's objects
+implicit  ^GUI::GetWindowTyped
+
+# ---- utility helpers ----------------------------------------------------------------------------
+util  ^(StringCompare|StringInsensitiveCompare|StringInsensitiveHash|StringPrefixInsensitiveCompare|ToLower|ToStdString|ToString|WCSChr|WCSCmp|WCSCpy|WCSLen|SimpleDuplicateString|DuplicateString|lerp|randf|log_printf|SaveBytes|SaveChar|SaveShort|SaveUnsigned|IsArg|GetJPGSize|GetPNGSize|ComputeSpriteCoords)$
+util  ^(Splitter|WSplitter|StringHelper|ClearPointerVector|BRand)::
+util  ^(GUI|Resources)::DuplicateString$
+util  ^SaveManager::SaveChunk::(SaveBytes|SaveChar|SaveShort|SaveUnsigned|LoadChar|LoadShort|LoadUnsigned|HasData|IsValid|Restart)$
+util  ^SystemFuncs::(IntToStr|ReplaceString|TrimSpaces|utf8ToWChar|wcharToUtf8)$
+
+# ---- 4c: quest engine ---------------------------------------------------------------------------
+4c  ^(Tasks|Override|Bonus)::
+4c  ^MetaExpression::
+4c  ^MetaData::
+4c  ^GameState::(AddAutocompleteTask|AddAutoresetTask|AddSubTask|CompleteTask|ResetTask|StartTask|SubTaskCompleted|GetSubTaskDone|SetSubTaskDone|GetTaskEndTime|SetTaskEndTime|GetTaskShowTime|SetTaskShowTime|SetTaskBeginTime|GetCustomSubTaskRequrement|SetCustomSubTaskRequrement|TryToHelpWithTask|GetGemStepMessage|SetGemStepMessage|ShowGemBonusMessage)$
+4c  ::(OnTaskStarted|OnSubTaskCompleted|OnTaskCompleted|OnTagUpdate|OnInteract|ExecuteStaticMeta)$
+4c  ^Map::Decor::(GetStartQuestID|GetEndQuestID|OnSetup)$
+4c  ^Map::(PrepareDecorationsForSetup|GetEndQuestTileLocation)$
+4c  ^Entity::(GetMetaExpression|SetForeignMetaExpression|ExecutePvPSpawnMeta)$
+4c  ^(CmdAddSubtask|CmdCompleteTask|CmdResetTask|CmdShowTask|CmdStartTask|ContextTask|CmdTagActivate|CmdTagDeactivate|CmdTagsPrint|ContextTag)$   # EditorConsole commands: admin mode (5), they need Tasks/Tags
+
+# ---- 4d: quest UI -------------------------------------------------------------------------------
+4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::
+4d  ^Shared::TaskWindow::
+4d  ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)
+4d  ^GameState::(GetFeaturedTaskClickTime|SetFeaturedTaskClickTime|IsFeaturedTaskClicked)$
+4d  ^HUDWindow::(OnFindTask|RemoveTaskArrows|SetTaskLocaterIcon|ShowTaskLocaterTo|UpdateTaskLocator|UpdateTasks|SetQuickLocatorForce|UpdatePlayerLocator|HideLocators)$
+4d  ^BattleBarWindow::(HideAllTasks|OnAllTasks|ShowAllTasks)$
+4d  ^BuildingHovers::(HideWorldDialogByTask)$
+4d  ::ExecuteFirstHelp$   # the help arrows each window raises for the current task
+4d  ^(BuildProgressHoverWindow::HelpWithSpeedUp|NotEnoughWindow::ExecuteFirstHelp)$
+
+# ---- 4e: decoration jobs ------------------------------------------------------------------------
+4e  ^(DecorAnimController|BuildingAnimController|CallbackAssignWorker)::
+4e  ^Map::Decor::
+4e  ^AIPlayer::(AssignToJob|ClickedDecoration|GetBestDecorationActionPoint|RemoveFromJob|SearchDecoration|SendGoblinToWork|PlayBuffAnimation)$
+4e  ^AIBaseState::(AssignToJob|AutoInteraction|CancelWork|ClickedDecoration|IsWorking|RemoveFromJob|SearchDecoration|StartTraining|TryToInterruptJob|ResetOrder)$
+4e  ^Map::(GetBlockingDecoration|GetDecorationThatIsReplacedWith|GetDecorationToClick|GetDecorationToInteract|GetDecorationWithAnyDrop|GetDecorationWithAnyInteraction|GetDecorationWithDrop|GetNearestFilteredDecoration|GetTriggeredDecoration|RemoveBlockedTiles|RestoreBlockedTiles|RemoveHoldOfEntities|StoreDecorationInfo|RestoreDecorationInfo)$
+4e  ^TargetedAI::GetClosestReachableWPToDecor$
+4e  ^BuildingHovers::(FollowDecor|HideArrowOnDecor|OnFreeWorkerAssignDecoration|AllowDecorClickInBattleOnce)$
+4e  ^Entity::IsDecorInRange$
+
+# ---- 4f: campaign maps --------------------------------------------------------------------------
+4f  ^(Locations|SpawnPoint|Portal|Fog|PersonHoverWindow|TalkHoverWindow|TapHoverWindow|HintHoverWindow|WorldHintHoverWindow|PlayerHintHoverWindow|AIEnemy|EventManager|ChoosePathWindow|CampaignInfoWindow|CampaignCompleteWindow|CampaignPerfectedWindow|ChapterWindow|LoadingScreenWindow)::
+4f  ^ParseLocation\w+$
+4f  ^Map::(Person::|PersonData::|AddFog|ClearFog|RemoveFog|ToggleFogRender|StoreFogInfo|RestoreFogInfo|LoadPortals|SavePortals|LinkPortals|GetPortalToMap|LoadSpawnPoints|SaveSpawnPoints|StoreSpawnpointInfo|RestoreSpawnpointInfo|GetSpawnByIndex|GetSpawnPointAt|LoadPersonList|PersonsDeinit|GetPersonData|GetRandomPersonData|PlayerDefaultSpawn|PlayerNextSpawn|StorePlayerPosition|RestorePlayerPosition|GetLastPlayerX|GetLastPlayerY|EnqueueLoadMap|IsMapLoadQueued|IsMapLoading|OnMapLoaded|UpdateBattleMap|AddCameraCinematic|AddCameraPoint|AddCameraShake|ClearCameraPoints)$
+4f  ^GameState::(RefreshOfflineGoblins|ClearOfflineGoblins|GetOfflineGoblin|GetOfflineGoblinCount|RemoveOfflineGoblin|UpdateOfflineGoblins|LoadEntitiesFromCopy|AddMapCompletion|GetMapCompletionCount|GetMapStartTime|SetMapStartTime|HasMapStartTime|GetMapEndTime|SetMapEndTime|GetMapVisitTime|SetMapVisitTime|HasMapVisitTime|AddMapItemCollectionInfo|GetMapItemCollectionInfo|AddMapResourceCollectionInfo|GetMapResourceCollectionInfo|ResetMapCollectionInfo|GetCampaignCompletionStatus|SetCampaignCompletionStatus|GetLatestChapterCompleted|GiveAllChaptersTillCompleted|MonsterKilled|GetMonsterKilledCount|GetOfflineBuilding|GetOfflineBuildingCount|GetOfflineBuildingWithID|UpdateOfflineBuildings)$
+4f  ^Entity::(AddPatrolPoint|RemovePatrol|IsOnPatrol|IsWalkingOnPatrol|PartolEndsOn|GetCurentWP|GetClosestWPTo|HasFixedLocation|HasRandomLocation|GetSpawnPointID|AssignSpecialTalk|AssignTalkTask|GetSpecialTalk|GetTalkTask|OnTalkTo|GetHint|GetDeadHint|IsPlayerShadow|IsWanderingPlayerShadow|IsEmperor)$
+4f  ^EntityManager::(GetEntityBySpawnPoint|GetEntityWithTalkTask|GetEntityWithDrop)$
+4f  ^AIPlayer::ClickedPortal$
+4f  ^AIBaseState::(ClickedPortal|OnMapUnload)$
+4f  ^CmdOpenMap$
+4f  ^HUDWindow::(HideMapName|MapReset|SoftMapReset|HardMapReset|HideBlack|UpdateScreenDarkening)$
+4f  ^BuildingHovers::FollowEntity$
+
+# ---- 4g: campaign combat ------------------------------------------------------------------------
+4g  ^(CombatManager|BaseCombat|EasyCombat|Squad|AggroCombat|RangeAggroCombat|EasyAI|Projectile|ProjectileData|BattleBarWindow|BeltBarWindow|BottomBattleWindow|PlayerBattleInOutWindow|HealthbarHoverWindow|HealthbarTinyHoverWindow|HealHoverWindow|HealSquadWindow|PlayerWeakWindow|AIWarrior_v2|AIStateFactory|App)::
+4g  ^(AIWarrior|AIBaseState|AIPlayer)::(AddedToCombat|Attack|Block|Death|FindEpicenterPos|Hit|MagicAttack|MagicAttackArea|MagicAttackAreaFinished|MagicBlock|MagicDeath|MagicHit|ProjectileLanded|RemovedFromCombat|StartedAttack|StartedMagicAttack|StartedMagicAttackArea|CheckAggro|IsPlayerInAggroRange|UpdateAggroZone|Retreat|AnimEnded|PositionChanged|WalkCompleted|UnableToWalk|StopMovement|ClickedTile|RemoveActionMarker|Clean)$
+4g  ^Entity::(AddAttacker|RemoveAttacker|CalcDamage|CheckAggro|CriticalHit|Die|DoMeleeAttack|DoRangedAttack|GetAdditiveFuryGain|GetBAT|GetCritChance|GetCurrentTarget|SetCurrentTarget|GetDamage|GetDefense|GetInitiative|SetInitiative|GetItem\w+|HasCorpseItem|HasMeleeDamage|Hit|IsBuildingInRange|IsDeathAnimationRunning|IsEnemy|IsEntityInRange|IsInMeleeRangeWith|IsMeleeUnit|IsRangedUnit|LaunchProjectile|MoveAwayAfterAnimation|OnAddedToCombat|OnRemovedFromCombat|OnAggro|SetAggro|OnAttack|OnAttackedBy|OnBlock|OnDeath|OnDefend|OnDying|OnHit|OnHitByEnemy|OnHitLanded|OnProjectileFired|OnRetreat|ProjectileLanded|ReceiveDamage|Set(Additive\w+|AttackMelee|AttackRanged|Crit|CritChance|DefenseMelee|DefenseRanged|FuryBonus|ItemDrop|WarriorCost)|UpdateRangedAttackXY|WillDie|ShowHitParticles|ShowGlowAnimation)$
+4g  ^EntityManager::(GetEnemy|GetEnemyAtXY|GetEnemySoldier|GetEntityByEnemyClassID|GetNearestEnemy|GetNearestEnemyTo|GetNearestEnemyWithClassTo|IsPlayerInAggroRange|UpdateAggroZone)$
+4g  ^GameState::(EndActiveCombat|SetCombat|GetTimeTillNextHP|UpdateHPRegen|GetVirtualHP|ResetVirtualHP|AddSoldiersToSquad|GetAvailableSoldierCountByID|GetBIS)$
+4g  ^AI::(EnemyInMeleeRange|IsInMeleeAttackRange|IsInMeleeRange|IsInMeleeRangeWithBuildZone|GetRadianBetweenPoints|GetangleBetweenWPs)$
+4g  ^TargetedAI::(GetClosestReachableWPTo|GetClosestReachableWPToBuilding|GetDistanceToTarget|SetBlockedPathTarget)$
+4g  ^Map::Building::(AddAttacker|RemoveAttacker|CheckAggroRange|Destroy|DoAttack|IsDestroyed|IsEntityInRange|OnAttackedBy|OnCoolDown|OnEnemyDied|OnEnemyMoved|OnHitByEnemy|ProjectileLanded|ReceiveDamage|CreateParticles|RemoveParticles|UpdateDamageParticles)$
+4g  ^Shared::(BuffHolder|BuffHolderManager|BottomSlotInfo|WarriorSlotInfo|EndscreenProgressBar|ProgressBarLarge|PlayerHolder)::
+4g  ^PlayerTopWindow::(HideDialog|IsPlayerDialogVisible|OnCharacter|OnDamage|OnHealth|OnRestoreOut|OnToggleLegend|RaiseAndMoveIntoPlayer|RefreshHP|SetParameters|ShowArrowAndLock)$
+4g  ^HUDWindow::(OnDamage|ShowMainUI|SetActiveButton)$
+4g  ^(CmdDebugCombat|CmdGodMode|CmdIgnoreDamage|CmdAddSoldier)$
+4g  ^Entity::IsBoss$
+
+# ---- 4h: the new game ---------------------------------------------------------------------------
+4h  ^(TutorialWindow|TutorialSender|SelectHQWindow|Select_HQ|FirstCityEnterEffect)::
+4h  ^HUDWindow::(GameReload|GameReset)$
+4h  ^CmdReloadGame$
+
+# ---- 5: the rest of the game --------------------------------------------------------------------
+5  ^(HireTroopsWindow|RepairWindow|Spells|SpellMovement|AISpell|PlaceMagicHoverWindow|BossCombat|BossCombatWaves|BossIntroWindow|BossOutroWindow|BossTimeHoverWindow|BossIntroEffect|FastBossIntroEffect|SiegeCombat|AISiegeAttacker|StartRaidingWindow|RaidInfoWindow|RaidCompleteWindow|GlobalMapWindow|ItemShopWindow|Chests|ChestsWindow|ChestOpenedWindow|CraftingWindow|CraftItemWindow|CraftSuccessWindow|Professions|Collections|Sets|SetInfoWindow|Tavern|DailyBonusWindow|SultanArrivingWindow|ResourceHelper|ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow|BottomArenaWindow|AsyncBaseCombat|AsyncCombat|AsyncCombat_v2|PvPArenaCombat|AIPlayerBot|CombatTestBot|PvP|PresentsContainer|Notifications|EditorConsole|Editor|DebugViewer|BottomScreenshotWindow|PlayerInfoWindow|PlayerNameHoverWindow)::
+5  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the admin mode
+5  ^ParseItemDrop\w+$   # chest drop lists
+5  ^(dollar\w+|bestDollarDifference)$   # spell gestures
+5  ^GameState::(AddArena\w+|GetStartingArenaHP|SetStartingArenaHP|IsArenaCombatActive|IsPvPCombatActive|SetPvPTutorial|AddEventCompletion|AddEventFail|GetEventCompletionCount|GetEventDifficulty|SetEventDifficulty|GetEventEndTime|SetEventEndTime|GetEventStartTime|SetEventStartTime|AddDailyChestItem|FinishDailyChestItems|GetDailyChestFailure|SetDailyChestFailure|GetProcessedChest|GetChest\w+|SetChest\w+|DailyBonusReceived|GetDailyBonusDays|GetDailyBonusTime|GetReceivedDailyBonusCount|IsDailyBonusAvailable|SetDailyBonusStatus|UpdateDailyBonusTime|AddProfessionPoints|GetProfessionPoints|HireSoldier|GetSoldierAcquireCount|GetSoldierAcquireTime|GetSoldierRecentTime|GetTavernWarriorHP|SetTavernWarriorHP|GetTavernWarriorTS|SetTavernWarriorTS|GetBossFightStartTime|ResetBossFightsOnMap|GetServerTime|SetServerTime|GetServerTimeOffset)$
+5  ^Map::DropBossReward$
+5  ^Entity::(GetBossAdditionalWavesInfo|GetBossMapID|GetBossTaskID|GetBossWaveInfo|OnAttackMagic|OnBlockMagic|OnDeathMagic|OnHitMagic|OnSpellCast|OrbsCanBeUsed|SetDefenseMagic|SetEffectOwner|WillDieMagic)$
+5  ^EntityFactory::(GetEntityForArena|GetTamedEntityForID)$
+5  ^EntityData::(GetSmallSpellIcon|GetWaves\w+)$
+5  ^CharacterInfoWindow::   # the window itself (its stat part was 4b.2)
+5  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|OnBuyItem|OnShop|OnReturn|HelpWithScreenshot)$
+5  ^BaseAI::|^AIPlayer::Retreat$
+5  ^BuildingPlacement::BuildingFromPresents$
+5  ^HUDWindow::(OnArenaEvent|SetCurrentCity)$
+5  ^SettingsWindow::(HelpWithScreenShot|OnScreenShot)$
+5  ^Shared::(ButtonCraftBuyNow|ButtonRaidStart|DiscountInfo|EffectDescriptionLine|FarmButtonPlant)::
+5  ^Map::GetCurrentCity|^GameState::(GetCurrentCity|SetCurrentCity)$
+
+# ---- 6: sound and effects -----------------------------------------------------------------------
+6  ^(Sounds|SoundsManager|Particles|ParticlePresets)::
+6  ^PreloadImageByPath$
+6  ::(PlayDeathSound|PlayHitSound|PlayTeleportSound|SetSwingInSound|SetSwingOutSound)$
+6  ^Entity::(ParticleHasPlayCount|SetParticleEmitter|SetParticlePlayCount|UpdateParticles)$
+6  ^EntityData::(GetSoundAttack|GetSoundDeath)$
+6  ^GUI::TextCache::|^BuildingHovers::TextCache::
+6  ^Render::(BlurTexture|FilterContext::|GlowFilter::|InitFilters|DeinitFilters|EnableTerrainShadowing)
+6  ^SystemFuncs::SetNotificationsEnabled$|^FileManager::(SoundVolume|OnNotifications)$
+
+# ---- 7: release ---------------------------------------------------------------------------------
+7  ^(PlayerProfileManager|SwitchProfilesWindow|ErrorReporter|LoadSampling)::
+7  ^Timer::TimeCompensationBlock::|^Timer::(AddDeltaTimeCompensation|AddSample|GetFPS)$
+7  ^GUI::(IsXHighDPI_Retina|SetXHighDPI_Retina|getXHighDPI_Retina_Scale|setXHighDPI_Retina_Scale|SetHighDPIScaleFactor|SetHoverHighDPIScaleFactor|SetHudHighDPIScaleFactor|ReloadTextures)$
+7  ^Render::(Resize|Restart|Suspend|didEnterBackground|willEnterForeground|getWindow|ForceBufferSwap|GetStatistics|CalculateFillrate|PrintLayerStats|UpdateTexTypeStats|GetDecoPlaceholderDebugTex|GetImageDebugTex|SaveImage|IsLowPerformanceDevice|Context::IsLowPerformanceDevice|Convert32To16Bits|FreeMemory|UpdateLogo|UpdateProgress|HideProgress|SetProgressScale)$
+7  ^SystemFuncs::(GetSettings_AllAsString|GetTemporarySetting|GetTemporarySettingString|SetTemporarySetting|SetTemporarySettingString|RemoveSetting|SaveSettings|SetSetting_Bool|GetSetting_Bool|SetSetting_String|GetSetting_String|Init|SetLogLevel|getBundle\w+|getCurrentLanguage\w*|getCurrentSelectedLanguage|getEvenMoreLocaleInfo|getDocumentsPath\w*|isDocumentExternalStorageExist|getPlatform\w*|getScreenBuff\w+|getTimeIntervalSince1970|getTimeZoneOffset|getXDPI|getYDPI|IsTabletVersion|ShowOldDeviceError|FixRunloopEvents|GetTime)$
+7  ^FileManager::(Init|GetStoragePathSpace|RemoveSaveFiles|RestartGame|SetPreferredLanguade|SaveImage|IsLowPerformanceDevice|GetThreadContext|ReleaseThreadContext|LoadStep|Apply|GetFileOffset|LoadFile)$
+7  ^SettingsWindow::(OnRestart|OnRestartConfirm)$   # language/restart
+7  ^HUDWindow::(GetDebugState|ShowCheatWindow|ShowArenaCheats|ShowVisualCheats|ToggleCheatOverlay|SetDeltaTimeMultiplier)$   # debug overlay: with the admin mode (5) if wanted
+7  ^Animation::(DumpToResources|PreLoadTextures)$
+
+# ---- residue triage (2026-10-07): each checked against its callers --------------------------------
+online  ^(GameState::(LoadShort|GetUpgraderState|SetUpgraderState|GetUpgradeProgress|SetUpgradeProgress|LockGame|IsGameLocked|ResetGameLock|GetActiveMaps)|Map::(LoadShort|UpdateCityMap))$   # friend visits, the server heartbeat lock, store upgrades, task footprints
+7  ^GameState::GetGameStateInfo$   # PlayerProfileManager
+5  ^(Map::(GetTavern|GetBarracks|DebugAdvanceTime|ShowLevelStats)|Entity::SetXP|EntityData::GetDiscountSize|GameState::(GetGoldEarned|GetSettingCount|EnumSetting))$   # hiring (HireSoldier), the debug console
+4c  ^(Map::(GetBuildingDataWithContract|GetBuildingWithContract|GetNextAreaID|GetUpgradeableBuilding|GetFarmWithPatchToBuy)|EntityManager::GetEntityWithGUID|GameState::AddEntity)$   # Tasks::TaskSubtask::OnHelp, Bonus::Give
+4e  ^(GameState::GetGoblin|Entity::GetCurrentAnimation)$   # SendGoblinToWork, PlayBuffAnimation
+4g  ^(Entity::(SetUpdateSpeedScale|GetCenterWorldXY)|Map::Building::(GetCenterPoint|GetCenterWorldXY)|EntityManager::EnumEntitiesByID|GameState::IsVirtualTutorial)$
+4h  ^(Map::EnqueueBuildingPlacement|Entity::SwitchEntityData)$   # the farmer-woman tutorial, SelectHQ
+4b.4  ^(ItemPlaceContinuation|StringTable::StringNotEmpty|IconManager::GetLoadingCogsIcon)$
+4b.4  ^BuildingHovers::(AllowWindowOverHoverOnce|ShowArrowAtSpeedup|ShowArrowAtUpgrade|ShowArrowAtFactoryContract)$   # NeedItemWindow::OnProduce / NotEnough Find (3e.4 stand-in)
+4c  ^Map::(ChangeBuildingAttribute|ChangeObjectAttribute)$   # Override::Apply
+4c  ^WindowManager::GetEnqueuedWindowCount$
+4d  ^BuildingHovers::(HijackArrowCallback|ExecuteArrowCallback)$
+4e  ^(BaseAnimController::Update|BuildingHovers::ShowIconHover|Render::CenteringInProgress)$   # Decor::Update / UpdateImage
+4f  ^(Map::PersonData::LoadImage|GUI::(Register|Unregister)HighlightBlocker)$
+4g  ^(AI::GetNearestReachableWPZeroWeight|BuildingHovers::(GetClickCallback|PreventArrowAutoHide)|AIWarrior::FUN_000f3b4c|Render::CreateCustomTexture|Render::CreateSolidFillTexture)$
+5  ^(Resources::GetSolidColor|Render::CreateLine|Render::CreateScreenTexture|StringTable::GetExtendedTimeString)$
+6  ^(Entity::FUN_00155abc|Render::GetImageData)$
+7  ^(GUI::GetHoverHighDPIScaleFactor|GUI::GetHudHighDPIScaleFactor|HUDWindow::RestoreTextures|BuildingHovers::RestoreTextures|SystemFuncs::FUN_003d890c|Render::IsInitialized)$
+online  ^(FileManager::(CheckExpansion|FUN_0016d350)|Timer::GetServerGlobalTime|IconManager::GetLoadingIcon|ClearPointerVector|Render::GetSurfaceFromPath)
+removed  ^ExchangeWindow::OnPayForCBYES$
+dead  ^FarmGrowHoverWindow::   # created, never shown in 5.11 (3f.4)
+dead  ^AI::(CreateWaypoint|CreateWaypointDebugOutput|GetShortPathFrom|GetRoadTo|RemoveWaypoint)$   # no caller, no address taken
+dead  ^BuildingHovers::(CanInvestAll|CanCollectAll|InvestAllResult|ColelctAllResult|BuildingsInvest|BuildingsCollect|CollectOne|ShowTextInvest|SetWorldDialogOffset|OnBack|MoveRectIntoView|ShowDroppedItem|RegisterEntity|ShowSprite)$   # no caller, no address taken
+dead  ^ExchangeWindow::(GetNameByID|LineToindex|GetCrystalBonus|GetCrystalMain|GetGoldBonus|GetGoldMain|GetProductIndexForButton)$   # no caller (the port's exchange reads the packs directly)
+dead  ^(IconManager::FitBuildingIntoUI|Shared::ButtonTripleInfo::ShowGold|WindowManager::DequeueWindow|AIPlayer::FUN_000eeb60|PlayerTopWindow::FUN_00327580|AnimationController::IsStopped|Resources::GetAnimatedImage|Render::(GetScreenData|CreateTextureReserved|GetSymbolCountInWidth|Sprite::SetSize|Texture::SetMipFilter))$   # no caller, no address taken
+implicit  ^(WindowManager::WindowQueue::(Init|SetZ|Move|Show|Hide|Update|Wheel|Back|RemoveWindow)|MapObject::(Contains|IsLower|OnSetup))$   # empty base-class virtuals (4-12 bytes)
+lib  (^|::)(entry|RecursivelyCalculateShapeTree)$
+4b.5  ^Background::Update$   # Map::Update calls it every frame: a hole
+4b.5  ^BuildingHovers::(SetArrowAlpha|MoveWindowDown|HideWorldDialog)$   # PopupWindow / HUD return (KNOWN BUG) / the hero's taps
+4b.5  ^BuildingHovers::ShowWorldDialog$   # Building::WorkEnded and Entity::OnDeath call it too (also 4h)
+4b.5  ^(AI::SetWeight|StringTable::(SetEmptyNameReplacement|GetStringF|GetUndecoratedString|FUN_\w+)|Timer::(Init|GetRealGlobalTime)|StringHash|GetData|SaveManager::SaveBlock::BeginChunkLoading)$   # startup / save loading helpers: ported inline or unmarked, verify
+4b.5  ^(AnimationController::(GetActiveAnim|GetCurrentFrame|SetMult|GetMult)|Resources::|EntityFactory::FUN_|SoldierSlots::FUN_|HiddenObjects::FUN_|CastleTopWindow::FUN_|PlayerTopWindow::FUN_|FileManager::FUN_|GUI::|HUDWindow::OnFarmTimer|WindowManager::)   # called by ported code: ported inline or without its marker, verify and mark
+4b.5  ^Render::   # renderer internals: the port's SDL3/OpenGL renderer stands in; mark the ones it follows, record the rest as PORT
+
+# ---- 4b.5: holes in finished work (milestones 1-3, 4a, 4b) found by the coverage pass ----------
+4b.5  ^Game::(splashLoop|showBackground|hideBackground|showKoreanLogo)$   # splash screens
+4b.5  ^Game::(LoadLanguageTable|LoadSystemConfiguration|LoadEntityFactoryData|main_Loop_BeforeInit|main_Loop_Init|main_Loop_Func|main_Exit_Func)$   # partly in src/main.cpp without @0x markers
+4b.5  ^Game::FUN_
+4b.5  ^(ReloadSavedGame|OnResume|MainExitNoSave|OnRestartGame|OnShowRestartGame|OnSystemErrorOK|OnSystemErrorCancel|RepeatedMain|UpdateTagState|turnMusic|LanguageSelect|LanguageDecline)$
+4b.5  ^Map::(PrepareImages|UpdateNotifications)$   # the city's ambient birds (images/bird/)
+4b.5  ^Map::(GetTotalStorageLimit|UpdateStorages|UpdateResources|UpdateCityMap|AssignUniqueIDs|CheckUniqueIDs|GetUniqueIDCount|GetBuildingCountPerShopCategory|GetUpgradeableBuilding|GetFarmWithPatchToBuy|GetBuildingWithContract|GetBuildingDataWithContract|TrainingcontractRunning|GetBarracks|GetTavern|ContainsDecoration|Occupied|HasEntity|EnqueueBuildingPlacement|AllowBuildingVisibilityUpdate|AllowDecorationVisibilityUpdate|ProcessOfflineContracts|GetAreaByID|GetNextAreaID|GetMapID|GetGridWidth|GetGridHeight|GetTileset|LoadShort|GenerateNew|CreateRandomDecors|AddRandomDecorations|AddPatches|AddOnePatch|DebugAdvanceTime|ShowLevelStats|BuildingDeinit|DecorDeinit)$
+4b.5  ^Map::Building::(GetData|GetSpriteList|GetUpgradeCount|LaunchContract|AddResource|RemoveResource|RemoveLiver|GetCenterPoint|GetCenterWorldXY|ChangeState|HasEntity|RemoveHoldOfEntities|IsTrainingCompleted|TrainingCompleted)$
+4b.5  ^Map::BuildingData::(GetBaseDecoration|GetRoofDecoration|Clean)$
+4b.5  ^Map::DecorData::GetImage$
+4b.5  ^Map::FUN_
+4b.5  ^GameState::(Reset|Update|LoadShort|Clean|CleanBeforeLoading|AddEntity|RemoveEntity|AddBulding|RemoveBuilding|GetBuildingCount|GetFreeWorker|GetFirstBusyWorker|GetGoblin|GetGoblinCountInTown|RemoveOrder|RemoveWorkersFromOrders|ExtendBuildingLimit|GetBuildingLimitExtend|GetUpgradeProgress|SetUpgradeProgress|GetUpgraderState|SetUpgraderState|GetGoldEarned|SetGoldEarned|GetGoldSpent|GetCrystalsEarned|SetCrystalsEarned|GetCrystalsSpent|GetTimeModifier|SetTimeModifier|ResetTimeModifier|GetGamePauseState|ResetGamePauseState|LockGame|IsGameLocked|ResetGameLock|GetTutorialStepName|SetTutorialType|IsVirtualTutorial|EnumSetting|GetSettingCount|InitDefaultSettings|GetGameStateInfo|CopyEntityData|RemoveAllEntitiesByID|GetCurrentCity|SetCurrentCity|UpdateNotifications|GetActiveMaps)$
+4b.5  ^GameState::FUN_
+4b.5  ^Entity::(GetAlpha|GetAnimOffsets|GetAnimationFrameCount|GetCurrentAnimation|GetCustomZ|GetIdleWidth|ContainsPrecise|SetAnimationOnce|SetAnimationP|UpdateAnimation|PreLoadAnimations|SetCustomUnderlay|SetUpdateSpeedScale|SetEndWorkTS|GetGUID|SetGUID|SwitchEntityData|SetCustomEntityData|SetXP|GetCenterWorldXY|PrepareForSetup|OnSetup|OnMapUnload)$
+4b.5  ^EntityManager::(Init|EntityExists|EnumEntitiesByID|GetEntityAtWorldXYPrecise|GetEntityByClass|GetEntityCountByType|GetEntityCountWithoutPathAtXY|GetEntityFactory|GetEntityWithGUID|GetNameByIdx|GetSurnameByIdx|PreLoadAnimations|RemoveEntitiesByID|SpawnEntityAt|GetSquadOwner|AssertNoReferencesToSquad)$
+4b.5  ^EntityFactory::(Init|GetEntityByClass|GetEntitiesForBuilding)$
+4b.5  ^EntityData::(PartialClone|GetCostGold|GetCostCrystals|GetDiscountSize)$
+4b.5  ^CreateShadowGlowFilterSet$
+4b.5  ^(BuildingHovers|HUDWindow|TopCityWindow|BottomCityWindow|BottomFarmWindow|ShopWindow|NotEnoughWindow|PopupSelectionWindow|BuildingMovement|BuildingPlacement|FactoryHoverWindow|BuildProgressHoverWindow|ExchangeWindow|SettingsWindow|Contracts|Tags|Items|AIGoblin|AIWorker|AIFarmerSmall|AIFarmerBig|AIPatch|PatchAnimationController|DecorationHoverWindow|StorageHoverWindow|CharacterInfoWindow)::(FUN_|Deinit$|FillPatches$|GetPlantButton$|UpdateImages$|CallbackOk$|CallbackCancel$|ContractIsActive$|InitSpecial$|OnRestart|SetPredefined)
