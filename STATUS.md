@@ -233,6 +233,18 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    OfflineUpdate(100000). Also Timer::ApplyDeltaTimeCompensation (@0x23ea38): the frame time is now
    clamped to 0.2 s as on the original (the port had 0.1 s); TimeCompensationBlock not ported (0).
    NEXT: milestone 4, step 4b (items; plan in the milestone list below).
+   KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
+   closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
+   head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
+   original's fix is HUDWindow::Update's "HUD return" (@0x2c81c8: with no window shown, tutorial
+   0x80, secondTutorial not 0x93..0x96, not the tame tutorial and HUD not the head ->
+   BuildingHovers::MoveWindowDown @0x2642dc, TaskHolder/CastleTop/TopCity Show, HUD MoveWindowOnTop).
+   Ported once, it fixed Settings but sank BuildingHovers below desktop_window, so building taps
+   stopped; how the original keeps them is unresolved (check the static-init queue order and what
+   moves BuildingHovers::wnd back up). Reverted; a draft is not kept. Test aids from this:
+   RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
+   city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
+   builds carry 0x100.
    4a.1 DONE: squads and the army. src/game/Squad.* (BaseSquad/PlayerSquad/EnemySquad in vtable order:
    formations table 0x579d8c, SpawnAt/SpawnSquadAt, MoveTo/MoveSquadTo, ready flags, heal/rearrange/
    remove with SoldierPool reserves), src/game/SoldierSlots.* (SoldierSlots + SoldierPool), the

@@ -70,7 +70,7 @@ struct Options {
     bool camera = false;
     int secondTutorial = -1;     // PORT test aid: GameState::secondTutorial for the test city (0x100: the
                                  // finished city tutorial, which hero taps in the city need)
-    enum InputType { kClick, kPress, kDrag, kType, kKey };
+    enum InputType { kClick, kPress, kDrag, kType, kKey, kMove };
     struct Input { InputType type; int x, y, x2, y2; std::string text; };
     std::vector<Input> inputs;   // headless input, applied before the screenshot
     std::string show;            // a window to open after the HUD (test aid)
@@ -100,6 +100,12 @@ Options Parse(int argc, char** argv) {
                 in.x2 = std::atoi(next());
                 in.y2 = std::atoi(next());
             }
+            o.inputs.push_back(in);
+        }
+        else if (a == "--move") {   // PORT test aid: the pointer glides there, no button held
+            Options::Input in = {Options::kMove, 0, 0, 0, 0, {}};
+            in.x = std::atoi(next());
+            in.y = std::atoi(next());
             o.inputs.push_back(in);
         }
         else if (a == "--show") o.show = next();
@@ -279,7 +285,7 @@ int main(int argc, char** argv) {
         // hero, its squad and the first soldier are made as LoadSavedGame's new game makes them.
         GameState::Reset();
         GameState::playerSeed = (uint32_t)opt.seed;
-        GameState::tutorial = 0x100;
+        GameState::tutorial = 0x80;   // (the opening tutorial done; 0x100 is secondTutorial's end)
         if (opt.secondTutorial >= 0) GameState::secondTutorial = opt.secondTutorial;
         Entity* hero = EntityManager::CreateEntity(0xc, false, true);
         hero->CreateSquad();
@@ -339,6 +345,17 @@ int main(int argc, char** argv) {
     bool held = false;                // 0x6122ec: a button is down
     float edgeX = 0.f, edgeY = 0.f;   // 0x612314 0x612318: edge-scroll drag not yet passed on
     bool firstMove = true;            // only the first motion event of a frame reaches ProcessMove
+    // PORT debug aid: RTK_TRACE_INPUT=1 prints what each button press and release reaches.
+    const bool traceInput = std::getenv("RTK_TRACE_INPUT") != nullptr;
+    auto queueName = [](WindowManager::WindowQueue* q) -> const char* {
+        if (!q) return "none";
+        if (q == WindowManager::g_desktopWindow) return "desktop(world)";
+        if (q == CastleTopWindow::Queue()) return "CastleTop(right buttons)";
+        if (q == SettingsWindow::Queue()) return "Settings";
+        if (q == BuildingHovers::Queue()) return "BuildingHovers";
+        if (q == HUDWindow::Queue()) return "HUD";
+        return "other window";
+    };
     auto mouseDown = [&](int x, int y, bool left) {
         lastX = x;
         lastY = y;
@@ -346,7 +363,11 @@ int main(int argc, char** argv) {
         WindowManager::SetMousePosition(x, y);
         GUI::OnMouseMove(x, y, true);
         if (left) {
-            if (!Map::IsCameraMoving() && WindowManager::ProcessClick(x, y, true) != WindowManager::g_desktopWindow) {
+            WindowManager::WindowQueue* down = Map::IsCameraMoving() ? nullptr : WindowManager::ProcessClick(x, y, true);
+            if (traceInput)
+                std::printf("TRACE down %d,%d -> %s (mapMove active %d focus %d)\n", x, y, queueName(down),
+                            MapMovement::IsActive(), MapMovement::HasFocus());
+            if (down && down != WindowManager::g_desktopWindow) {
                 // UNVERIFIED: the tutorial arrow (BuildingHovers::ClickOnArrow / HideArrow) at step 0x80.
             } else if (!(BuildingMovement::Activated() && BuildingMovement::Click(x, y, true, false)) &&
                        !(BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, true, false))) {
@@ -374,6 +395,9 @@ int main(int argc, char** argv) {
         }
         WindowManager::WindowQueue* hit = WindowManager::g_desktopWindow;
         if (!(MapMovement::HasFocus() && MapMovement::IsActive())) hit = WindowManager::ProcessClick(x, y, false);
+        if (traceInput)
+            std::printf("TRACE up %d,%d -> %s (mapMove active %d focus %d)\n", x, y, queueName(hit),
+                        MapMovement::IsActive(), MapMovement::HasFocus());
         MapMovement::RemoveFocus();
         if (hit != WindowManager::g_desktopWindow) return;
         if (BuildingMovement::Activated() && BuildingMovement::Click(x, y, false, MapMovement::IsActive())) return;
@@ -507,6 +531,16 @@ int main(int argc, char** argv) {
                 if (in.type == Options::kType) textInput(in.text.c_str());
                 else keyDown(in.x);
                 for (int i = 0; i < 30; ++i) tick(dt);
+                continue;
+            }
+            if (in.type == Options::kMove) {
+                // 20 motion events, one per frame, from the last pointer position.
+                const int sx = lastX, sy = lastY, steps = 20;
+                for (int k = 1; k <= steps; ++k) {
+                    firstMove = true;
+                    mouseMove(sx + (in.x - sx) * k / steps, sy + (in.y - sy) * k / steps);
+                    tick(dt);
+                }
                 continue;
             }
             firstMove = true;
