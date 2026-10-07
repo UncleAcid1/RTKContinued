@@ -122,6 +122,37 @@ public:
     void SetAP(int v);                           // @0x1502a8 (capped at GetApMax)
     void AddAP(int v);                           // @0x1502d4 (0..GetApMax)
     void SetHpMax(int v) { hpMax = v; }          // @0x1503b8
+    // The item and buff stat changes (MetaExpression::OnApplyItemEffect). Each stays >= 0 (HpMax >= 1).
+    void AddHpMax(int v);                        // @0x150180
+    void AddAttackMelee(int v);                  // @0x15019c
+    void AddAttackRanged(int v);                 // @0x1501b8
+    void AddAttackMagic(int v);                  // @0x1501d4
+    void AddDefenseMelee(int v);                 // @0x1501f0
+    void AddDefenseRanged(int v);                // @0x15020c
+    void AddDefenseMagic(int v);                 // @0x150228
+    void AddAbsorbMelee(int v);                  // @0x150244
+    void AddAbsorbRanged(int v);                 // @0x150260
+    void AddAbsorbMagic(int v);                  // @0x15027c
+    void AddCritChance(int v);                   // @0x1506f0
+    void AddFuryBonus(int v);                    // @0x15070c
+    void AddInitiative(int v);                   // @0x150748
+    // (Attack and defense also count the combat additions +0x88 / +0x84; an attack of 0 stays 0.)
+    int GetAttackMelee() const { return attackMelee == 0 ? 0 : attackMelee + f88; }   // @0x150318
+    int GetAttackRanged() const;                 // @0x151e88 0 without ranged damage at this level
+    int GetAttackMagic() const;                  // @0x151e2c
+    bool HasRangedDamage() const;                // @0x151e60 the level's ranged attack > 0
+    bool HasMagicDamage() const;                 // @0x151e04
+    int GetDefenseMelee() const { return f84 + defenseMelee; }    // @0x150358
+    int GetDefenseRanged() const { return f84 + defenseRanged; }  // @0x150368
+    int GetDefenseMagic() const { return defenseMagic; }          // @0x150380
+    int GetAbsorbMelee() const { return absorbMelee; }            // @0x1503a0
+    int GetAbsorbRanged() const { return absorbRanged; }          // @0x1503a8
+    int GetAbsorbMagic() const { return absorbMagic; }            // @0x1503b0
+    int GetFuryBonus() const { return furyBonus; }                // @0x150730
+    int GetHPRegeneration() const { return hpRate ? hpRate : 0xb4; }   // @0x150088 seconds per HP
+    void SetHPRegeneration(int v) { hpRate = v; }                 // @0x150098
+    int GetLuck() const { return luck; }                          // @0x1500a0
+    void SetLuck(int v) { luck = v; }                             // @0x1500a8
     void SetOverrideAttack(int v) { overrideAttack = v; }     // @0x150338
     void SetOverrideDefense(int v) { overrideDefense = v; }   // @0x150390
     // @0x1520ac: HP above HpMax is cut to HpMax; for the player while the over-limit setup's first
@@ -190,6 +221,7 @@ public:
     int f78 = 0;                     // +0x78
     Render::Sprite* underlay = nullptr;  // +0x7c
     Render::Sprite* debugText = nullptr; // +0x80 (Map::debugEntity overlay, off)
+    int f84 = 0, f88 = 0, f8c = 0;   // +0x84 defense, +0x88 attack, +0x8c crit chance (combat additions)
     float f90 = 1.f;                 // +0x90
     bool f94 = false, f95 = false, f96 = false;   // +0x94..+0x96
     bool f9c = true;                 // +0x9c
@@ -216,11 +248,11 @@ public:
     int f104 = 900;                  // +0x104
     int attackMelee = 0, attackRanged = 0, attackMagic = 0;      // +0x108 +0x10c +0x110
     int defenseMelee = 0, defenseRanged = 0, defenseMagic = 0;   // +0x114 +0x118 +0x11c
-    int f120 = 0, f124 = 0, f128 = 0;   // +0x120..+0x128
+    int absorbMelee = 0, absorbRanged = 0, absorbMagic = 0;      // +0x120 +0x124 +0x128
     int critChance = 10;             // +0x12c
-    int f130 = 0;                    // +0x130 (50 for the player)
+    int initiative = 0;              // +0x130 (50 for the player)
     int hpRate = 0;                  // +0x134
-    int f138 = 0, f13c = 0;          // +0x138 +0x13c
+    int luck = 0, furyBonus = 0;     // +0x138 +0x13c
     int direction = 1;               // +0x140
     AIBaseState* ai = nullptr;       // +0x144
     Map::Building* home = nullptr;   // +0x148

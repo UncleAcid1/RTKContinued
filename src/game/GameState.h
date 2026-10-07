@@ -123,6 +123,7 @@ extern int secondTutorial;      // 0x60efd0 GameState::secondTutorial
 extern int lastSentStep;        // 0x6134b0 GameState::lastSentStep
 extern uint32_t playerSeed;     // 0x613408 GameState::playerSeed (random decorations)
 extern uint32_t mHPTS;          // 0x613454 GameState::mHPTS (hit point regeneration time)
+extern float mNextHP;           // GameState::mNextHP
 extern uint32_t latestUniqueID; // the highest building unique id (Building::SetUniqueID)
 
 struct PlayerItem {             // 0x18 bytes, the player's items (vector 0x612f90)
@@ -157,6 +158,33 @@ unsigned GetSoldierReserveSlots();        // @0x191d94 SoldierPool::GetTotalSlot
 void AddOfflineBuilding(const OfflineBuilding& b);   // @0x194928
 void ClearOfflineBuildings();                  // @0x19bda8
 uint32_t GetBeltSlotCount();                   // @0x190788
+void SetBeltSlotCount(uint32_t n);             // @0x190768 (at most 3)
+void SetBeltSize(uint32_t n);                  // @0x190798
+uint32_t GetBeltSize();                        // @0x1907ac
+void SetBeltItemMode(bool on);                 // @0x1907c0
+bool GetBeltItemMode();                        // @0x1907d4
+void BindBeltItemTo(unsigned slot, uint32_t id);   // @0x190800 (its activation time back to 0)
+void SetBeltItemActivationTimeAt(unsigned slot, uint32_t t);   // @0x190820
+uint32_t GetBeltItemActivationTimeAt(unsigned slot);          // @0x190838
+void ClearBeltItems();                         // @0x19639c the belt's unique ids (0x6133d8)
+void AddBeltItem(uint32_t uniqueId);           // @0x1a3340
+// The equipment (GameState::ItemBinding 0..9, internal numbering) and the customisations
+// (GameState::CustomizationBinding); the original overloads GetItemAt / BindItemTo by binding type.
+PlayerItem* GetItemAt(unsigned binding);       // @0x1906a8
+PlayerItem* GetCustomizationAt(unsigned binding);   // @0x190720
+void BindItemTo(unsigned binding, PlayerItem* item);           // @0x1906c4
+void BindCustomizationTo(unsigned binding, PlayerItem* item);  // @0x19073c
+bool IsItemBinded(const PlayerItem* item);     // @0x190850 an equipment item in one of the 10 bindings
+// @0x19ec84: count new records (unless timesOnly), each with a new unique id and the item's
+// durability; notes the first and the latest acquisition time. Returns the last record.
+PlayerItem* AddItem(uint32_t id, int count, bool flag14, bool timesOnly, bool noShare);
+void RemoveUniqueItem(uint32_t uniqueId);      // @0x195058 (the last record takes its place)
+uint32_t GetItemBuffRemainingTime(uint32_t id);   // @0x198a3c seconds, 0 when over
+void ActivateItemBuff(uint32_t id, uint32_t seconds);   // @0x198a90
+uint32_t GetItemRecentTime(uint32_t id);       // @0x198db4
+uint32_t GetItemAcquirementTime(uint32_t id);  // @0x198e6c
+void SetupPlayerRegenerationState();           // @0x1921b8
+void UpdatePlayerRegenerationState();          // @0x191d14
 uint32_t GetBeltItemAt(unsigned slot);         // @0x1907e8
 int GetItemAmount(uint32_t id, bool belt);     // @0x19bdc8
 void RemoveItem(uint32_t id, int count);       // @0x19510c

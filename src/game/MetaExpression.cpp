@@ -2,7 +2,13 @@
 
 #include <cstdio>
 
+#include "game/Entity.h"
+#include "game/EntityData.h"
+#include "game/EntityManager.h"
+#include "game/GameState.h"
 #include "game/MetaData.h"
+#include "game/SoldierSlots.h"
+#include "game/Squad.h"
 
 namespace {
 
@@ -304,5 +310,128 @@ parsed:
             if (*p == 0) return;
         }
         std::fprintf(stderr, "ERROR MetaExpression::Parse() Metadata was not fully parsed (stopped at '%s')\n", p);
+    }
+}
+
+namespace {
+int Value(const MetaData* d) { return d->GetChild(0)->GetInt(); }   // PORT: GetChild(0)->GetInt()
+
+// HP_MAX and HEALTH_PC change only the player or a hero entity (0xc, 0xd).
+bool IsHero(Entity* e) {
+    if (e->player) return true;
+    EntityData* d = e->GetEntityData();
+    return d && (d->id == 0xc || d->id == 0xd);
+}
+
+// (int)(0.5 + base * percent * 0.01)
+int Percent(int base, const MetaData* d) { return (int)(0.5f + (float)(base * Value(d)) * 0.01f); }
+}  // namespace
+
+bool MetaExpression::CanApplyItemEffect(Entity* e) {
+    if (!data) return true;
+    switch (data->type) {
+    case kExpHp:
+    case kExpRestoreHp:
+        return e->GetHP() != e->GetHpMax();
+    case kExpMana:
+        return e->GetAP() != e->GetApMax();
+    case kExpOrbPhoenix: {
+        bool hurt = e->GetHP() != e->GetHpMax();
+        BaseSquad* s = e->GetSquad();
+        if (!s) return hurt;
+        for (unsigned i = 1; i < (unsigned)s->GetSoldierCount(); ++i) {
+            Entity* m = s->GetSoldier(i);
+            if (m->GetHP() != m->GetHpMax()) hurt = true;
+        }
+        return hurt;
+    }
+    case kExpGiveTroops:
+        return SoldierPool::GetOccupiedSlotCount() < SoldierPool::GetTotalSlotsFree();
+    }
+    return true;
+}
+
+void MetaExpression::OnApplyItemEffect(Entity* e) {
+    for (MetaExpression* x = this; x && x->data; x = x->next) {
+        const MetaData* d = x->data;
+        switch (d->type) {
+        case kExpInitiative: e->AddInitiative(Value(d)); break;
+        case kExpHpMax:
+            if (IsHero(e)) e->AddHpMax(Value(d));
+            break;
+        case kExpMeleeAttack: e->AddAttackMelee(Value(d)); break;
+        case kExpMeleeDefense: e->AddDefenseMelee(Value(d)); break;
+        case kExpMeleeAbsorb: e->AddAbsorbMelee(Value(d)); break;
+        case kExpRangedAttack: e->AddAttackRanged(Value(d)); break;
+        case kExpRangedDefense: e->AddDefenseRanged(Value(d)); break;
+        case kExpRangedAbsorb: e->AddAbsorbRanged(Value(d)); break;
+        case kExpMagicAttack: e->AddAttackMagic(Value(d)); break;
+        case kExpMagicDefense: e->AddDefenseMagic(Value(d)); break;
+        case kExpMagicAbsorb: e->AddAbsorbMagic(Value(d)); break;
+        case kExpAllDefense:
+            e->AddDefenseMelee(Value(d));
+            e->AddDefenseRanged(Value(d));
+            e->AddDefenseMagic(Value(d));
+            break;
+        case kExpCritChance: e->AddCritChance(Value(d)); break;
+        case kExpFuryBonus: e->AddFuryBonus(Value(d)); break;
+        case kExpParty: {
+            // The rest goes to the squad's soldiers, and the parsing of this entity ends.
+            BaseSquad* s = e->GetSquad();
+            if (!s) return;
+            for (unsigned i = 1; i < (unsigned)e->GetSquad()->GetSoldierCount(); ++i) {
+                if (!x->next) break;
+                if (Entity* m = e->GetSquad()->GetSoldier(i)) x->next->OnApplyItemEffect(m);
+            }
+            return;
+        }
+        case kExpGold:
+            std::puts("MetaExpression::OnApplyItemEffect() ITEM_ADD_GOLD_DROP is not implemented");
+            break;
+        case kExpHp: e->AddHP(Value(d)); break;
+        case kExpDmg:
+            std::puts("MetaExpression::OnApplyItemEffect() ITEM_ADD_DAMAGE_BOOST is not implemented");
+            break;
+        case kExpMana: e->AddAP(Value(d)); break;
+        case kExpOrbPhoenix: {
+            Entity* player = EntityManager::GetPlayer();
+            if (!player || !player->GetSquad()) break;
+            player->GetSquad()->HealSquad();
+            if (GameState::IsTaskStarted(0x2f9)) {
+                // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
+            }
+            GameState::UpdatePlayerRegenerationState();
+            break;
+        }
+        case kExpHpRegen: e->SetHPRegeneration(Value(d)); break;
+        case kExpBeltSlots: GameState::SetBeltSlotCount((uint32_t)Value(d)); break;
+        case kExpBeltSize: GameState::SetBeltSize((uint32_t)Value(d)); break;
+        case kExpGiveTroops:
+            // UNVERIFIED (milestone 5, hiring): EntityManager::CreateEntity(id, false, true) and
+            // GameState::HireSoldier(entity, true, 2).
+            break;
+        case kExpLuck:
+            if (e->GetLuck() < Value(d)) e->SetLuck(Value(d));
+            break;
+        case kExpRestoreHp: e->AddHP(e->GetHpMax() - e->GetHP()); break;
+        }
+    }
+}
+
+void MetaExpression::OnApplyItemBuffEffect(Entity* e) {
+    for (MetaExpression* x = this; x && x->data; x = x->next) {
+        const MetaData* d = x->data;
+        switch (d->type) {
+        case kExpHealthPc: {
+            if (!IsHero(e)) break;
+            bool full = e->GetHP() == e->GetHpMax();
+            e->AddHpMax(Percent(e->GetHpMax(), d));
+            if (full) e->AddHP(Percent(e->GetHpMax(), d));
+            break;
+        }
+        case kExpMeleeDamagePc: e->AddAttackMelee(Percent(e->GetAttackMelee(), d)); break;
+        case kExpRangedDamagePc: e->AddAttackRanged(Percent(e->GetAttackRanged(), d)); break;
+        case kExpMagicDamagePc: e->AddAttackMagic(Percent(e->GetAttackMagic(), d)); break;
+        }
     }
 }

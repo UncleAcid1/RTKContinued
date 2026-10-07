@@ -13,6 +13,9 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Items.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
@@ -397,7 +400,7 @@ void Entity::CreateAnims() {
 void Entity::CreateAI() {
     switch (data->clas) {
     case 5:
-        f130 = 0x32;
+        initiative = 0x32;
         hp = 10;
         player = true;
         ChangeAIState(2);
@@ -522,9 +525,49 @@ bool Entity::IsFat() const {
     return true;
 }
 
+// Each equipped item's SPEED adds n / 100 (for every entity: the player's equipment).
 float Entity::GetBaseSpeedMultiplier() const {
-    // UNVERIFIED (milestone 3, Items): each of the 10 equipped items' meta type 0x21 adds n / 100.
-    return 1.f;
+    float m = 1.f;
+    for (unsigned i = 0; i < 10; ++i) {
+        GameState::PlayerItem* it = GameState::GetItemAt(i);
+        if (!it || !it->info || !it->info->meta) continue;
+        if (const MetaData* d = it->info->meta->GetDataWithType(kExpSpeed)) m += (float)d->GetInt() / 100.f;
+    }
+    return m;
+}
+
+namespace {
+void AddClamped(int& field, int v, int min) {   // PORT: the Add* pattern
+    field += v;
+    if (field < min) field = min;
+}
+}
+
+void Entity::AddHpMax(int v) { AddClamped(hpMax, v, 1); }
+void Entity::AddAttackMelee(int v) { AddClamped(attackMelee, v, 0); }
+void Entity::AddAttackRanged(int v) { AddClamped(attackRanged, v, 0); }
+void Entity::AddAttackMagic(int v) { AddClamped(attackMagic, v, 0); }
+void Entity::AddDefenseMelee(int v) { AddClamped(defenseMelee, v, 0); }
+void Entity::AddDefenseRanged(int v) { AddClamped(defenseRanged, v, 0); }
+void Entity::AddDefenseMagic(int v) { AddClamped(defenseMagic, v, 0); }
+void Entity::AddAbsorbMelee(int v) { AddClamped(absorbMelee, v, 0); }
+void Entity::AddAbsorbRanged(int v) { AddClamped(absorbRanged, v, 0); }
+void Entity::AddAbsorbMagic(int v) { AddClamped(absorbMagic, v, 0); }
+void Entity::AddCritChance(int v) { AddClamped(critChance, v, 0); }
+void Entity::AddFuryBonus(int v) { AddClamped(furyBonus, v, 0); }
+void Entity::AddInitiative(int v) { AddClamped(initiative, v, 0); }
+
+bool Entity::HasRangedDamage() const { return data->GetAttackRangedForLevel(GameState::GetLevel()) > 0; }
+bool Entity::HasMagicDamage() const { return data->GetAttackMagicForLevel(GameState::GetLevel()) > 0; }
+
+int Entity::GetAttackRanged() const {
+    if (HasRangedDamage() && attackRanged != 0) return attackRanged + f88;
+    return 0;
+}
+
+int Entity::GetAttackMagic() const {
+    if (HasMagicDamage() && attackMagic != 0) return attackMagic + f88;
+    return 0;
 }
 
 void Entity::SetHP(int v) {
@@ -548,7 +591,7 @@ void Entity::ResetStats(bool hpToo) {
     defenseMelee = data->GetDefenseMeleeForLevel(lvl);
     defenseRanged = data->GetDefenseRangedForLevel(lvl);
     defenseMagic = data->GetDefenseMagicForLevel(lvl);
-    f128 = f120 = f124 = 0;
+    absorbMagic = absorbMelee = absorbRanged = 0;
     hpRate = data->hpRate;
     if (overrideAttack != 0) {
         if (attackMelee != 0) attackMelee = overrideAttack;
@@ -560,14 +603,15 @@ void Entity::ResetStats(bool hpToo) {
         if (defenseRanged != 0) defenseRanged = overrideDefense;
         if (defenseMagic != 0) defenseMagic = overrideDefense;
     }
-    // +0x84..+0x8c = 0, +0x90 = 1
+    f84 = f8c = f88 = 0;
     f90 = 1.f;
     critChance = data->critChance != 0 ? data->critChance : 10;
-    f138 = f13c = 0;
+    luck = furyBonus = 0;
     // (a spawn point's +0x28 goes to +0x130; spawn points are not ported)
     if (!player) return;
-    f130 = 0x32;
-    // UNVERIFIED (milestone 4): GameState::SetBeltSlotCount(2), SetBeltSize(0).
+    initiative = 0x32;
+    GameState::SetBeltSlotCount(2);
+    GameState::SetBeltSize(0);
 }
 
 int Entity::GetHpOverlimit() {
@@ -609,9 +653,7 @@ void Entity::AddHP(int v) {
     if (hp == GetHpMax() && GameState::IsTaskStarted(0x2f9)) {
         // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
     }
-    if (v != 0 || hp == GetHpMax()) {
-        // UNVERIFIED (milestone 4g): GameState::UpdatePlayerRegenerationState.
-    }
+    if (v != 0 || hp == GetHpMax()) GameState::UpdatePlayerRegenerationState();
     if (greyed) {
         if (sprite) Render::SetShaderType(sprite, 1);
         greyed = false;

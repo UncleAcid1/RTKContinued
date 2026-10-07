@@ -343,7 +343,10 @@ void Show() {
         return;
     }
     // FileManager::ToggleStatEvent(2) at level 4: online statistics, not ported.
-    // UNVERIFIED (milestone 4): the hero's HP is refilled and GameState::UpdatePlayerRegenerationState.
+    if (Entity* player = EntityManager::GetPlayer()) {   // (the original assumes a player)
+        player->SetHP(player->GetHpMax());
+        GameState::UpdatePlayerRegenerationState();
+    }
     // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_level_up").
     bool wasShown = g_queue->shown;
     g_queue->shown = true;

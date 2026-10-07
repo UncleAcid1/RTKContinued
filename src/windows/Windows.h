@@ -173,3 +173,13 @@ void Show();                                // @0x2fc7f8
 void Hide();                                // @0x2f73f4
 void RunLastHelpItem();                     // @0x2f8790
 }
+
+// CharacterInfoWindow: the hero's equipment and inventory window. Only the stat part of
+// UpdateContents is ported yet (milestone 5: the window itself).
+namespace CharacterInfoWindow {
+// @0x28047c, the stat part: the player's stats again from its level (ResetStats, the HP bar too),
+// its soldiers' (not HP), then the effects of the unbroken equipment (bindings 0..9) and
+// customisations (1..9), the complete sets and the running buffs. Map::Load runs it, as do the
+// item windows.
+void UpdateContents();
+}

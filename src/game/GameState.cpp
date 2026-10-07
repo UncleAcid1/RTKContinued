@@ -1,5 +1,6 @@
 #include "game/GameState.h"
 
+#include <cmath>
 #include <cstdio>
 #include <strings.h>
 #include <map>
@@ -39,6 +40,7 @@ int secondTutorial = 0x81;       // 0x60efd0
 int lastSentStep = 0;            // 0x6134b0
 uint32_t playerSeed = 0;         // 0x613408
 uint32_t mHPTS = 0;              // 0x613454
+float mNextHP = 0.f;             // GameState::mNextHP seconds to the next regenerated HP
 uint32_t latestUniqueID = 0;     // GameState::latestUniqueID (Building::SetUniqueID)
 
 namespace {
@@ -68,6 +70,7 @@ uint32_t g_belt[3];             // 0x612cd8 the belt's item ids
 uint32_t g_beltActivation[3];   // 0x612ce4
 uint32_t g_beltOld[3];          // 0x6133fc (chunk 0x1c, obsolete)
 uint32_t g_beltSlotCount = 2;   // 0x60efb8
+uint32_t g_beltSize = 0;        // 0x612cd0
 std::vector<uint32_t> g_beltUniqueIds;   // 0x6133d8
 std::set<uint32_t> g_completedTasks;     // 0x612cf4 TaskCompleted
 U32Map g_subTasks;              // 0x612fe4 Set/GetSubTaskDone, AddSubTask
@@ -479,6 +482,132 @@ bool IsPaused() { return g_pause > 0; }
 
 // ----------------------------------------------------------------------------------------- items
 uint32_t GetBeltSlotCount() { return g_beltSlotCount; }
+void SetBeltSlotCount(uint32_t n) { g_beltSlotCount = n > 3 ? 3 : n; }
+void SetBeltSize(uint32_t n) { g_beltSize = n; }
+uint32_t GetBeltSize() { return g_beltSize; }
+void SetBeltItemMode(bool on) { g_beltItemMode = on; }
+bool GetBeltItemMode() { return g_beltItemMode; }
+
+void BindBeltItemTo(unsigned slot, uint32_t id) {
+    g_beltActivation[slot] = 0;
+    g_belt[slot] = id;
+}
+
+void SetBeltItemActivationTimeAt(unsigned slot, uint32_t t) { g_beltActivation[slot] = t; }
+uint32_t GetBeltItemActivationTimeAt(unsigned slot) { return g_beltActivation[slot]; }
+void ClearBeltItems() { g_beltUniqueIds.clear(); }
+void AddBeltItem(uint32_t uniqueId) { g_beltUniqueIds.push_back(uniqueId); }
+
+PlayerItem* GetItemAt(unsigned binding) { return g_itemBindings[binding].item; }
+PlayerItem* GetCustomizationAt(unsigned binding) { return g_customBindings[binding].item; }
+
+void BindItemTo(unsigned binding, PlayerItem* item) {
+    g_itemBindings[binding].item = item;
+    g_itemBindings[binding].uniqueId = item ? item->uniqueId : 0;
+}
+
+void BindCustomizationTo(unsigned binding, PlayerItem* item) {
+    g_customBindings[binding].item = item;
+    g_customBindings[binding].uniqueId = item ? item->uniqueId : 0;
+}
+
+bool IsItemBinded(const PlayerItem* item) {
+    if (!item || item->info->slot == 0) return false;
+    for (const ItemBinding& b : g_itemBindings)
+        if (b.uniqueId == item->uniqueId) return true;
+    return false;
+}
+
+// UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x20, id, 1) (the "get item" quest steps).
+// UNVERIFIED (milestone 5): an item of a set counts the set's parts (Sets::GetSetForItem,
+// FindInventorySetState, Tasks::CompleteSubtask(0x28, ...)). Not ported (online): the OG / OG2
+// sharing requests (a complete set, a new gem or orb, new equipment unless noShare).
+PlayerItem* AddItem(uint32_t id, int count, bool flag14, bool timesOnly, bool noShare) {
+    if (count < 1) {
+        std::fprintf(stderr, "ERROR: GameState::AddItem() Item %d count is %d\n", id, count);
+        return nullptr;
+    }
+    Items::ItemInfo* info = Items::GetItemInfo(id);
+    if (!info) return nullptr;
+    PlayerItem* last = nullptr;
+    if (!timesOnly) {
+        for (int i = 0; i < count; ++i) {
+            auto it = std::make_unique<PlayerItem>();
+            it->info = info;
+            it->id = id;
+            it->uniqueId = ++g_itemUniqueId;
+            it->f0c = it->f10 = info->durability;
+            it->f14 = flag14;
+            last = it.get();
+            g_items.push_back(std::move(it));
+        }
+    }
+    if (!g_itemAcquireTime.count(id)) g_itemAcquireTime[id] = (uint32_t)Timer::GetGlobalTime();
+    g_itemRecentTime[id] = (uint32_t)Timer::GetGlobalTime();
+    return last;
+}
+
+void RemoveUniqueItem(uint32_t uniqueId) {
+    for (size_t i = 0; i < g_items.size(); ++i) {
+        if (g_items[i]->uniqueId != uniqueId) continue;
+        g_itemPool.push_back(std::move(g_items[i]));
+        g_items[i] = std::move(g_items.back());
+        g_items.pop_back();
+        return;
+    }
+    std::fprintf(stderr, "ERROR: GameState::RemoveUniqueItem() Could not remove an item with unique ID = %d\n", uniqueId);
+}
+
+uint32_t GetItemBuffRemainingTime(uint32_t id) {
+    uint32_t end = g_itemBuff[id];
+    uint32_t now = (uint32_t)Timer::GetGlobalTime();
+    return end == 0 || end < now ? 0 : end - now;
+}
+
+void ActivateItemBuff(uint32_t id, uint32_t seconds) { g_itemBuff[id] = (uint32_t)Timer::GetGlobalTime() + seconds; }
+
+uint32_t GetItemRecentTime(uint32_t id) {
+    auto it = g_itemRecentTime.find(id);
+    return it == g_itemRecentTime.end() ? 0 : it->second;
+}
+
+uint32_t GetItemAcquirementTime(uint32_t id) {
+    auto it = g_itemAcquireTime.find(id);
+    return it == g_itemAcquireTime.end() ? 0 : it->second;
+}
+
+// The player's HP from the time since mHPTS: one HP per GetHPRegeneration seconds (mHPTS starts
+// a full bar back); mNextHP is the wait for the next one.
+void SetupPlayerRegenerationState() {
+    Entity* player = EntityManager::GetPlayer();
+    if (!player) return;
+    if (mHPTS == 0) mHPTS = (uint32_t)(Timer::GetGlobalTime() - player->GetHpMax() * player->GetHPRegeneration());
+    int elapsed = Timer::GetGlobalTime() - (int)mHPTS;
+    int regen = player->GetHPRegeneration();
+    int hp = (int)std::floor((float)elapsed / (float)regen);
+    mNextHP = (float)(regen - elapsed % regen);
+    if (player->GetHpMax() < hp) {
+        hp = player->GetHpMax();
+        mNextHP = 0.f;
+    }
+    if (hp < player->GetHP()) {
+        std::fprintf(stderr, "ERROR: GameState::SetupPlayerRegenerationState() After regeneration, player HP has decreased from %d to %d\n",
+                     player->GetHP(), hp);
+        hp = player->GetHP();
+    }
+    player->SetHP(hp);
+    if (player->GetHP() != player->GetHpMax()) return;
+    if (IsTaskStarted(0x2f9)) {
+        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
+    }
+}
+
+void UpdatePlayerRegenerationState() {
+    Entity* player = EntityManager::GetPlayer();
+    if (!player) return;
+    mHPTS = (uint32_t)(Timer::GetGlobalTime() - player->GetHP() * player->GetHPRegeneration());
+    if (mNextHP == 0.f) mNextHP = (float)player->GetHPRegeneration();
+}
 uint32_t GetBeltItemAt(unsigned slot) { return g_belt[slot]; }
 
 // With the belt item mode on, an item on the belt counts (and is found) only among the belt's own
@@ -974,9 +1103,9 @@ void Load(SaveManager::SaveBlock* block) {
         case 0x11: {   // CHUNK_STATE_PLAYER_ITEMS (the first format)
             uint32_t n = r.u32();
             for (uint32_t i = 0; i < n; ++i) {
-                r.u32();
-                r.u32();
-                // UNVERIFIED (milestone 4, Items): AddItem(id, amount, false, false, false).
+                uint32_t id = r.u32();
+                int amount = (int)r.u32();
+                AddItem(id, amount, false, false, false);
             }
             n = r.u32();
             for (uint32_t i = 0; i < n && i < 10; ++i) g_itemBindings[i] = ItemBinding{r.u32(), 0, nullptr};
@@ -1230,8 +1359,8 @@ void Load(SaveManager::SaveBlock* block) {
     }
     for (uint32_t i = GetBeltSlotCount(); i < 3; ++i) g_belt[i] = g_beltActivation[i] = g_beltOld[i] = 0;
     if (wolfQuestFix && GetTaskBeginTime(0x1b8) && !TaskCompleted(0x1b8) && GetItemAmount(0x16e, false) == 3) {
-        // UNVERIFIED (milestone 4, Items and Tasks): AddItem(0x16e, 1, false, false, false) and
-        // Tasks::CompleteSubtaskDirect(0x323, 1).
+        AddItem(0x16e, 1, false, false, false);
+        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtaskDirect(0x323, 1).
     }
 }
 

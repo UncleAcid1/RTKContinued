@@ -1116,6 +1116,11 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
         TileCoordinatesToWorld(x, y);
         Render::CenterOn((float)x, (float)y);
     }
+    // (after the map name and the boss intro) the player's stats and its regenerated HP.
+    if (EntityManager::GetPlayer()) {
+        CharacterInfoWindow::UpdateContents();
+        GameState::SetupPlayerRegenerationState();
+    }
     return true;
 }
 

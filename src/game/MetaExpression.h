@@ -7,6 +7,7 @@
 #pragma once
 
 class MetaData;
+class Entity;
 
 // The keyword types (MetaData::type of a node's data). Names follow the keywords; aliases share one.
 enum ExpressionType {
@@ -67,6 +68,16 @@ public:
     const MetaData* GetDataWithType(int t) const;
     // @0x1c85c0: the value of the first node of type t (FindByType), else nullptr.
     const MetaData* FindChildData(int t);
+
+    // @0x1c826c: whether using the item would do anything (only the first part is checked: HP / RESTORE_HP
+    // need a hurt entity, MANA missing AP, ORB_PHOENIX a hurt entity or squad member, GIVE_TROOPS a
+    // free reserve slot).
+    bool CanApplyItemEffect(Entity* e);
+    // @0x1d1a68: adds every part's stat to e (equipment, buffs, potions). PARTY: the rest of the
+    // expression goes to e's squad members instead (the soldiers from index 1).
+    void OnApplyItemEffect(Entity* e);
+    // @0x1d17fc: the percentage parts (HEALTH_PC, *_DAMAGE_PC) of a buff.
+    void OnApplyItemBuffEffect(Entity* e);
 
 private:
     MetaExpression(MetaExpression* prev, const char* text);   // @0x1d63a0 the node after prev

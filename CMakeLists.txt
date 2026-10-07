@@ -77,6 +77,7 @@ add_executable(rtk
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
   src/windows/NotEnoughWindow.cpp
+  src/windows/CharacterInfoWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp
   src/hud/BeltBarWindow.cpp

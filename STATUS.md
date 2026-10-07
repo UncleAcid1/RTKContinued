@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 4b.1 done; next 4b.2) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 4b.2 done; next 4b.3) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -247,7 +247,26 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    407 bonus expressions, no parse errors; "Sharp Antique Sword" (item 193), " Precious Gold Ring"
    (the leading space is the original's: the EN forms are "Precious, Precious, ..."), pack lookups;
    the city and a copy of a real save load as before.
-   NEXT: milestone 4, step 4b.2 (item APIs and equipment bonuses; plan in the milestone list below).
+   4b.2 DONE: equipment and item effects. GameState: AddItem (records with durability, first/latest
+   acquisition times), RemoveUniqueItem, GetItemAt/BindItemTo and the customisation bindings,
+   IsItemBinded, the belt (slot count <= 3, size, item mode, BindBeltItemTo, activation times,
+   AddBeltItem/ClearBeltItems), item buffs (ActivateItemBuff, GetItemBuffRemainingTime), recent and
+   acquisition times, Setup/UpdatePlayerRegenerationState (HP from the time since mHPTS; mNextHP),
+   chunk 0x11's AddItem and the wolf-quest 0x16e fix-up item. Entity: the Add*/Get* stats (absorb,
+   crit, fury, initiative, luck, HP regeneration, the +0x84/+0x88/+0x8c combat additions),
+   HasRanged/MagicDamage, GetBaseSpeedMultiplier from equipped SPEED, ResetStats' belt reset.
+   MetaExpression: OnApplyItemEffect (PARTY: the rest to the squad's soldiers), OnApplyItemBuffEffect
+   (the *_PC percentages, +0.5 rounding), CanApplyItemEffect. src/windows/CharacterInfoWindow.cpp: the
+   stat part of UpdateContents (ResetStats, equipment, customisations, buffs), run by Map::Load with
+   SetupPlayerRegenerationState; LevelUpWindow::Show refills HP; Entity::AddHP updates the
+   regeneration state. Stubs: Sets (M5: complete-set effects, AddItem's set quest steps), GIVE_TROOPS
+   (M5 hiring: HireSoldier), Tasks::CompleteSubtask calls (4c), OG sharing (online), the belt bar's
+   UpdateContents (4g). Original quirk kept: soldiers' initiative is reset only by spawn points, so a
+   PARTY initiative bonus adds up with each UpdateContents until the next load. Verified headless
+   (temporary hook, removed): sword 193 equipped -> hero initiative 50->65, melee 1->3, soldier
+   +5/+1 (PARTY); a cookie HP=1; buffs 685 (HEALTH_PC 30: 9 -> 12/12) and 684 (MELEE_DAMAGE_PC 30:
+   3 -> 4); save and reload keeps the item, its binding and the stats; city and real save load.
+   NEXT: milestone 4, step 4b.3 (item drops, items in the shop's producing lines and factory boosts).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
@@ -543,7 +562,7 @@ Milestones:
               Combat, spells, jobs and decoration actions stay stubs until 4e/4g.
        4b [ ] items. 4b.1 (done): MetaExpression's parser (moved here from 4c: item bonuses are
               expressions), Tags, Items (items.xml, item_packs.xml, ItemInfo and its getters),
-              PlayerItem::info on load. 4b.2: GameState item APIs (AddItem, bindings/equip, belt,
+              PlayerItem::info on load. 4b.2 (done): GameState item APIs (AddItem, bindings/equip, belt,
               sell) and the hero's equipment bonuses (MetaExpression::OnApplyItemEffect /
               GetSummaryEffectsValue / CanApplyItemEffect, Entity stat getters). 4b.3: item drops
               (ItemDrop item kind, Map::ItemPlaceContinuation), items in the shop's producing lines
