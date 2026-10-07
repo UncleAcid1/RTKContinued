@@ -61,6 +61,46 @@ public:
     int baseY = 0;                     // +0x40
 };
 
+// The farm view's per-patch progress box over a soil patch while its powder speed-up runs
+// (Compact_progress_holder.xml): the crop's name, the stage text (GROW_PLANT_%02d, harvesting,
+// cleaning, planting) with its percentage, and the bar. Six of them belong to BottomFarmWindow.
+// Port of PatchProgressHoverWindow (0x88 bytes). SetPartialSpeedUpMode @0x38e688 is not ported:
+// only BottomFarmWindow::OnFarmWater calls it, and nothing calls that in 5.11.
+class PatchProgressHoverWindow : public BuildingHoverWindow {
+public:
+    PatchProgressHoverWindow();                  // @0x38f45c
+    ~PatchProgressHoverWindow() override;        // @0x38f398
+    void Init() override;                        // +0x08 @0x38f0f4
+    void SetZ(float z) override;                 // +0x10 @0x38e64c
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x38f058
+    void Show() override;                        // +0x1c @0x38e60c
+    void Hide() override;                        // +0x20 @0x38f0b8
+    void Update(float dt) override;              // +0x24 @0x38e918
+    float ZRange() override { return 0.002f; }   // +0x34 @0x38e67c
+    void SetPosition(int x, int y) override;     // +0x3c @0x38e894 above the patch's sprite
+    void SetBuilding(Map::Building* b) override { building = b; }   // +0x40 @0x38e890
+    void SetEntity(Entity* e) override;          // +0x44 @0x38e81c
+    // @0x38e7e0: the powder speed-up: the bar runs out once a second (the patch moves a stage a
+    // second) until the crop is ready; the GUI is locked meanwhile (except in the city tutorial).
+    void SetFullSpeedUpMode();
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* border = nullptr;     // +0x38 golden_border_box
+    int borderH = 0;                   // +0x3c its layout height
+    GUI::Window* footer = nullptr;     // +0x40 hint_window_footer
+    GUI::Textfield* jobText = nullptr; // +0x44 text_job
+    GUI::Window* bar = nullptr;        // +0x48 unit_info_progress_bar
+    GUI::Window* barColor = nullptr;   // +0x4c progres_bar_color
+    GUI::Textfield* textUnder = nullptr;   // +0x50
+    GUI::Textfield* textOver = nullptr;    // +0x54
+    GUI::ClipRect clip = {0, 0, 0, 0}; // +0x58 the fill
+    float left = 0.f;                  // +0x68 the part of the stage still to go
+    uint32_t second = 0;               // +0x6c
+    float t = 0.f;                     // +0x70 time in the current second
+    bool fullSpeedUp = false;          // +0x84
+    bool partialSpeedUp = false;       // +0x85 (never set, see above)
+};
+
 // The "Zzz" over an idle farm (its farmer asleep) or a workshop without an order: worker_sleep
 // drifts up and right from beside the top of the building, turning and fading, every 1.5 s.
 class SleepingHoverWindow : public BuildingHoverWindow {
@@ -376,6 +416,34 @@ public:
     GUI::Window* border = nullptr;     // +0x38 golden_border_box
     int borderW = 1;                   // +0x3c its layout width
     GUI::Window* footer = nullptr;     // +0x48 Hint_window_footer.xml
+};
+
+// A rotten soil patch's window on the farm view: the crop's name, Recover (4 crystals, the crop
+// comes back) and Clean up (the patch is cleared). Port of FarmRestoreWindow (0x68 bytes).
+class FarmRestoreWindow : public BaseHoverWindow {
+public:
+    FarmRestoreWindow() { name = "FarmRestoreWindow"; }   // @0x3800b0
+    ~FarmRestoreWindow() override;               // @0x37ff7c
+    void Init() override;                        // +0x08 @0x37fbf8
+    void SetZ(float z) override;                 // +0x10 @0x37fabc
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x37f9f0
+    void Show() override;                        // +0x1c @0x37fb94
+    void Hide() override;                        // +0x20 @0x37fb2c
+    void SetPosition(int x, int y) override;     // +0x3c @0x37f8a8
+    void SetBuilding(Map::Building* b) override; // +0x40 @0x37f790
+    void SetEntity(Entity* e) override;          // +0x44 @0x37f71c
+    void OnRestore();                            // @0x37f69c
+    void OnCleanUp();                            // @0x37f644
+
+    GUI::Window* header = nullptr;     // +0x40 Unit_info_hint_header.xml
+    GUI::Textfield* headerText = nullptr;   // +0x44 header_text
+    GUI::Window* restore = nullptr;    // +0x4c Button_house_boost.xml
+    GUI::Textfield* restorePrice = nullptr; // +0x50 text_price
+    GUI::Button* restoreClick = nullptr;    // +0x54
+    GUI::Window* clean = nullptr;      // +0x58 Button_house_upgrade.xml
+    GUI::Textfield* cleanText = nullptr;    // +0x5c text_upgrade
+    GUI::Button* cleanClick = nullptr; // +0x60
+    int padding = 5;                   // +0x64
 };
 
 // A house's info window: name, the Improve button, taxes earned per collection, the time to the

@@ -13,6 +13,7 @@
 #include "game/BuildingMovement.h"
 #include "windows/Windows.h"
 #include "game/BuildingPlacement.h"
+#include "game/AIState.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
@@ -86,6 +87,7 @@ BuildingHoverWindow* g_currentHover = nullptr;   // 0x618980 the tapped building
 // The info windows (Init), shown one at a time as g_currentHover.
 FactoryHoverWindow* g_factoryWindow = nullptr;            // BuildingHovers::factoryWindow
 BuildProgressHoverWindow* g_progressWindow = nullptr;     // BuildingHovers::progressWindow (screen space)
+FarmRestoreWindow* g_farmRestoreWindow = nullptr;         // BuildingHovers::farmRestoreWindow
 LivingHoverWindow* g_livingWindow = nullptr;              // BuildingHovers::livingWindow
 StorageHoverWindow* g_storageWindow = nullptr;            // BuildingHovers::storageWindow
 EmptyHoverWindow* g_emptyWindow = nullptr;                // BuildingHovers::emptyWindow
@@ -139,8 +141,11 @@ void PositionWindow(HoverInfo* h) {
             w->SetPosition(x, y);
         }
     } else if (h->entity) {
-        // UNVERIFIED (entity hovers): (worldX, worldY - GetIdleHeight - 5), and talk/friend windows
-        // take the entity again. No entity hover type is set yet (see UpdateHovers).
+        // Over the entity's head; talk and friend windows take the entity again.
+        float wx = 0.f, wy = 0.f;
+        h->entity->GetWorldPos(wx, wy);
+        w->SetPosition((int)wx, (int)((wy - h->entity->GetIdleHeight()) - 5.f));
+        if (h->type == kTalk || h->type == kFriendInfo) w->SetEntity(h->entity);
     }
 }
 
@@ -214,8 +219,9 @@ WindowManager::FunctionalWindow* Queue() {
 void Init() {
     // UNVERIFIED: wndScale is 1.5 below a 320 px screen height (the arrows' scale).
     g_arrows.push_back(new HelperArrow());
-    // UNVERIFIED: PersonHoverWindow (only shown on campaign maps: milestone 4), FarmGrowHoverWindow and
-    // FarmRestoreWindow (3f) and the world dialog (WorldHintHoverWindow) are created here too.
+    // UNVERIFIED: PersonHoverWindow (only shown on campaign maps: milestone 4) and the world dialog
+    // (WorldHintHoverWindow) are created here too. FarmGrowHoverWindow is created as well but
+    // nothing in 5.11 shows it, so it is not ported.
     g_emptyWindow = new EmptyHoverWindow();
     g_storageWindow = new StorageHoverWindow();
     g_resourceActiveWindow = new ResourceHoverWindow();
@@ -223,6 +229,7 @@ void Init() {
     g_factoryWindow = new FactoryHoverWindow();
     g_progressWindow = new BuildProgressHoverWindow(true);
     g_castleWindow = new CastleHoverWindow();
+    g_farmRestoreWindow = new FarmRestoreWindow();
     g_decorationWindow = new DecorationHoverWindow();
     // UNVERIFIED (world dialog): the queue's back function becomes BuildingHovers::OnBack.
 }
@@ -369,6 +376,103 @@ void Hide() {
 }
 
 bool IsHoverVisible() { return g_currentHover && g_currentHover->shownHover; }
+
+bool SetHoverWindowPosition(void* w, int x, int y) {
+    if (g_currentHover != w) return false;
+    Map::WorldCoordinatesToScreen(x, y);
+    g_currentHover->SetPosition(x, y);
+    return true;
+}
+
+void ShowFarmHover(bool fake, unsigned patch, unsigned count) {
+    if (GameState::tutorial == 0x42) {
+        GameState::tutorial = 0x43;
+        // UNVERIFIED (tutorial): HideWorldDialog(nullptr) (the world dialog is not ported).
+        HideArrow();
+    }
+    Map::Building* farm = Map::GetCurrentFarm();
+    if (!farm) return;
+    if (g_currentHover) {
+        WindowManager::WindowHide(false);
+        g_wnd->shown = false;
+        g_currentHover->Hide();
+        g_currentHover = nullptr;
+    }
+    const int p = (int)patch;
+    if (fake) {
+        g_currentHover = g_progressWindow;
+        g_progressWindow->FakeSpeedup();
+    } else if (patch == 0xffffffffu) {
+        g_currentHover = g_factoryWindow;
+        g_factoryWindow->StartMultipleFarmContracts(count);
+    } else if (farm->GetFarmState(p) == 1) {
+        g_currentHover = g_farmRestoreWindow;
+    } else if (farm->GetFarmState(p) == 6 || farm->patchEntities[patch]->GetAI()->GetState() == 0x13) {
+        // A ripe or dirty patch: the farmer goes there; the progress box follows the work.
+        g_currentHover = g_progressWindow;
+        if (GameState::tutorial == 0x47) {
+            GUI::SetInteractionObjectLock(nullptr, nullptr);
+            GUI::SetInteractionLock(true);
+            HideArrow();
+            GameState::tutorial = 0x4a;
+        }
+        farm->farmer->GetAI()->Farm(0, p, false);
+    } else if (farm->GetFarmState(p) != 0 && farm->patchEntities[patch]->GetAI()->GetState() == 0x12) {
+        g_currentHover = g_progressWindow;
+    } else if (farm->GetFarmState(p) == 0) {
+        g_currentHover = g_factoryWindow;
+        if (count > 1) g_factoryWindow->StartMultipleFarmContracts(count);
+    } else {
+        g_currentHover = g_factoryWindow;
+    }
+    BuildingHoverWindow* w = g_currentHover;
+    if (!w) return;
+    if (patch == 0xffffffffu) {
+        w->SetEntity(nullptr);
+        g_currentHover->SetBuilding(farm);
+    } else {
+        if (w == g_factoryWindow) w->SetEntity(farm->patchEntities[patch]);
+        farm->lastContract = 0;
+        g_currentHover->SetBuilding(farm);
+        g_currentHover->SetEntity(farm->patchEntities[patch]);
+    }
+    w = g_currentHover;
+    if (w == g_factoryWindow || w == g_farmRestoreWindow) {
+        w->SetPosition(GUI::ScreenWidth() / 2, GUI::ScreenHeight() - 100);
+    } else {
+        Entity* f = farm->farmer;
+        int sx = (int)f->worldX, sy = (int)(f->worldY - f->GetSprite()->h);
+        Map::WorldCoordinatesToScreen(sx, sy);
+        w->SetPosition(sx, sy);
+        f->SetHoverWindowPositionHandling(w);
+    }
+    g_currentHover->Show();
+    g_currentHover->MoveWindowOnTop(true);
+    g_wnd->shown = true;
+    WindowManager::WindowShow(false);
+}
+
+void ConvertDroppedFoodToResource(Map::Building* b) {
+    unsigned amounts[8] = {};
+    std::vector<unsigned> subtasks;
+    for (size_t i = 0; i < g_itemDrops.size();) {
+        ItemDrop& d = g_itemDrops[i];
+        if (d.kind != 2) {
+            ++i;
+            continue;
+        }
+        amounts[d.type] += d.amount;
+        for (int s : d.subtasks)
+            if (s != 0) subtasks.push_back((unsigned)s);
+        d.sprite = Render::RemoveSprite(d.sprite);
+        d.glow = Render::RemoveSprite(d.glow);
+        d = g_itemDrops.back();   // the last one takes its place (and is looked at next)
+        g_itemDrops.pop_back();
+    }
+    for (int r = 0; r < 8; ++r)
+        if (amounts[r] != 0) DropResource(b->baseX, b->minY, r, amounts[r], false, false);
+    for (unsigned id : subtasks) AddDeliveryContractToFinishOnLastItem(id);
+}
 void ScheduleUpdate() { g_lastTime = 0; }
 
 // @0x263164: the last drop completes the harvested order's task when collected (its first free
@@ -512,10 +616,15 @@ void UpdateHovers() {
                     goto checked;
                 }
             }
-            if (e) {
+            if (e && !e->IsDisappearing() && e->IsAppeared()) {
                 // UNVERIFIED (milestone 4): talk tasks (0xc), the 0x1d7 special talk, battle health
-                // bars (0xe), boss timers (0x10), the farm farmer (9) and player names (0x11) need
-                // quests, combat and other players. None applies yet: no hover.
+                // bars (0xe), boss timers (0x10) and player names (0x11) need quests, combat and
+                // other players; they are checked first on the original.
+                // A ripe soil patch on the farm view shows its crop.
+                if (e->GetAI() && e->GetAI()->GetState() == 0x19 && Map::GetCurrentFarm()) {
+                    h->SetHoverType(kFarmReady);
+                    goto checked;
+                }
             }
             h->SetHoverType(kNone);
         } else {
@@ -1142,9 +1251,39 @@ int OnEntityClick(Entity* e, int x, int y) {
             return 1;
         }
     } else if (cls == 3 || cls == 4 || cls == 7) {
-        // UNVERIFIED (3f): a soil patch for sale (AI state 0x1b) opens LandWindow::SetPatchParameters,
-        // a locked one (0x14) says "SOIL_PATCH_LOCKED", a rotten crop with a full storage
-        // "WORK_RES_NO_SPACE", else ShowFarmHover(false, patch, 1).
+        // A soil patch: for sale -> the buy window; locked -> a note; a crop past its rot time that
+        // would not fit in the storage -> a note; else its farm window.
+        AIBaseState* ai = e->GetAI();
+        if (ai && ai->GetState() == 0x1b) {
+            LandWindow::SetPatchParameters();
+            LandWindow::Show();
+            return 1;
+        }
+        auto note = [&](const char* key) {
+            float wx = 0.f, wy = 0.f;
+            e->GetWorldPos(wx, wy);
+            ShowTextHover(wx, wy, StringTable::GetString(key), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true, 2.f,
+                          50.f);
+        };
+        if (ai && ai->GetState() == 0x14) {
+            note("SOIL_PATCH_LOCKED");
+            return 1;
+        }
+        if (ai) {
+            Map::Building* farm = Map::GetCurrentFarm();
+            unsigned p = (unsigned)ai->GetFarmPatchNum();
+            if (farm->GetFarmState((int)p) == 6) {
+                const Contracts::ContractMission& m = farm->data->delivery->missions[(size_t)farm->patchContract[p] - 1];
+                if (GameState::resourceAmountMax <=
+                    (int)GameState::GetResourceAmount(m.rewardResource) + (int)m.rewardResourceCount) {
+                    note("WORK_RES_NO_SPACE");
+                    return 1;
+                }
+            }
+            ShowFarmHover(false, (unsigned)ai->GetFarmPatchNum(), 1);
+            WindowManager::WindowHide(false);
+            g_wnd->shown = false;
+        }
     }
     if (!g_currentHover) {
         // UNVERIFIED (milestone 4): on campaign maps (location 2) a live, active entity takes the tap.

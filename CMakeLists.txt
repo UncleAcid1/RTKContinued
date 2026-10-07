@@ -76,6 +76,7 @@ add_executable(rtk
   src/hud/BeltBarWindow.cpp
   src/hud/BattleBarWindow.cpp
   src/hud/BottomCityWindow.cpp
+  src/hud/BottomFarmWindow.cpp
   src/hud/TaskHolderWindow.cpp
   src/hud/HoverWindows.cpp
   src/hud/InfoHoverWindows.cpp

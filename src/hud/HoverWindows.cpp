@@ -211,10 +211,157 @@ bool BubbleHoverWindow::Click(int x, int y, bool pressed) {
             }
         }
     }
-    // UNVERIFIED (3f.4): on the farm view a ready patch's bubble (entity AI state 0x19) shows
-    // "WORK_RES_NO_SPACE" over it when the crop would not fit in the storage, else opens
-    // BuildingHovers::ShowFarmHover(false, patch, 1) and hides itself.
+    // A ripe soil patch's bubble on the farm view: its window, unless the crop would not fit.
+    if (entity && entity->GetAI() && entity->GetAI()->GetState() == 0x19) {
+        AIBaseState* ai = entity->GetAI();
+        if (Map::Building* farm = Map::GetCurrentFarm()) {
+            const Contracts::ContractMission& m =
+                farm->data->delivery->missions[(size_t)farm->patchContract[ai->GetFarmPatchNum()] - 1];
+            if (GameState::resourceAmountMax <=
+                (int)GameState::GetResourceAmount(m.rewardResource) + (int)m.rewardResourceCount) {
+                float wx = 0.f, wy = 0.f;
+                entity->GetWorldPos(wx, wy);
+                BuildingHovers::ShowTextHover(wx, wy, StringTable::GetString("WORK_RES_NO_SPACE"), 1.f, 1.f, 1.f, 0.f,
+                                              0.f, 0.f, 0x19, 5, 5.f, true, 2.f, 50.f);
+                return true;
+            }
+        }
+        BuildingHovers::ShowFarmHover(false, (unsigned)entity->GetAI()->GetFarmPatchNum(), 1);
+        Hide();
+    }
     return true;
+}
+
+// ---- PatchProgressHoverWindow ----
+
+PatchProgressHoverWindow::PatchProgressHoverWindow() {
+    name = "PatchProgressHoverWindow";
+    usesZRange = true;
+}
+
+PatchProgressHoverWindow::~PatchProgressHoverWindow() { delete root; }
+
+void PatchProgressHoverWindow::Init() {
+    float scale = GUI::GetHoverScaleFactor(1.f, 1.f) / Render::GetBaseZoomFactor();
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Compact_progress_holder.xml",
+                           "Compact_progress_holder.png", scale, 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    border = GUI::GetWindowTyped<GUI::Window>(root, "golden_border_box");
+    borderH = border->h;
+    footer = GUI::GetWindowTyped<GUI::Window>(root, "hint_window_footer");
+    jobText = GUI::GetWindowTyped<GUI::Textfield>(root, "text_job");
+    jobText->SetWorldOverscale(true);
+    bar = GUI::GetWindowTyped<GUI::Window>(root, "unit_info_progress_bar");
+    barColor = GUI::GetWindowTyped<GUI::Window>(root, "unit_info_progress_bar.progres_bar_color");
+    textUnder = GUI::GetWindowTyped<GUI::Textfield>(root, "unit_info_progress_bar.text_under");
+    textOver = GUI::GetWindowTyped<GUI::Textfield>(root, "unit_info_progress_bar.text_over");
+    clip = {bar->x, 0, bar->w + bar->x, 0x400};
+    barColor->SetClipRect(&clip);
+    if (!GUI::IsSmallScreenVersion()) textOver->SetClipRect(&clip);
+    if (GUI::IsSmallScreenVersion()) {
+        textUnder->SetWorldOverscale(true);
+        textOver->SetWorldOverscale(true);
+    }
+    // No hurry button: the box is cut to the bar.
+    GUI::Window* hurry = GUI::GetWindowTyped<GUI::Window>(root, "button_hurry_tiny");
+    hurry->SetVisibility(false);
+    border->SetBorders(10, 10, 10, 10);
+    border->SetSize((unsigned)border->w, (unsigned)(borderH - hurry->h));
+    footer->MoveWindow(0, border->h - borderH);
+    root->SetScreenSpace(false);
+}
+
+void PatchProgressHoverWindow::SetZ(float z) { root->SetZ(z - 0.0001f); }
+
+bool PatchProgressHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    int wx = x, wy = y;
+    Map::MouseCoordinatesToWorld(wx, wy);
+    return root->Click(wx, wy, pressed, false);
+}
+
+void PatchProgressHoverWindow::Show() {
+    if (shownHover) return;
+    root->SetVisibility(true);
+    partialSpeedUp = false;
+    fullSpeedUp = false;
+    shownHover = true;
+}
+
+void PatchProgressHoverWindow::Hide() {
+    if (!shownHover) return;
+    fullSpeedUp = false;
+    BuildingHoverWindow::Hide();
+    root->SetVisibility(false);
+}
+
+void PatchProgressHoverWindow::SetFullSpeedUpMode() {
+    fullSpeedUp = true;
+    second = Timer::GetGlobalTime();
+    t = 0.f;
+    if (!GameState::IsCityTutorial()) GUI::SetInteractionLock(true);
+}
+
+void PatchProgressHoverWindow::SetEntity(Entity* e) {
+    BuildingHoverWindow::SetEntity(e);
+    if (!e) return;
+    int c = building->patchContract[e->GetAI()->GetFarmPatchNum()];
+    jobText->SetText(building->data->delivery->missions[(size_t)c - 1].title);
+}
+
+// Centred over the patch, its bottom 10 px into the patch sprite's top.
+void PatchProgressHoverWindow::SetPosition(int x, int y) {
+    int nx = x - root->w / 2;
+    int ny = y + 10 - (int)entity->GetSprite()->h - border->h - footer->h;
+    BuildingHoverWindow::SetPosition(nx, ny);
+    root->SetPosition(nx, ny);
+}
+
+// The patch's stage text and the bar; with the powder speed-up the bar runs out each second, and
+// the box closes (unlocking the GUI) once the crop is ripe or rotten.
+void PatchProgressHoverWindow::Update(float dt) {
+    if (GameState::IsPaused() || !building || !entity || building != Map::GetCurrentFarm() || !shownHover) return;
+    t = t + dt / (float)HUDWindow::GetDeltaTimeMultiplier();
+    uint32_t now = Timer::GetGlobalTime();
+    if (fullSpeedUp && now != second) {
+        second = now;
+        t = 0.f;
+    }
+    int p = entity->GetAI()->GetFarmPatchNum();
+    Map::Building* b = building;
+    auto patchState = [&] { return b->patchEntities[(size_t)p]->GetAI()->GetState(); };
+    // 1..4 growing stage, 5 harvesting, 6 cleaning, 7 planting (GetFarmState called as often as
+    // the original: it can push a late crop's rot timer on).
+    int s;
+    if (b->GetFarmState(p) == 2 && patchState() == 0x12) s = 7;
+    else if (b->GetFarmState(p) == 2) s = 1;
+    else if (b->GetFarmState(p) == 3) s = 2;
+    else if (b->GetFarmState(p) == 4) s = 3;
+    else if (b->GetFarmState(p) == 5) s = 4;
+    else if (b->GetFarmState(p) == 6 && patchState() != 0x13) s = 5;
+    else if (patchState() == 0x13) s = 6;
+    else {
+        Hide();
+        s = 0;
+    }
+    if (fullSpeedUp && (unsigned)(s - 5) < 2) {
+        if (!GameState::IsCityTutorial()) GUI::SetInteractionLock(false);
+        Hide();
+    }
+    left = 1.f - b->patchProgress[p];
+    if (fullSpeedUp) left = 1.f - t;
+    char key[64];
+    std::snprintf(key, sizeof key, b->id == 0x3ee ? "FARM_ANIMAL_GROW" : "GROW_PLANT_%02d", s);
+    bool animals = building->id == 0x3ee;
+    if (s == 5) std::snprintf(key, sizeof key, "%s", animals ? "FARM_ANIMAL_HARVESTING" : "FARM_HARVESTING");
+    else if (s == 6) std::snprintf(key, sizeof key, "%s", animals ? "FARM_ANIMAL_CLEANING" : "FARM_CLEANING");
+    else if (s == 7) std::snprintf(key, sizeof key, "%s", animals ? "FARM_ANIMAL_PLANT" : "FARM_PLANTING");
+    const char32_t* fmt = StringTable::GetString(key);
+    std::u32string text = SWPrintf(0x100, fmt, {ToWideString((int)((1.f - left) * 100.f))});
+    textUnder->SetText(text.c_str());
+    textOver->SetText(text.c_str());
+    clip.right = (int)((float)clip.left + (float)bar->w * (0.125f + (1.f - left) * 0.75f));
+    bar->UpdatePosition();
 }
 
 // ---- SleepingHoverWindow ----
@@ -797,17 +944,20 @@ void BuildProgressHoverWindow::SetBuilding(Map::Building* b) {
     BuildingHoverWindow::SetBuilding(b);
     if (!building) return;
     jobText->SetText(StringTable::GetString(building->data->name.c_str()));   // "%s" (name, level + 1)
-    // UNVERIFIED (farms): on the farm map the farm's order name too.
-    if (building->data->buildingClass == 2 && building->HasActiveContract())
+    if ((building->data->buildingClass == 2 || building == Map::GetCurrentFarm()) && building->HasActiveContract())
         jobText->SetText(building->GetContractName());
     int cost = GetSpeedUpCost();
     canSpeedUp = cost != 0;
     Relayout(expanded && cost != 0);
 }
 
+// On the farm view the patch's order names the box.
 void BuildProgressHoverWindow::SetEntity(Entity* e) {
     BuildingHoverWindow::SetEntity(e);
-    // UNVERIFIED (farms): on the farm map, the patch the farmer works names the box.
+    if (!building || building != Map::GetCurrentFarm() || !e) return;
+    int c = building->patchContract[e->GetAI()->GetFarmPatchNum()];
+    if (c == 0) return;
+    jobText->SetText(building->data->delivery->missions[(size_t)c - 1].title);
 }
 
 void BuildProgressHoverWindow::SetDecoration(Map::Decor* d) {
@@ -953,7 +1103,7 @@ void BuildProgressHoverWindow::Update(float dt) {
     boostItem = 0;
     Map::Building* b = building;
     if (b) {
-        if (screen) {   // UNVERIFIED (farms): not on the farm map
+        if (screen && b != Map::GetCurrentFarm()) {
             int sx = (int)((b->minX + b->maxX) * 0.5f), sy = (int)((float)b->data->iconY + b->minY);
             Map::WorldCoordinatesToScreen(sx, sy);
             SetPosition(sx, sy);
@@ -1016,9 +1166,53 @@ void BuildProgressHoverWindow::Update(float dt) {
         }
         textUnder->SetText(text.c_str());
         textOver->SetText(text.c_str());
-        // UNVERIFIED (farms): the farm's patch states (GROW_PLANT_%02d, FARM_HARVESTING, ...).
+        bool farmWork = false;
+        if (b->upgrading == 0 && b == Map::GetCurrentFarm()) {
+            // Over the farmer working a patch: the patch's state (7 planting, 5 harvesting, 6
+            // cleaning; 1..4 growing) and the work's progress. Only planting, harvesting and
+            // cleaning still under way keep the box open (or the fake speed-up display).
+            int p = entity->GetAI()->GetFarmPatchNum();
+            auto patchState = [&] { return b->patchEntities[(size_t)p]->GetAI()->GetState(); };
+            int st;
+            bool working = true;
+            if (b->GetFarmState(p) == 2 && patchState() == 0x12) st = 7;
+            else if (b->GetFarmState(p) == 2) { st = 1; working = false; }
+            else if (b->GetFarmState(p) == 3) { st = 2; working = false; }
+            else if (b->GetFarmState(p) == 4) { st = 3; working = false; }
+            else if (b->GetFarmState(p) == 5) { st = 4; working = false; }
+            else if (b->GetFarmState(p) == 6 && patchState() != 0x13) st = 5;
+            else if (patchState() == 0x13) st = 6;
+            else {
+                BuildingHovers::Hide();
+                st = 0;
+                working = false;
+            }
+            left = 1.f - b->patchProgress[p];
+            if ((!working || !(b->patchProgress[p] < 1.f)) && !fake) {
+                shownHover = true;   // (so that BuildingHovers::Hide closes it)
+                BuildingHovers::Hide();
+                shownHover = false;
+                return;
+            }
+            char key[64];
+            bool animals = building->id == 0x3ee;
+            std::snprintf(key, sizeof key, animals ? "FARM_ANIMAL_GROW" : "GROW_PLANT_%02d", st);
+            if (st == 5) std::snprintf(key, sizeof key, "%s", animals ? "FARM_ANIMAL_HARVESTING" : "FARM_HARVESTING");
+            else if (st == 6) std::snprintf(key, sizeof key, "%s", animals ? "FARM_ANIMAL_CLEANING" : "FARM_CLEANING");
+            else if (st == 7) std::snprintf(key, sizeof key, "%s", animals ? "FARM_ANIMAL_PLANT" : "FARM_PLANTING");
+            float pct = (1.f - left) * 100.f;
+            if (fake) {
+                pct = speedT * 100.f;
+                std::snprintf(key, sizeof key, "FARM_GROWING");
+            }
+            std::u32string num = SWPrintf(0x20, U"%.0f", {(double)pct});
+            std::u32string ftext = SWPrintf(0x100, StringTable::GetString(key), {num.c_str()});
+            textUnder->SetText(ftext.c_str());
+            textOver->SetText(ftext.c_str());
+            farmWork = true;
+        }
         float v = 1.f - left;
-        if (order) {
+        if (order || farmWork) {
             float tick = dt + barTick;
             if (!barStarted) barValue = v;
             barStarted = true;

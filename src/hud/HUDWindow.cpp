@@ -1,6 +1,7 @@
 // HUDWindow: the driver of the city HUD. Port of HUDWindow (libkingdom.so 5.11), 0x2c6498..0x2c9e00.
 #include "hud/HUD.h"
 
+#include <cmath>
 #include <cstdlib>
 
 #include "engine/IconManager.h"
@@ -90,6 +91,8 @@ Window* g_mapName2 = nullptr;         // +0x80 Text_map_name_popup (near the top
 Textfield* g_mapName2Text = nullptr;  // +0x84
 int g_unk88 = 0;                      // +0x88
 Textfield* g_mapNameText = nullptr;   // +0x94
+float g_mapNameTime = 0.f;            // +0x98
+float g_mapNameW = 0.f, g_mapNameH = 0.f;   // +0x9c +0xa0 the name sprite's full size (h < 0: text)
 Render::Sprite* g_frameBorder = nullptr;   // +0xa4 the 8 sprites of the screen frame, chained
 
 // UNVERIFIED (milestone 4): CastleTopWindow::OnFindPlayer and HUDWindow::OnFindTask move the camera
@@ -200,7 +203,13 @@ void SetInfoText(const char32_t* text) {
 }
 
 void SetBottomType(int type) {
-    // UNVERIFIED (3f): type 3 shows BottomFarmWindow, every other type hides it.
+    if (type == 3) {
+        BottomFarmWindow::Show();
+        BottomCityWindow::Hide();
+        Render::SortRenderLayer(Render::kLayerGUI, 1);
+        return;
+    }
+    BottomFarmWindow::Hide();
     // UNVERIFIED (milestone 4): GlobalMapWindow::IsVisible also keeps the city bar hidden.
     if (type == 0 && GameState::GetCurrentMapID() == 0 && !ShopWindow::IsVisible()) {
         if (!BottomCityWindow::IsVisible()) BottomCityWindow::Show();
@@ -213,13 +222,28 @@ void SetBottomType(int type) {
 void EnterFarm() {
     BattleBarWindow::Hide();
     BeltBarWindow::Hide();
-    // UNVERIFIED (3f.4): PlayerTopWindow::HideDialog and BottomFarmWindow::Show.
+    // UNVERIFIED (milestone 4): PlayerTopWindow::HideDialog (the player's dialog).
+    BottomFarmWindow::Show();
     Map::Building* farm = Map::GetCurrentFarm();
     if (!farm) return;
     const char32_t* name = StringTable::GetString(farm->data->name.c_str());
-    // UNVERIFIED (3f.4): off tablets the name shows in the zooming map-name popup (ShowMapName
-    // @0x2c7588, animated by Update); until then both versions use the info line.
-    SetInfoText(name);
+    if (!GUI::IsTabletVersion()) ShowMapName(name);
+    else SetInfoText(name);
+}
+
+void ShowMapName(const char32_t* name) {
+    if (GameState::tutorial < 9 || g_mapName->visibleSelf) return;
+    // UNVERIFIED (milestone 4): nothing during a PvP battle (GameState::IsPvPCombatActive).
+    g_mapName->SetVisibility(true);
+    g_mapNameText->SetText(name ? name : U" ");
+    if (g_mapNameText->sprite && g_mapNameText->sprite->tex) {
+        g_mapNameTime = 0.f;
+        g_mapNameText->SetAlpha(0.f, false);
+        Render::Texture* t = g_mapNameText->sprite->tex;
+        g_mapNameW = (float)t->w;
+        g_mapNameH = (float)-t->h;
+    }
+    // UNVERIFIED (milestone 5): "emperor_map_enter" on map 0xb, "farm_map_enter" on mission maps.
 }
 
 void ExitFarm() {
@@ -232,7 +256,7 @@ void ExitFarm() {
     BattleBarWindow::Show();
     BeltBarWindow::Show();
     CastleTopWindow::Show();
-    // UNVERIFIED (3f.4): BottomFarmWindow::Hide.
+    BottomFarmWindow::Hide();
     SetInfoText(nullptr);
 }
 
@@ -280,7 +304,34 @@ void SetZ(float z) {
 
 // @0x2c81c8 UNVERIFIED: locators, boss/mission timers, task arrows and screen darkening need
 // entities, combat and quests (milestones 3-4).
-void Update(float) {}
+// @0x2c81c8. PORT: the original returns at once without a player entity (milestone 4); only the
+// map-name popup is ported so far, and it runs regardless. Over the first second the name grows
+// from half size (on a quarter circle) and fades in; it fades out until 3 s, then hides.
+// UNVERIFIED (milestone 4): the player's damage locator pulse, the locators, the screen darkening,
+// the mission timer, the task locator search and the HUD's return after the city tutorial.
+void Update(float dt) {
+    Render::Sprite* s = g_mapNameText->sprite;
+    if (!g_mapName->visibleSelf || !s) return;
+    const float W = (float)GUI::ScreenWidth(), H = (float)GUI::ScreenHeight();
+    if (g_mapNameTime < 1.f) {
+        float halfW = g_mapNameW * 0.5f;
+        s->w = halfW - (g_mapNameW - halfW) * (std::sqrt(1.f - g_mapNameTime * g_mapNameTime) - 1.f);
+        float halfH = g_mapNameH * 0.5f;
+        s->h = halfH - (g_mapNameH - halfH) * (std::sqrt(1.f - g_mapNameTime * g_mapNameTime) - 1.f);
+        Render::SetAlpha(s, 0.f - (std::sqrt(1.f - g_mapNameTime * g_mapNameTime) - 1.f));
+        Render::SetPosition(s, (W - s->w) * 0.5f, (H + s->h) * 0.5f, s->z);
+    } else if (g_mapNameTime < 3.f) {
+        s->w = g_mapNameW;
+        s->h = g_mapNameH;
+        Render::SetAlpha(s, 1.f - (g_mapNameTime - 1.f) * 0.5f);
+        Render::SetPosition(s, (W - s->w) * 0.5f, (H + s->h) * 0.5f, s->z);
+    } else {
+        s->w = g_mapNameW;
+        s->h = g_mapNameH;
+        g_mapName->SetVisibility(false);
+    }
+    g_mapNameTime += dt;
+}
 
 // @0x2c6560: step size grows with the distance to the target.
 int UpdateNumberToTarget(int cur, int target) {

@@ -58,6 +58,7 @@ Entity* SpawnEntityAt(int id, unsigned x, unsigned y, bool appear, bool glow) {
     Entity* e = CreateEntity(id, false, true);
     e->SetPos((int)x, (int)y);
     e->SetCurrentMap((int)GameState::GetCurrentMapID());
+    BuildingHovers::SafeRegisterEntity(e);
     e->SetActive(true, true);
     e->UpdateGraphics();
     if (e->data->clas == 5) g_player = e;

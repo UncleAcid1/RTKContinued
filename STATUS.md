@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 3f.3 done; next 3f.4) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 3f.4 done; next 3f.5) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3e done, 3f (farms) left:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -182,10 +182,44 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    without a job is given back to its farm by the final pass; tapping the farm still opens the
    farm view. Left for 3f.4: the farm view's ready-patch bubble tap (WORK_RES_NO_SPACE check and
    ShowFarmHover, noted in BubbleHoverWindow::Click).
-   NEXT: 3f.4 farm HUD (BottomFarmWindow, PatchProgressHoverWindow, ShowFarmHover,
-   the OnEntityClick farm branch, FarmGrow/FarmRestore windows, the factory window's farm parts,
-   ShowMapName), soil patch buying (LandWindow/LandExpandedWindow patch halves, BuildingPlacement's
-   default patches); 3f.5 offline contracts.
+   3f.4 DONE: the farm view's HUD. BottomFarmWindow (src/hud/BottomFarmWindow.cpp: Return with
+   ConvertDroppedFoodToResource, the main button Plant/Gather/Dig/Clean up/Change by the patches'
+   states, Improve (with the "orders will be lost" question), Speed Up (the powder for growing
+   patches) or Revive (rotten ones, 4 crystals each, confirmed), the sign posts to the previous and
+   next farm (Map::GetFarmBefore/After), the tutorial arrows 0x42/0x45/0x4f, HelpWithUpgrade,
+   ShowPatchSpeedUp); PatchProgressHoverWindow (the per-patch box during the powder speed-up);
+   BuildingHovers::ShowFarmHover (order panel, rotten window, or the progress box following the
+   farmer; Entity::SetHoverWindowPositionHandling/GetIdleHeight, SetHoverWindowPosition);
+   FarmRestoreWindow (Revive / Weed); OnEntityClick's patch branch (for sale -> LandWindow,
+   locked/full-storage notes, else ShowFarmHover); the ripe-patch bubble (UpdateHovers entity
+   case, its tap); BuildProgressHoverWindow's farm parts (patch stage text with %.0f, hidden unless
+   planting/harvesting/cleaning); LandWindow::SetPatchParameters/OnBuyPatch (prices from the farm's
+   farm_patch lists); BuildingPlacement's default patches; HUDWindow SetBottomType 3, EnterFarm/
+   ExitFarm, ShowMapName + the map-name zoom in HUDWindow::Update (PORT: only that part runs; the
+   original returns early without a player entity, milestone 4); ExitFarm in ShopWindow::Show,
+   NotEnough's Find, UpgradeBuildingContinuation; the factory window's per-patch speed-up;
+   WindowManager::ProcessBack's farm condition. Not ported (dead in 5.11): FarmGrowHoverWindow
+   (created, never shown), OnFarmWater and PatchProgressHoverWindow::SetPartialSpeedUpMode.
+   Original quirks kept: the patch window's Revive checks for 4 crystals but takes none (the
+   bottom bar's Revive does charge); the soil patch's crystal price is checked and charged as
+   listed but shown with AdjustCrystalCost.
+   Fixed on the way (gaps from earlier steps): Render::CreateTexture now packs sheets taller than
+   2048 px into two columns as the original does (the farm view farmers' mow/shovel animations were
+   garbled; any tall one-file animation benefits); EntityManager::SpawnEntityAt(id) registers the
+   entity for hovers (the original does; the patch bubbles needed it); BuildingHovers'
+   PositionWindow places entity hovers over the head (worldY - idle height - 5).
+   Verified headless (temporary RTK_FARM4 hook in main and a test-only task setter, both removed):
+   the bar's four buttons and their states; Return back to the city with the farm's lying crop
+   dropped again at the farm; tapping the for-sale patch -> "Buy Farm Plot" (1000 gold with a level
+   4 lock, 20 crystals), crystals buy -> "Plot Purchased!", the patch is owned and the button reads
+   Plant; Speed Up takes 4 crystals and shows the patch box; a growing patch tap and Change open the
+   order panel; a ripe patch shows the carrot bubble, its tap or the patch tap sends the farmer with
+   "Carrots - Harvesting" following her, Gather queues the harvest; a rotten patch opens Revive/Weed
+   (both Revives revive it, Weed clears it to dirty); two farms show the sign posts and the right one
+   opens the Oil Farm; Improve shows the quest lock (milestone 4 stand-in); the city side of 3f.3
+   unchanged. Headless note: hovers refresh once per real second, and the speed-up box's bar resets
+   each wall-clock second, so short runs show it past 100%.
+   NEXT: 3f.5 offline orders (contracts).
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),

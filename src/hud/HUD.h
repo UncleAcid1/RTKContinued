@@ -20,6 +20,8 @@ void SetInfoText(const char32_t* text);
 // farm's, anything else: none.
 void SetBottomType(int type);
 void EnterFarm();             // @0x2c9040 the farm view's HUD
+// @0x2c7588: the big map-name popup in the screen's centre zooms in, then fades (HUDWindow::Update).
+void ShowMapName(const char32_t* name);
 void ExitFarm();              // @0x2c8ddc back to the city's
 }
 
@@ -38,6 +40,22 @@ RTK_HUD_PANEL(BattleBarWindow)
 RTK_HUD_PANEL(BottomCityWindow)
 RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
+
+// The farm view's bottom bar (Farm_buttons_container.xml): Back to the city, the main action
+// (plant / harvest / clear / clean up, whatever the patches need), Upgrade and the powder Speed
+// Up, plus the sign posts to the previous and next farm. Port of BottomFarmWindow, 0x25fb60..
+// 0x262490; statics at 0x6186b0.
+namespace BottomFarmWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "BottomFarmWindow"
+void Init();                  // @0x261fdc
+void Deinit();                // @0x261d00
+void Show();                  // @0x2618e0
+void Hide();                  // @0x2617f4
+bool IsVisible();             // @0x25fb60
+void HelpWithUpgrade();       // @0x25fd30 the helper arrow at the Upgrade button
+void ShowPatchSpeedUp(unsigned patch);   // @0x26018c the patch's progress box in speed-up mode
+void OnFarmBack();            // @0x260cc0
+}
 
 namespace TopCityWindow {
 bool Click(int x, int y, bool pressed);   // @0x365908 (NotEnoughWindow passes its clicks here first)

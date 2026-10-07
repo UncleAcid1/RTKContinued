@@ -222,6 +222,7 @@ int main(int argc, char** argv) {
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
     BottomCityWindow::Queue();
+    BottomFarmWindow::Queue();
     BuildingHovers::Queue();
     CastleTopWindow::Queue();
     CityRenameWindow::Queue();

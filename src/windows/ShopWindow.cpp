@@ -866,7 +866,7 @@ void Deinit() {
 
 // @0x34d73c
 void Show() {
-    // UNVERIFIED (3f): on a farm, HUDWindow::ExitFarm first (farms are not ported).
+    if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
     if (!g_wnd->shown) WindowManager::WindowShow(false);
     // UNVERIFIED (milestone 4): BattleBarWindow::HideAllTasks (the quest lines).
     BuildingHovers::SetHoverVisiblity(false, false);

@@ -8,6 +8,7 @@
 #include "engine/Resources.h"
 #include "game/AI.h"
 #include "game/AIState.h"
+#include "game/BuildingHovers.h"
 #include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -243,8 +244,24 @@ void Entity::Update(float dt) {
             if (!animQueue.empty()) SetAnimation(animQueue.front().name.c_str(), 1, false, false, false, true, false);
         }
     }
-    // UNVERIFIED (milestone 4): patrols (+0xe0), spawn-point wandering and respawns, hover-window
-    // positions, meta-expression spawns, the boss camera/time modifier and class 9 events.
+    // UNVERIFIED (milestone 4): patrols (+0xe0), spawn-point wandering and respawns.
+    if (hoverWindow &&
+        !BuildingHovers::SetHoverWindowPosition(hoverWindow, (int)worldX, (int)(worldY - GetIdleHeight())))
+        hoverWindow = nullptr;
+    // UNVERIFIED (milestone 4): meta-expression spawns, the boss camera/time modifier and class 9
+    // events.
+}
+
+float Entity::GetIdleHeight() {
+    if (!data || f190 == 0.f) UpdateIdleInfo();
+    return f190;
+}
+
+void Entity::UpdateIdleInfo() {
+    if (!sprite || !sprite->tex) return;
+    Render::Texture* t = sprite->tex;
+    f18c = (float)t->w;
+    f190 = (float)t->h / (t->frames != 0 ? (float)t->frames : 1.f);
 }
 
 void Entity::UpdateGraphics() {

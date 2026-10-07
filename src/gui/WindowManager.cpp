@@ -7,6 +7,8 @@
 #include "gui/GUI.h"
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
+#include "game/GameState.h"
+#include "game/Map.h"
 
 namespace WindowManager {
 namespace {
@@ -121,11 +123,12 @@ bool FunctionalWindow::OnOuterClick(int x, int y) {
     return false;
 }
 
-// @0x36f008. UNVERIFIED (milestone 3): Map::GetCurrentFarm is null until farms are ported, so the
-// farm condition always passes.
+// @0x36f008: top first; on the farm view during the first tutorial only while interaction is free.
 WindowQueue* ProcessBack() {
     std::puts("checking processback");
     if (GUI::IsAnyAnimationActive()) return nullptr;
+    if (GameState::secondTutorial != 0x100 && Map::GetCurrentFarm() && !GUI::CanInteractWith(nullptr))
+        return nullptr;
     for (WindowQueue* w = g_head; w; w = w->next) {
         if (w->Back()) {
             std::printf("back caught by %s\n", w->name.c_str());

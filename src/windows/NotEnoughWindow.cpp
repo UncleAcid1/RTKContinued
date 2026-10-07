@@ -175,7 +175,7 @@ void FindResourceHelp(int type, unsigned line, bool fromLine) {
         id = kResourceBuilding[type];
         sold = kResourceBuildingSold[type];
     }
-    // UNVERIFIED (3f): on a farm (Map::GetCurrentFarm) HUDWindow::ExitFarm first.
+    if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
     if (GameState::GetCurrentMapID() == 0) {
         if (Map::Building* b = Map::GetBuildingWithID(id)) {
             PointAtBuilding(b);
@@ -229,7 +229,12 @@ void OnFindActual(unsigned i) {
     case kBuildingLevel: {
         if (GameState::GetCurrentMapID() != 0) break;   // UNVERIFIED (M4): GlobalMapWindow::SwitchMap(0)
         if (Map::Building* b = Map::GetUpgradeableBuildingWithID(l.buildingId)) {
-            // UNVERIFIED (3f): the farm cases (ExitFarm, BottomFarmWindow::HelpWithUpgrade).
+            // Another farm's view is left; the farm being visited points at its Upgrade button.
+            if (Map::GetCurrentFarm() && b != Map::GetCurrentFarm()) HUDWindow::ExitFarm();
+            if (b == Map::GetCurrentFarm()) {
+                BottomFarmWindow::HelpWithUpgrade();
+                return;
+            }
             if (b->IsOpened() && b->data->buildingClass != 0xd && (!b->HasActiveContract() || !b->contractDone)) {
                 Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);   // UNVERIFIED: zoom 0.4, see above
                 // UNVERIFIED (3e, building info windows): BuildingHovers::OnBuildingClick(b, W/2, H/2)
@@ -240,9 +245,11 @@ void OnFindActual(unsigned i) {
             return;
         }
         if (Map::Building* b = Map::GetUnfinishedBuildingWithID(l.buildingId, true)) {
+            if (Map::GetCurrentFarm() && b != Map::GetCurrentFarm()) HUDWindow::ExitFarm();
             PointAtBuilding(b);
             return;
         }
+        if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
         ShopWindow::Show();
         ShopWindow::OnSelectItemID(l.buildingId);
         ShopWindow::ShowArrowOnItem(l.buildingId);

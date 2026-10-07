@@ -68,6 +68,17 @@ inline bool IsWorldDialogVisible() { return false; }   // @0x2632c4 UNVERIFIED: 
 bool IsHoverVisible();                      // @0x263320
 void ScheduleUpdate();                      // @0x2630a4
 void AddDeliveryContractToFinishOnLastItem(unsigned id);   // @0x263164
+// @0x2637c8: w, if it is the current hover, moves to the world point (screen coordinates); false
+// otherwise (the entity then stops moving it).
+bool SetHoverWindowPosition(void* w, int x, int y);
+// @0x2665b8: the farm view's window for soil patch `patch`: the order panel (also for `count`
+// patches at once, or patch -1: every active one), the rotten patch's window, or the progress box
+// over the farmer (a ripe or dirty patch, which the farmer is then sent to). fake: the progress
+// box's speed-up display (unused in 5.11).
+void ShowFarmHover(bool fake, unsigned patch, unsigned count);
+// @0x270f98: leaving the farm, the crops still lying there drop again as resources at the farm on
+// the city map.
+void ConvertDroppedFoodToResource(Map::Building* b);
 void SetHoverVisiblity(bool visible, bool arg);  // @0x2630bc
 bool HasDroppedItems();                     // @0x2631b0
 void CollectAll();                          // @0x26e0e8 every drop collected at once (before a save)

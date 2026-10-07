@@ -51,7 +51,10 @@ struct Sprite {                  // 0x68 bytes on the original
 bool Init(int screenW, int screenH);        // after a GL context exists
 void Shutdown();
 
-Texture* CreateTexture(const ImageRGBA& img, const std::string& name);
+// @0x202014 (no atlas): frames is the one-file animation's frame count. A sheet taller than 2048
+// with 2+ frames is uploaded as two columns (the first (frames + 1) / 2 frames on the left), as
+// SetFrame expects; w and h stay the image's.
+Texture* CreateTexture(const ImageRGBA& img, const std::string& name, int frames = 0);
 void SetWrapping(Texture* t, bool wrap);    // @Render::Texture::SetWrapping
 
 // @0x1fe66c Render::CreateSprite(Texture*, RenderLayer, bool mirror, bool flip)

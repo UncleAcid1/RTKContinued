@@ -25,7 +25,7 @@ std::string Lower(std::string s) {
 // Render::CreateTexture: load the file; for non-alpha images the alpha mask is the same path with
 // the extension replaced by "_.png" (memcpy of "_.png" over the '.'). Premultiplied (GetImageData).
 // With pixelMask a 32-bit image (own alpha or an alpha mask) also gets its hit mask.
-Render::Texture* LoadTexture(const std::string& path, bool pixelMask = false) {
+Render::Texture* LoadTexture(const std::string& path, bool pixelMask = false, int frames = 0) {
     uint32_t n = 0;
     uint8_t* data = FileManager::LoadFile(path.c_str(), n);
     if (!data) return nullptr;
@@ -47,7 +47,7 @@ Render::Texture* LoadTexture(const std::string& path, bool pixelMask = false) {
         }
     }
     ImageRGBA img = MakePremultiplied(color, hasMask ? &alpha : nullptr);
-    Render::Texture* t = Render::CreateTexture(img, path);
+    Render::Texture* t = Render::CreateTexture(img, path, frames);
     if (pixelMask && (color.channels == 4 || hasMask)) t->pixelMask = Render::GeneratePixelMask(img.px.data(), img.w, img.h);
     return t;
 }
@@ -92,11 +92,10 @@ Render::Texture* GetImage(const char* name, bool pixelMask) {
         t = LoadTexture(path, pixelMask);
     } else if (auto a = g_anims.find(key); a != g_anims.end()) {
         path = GetDecoratedImageName("A3MergedAnims", (std::string(name) + "_anim").c_str());
-        if (!path.empty() && (t = LoadTexture(path, pixelMask))) {
-            t->frames = a->second;
-            // GetImage: "fir5_stump"/"tree5_stump" textures are forced to one frame
-            if (std::strstr(name, "fir5_stump") || std::strstr(name, "tree5_stump")) t->frames = 1;
-        }
+        // GetImage: "fir5_stump"/"tree5_stump" textures are forced to one frame
+        int frames = a->second;
+        if (std::strstr(name, "fir5_stump") || std::strstr(name, "tree5_stump")) frames = 1;
+        if (!path.empty()) t = LoadTexture(path, pixelMask, frames);
     }
     // UNVERIFIED: multi-file animations ("%s_00", "%s_%02d" frames) are not wired up yet.
     g_cache[key] = t;

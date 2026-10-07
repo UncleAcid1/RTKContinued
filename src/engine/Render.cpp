@@ -281,15 +281,24 @@ void Shutdown() {
     g_textures.clear();
 }
 
-Texture* CreateTexture(const ImageRGBA& img, const std::string& name) {
+Texture* CreateTexture(const ImageRGBA& img, const std::string& name, int frames) {
     auto t = std::make_unique<Texture>();
     t->w = img.w;
     t->h = img.h;
     t->name = name;
+    t->frames = frames;
     glGenTextures(1, &t->glId);
     glBindTexture(GL_TEXTURE_2D, t->glId);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.w, img.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.px.data());
+    if (img.h < 0x801 || frames < 2) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.w, img.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img.px.data());
+    } else {
+        int colH = (int)((unsigned)img.h / (unsigned)frames) * ((frames + 1) >> 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.w * 2, colH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, img.w, colH, GL_RGBA, GL_UNSIGNED_BYTE, img.px.data());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, img.w, 0, img.w, img.h - colH, GL_RGBA, GL_UNSIGNED_BYTE,
+                        img.px.data() + (size_t)colH * img.w * 4);
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

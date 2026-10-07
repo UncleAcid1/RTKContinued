@@ -63,6 +63,10 @@ public:
     // @0x152654 SetActive(active, idle): activating resets the AI (AIBaseState::Reset(idle)).
     void SetActive(bool active, bool idle);
     bool IsActive() const { return active; }     // @0x150478
+    // @0x150898: while `w` is BuildingHovers' current hover it stays over the entity's head.
+    void SetHoverWindowPositionHandling(void* w) { hoverWindow = w; }
+    float GetIdleHeight();                       // @0x150654 (frame height of its sprite's sheet)
+    void UpdateIdleInfo();                       // @0x1505cc
     void SetAlpha(float a) { alpha = a; }        // @0x1506e0
     void SetCustomZ(float z) { customZ = z; }    // @0x150044
     void RemoveGlow();                           // @0x1516d4
@@ -194,6 +198,7 @@ public:
     bool needRemove = false;         // +0x195
     int f198 = 0;                    // +0x198 forced ring style
     int ringStyle = 0;               // +0x19c
+    void* hoverWindow = nullptr;     // +0x1a0 the hover window that follows it (SetHoverWindowPositionHandling)
     bool removeSpriteOnEnd = false;  // +0x1a8
     bool walkAwayOnEnd = false;      // +0x1a9
     bool f1aa = true;                // +0x1aa

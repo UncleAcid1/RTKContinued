@@ -7,7 +7,9 @@
 #include <string>
 
 #include "engine/IconManager.h"
+#include "game/Building.h"
 #include "game/GameData.h"
+#include "game/MetaData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/Setting.h"
@@ -110,6 +112,39 @@ void OnBuyArea(unsigned withCrystals) {
         Map::Save(0);
     }
     LandExpandedWindow::SetAreaParameters(g_area.id);
+    LandExpandedWindow::Show();
+}
+
+// @0x2e83bc: the soil patch, as OnBuyArea. The crystal price is checked and charged as listed
+// (shown with AdjustCrystalCost).
+void OnBuyPatch(unsigned withCrystals) {
+    Map::Building* farm = Map::GetCurrentFarm();
+    NotEnoughWindow::ResetRequirements();
+    if (withCrystals == 0) {
+        if (g_gold > 0) NotEnoughWindow::AddRequirement(GameState::kGold, (unsigned)g_gold);
+        NotEnoughWindow::AddLevelRequirement((unsigned)g_level);
+    } else if (g_crystals > 0) {
+        NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)g_crystals);
+    }
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return;
+    }
+    // FileManager::OnItemBought("farm_patch", ...) and Billing::LogCBPurchase: online, not ported.
+    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(0x2b, farm id, 1).
+    if (withCrystals == 0) {
+        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_gold").
+        GameState::ChangeResourceAmount(GameState::kGold, -g_gold);
+        farm->OnSoilPatchBuy();
+        Hide();
+    } else {
+        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+        GameState::ChangeResourceAmount(GameState::kCrystal, -g_crystals);
+        farm->OnSoilPatchBuy();
+        Hide();
+        Map::Save(0);
+    }
+    LandExpandedWindow::SetPatchParameters(farm->data->id, farm->resourceLeft);
     LandExpandedWindow::Show();
 }
 
@@ -253,6 +288,44 @@ void SetAreaParameters(uint32_t areaId) {
     g_crystalButton->SetOnClick([] { OnBuyArea(1); });
     g_landImage->SetVisibility(true);
     g_farmImage->SetVisibility(false);
+}
+
+void SetPatchParameters() {
+    Map::Building* farm = Map::GetCurrentFarm();
+    const GameData::BuildingData* d = farm->data;
+    const unsigned need = 6 - d->farmPatchDefault;
+    auto count = [](const MetaData* m) { return m ? m->GetChildrenCount() : 0u; };
+    if (!d->farmPatchCost || count(d->farmPatchCost) < need) {
+        std::printf("ERROR: LandWindow::SetPatchParameters() Farm %d doesn't have enough patch gold cost settings "
+                    "count (got %d, require %d)\n", (int)farm->id, (int)count(d->farmPatchCost), (int)need);
+        return;
+    }
+    if (count(d->farmPatchCost2) < need) {
+        std::printf("ERROR: LandWindow::SetPatchParameters() Farm %d doesn't have enough patch crystal cost "
+                    "settings count (got %d, require %d)\n", (int)farm->id, (int)count(d->farmPatchCost2), (int)need);
+        return;
+    }
+    if (count(d->farmPatchLevels) < need) {
+        std::printf("ERROR: LandWindow::SetPatchParameters() Farm %d doesn't have enough patch level requirement "
+                    "settings count (got %d, require %d)\n", (int)farm->id, (int)count(d->farmPatchLevels), (int)need);
+        return;
+    }
+    const unsigned i = (unsigned)(farm->resourceLeft + 1) - d->farmPatchDefault;
+    g_gold = d->farmPatchCost->GetChild(i)->GetInt();
+    g_crystals = d->farmPatchCost2->GetChild(i)->GetInt();
+    g_level = d->farmPatchLevels->GetChild(i)->GetInt();
+    g_header->SetText(StringTable::GetString("farm_patch_header"));
+    g_list->SetVisibility(true);
+    g_list->SetText(StringTable::GetString("farm_patch"));
+    for (int k = 0; k < 2; ++k) {
+        g_icons[k]->SetVisibility(false);
+        g_texts[k]->SetVisibility(false);
+    }
+    FillButtons();
+    g_goldButton->SetOnClick([] { OnBuyPatch(0); });
+    g_crystalButton->SetOnClick([] { OnBuyPatch(1); });
+    g_landImage->SetVisibility(false);
+    g_farmImage->SetVisibility(true);
 }
 
 // @0x2e82f0

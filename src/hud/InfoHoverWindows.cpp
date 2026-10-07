@@ -64,9 +64,7 @@ bool UpgradeBuilding(Map::Building* b, bool prepareOnly) {
 }
 
 void UpgradeBuildingContinuation(Map::Building* b) {
-    if (b == Map::GetCurrentFarm()) {
-        // UNVERIFIED (3f): HUDWindow::ExitFarm leaves the farm view first.
-    }
+    if (b == Map::GetCurrentFarm()) HUDWindow::ExitFarm();
     b->Upgrade((unsigned)b->level + 1);
     NotEnoughWindow::Hide();
 }
@@ -267,8 +265,8 @@ void FactoryHoverWindow::OnSpeedUpFinished() {
         else GameState::RemoveItem(boostItem, boostAmount);
         // PORT (online removed): Billing::LogCBPurchase(1, delivery id * 10 - 1 + c, cost).
         if (Map::GetCurrentFarm()) {
-            // UNVERIFIED (3f): Map::Building::SpeedupFarm(-1, patch) and
-            // BottomFarmWindow::ShowPatchSpeedUp(patch).
+            b->SpeedupFarm(-1, patch);
+            BottomFarmWindow::ShowPatchSpeedUp((unsigned)patch);
         }
         speedingUp = false;
     } else {
@@ -1884,4 +1882,119 @@ void DecorationHoverWindow::SetDecoration(Map::Decor* d) {
     }
     SetSize(header->w + padding * 2, header->h + desc->h + 8 + progress->h + GetPaddingTop());
     Update(0.f);
+}
+
+// ---- FarmRestoreWindow ----
+
+FarmRestoreWindow::~FarmRestoreWindow() {
+    delete header;
+    delete restore;
+    delete clean;
+}
+
+void FarmRestoreWindow::Init() {
+    InitBase(true);
+    float hs = GUI::GetHoverScaleFactor(1.f, 1.f);
+    header = GUI::RegisterUI("../resource/kingdom_ui/1Original/Unit_info_hint_header.xml", "Unit_info_hint_header.png",
+                             hs, 0, 0, 0, 0, false, 1.f);
+    header->SetVisibility(false);
+    headerText = GUI::GetWindowTyped<GUI::Textfield>(header, "header_text");
+    restore = GUI::RegisterUI("../resource/kingdom_ui/1Original/Button_house_boost.xml", "Button_house_boost.png",
+                              GUI::GetHoverScaleFactor(1.f, 1.f), 0, 0, 0, 0, false, 1.f);
+    restore->SetVisibility(false);
+    restorePrice = GUI::GetWindowTyped<GUI::Textfield>(restore, "text_price");
+    restoreClick = GUI::GetWindowTyped<GUI::Button>(restore, "clickArea");
+    restoreClick->SetOnClick([this] { OnRestore(); });
+    clean = GUI::RegisterUI("../resource/kingdom_ui/1Original/Button_house_upgrade.xml", "Button_house_upgrade.png",
+                            GUI::GetHoverScaleFactor(1.f, 1.f), 0, 0, 0, 0, false, 1.f);
+    clean->SetVisibility(false);
+    cleanText = GUI::GetWindowTyped<GUI::Textfield>(clean, "text_upgrade");
+    GUI::GetWindowTyped<GUI::Window>(clean, "icon_profession_builder")->SetTexture(IconManager::GetIcon("gold_cancel"));
+    cleanClick = GUI::GetWindowTyped<GUI::Button>(clean, "clickArea");
+    cleanClick->SetOnClick([this] { OnCleanUp(); });
+    SetSize(header->w + padding * 2, header->h + restore->h + 10 + clean->h + GetPaddingTop());
+}
+
+void FarmRestoreWindow::SetZ(float z) {
+    BaseHoverWindow::SetZ(z);
+    header->SetZ(z - 0.0001f);
+    restore->SetZ(z - 0.0001f);
+    clean->SetZ(z - 0.0001f);
+}
+
+bool FarmRestoreWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    if (header->Click(x, y, pressed, false) || restore->Click(x, y, pressed, false) ||
+        clean->Click(x, y, pressed, false))
+        return true;
+    return BaseHoverWindow::Click(x, y, pressed);
+}
+
+void FarmRestoreWindow::Show() {
+    if (shownHover) return;
+    BaseHoverWindow::Show();
+    header->SetVisibility(true);
+    restore->SetVisibility(true);
+    clean->SetVisibility(true);
+}
+
+void FarmRestoreWindow::Hide() {
+    if (!shownHover) return;
+    header->SetVisibility(false);
+    restore->SetVisibility(false);
+    clean->SetVisibility(false);
+    BaseHoverWindow::Hide();
+}
+
+void FarmRestoreWindow::SetPosition(int x, int y) {
+    int nx = x - f2c / 2, ny = y - f30;
+    FixWindowPosition(nx, ny);
+    BaseHoverWindow::SetPosition(nx, ny);
+    ny += GetPaddingTop();
+    header->SetPosition(padding + nx + GetPaddingLeft(), ny);
+    ny += 3 + header->h;
+    restore->SetPosition(padding + nx + GetPaddingLeft(), ny);
+    ny += restore->h;
+    clean->SetPosition(nx + padding - 3 + GetPaddingLeft(), ny);
+}
+
+void FarmRestoreWindow::SetBuilding(Map::Building* b) {
+    BaseHoverWindow::SetBuilding(b);
+    if (!building || !building->HasActiveContract()) return;
+    restorePrice->SetText(ToWideString(GameState::AdjustCrystalCost(4)));
+    bool animals = building->id == 0x3ee;
+    GUI::GetWindowTyped<GUI::Textfield>(restore, "text")
+        ->SetText(StringTable::GetString(animals ? "ANIMAL_RECOVER_UP" : "FARM_RECOVER_UP"));
+    cleanText->SetText(StringTable::GetString(animals ? "ANIMAL_CLEAN_UP" : "FARM_CLEAN_UP"));
+}
+
+void FarmRestoreWindow::SetEntity(Entity* e) {
+    BaseHoverWindow::SetEntity(e);
+    if (!e) return;
+    int c = building->patchContract[e->GetAI()->GetFarmPatchNum()];
+    headerText->SetText(building->data->delivery->missions[(size_t)c - 1].title);
+}
+
+// The crop comes back (its rot timer restarts). The original checks for the 4 crystals but never
+// takes them; kept as it is.
+void FarmRestoreWindow::OnRestore() {
+    unsigned p = (unsigned)entity->GetAI()->GetFarmPatchNum();
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)GameState::AdjustCrystalCost(4));
+    if (NotEnoughWindow::CheckRequirements()) {
+        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+        building->RestoreFarm(p);
+        BuildingHovers::Hide();
+        return;
+    }
+    BuildingHovers::Hide();
+    NotEnoughWindow::Show();
+}
+
+// The farmer goes to clear the patch.
+void FarmRestoreWindow::OnCleanUp() {
+    unsigned p = (unsigned)entity->GetAI()->GetFarmPatchNum();
+    building->CleanFarm(p);
+    building->farmer->GetAI()->Farm(0, (int)p, false);
+    BuildingHovers::Hide();
 }

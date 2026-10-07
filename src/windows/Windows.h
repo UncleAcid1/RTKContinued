@@ -129,7 +129,9 @@ void SetAreaParameters(uint32_t areaId);    // @0x2e8cc0
 void Show();                                // @0x2e82f0
 void Hide();                                // @0x2e8370
 bool IsVisible();                           // @0x2e7d8c
-// UNVERIFIED (3f): SetPatchParameters @0x2e7ef4 and OnBuyPatch @0x2e83bc, a farm's soil patches.
+// @0x2e7ef4: the visited farm's next soil patch: its gold and crystal prices and level from the
+// farm's farm_patch lists (indexed past the default patches).
+void SetPatchParameters();
 }
 
 // "New level!": the level's unlocks and its crystal reward.

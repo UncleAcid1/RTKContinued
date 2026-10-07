@@ -542,8 +542,8 @@ void Accept() {
             BuildingHovers::Update(0.0, true);
         }
         // OG::MakeRequest(2, 1, id, 0, 0): online, not ported.
-        // UNVERIFIED (3f): a farm buys its default soil patches (OnSoilPatchBuy, farmPatchDefault - 1
-        // times).
+        // A farm starts with its default soil patches (the first is always owned).
+        for (unsigned i = 1; i < b->data->farmPatchDefault; ++i) b->OnSoilPatchBuy();
     } else if (g_decor) {
         Map::Decor* d = g_decor;
         Map::Patch* p = Map::GetPatchForCoordinates(d->x, d->y, false);
