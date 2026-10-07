@@ -35,3 +35,14 @@ public:
 
 MetaData* ParseCustomStyleData(const char*& p, const char* delims, const char* wrap);
 MetaData* ParseInteger(const char*& p);   // @0x1d2564 nullptr if p holds no integer
+// @0x1d2414: an identifier [A-Za-z0-9_]+ after spaces, else nullptr.
+MetaData* ParseString(const char*& p);
+MetaData* ParseTerminal(const char*& p);  // @0x1d2710 an integer, else an identifier
+// The MetaExpression lists (wrap: a list node even for one item). Colon: terminals split by ':';
+// wall: colon lists split by '|'; semicolon: wall lists split by ';'.
+MetaData* ParseColonDividedList(const char*& p, bool wrap);       // @0x1d2cd4
+MetaData* ParseWallDividedList(const char*& p, bool wrap);        // @0x1d2d78
+MetaData* ParseSemicolonDividedList(const char*& p, bool wrap);   // @0x1d2e28
+// @0x1d2ed4: p starts with type (ASCII case-insensitive) followed by '=' or ',' (prefix: anything,
+// also the end); p then moves past the type and an '='.
+bool ParseType(const char*& p, const char* type, bool prefix);

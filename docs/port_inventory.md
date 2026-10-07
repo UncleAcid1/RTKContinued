@@ -86,7 +86,7 @@ Partly ported, with the rest in these milestones:
   UseItemHoverWindow, FoundItemsWindow, NeedItemWindow, CharacterInfoWindow (equipment, stats),
   PlayerInfoWindow, PlayerNameHoverWindow, BuildingHovers::ItemDrop's item kind,
   Map::ItemPlaceContinuation.
-- **4c quest engine**: MetaExpression, Tasks (+TaskInfo, TaskSubtask), tasks.xml, Tags,
+- **4c quest engine**: MetaExpression (the parser is in 4b.1), Tasks (+TaskInfo, TaskSubtask), tasks.xml, Tags (ported in 4b.1),
   Override, Bonus (check: task/level bonuses), the task events in Entity/EntityManager/Map.
 - **4d quest UI**: TaskHolderWindow (+QuickTaskWindow), TaskInfoWindow, TaskCompleteWindow,
   TaskListWindow, Shared::TaskWindow, CastleTopWindow::FeaturedQuestHolder, LevelInfoWindow,

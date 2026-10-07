@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 4a done; next 4b) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 4b.1 done; next 4b.2) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -232,7 +232,22 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified: a construction site with 29 s left and its builder working finishes after
    OfflineUpdate(100000). Also Timer::ApplyDeltaTimeCompensation (@0x23ea38): the frame time is now
    clamped to 0.2 s as on the original (the port had 0.1 s); TimeCompensationBlock not ported (0).
-   NEXT: milestone 4, step 4b (items; plan in the milestone list below).
+   4b.1 DONE: src/game/MetaExpression.* (the 154-keyword table of ParseSingle in the original's
+   order, generated from the decompile; TP's trailing ",<digits>", the orbs' syntax checks,
+   INTERACT_ICON's prefix match; Parse's comment/error skipping and the node chain; FindByType /
+   GetDataWithType / FindChildData), MetaData's ParseColon/Wall/SemicolonDividedList and ParseType,
+   src/game/Tags.* (GetTag/EnumTag/IsActive; offline every tag is off), src/game/Items.* (Init with
+   the quality names "<item_class word> <name>" through StringTable::GetDeclinationString and the
+   GIVE_TROOPS "%s" names, InitPacks, InitSpecial "gift_lvl_lock", GetItemInfo by id/name, packs,
+   EnumItemInfo, GetRandomItemForSlot, Add{Building,Decoration}AsItem, GetPlayersBestNet,
+   GetAmountToBoostTime, all ItemInfo getters), GameState EnumItems and the slot binding tables, and
+   the item chunks' info (version 2 drops unknown items; version 3 takes durability). Not ported
+   (online): ChangeItemAttribute*, SetTransactionTime. Professions (M5) stubs: IsProfessionTool and
+   IsLockedByReputation are false. Verified headless (temporary dump, removed): 682 items + 6 packs,
+   407 bonus expressions, no parse errors; "Sharp Antique Sword" (item 193), " Precious Gold Ring"
+   (the leading space is the original's: the EN forms are "Precious, Precious, ..."), pack lookups;
+   the city and a copy of a real save load as before.
+   NEXT: milestone 4, step 4b.2 (item APIs and equipment bonuses; plan in the milestone list below).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
@@ -526,11 +541,15 @@ Milestones:
               EntityManager::OnClick/AIBaseState::ClickedTile, Map::Load centring on the player (the
               stand-in in main.cpp goes), HUDWindow::Update's player-entity early return.
               Combat, spells, jobs and decoration actions stay stubs until 4e/4g.
-       4b [ ] items: items.xml (Items, ItemInfo, GetItemInfo), the GameState item APIs on top of the
-              existing list/bindings, the hero's equipment bonuses (Entity Add*/Get* stats,
-              GetItemDamageBoost ...), item drops (ItemDrop item kind), items in the shop's
-              producing lines and factory boosts.
-       4c [ ] quests core: MetaExpression (parser + evaluator), tasks.xml (Tasks, TaskInfo, TaskSubtask),
+       4b [ ] items. 4b.1 (done): MetaExpression's parser (moved here from 4c: item bonuses are
+              expressions), Tags, Items (items.xml, item_packs.xml, ItemInfo and its getters),
+              PlayerItem::info on load. 4b.2: GameState item APIs (AddItem, bindings/equip, belt,
+              sell) and the hero's equipment bonuses (MetaExpression::OnApplyItemEffect /
+              GetSummaryEffectsValue / CanApplyItemEffect, Entity stat getters). 4b.3: item drops
+              (ItemDrop item kind, Map::ItemPlaceContinuation), items in the shop's producing lines
+              and factory boosts. 4b.4: the item windows (ItemHoverWindow, UseItemHoverWindow,
+              FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder).
+       4c [ ] quests core: MetaExpression's quest/map parts, tasks.xml (Tasks, TaskInfo, TaskSubtask),
               task state in the save (chunks already kept), progress events (the OnTaskStarted/
               OnSubTaskCompleted/OnTaskCompleted/OnTagUpdate hooks in Entity/EntityManager/Map),
               rewards. Freemium rule: propose the crystal rewards to the user before coding them.

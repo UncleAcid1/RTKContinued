@@ -10,6 +10,7 @@
 
 namespace Map { struct Building; }
 namespace SaveManager { struct SaveBlock; }
+namespace Items { struct ItemInfo; }
 class Entity;
 class BaseCombat;
 
@@ -126,7 +127,7 @@ extern uint32_t latestUniqueID; // the highest building unique id (Building::Set
 
 struct PlayerItem {             // 0x18 bytes, the player's items (vector 0x612f90)
     uint32_t id = 0;            // +0x00
-    const void* info = nullptr; // +0x04 Items::GetItemInfo. UNVERIFIED (milestone 4, Items): null
+    Items::ItemInfo* info = nullptr;   // +0x04 Items::GetItemInfo
     uint32_t uniqueId = 0;      // +0x08
     uint32_t f0c = 0, f10 = 0;  // +0x0c +0x10
     bool f14 = false;           // +0x14
@@ -161,5 +162,9 @@ int GetItemAmount(uint32_t id, bool belt);     // @0x19bdc8
 void RemoveItem(uint32_t id, int count);       // @0x19510c
 PlayerItem* GetItemByUniqueID(uint32_t uniqueId);   // @0x19623c
 PlayerItem* GetFirstItemByID(uint32_t id, bool belt);   // @0x1962a4
+PlayerItem* EnumItems(unsigned i);             // @0x196214 nullptr past the end
+// The equipment slots: items.xml numbers them 1..10 (external), the bindings 0..9 (internal).
+uint32_t ExternalItemBindingToInternal(uint32_t slot);   // @0x1906f0 (table 0x5809fc)
+uint32_t InternalItemBindingToExternal(uint32_t slot);   // @0x190708 (table 0x580a24)
 
 }  // namespace GameState

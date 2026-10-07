@@ -153,6 +153,27 @@ std::u32string GetGenderString(const char32_t* forms, bool male) {
     return f.substr(start, end == std::u32string::npos ? std::u32string::npos : end - start);
 }
 
+// UNVERIFIED: on a missing form the original prints the error and formats the text with a format
+// not read yet; the port returns the whole text.
+std::u32string GetDeclinationString(const char32_t* forms, unsigned size, int declination) {
+    if (!forms) {
+        std::fprintf(stderr, "Declination string format is incorrect\n");   // ErrorReporter::Printf
+        return U"";
+    }
+    std::u32string f = forms;
+    size_t start = 0;
+    for (int i = 0; i < declination; ++i) {
+        size_t comma = f.find(U',', start);
+        if (comma == std::u32string::npos) {
+            std::fprintf(stderr, "Declination string format is incorrect\n");
+            return f;
+        }
+        start = comma + 1;
+    }
+    size_t end = f.find(U',', start);
+    return f.substr(start, end == std::u32string::npos ? std::u32string::npos : end - start);
+}
+
 std::u32string GetCountableString(const char32_t* forms, int n) {
     int form;
     if (n % 10 == 1) form = (unsigned)(n - 10) > 10u ? 0 : 2;

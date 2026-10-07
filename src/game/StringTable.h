@@ -37,6 +37,10 @@ std::u32string GetCountableString(const char32_t* forms, int n);
 // @0x227ffc: the male or female form of "male,female".
 std::u32string GetGenderString(const char32_t* forms, bool male);
 
+// @0x22796c: form number declination (0-based) of "form0,form1,...". (The original writes into a
+// caller buffer of size characters.)
+std::u32string GetDeclinationString(const char32_t* forms, unsigned size, int declination);
+
 // UTF-8 to wide, using the decoder inlined in Init (invalid bytes are skipped).
 std::u32string DecodeUtf8(const char* s);
 

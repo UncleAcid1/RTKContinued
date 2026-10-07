@@ -14,6 +14,7 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/Combat.h"
+#include "game/Items.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 #include "game/SaveManager.h"
@@ -532,6 +533,18 @@ PlayerItem* GetFirstItemByID(uint32_t id, bool belt) {
     return nullptr;
 }
 
+PlayerItem* EnumItems(unsigned i) { return i < g_items.size() ? g_items[i].get() : nullptr; }
+
+uint32_t ExternalItemBindingToInternal(uint32_t slot) {
+    static const uint32_t kInternal[10] = {0, 5, 1, 6, 2, 7, 3, 8, 4, 9};
+    return kInternal[slot - 1];
+}
+
+uint32_t InternalItemBindingToExternal(uint32_t slot) {
+    static const uint32_t kExternal[10] = {1, 3, 5, 7, 9, 2, 4, 6, 8, 10};
+    return kExternal[slot];
+}
+
 void AddOfflineBuilding(const OfflineBuilding& b) { g_offlineBuildings.push_back(b); }
 void ClearOfflineBuildings() { g_offlineBuildings.clear(); }
 
@@ -979,10 +992,15 @@ void Load(SaveManager::SaveBlock* block) {
                 it->uniqueId = r.u32();
                 it->f0c = r.u32();
                 it->f10 = r.u32();
-                // UNVERIFIED (milestone 4, Items): info = Items::GetItemInfo(id). The original keeps
-                // version-2 items only with item info, and gives version-3 items without f10 the
-                // info's +0x68 for f0c and f10.
-                if (type == 0x3a) it->f14 = r.u32() != 0;
+                bool f14 = type == 0x3a && r.u32() != 0;
+                it->info = Items::GetItemInfo(it->id);
+                if (type == 0x26) {
+                    if (!it->info) continue;   // (version 2 keeps only known items)
+                } else {
+                    if (it->f10 == 0 && it->info && it->info->durability != 0)
+                        it->f0c = it->f10 = it->info->durability;
+                    it->f14 = f14;
+                }
                 if (g_itemUniqueId < it->uniqueId) g_itemUniqueId = it->uniqueId;
                 g_items.push_back(std::move(it));
             }

@@ -18,6 +18,9 @@ const MetaData g_empty;          // 0x613950
 bool IsSpace(unsigned char c) { return c < 0x80 && std::isspace(c); }
 bool IsAlnum(unsigned char c) { return c < 0x80 && std::isalnum(c); }
 
+
+}  // namespace
+
 // @0x1d2414
 MetaData* ParseString(const char*& p) {
     while (*p && IsSpace((unsigned char)*p)) ++p;
@@ -36,8 +39,6 @@ MetaData* ParseTerminal(const char*& p) {
     if (MetaData* m = ParseInteger(p)) return m;
     return ParseString(p);
 }
-
-}  // namespace
 
 // (A '-' not followed by a digit is consumed anyway.)
 MetaData* ParseInteger(const char*& p) {
@@ -140,4 +141,62 @@ MetaData* ParseCustomStyleData(const char*& p, const char* delims, const char* w
         if (m) node->AppendChild(m);
     }
     return node;
+}
+
+// @0x1d2cd4: terminals split by ':'; several (or wrap) -> a list node.
+MetaData* ParseColonDividedList(const char*& p, bool wrap) {
+    MetaData* node = ParseTerminal(p);
+    if (*p == ':' || wrap) {
+        MetaData* list = new MetaData(MetaData::kList);
+        list->AppendChild(node);
+        node = list;
+    }
+    while (*p == ':') {
+        ++p;
+        if (MetaData* m = ParseTerminal(p)) node->AppendChild(m);
+    }
+    return node;
+}
+
+// @0x1d2d78: colon lists split by '|'.
+MetaData* ParseWallDividedList(const char*& p, bool wrap) {
+    MetaData* node = ParseColonDividedList(p, false);
+    if (*p == '|' || wrap) {
+        MetaData* list = new MetaData(MetaData::kList);
+        list->AppendChild(node);
+        node = list;
+    }
+    while (*p == '|') {
+        ++p;
+        if (MetaData* m = ParseColonDividedList(p, false)) node->AppendChild(m);
+    }
+    return node;
+}
+
+// @0x1d2e28: wall lists split by ';' (the wrap flag also goes to each wall list).
+MetaData* ParseSemicolonDividedList(const char*& p, bool wrap) {
+    MetaData* node = ParseWallDividedList(p, wrap);
+    if (*p == ';' || wrap) {
+        MetaData* list = new MetaData(MetaData::kList);
+        list->AppendChild(node);
+        node = list;
+    }
+    while (*p == ';') {
+        ++p;
+        if (MetaData* m = ParseWallDividedList(p, wrap)) node->AppendChild(m);
+    }
+    return node;
+}
+
+// @0x1d2ed4
+bool ParseType(const char*& p, const char* type, bool prefix) {
+    size_t n = std::strlen(type);
+    const char* s = p;
+    if (n + (prefix ? 0 : 1) > std::strlen(s)) return false;
+    if (!prefix && s[n] != '=' && s[n] != ',') return false;
+    for (size_t i = 0; i < n; ++i)
+        if ((s[i] | 0x20) != (type[i] | 0x20)) return false;
+    p = s + n;
+    if (s[n] == '=') p = s + n + 1;
+    return true;
 }

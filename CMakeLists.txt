@@ -52,6 +52,9 @@ add_executable(rtk
   src/game/Squad.cpp
   src/game/GameState.cpp
   src/game/MetaData.cpp
+  src/game/MetaExpression.cpp
+  src/game/Tags.cpp
+  src/game/Items.cpp
   src/game/Setting.cpp
   src/engine/Text.cpp
   src/engine/IconManager.cpp

@@ -43,6 +43,7 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Setting.h"
 #include "gui/GUI.h"
 #include "gui/TextStyleManager.h"
@@ -227,6 +228,9 @@ int main(int argc, char** argv) {
     // first on the original; nothing ported reads that list yet.
     EntityFactory::Init();
     EntityFactory::LoadData("../resource/res_files/1Original/persons.xml");
+    Items::Init("../resource/res_files/1Original/items.xml");
+    Items::InitPacks("../resource/res_files/1Original/item_packs.xml");
+    Items::InitSpecial();
     Contracts::Init("../resource/res_files/1Original/deliveries.xml");
     if (!GameData::Load()) return 1;
     GUI::Init("fonts/ARICYRB.ttf", false);
