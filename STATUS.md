@@ -408,6 +408,30 @@ original never saves on a timer (only the "fb" profile does): it saves on exit, 
 events. GameState::tutorial/secondTutorial are real now (Reset gives 0 / 0x81; the PORT test path
 sets tutorial 0x100).
 
+## Project decisions (user, 2026-10-07) — apply without asking again
+- Seasonal events (Tags such as xmas_2012, thanksgiving_2012) switch on by the real calendar date
+  (the dates still to be chosen per tag when events are ported; Tags::Tag::IsActive is the hook).
+- Crystals offline: a daily reward gives crystals; chests give crystals too (1-2 for small chests,
+  larger amounts for bigger ones) where the original had none.
+- Arena, PvP and the friends system must work offline eventually (AI or local data), with the door
+  left open for a future multiplayer server.
+- Online features: port them, but keep them dormant (stubs behind a clear switch), not deleted.
+- Platforms: macOS, Linux, Windows; maybe Android (untested by the user). Keep code portable.
+- The port will be shared publicly at some point. Default kept: it reads the player's own copy of
+  the original files rather than shipping Game Insight's assets.
+- No content beyond 5.11 exists and no server traffic was ever captured: server-driven content is
+  designed, not recovered.
+- The user cannot run the original; they can describe how it behaved. Ask them when behaviour is
+  ambiguous in the code.
+- Work stays in milestone order (4b.4, 4c, ... 4h).
+- Defaults kept where unanswered: original quirks/bugs stay; saves stay in the original format;
+  death/revive, quick-complete and the item shop stay, paid with earned crystals; the Settings bug
+  is revisited after 4c.
+- Planned before 4b.4: a per-function coverage pass (tools/inventory.py: every unported game
+  function tagged with its step; unnamed functions traced through callbacks/vtables). Found gaps so
+  far: the city's ambient birds (Map::PrepareImages / UpdateNotifications, images/bird/), the splash
+  screens and Game::LoadLanguageTable, ReloadSavedGame / OnResume / MainExitNoSave.
+
 ## Goal
 A native, open-source C++ port of Rule the Kingdom (Game Insight, 2012–2014). It has to match the original
 game's code exactly, run on macOS (Apple Silicon) first and then any OS, and be developable going forward.
