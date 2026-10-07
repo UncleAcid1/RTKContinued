@@ -289,6 +289,8 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
   how it should work offline before porting it.
 
 **How to work.**
+- Plan coverage: docs/port_inventory.md places every class of the binary in a milestone. After a
+  step, `python3 tools/inventory.py` and make sure nothing new is unplaced.
 - Decompile: `tools/fn.sh 'regex' | python3 tools/picsym.py`; asm in `out/asm_all.txt`;
   `tools/elfread.py` rd/u32/cstr (Ghidra addresses). PIC globals: value = u32(DAT_lit) + constant
   shown by Ghidra (no +0x10000); GOT slots: `u32(picsym.GOT[0] + u32(DAT))`. A scratch resolver
@@ -520,10 +522,15 @@ Milestones:
        Not in M4 (later milestones; ask before porting the online/freemium ones): spells and magic,
        arena/PvP/boss/siege/async combats, chests, crafting and professions, the item shop,
        collections, the global map, presents (chunk 8, friends' gifts), CharacterInfoWindow.
-5. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
+5. [ ] The rest of the game: spells, boss/siege fights, raids, global map, hiring/healing the army,
+       item shop, chests, crafting, collections, sets, tavern, daily bonus, events, the admin mode
+       (on the original's EditorConsole commands), offline arena/PvP/presents (ask the user first).
+6. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.
-6. [ ] Mac release and polish: .app bundle, settings/persistence paths, Retina/fullscreen,
+7. [ ] Mac release and polish: .app bundle, settings/persistence paths, languages, Retina/fullscreen,
        performance pass, full playthrough check against the original.
+   Every class of the binary is placed in one of these (or marked online-only) in
+   docs/port_inventory.md; `python3 tools/inventory.py` gives the coverage. Re-check after each step.
 
 ## Open questions (tracked)
 - RESOLVED: shader type 2 is mainVS+mainPS (Render::InitMain); 5.11 has no terrain shader at all.
