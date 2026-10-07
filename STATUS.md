@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 3f done; next milestone 4) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 4a.1 done; next 4a.2) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -232,7 +232,25 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified: a construction site with 29 s left and its builder working finishes after
    OfflineUpdate(100000). Also Timer::ApplyDeltaTimeCompensation (@0x23ea38): the frame time is now
    clamped to 0.2 s as on the original (the port had 0.1 s); TimeCompensationBlock not ported (0).
-   NEXT: milestone 4.
+   NEXT: milestone 4, step 4a (plan in the milestone list below).
+   4a.1 DONE: squads and the army. src/game/Squad.* (BaseSquad/PlayerSquad/EnemySquad in vtable order:
+   formations table 0x579d8c, SpawnAt/SpawnSquadAt, MoveTo/MoveSquadTo, ready flags, heal/rearrange/
+   remove with SoldierPool reserves), src/game/SoldierSlots.* (SoldierSlots + SoldierPool), the
+   minimal BaseCombat interface (src/game/Combat.h; GameState::GetActiveCombat is null until 4g),
+   Entity squad/stat parts (CreateSquad +0xcc, OnAdded/OnRemovedFromSquad with the 0x6119cc
+   destructor flag, SetAP/AddAP/SetHpMax/override attack-defense, AddHP + the HP over-limit,
+   IsEliteSoldier, speed run, UpdateSafePos, SetSpawnPoint stub), EntityManager DestroyEntity's
+   soldier part/AssignSoldiersToPlayerSquad/GetPlayerAndSoldiers, AI::GetRandomWaypointInRange,
+   GameState LoadEntities/SaveEntities with the hero/soldier/squad branches (g_keptEntities is
+   gone), GetSoldierSlotCount, the reserve slots in SoldierPool (Reset also sets reserve_slot_max),
+   Map::UpdateSpawns (the player's part: city default tile (0x1b, 0xd), facing 1; spawn points 4f),
+   Map::SpawnEntities (player waypoint weight 5, squad SpawnAt; boss combats 4g), Map::Load's camera
+   (on the player, then the city's tile (0x1e, 0xc)); main only overrides it with --camera.
+   The PORT test path (no save) now makes the hero 0xc with its squad and soldier 0x1a2 as the
+   new game does. Verified headless: hero and soldier stand by the castle; save -> reload -> save
+   is byte-identical from the second reload on (the first moves the new hero's HP 10 over HpMax 9
+   into the over-limit: chunk 0x4f's HP goes 10 -> 9, as on the original); the soldier reloads in
+   SoldierSlots and the squad. Old port saves have no hero (SpawnEntities skips: PORT guard).
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
@@ -458,8 +476,50 @@ Milestones:
        Note: with no save, LoadSavedGame (@0x1885e0) starts a new game on campaign map 0x15 with the
        hero entity (the tutorial), which needs M4. Until then the port boots the city from a Reset
        GameState (PORT test path).
-4. [ ] Hero/army entities and AI (AIPlayer), quests (Tasks, MetaExpression), decoration jobs (Decor
-       Update/WorkStarted/teleports), combat, campaign maps (worker entities: 3c).
+4. [ ] Hero, army, quests, items, decoration jobs, the new-game tutorial. Sub-steps (planned 2026-10-07;
+       each ends with a headless check, a commit and a short update to the user):
+       4a [ ] the hero and the army on the city map. 4a.1 (done): squads (BaseSquad/PlayerSquad/EnemySquad/
+              Squad, Entity::CreateSquad +0xcc), SoldierSlots/SoldierPool, EntityManager::GetPlayer/
+              GetPlayerAndSoldiers/AssignSoldiersToPlayerSquad, the hero/soldier/squad branches of
+              GameState::LoadEntities/SaveEntities (g_keptEntities goes), Entity stats needed to load
+              them (AP, HpMax, override attack/defense, SetupPlayerHPOverlimit). 4a.2: AIPlayer
+              (movement part: Update, ClickedTile, WalkCompleted, StopMovement, UnableToWalk) and
+              AIWarrior walking (soldiers follow the squad formation), the world tap through
+              EntityManager::OnClick/AIBaseState::ClickedTile, Map::Load centring on the player (the
+              stand-in in main.cpp goes), HUDWindow::Update's player-entity early return.
+              Combat, spells, jobs and decoration actions stay stubs until 4e/4g.
+       4b [ ] items: items.xml (Items, ItemInfo, GetItemInfo), the GameState item APIs on top of the
+              existing list/bindings, the hero's equipment bonuses (Entity Add*/Get* stats,
+              GetItemDamageBoost ...), item drops (ItemDrop item kind), items in the shop's
+              producing lines and factory boosts.
+       4c [ ] quests core: MetaExpression (parser + evaluator), tasks.xml (Tasks, TaskInfo, TaskSubtask),
+              task state in the save (chunks already kept), progress events (the OnTaskStarted/
+              OnSubTaskCompleted/OnTaskCompleted/OnTagUpdate hooks in Entity/EntityManager/Map),
+              rewards. Freemium rule: propose the crystal rewards to the user before coding them.
+       4d [ ] quest UI: TaskHolderWindow (queue, quick task), TaskInfoWindow, TaskCompleteWindow,
+              TaskListWindow, Shared::TaskWindow, CastleTopWindow::FeaturedQuestHolder, task arrows,
+              the quest-locked shop items and the upgrade-lock quest names, LevelUpWindow's "new
+              tasks" cell. TaskQuickCompleteWindow (pay crystals to finish): ask the user first.
+       4e [ ] decoration jobs: Map::Decor Update/WorkStarted/teleports, DecorAnimController, AIPlayer's
+              decoration actions (SearchDecoration, ClickedDecoration, AssignToJob, ProcessAction,
+              AutoInteraction), SendGoblinToWork, Decor::UpdateOfflineState, Map::OfflineUpdate's
+              decoration half, the job parts of DecorationHoverWindow/OnDecorClick.
+       4f [ ] campaign maps: spawn points (LoadSpawnPoints, Save::Spawnpoint, Map::Person), portals
+              (ClickedPortal, map travel, LoadEntitiesFromCopy), fog (Fog), NPCs with meta idle
+              animations and talk tasks, AIEnemy wandering/aggro, PersonHoverWindow,
+              RefreshOfflineGoblins (class 0x10).
+       4g [ ] combat as used by the campaign: CombatManager, BaseCombat with EasyCombat/AggroCombat/
+              RangeAggroCombat, AIWarrior/AIEnemy fight states, damage (CalcDamage, Hit, Block,
+              Death, drops), BattleBarWindow, BeltBarWindow (potions), PlayerBattleInOutWindow, HP
+              regeneration and death. Freemium rule: ask how death/revive should work offline.
+       4h [ ] the new game: LoadSavedGame's new-game branch (hero 0xc + squad + soldier 0x1a2 on map
+              0x15, location 2; replaces the PORT test city), TutorialWindow::Update steps 0..0x17
+              (a jump table Ghidra lost: read from the asm), BuildingHovers::ShowWorldDialog,
+              SelectHQWindow, TutorialSender (no server: a no-op), then the city tutorial
+              (UpdateCity, UpdateSecond, the tutorial arrows left as UNVERIFIED in 3e/3f).
+       Not in M4 (later milestones; ask before porting the online/freemium ones): spells and magic,
+       arena/PvP/boss/siege/async combats, chests, crafting and professions, the item shop,
+       collections, the global map, presents (chunk 8, friends' gifts), CharacterInfoWindow.
 5. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.
 6. [ ] Mac release and polish: .app bundle, settings/persistence paths, Retina/fullscreen,

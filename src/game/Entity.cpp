@@ -16,9 +16,13 @@
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
+#include "game/Squad.h"
 
 namespace {
 uint32_t g_entityTime = 0;     // 0x6119b0 Entity::SetCurrentTime
+bool g_hpKeepExcess = false;   // 0x6119b4 SetupPlayerHPOverlimit
+bool g_hpConsume = false;      // 0x6119b5
+bool g_removingPlayer = false; // 0x6119cc the player is being deleted (its squad goes with it)
 bool g_squadUsesOrbs = false;  // 0x6119cd
 
 const char* const kRingImages[8] = {   // 0x6012a4
@@ -56,7 +60,14 @@ Entity::~Entity() {
     ai = nullptr;
     underlay = Render::RemoveSprite(underlay);
     while (debugText) debugText = Render::RemoveSprite(debugText);
-    // UNVERIFIED (milestone 4): the squad (+0xcc) and projectile (+0x1ac) are deleted here.
+    if (player) g_removingPlayer = true;
+    if (squad) {
+        delete squad;
+        squad = nullptr;
+        // (EntityManager::AssertNoReferencesToSquad is empty)
+    }
+    if (player) g_removingPlayer = false;
+    // UNVERIFIED (milestone 4g): the projectile (+0x1ac) is deleted here.
     glow = Render::RemoveSprite(glow);
     if (data && ownsData) delete data;
     data = nullptr;
@@ -563,4 +574,115 @@ int Entity::GetHpOverlimit() {
     if (!player) return 0;
     if (Setting("hp_gift_overlimit").GetInt() < ffc) ffc = Setting("hp_gift_overlimit").GetInt();
     return ffc;
+}
+
+void Entity::SetAP(int v) {
+    f100 = v;
+    if (v > GetApMax()) f100 = GetApMax();
+}
+
+void Entity::AddAP(int v) {
+    int old = f100;
+    f100 = v + old;
+    if (GetApMax() < v + old) f100 = GetApMax();
+    else if (f100 < 0) f100 = 0;
+}
+
+void Entity::SetupPlayerHPOverlimit(bool keepExcess, bool consume) {
+    g_hpConsume = consume;
+    g_hpKeepExcess = keepExcess;
+}
+
+void Entity::AddHP(int v) {
+    int old = hp;
+    hp = v + old;
+    if (GetHpMax() < v + old) {
+        if (player && g_hpKeepExcess) {
+            ffc = hp + ffc - GetHpMax();
+            if (Setting("hp_gift_overlimit").GetInt() < ffc) ffc = Setting("hp_gift_overlimit").GetInt();
+        }
+        hp = GetHpMax();
+    } else if (hp < 0) {
+        hp = 0;
+    }
+    if (!player) return;
+    if (hp == GetHpMax() && GameState::IsTaskStarted(0x2f9)) {
+        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
+    }
+    if (v != 0 || hp == GetHpMax()) {
+        // UNVERIFIED (milestone 4g): GameState::UpdatePlayerRegenerationState.
+    }
+    if (greyed) {
+        if (sprite) Render::SetShaderType(sprite, 1);
+        greyed = false;
+    }
+}
+
+void Entity::ConsumeHpOverlimit(bool addHp) {
+    if (!player || !g_hpConsume || ffc < 1 || GetHpMax() <= GetHP()) return;
+    int n = ffc;
+    if (GetHpMax() - GetHP() < n) n = GetHpMax() - GetHP();
+    ffc -= n;
+    if (!addHp) hp += n;
+    else AddHP(n);
+}
+
+void Entity::CreateSquad() {
+    delete squad;   // (an old player squad reports the removal as an error: see OnRemovedFromSquad)
+    squad = nullptr;
+    if (!player) squad = new EnemySquad(this);
+    else squad = new PlayerSquad(this);
+}
+
+void Entity::OnAddedToSquad(BaseSquad* s) {
+    squad = s;
+    if (player) f3b = true;
+}
+
+void Entity::OnRemovedFromSquad() {
+    if (!player) {
+        squad = nullptr;
+        return;
+    }
+    if (!g_removingPlayer)
+        std::fprintf(stderr, "Entity::OnRemovedFromSquad() Player squad data could have been removed while the"
+                             " player wasn't in the destructor");
+}
+
+bool Entity::HasEntity(Entity* e) { return ai ? ai->HasEntity(e) : false; }
+
+bool Entity::IsEliteSoldier() const {
+    if (!data) return false;
+    switch (Setting("healable_soldiers").GetInt()) {
+    case 1:
+        if (data->warriorCost == 0 && data->warriorCost2 != 0) return data->type != 0x11;
+        return false;
+    case 2: return GameState::secondTutorial == 0x100 && data->type != 0x11;
+    case 3: return data->warriorCost == 0 && data->warriorCost2 != 0;
+    case 4: return GameState::secondTutorial == 0x100;
+    default: return false;
+    }
+}
+
+void Entity::EnableSpeedRun() {
+    speedRunning = true;
+    float s = ai->GetBaseSpeed() * GetBaseSpeedMultiplier();
+    ai->SetSpeed(s + s);
+}
+
+void Entity::DisableSpeedRun() {
+    speedRunning = false;
+    ai->SetSpeed(ai->GetBaseSpeed() * GetBaseSpeedMultiplier());
+}
+
+void Entity::UpdateSafePos(Entity* e) {
+    if (e->f36 || e->f38) return;
+    e->spawnX = e->prevX;
+    e->spawnY = e->prevY;
+}
+
+void Entity::SetSpawnPoint(SpawnPoint* sp) {
+    spawnPoint = sp;
+    // UNVERIFIED (milestone 4f): for a non-player the spawn point sets HP (its NPC flag +0x10: 0x400,
+    // else the level's HP; +0x30/+0x34 an HP override), +0x130 (+0x28) and HpMax (+0x38/+0x3c).
 }

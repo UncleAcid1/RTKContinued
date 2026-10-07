@@ -11,6 +11,7 @@
 namespace Map { struct Building; }
 namespace SaveManager { struct SaveBlock; }
 class Entity;
+class BaseCombat;
 
 namespace GameState {
 
@@ -62,6 +63,9 @@ int TutorialStep();
 int SecondTutorialStep();                      // GameState::secondTutorial
 bool IsCityTutorial();                         // @0x190af4
 int GetTutorialType();                         // @0x19067c (0x6129d4, saved in chunk 0x3d)
+// GameState::currentCombat (milestone 4g creates combats; until then it is always null).
+BaseCombat* GetActiveCombat();                 // @0x191050
+inline bool IsCombatActive() { return GetActiveCombat() != nullptr; }   // @0x190f74
 // @0x190f90: a combat whose type (vfunc +0x50) is above 2 is running. UNVERIFIED (milestone 4): no
 // combats are ported (GameState::currentCombat is always null), so it is false.
 inline bool IsBossCombatActive() { return false; }
@@ -144,6 +148,11 @@ void Save(uint32_t version);                   // @0x19d428 into the main save's
 void Load(SaveManager::SaveBlock* block);      // @0x1a4934
 void SaveEntities();                           // @0x192844
 void LoadEntities(SaveManager::SaveBlock* block);   // @0x1930bc
+// @0x19a11c: SoldierSlots' usable slots, 3 once the "squad_slot_02_quest_unlock" quest is done, else 2.
+unsigned GetSoldierSlotCount();
+Entity* GetFriendPlayer();                      // @0x1919ec the first class-0x16 entity (a visited friend)
+void SetSoldierReserveSlots(unsigned n);  // @0x191d90 SoldierPool::SetFreeSlotsCount
+unsigned GetSoldierReserveSlots();        // @0x191d94 SoldierPool::GetTotalSlotsFree
 void AddOfflineBuilding(const OfflineBuilding& b);   // @0x194928
 void ClearOfflineBuildings();                  // @0x19bda8
 uint32_t GetBeltSlotCount();                   // @0x190788

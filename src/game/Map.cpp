@@ -23,6 +23,7 @@
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
+#include "game/Squad.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
 
@@ -54,6 +55,7 @@ std::vector<uint8_t> g_farmBlocks;              // 0x613794 (empty: the farm is 
 std::unique_ptr<Patch> g_farmPatch;             // 0x6136b4
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
+bool g_victoryPose = false;   // 0x6138cc the player won a fight on the way here (milestone 4g sets it)
 std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
 
 Cell* At(int x, int y) {
@@ -1087,14 +1089,113 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
                 g_patches.size(), Render::SpriteCount());
     CreateRoadAI();
     if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
-    // (ProcessOfflineContracts is empty.) UNVERIFIED (milestone 4): GameState::RefreshOfflineGoblins
-    // (class 0x10 goblins away on a job), portals, spawns, the player's OnSetup and the static
-    // meta expressions.
+    // (ProcessOfflineContracts is empty.) UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins
+    // (class 0x10 goblins away on a job). Music: milestone 5.
     AssignEntities();
+    // UNVERIFIED (milestone 4f): LinkPortals.
+    UpdateSpawns();
+    if (Entity* player = EntityManager::GetPlayer()) {
+        if (GameState::GetCurrentMapID() == 0) player->SetSpawnPoint(nullptr);
+        player->GetAI()->RemoveActionMarker();
+        int x = player->tileX, y = player->tileY;
+        TileCoordinatesToWorld(x, y);
+        // (a boss combat centres on the boss position instead: milestone 4g)
+        Render::CenterOn((float)x, (float)y);
+        if (GameState::tutorial == 9) Render::CenterOn(392.f, 201.f);
+    }
+    // UNVERIFIED (milestones 4c/4e): the "auto_fix_map_reset" decoration fixes (quest maps 0x52..0x59).
     g_loaded = true;
-    // (Map::ExecuteStaticMeta runs with AI::allowWaypointLink off; then every link is redone)
+    // UNVERIFIED (milestones 4c/4e): the player's Entity::OnSetup, EntityManager::ExecuteStaticMeta,
+    // RestoreDecorationInfo and Map::ExecuteStaticMeta (run with AI::allowWaypointLink off; then every
+    // link is redone).
     AI::LinkAdjacentWaypoints();
+    SpawnEntities();
+    // UNVERIFIED (milestone 4f): EntityManager::UpdateAggroZone.
+    if (GameState::GetCurrentMapID() == 0) {
+        int x = 0x1e, y = 0xc;
+        TileCoordinatesToWorld(x, y);
+        Render::CenterOn((float)x, (float)y);
+    }
     return true;
+}
+
+// @0x1c2914 (the player's part). The player stands on its spawn point's saved position, else at the
+// map's default tile ((0x1b, 0xd) in the city, (10, 0x14) on map 0x60), facing down-right in the city.
+void UpdateSpawns() {
+    Entity* player = EntityManager::GetPlayer();
+    if (player) {
+        player->SetRetreating(false);
+        if (player->GetSprite() && player->IsDead() && GameState::GetCurrentMapID() == 0)
+            Render::ChangeLayer(player->GetSprite(), 8);
+    }
+    int spawns = 0;
+    for (const SaveManager::Chunk& c : g_otherChunks) spawns += c.type == SaveManager::kSpawn;
+    std::puts("Map::UpdateSpawns started");
+    std::printf("Map::UpdateSpawns found %d spawns\n", spawns);
+    // UNVERIFIED (milestone 4f): RestoreSpawnpointInfo, RestorePlayerPosition and the spawn points (the
+    // player's own one, class 5 or 10 with entity 0xc, takes the player to the saved position and
+    // gives the default tile; the others spawn their entities, dead ones lying, bosses with their
+    // saved HP).
+    int defX = -1, defY = -1, defDir = -1;
+    if (GetMapID() == 0) {
+        defY = 0xd;
+        defX = 0x1b;
+        g_startX = g_startY = -1;
+    }
+    if (GetMapID() == 0x60) {
+        defY = 0x14;
+        defX = 10;
+        g_startX = g_startY = -1;
+    }
+    // UNVERIFIED (milestone 4g): a boss combat (state 0x11) clears the start position too; (milestone
+    // 4f) a pending teleport target (0x6136d8/0x6136dc) replaces it.
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i) {
+        int clas = e->GetEntityData()->clas;
+        if (clas == 0x16) {   // a visited friend (online only)
+            e->SetActive(true, true);
+            AI::Waypoint* wp = AI::GetRandomFreeWPRect(0x14, 0x20, 0x14, 0);
+            int x = wp ? wp->x : 0x1f, y = wp ? wp->y : 0xb;
+            e->SetPos(x, y);
+            EntityManager::SpawnEntityAt(e, (unsigned)x, (unsigned)y, false, false);
+        }
+        if (clas != 5) continue;
+        if (g_startX < 1 || g_startY < 1) {
+            e->SetPos(defX, defY);
+        } else if (!AI::GetWaypoint(g_startX, g_startY, false)) {
+            std::fprintf(stderr, "ERROR: Player is stuck inside a blocked tile at %d;%d", g_startX, g_startY);
+            g_startY = defY;
+            g_startX = defX;
+            e->SetPos(defX, defY);
+            e->GetAI()->UpdateLastTarget();
+        } else {
+            e->SetPos(g_startX, g_startY);
+        }
+        if (GetMapID() == 0) e->SetDirection(1);
+        else if (defDir > 0) e->SetDirection(defDir);
+        if (BaseSquad* sq = e->GetSquad()) sq->ClearDeadSoldiers();
+    }
+    // UNVERIFIED (milestone 4g): a pending boss reward is dropped here (DropBossReward(player, 0x70)).
+}
+
+// @0x1c0460: the player and its squad appear at the player's tile, whose waypoint gets weight 5 (the
+// others walk round it), and its spawn tile becomes the start position.
+void SpawnEntities() {
+    Entity* player = EntityManager::GetPlayer();
+    // PORT: the original has a player on every map; saves the port wrote before milestone 4 have none.
+    if (!player) return;
+    // UNVERIFIED (milestone 4g): during a boss combat (state 0x11) the combat is ended and the boss,
+    // boss-wave or arena combat is set up instead.
+    if (AI::Waypoint* wp = AI::GetWaypoint(player->tileX, player->tileY, false)) {
+        wp->weight = 5.f;
+        player->GetSquad()->SpawnAt(wp);
+        player->spawnX = g_startX;
+        player->spawnY = g_startY;
+    }
+    if (g_victoryPose) {
+        player->EnqueueAnimation("attack1", 1.f);
+        player->EnqueueAnimation("bat_vict", 0.f);
+    }
+    g_victoryPose = false;
 }
 
 int GetBuildingCount(uint32_t id, bool built) {

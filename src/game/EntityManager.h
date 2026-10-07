@@ -3,6 +3,7 @@
 // member (App::GetEntityManager); its +0x18 is the EntityFactory, +0x1c the player.
 #pragma once
 #include <string>
+#include <vector>
 
 class Entity;
 namespace Map { struct Building; }
@@ -29,6 +30,10 @@ void UpdateGraphics();                           // @0x166868
 Entity* EnumEntities(unsigned i);                // @0x167c38
 int GetEntityCount(bool permanentOnly);          // @0x167c54
 Entity* GetPlayer();                             // @0x165500
+// @0x166c18: the soldiers (class 10) with +0x3b join the player's squad and SoldierSlots, the others
+// are deactivated into SoldierPool.
+void AssignSoldiersToPlayerSquad();
+void GetPlayerAndSoldiers(std::vector<Entity*>& out);   // @0x1682c8 classes 10 and 5
 void ResetOrders(Map::Building* b);              // @0x1669dc every AI forgets its orders to b
 Entity* GetEntityAtXY(int x, int y);             // @0x16613c (active, alive)
 // @0x16716c: the entity whose sprite box (Entity::Contains) holds the world point, the nearest

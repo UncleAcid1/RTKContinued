@@ -13,6 +13,9 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
+#include "game/Combat.h"
+#include "game/SoldierSlots.h"
+#include "game/Squad.h"
 #include "game/SaveManager.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -112,8 +115,6 @@ bool g_socnetConnections[2];    // chunk 0x3c
 // port): kept as loaded.
 uint32_t g_expansionVersions[2];
 // The state of systems not ported yet, kept as the save holds it:
-// UNVERIFIED (milestone 4): SoldierPool's free slots (GetTotalSlotsFree / SetFreeSlotsCount).
-uint32_t g_soldierFreeSlots = 0;
 // UNVERIFIED (milestone 4): the presents container (PresentsContainer::Save/Load, chunk 8) is kept
 // as loaded; a new game writes the empty container (no presents, 0x60f024 = 2, nothing opened).
 std::vector<uint8_t> g_presents;
@@ -177,9 +178,9 @@ void Reset() {
     SetPlayerGender(true);
     SetPlayerName(U"Lancelot");
     SetCastleName(U"");
-    g_soldierFreeSlots = (uint32_t)Setting("reserve_slot_start").GetInt();   // SoldierPool::SetFreeSlotsCount
-    // UNVERIFIED (milestone 4): SoldierPool::SetMaxSlotsCount("reserve_slot_max"), mVirtualHealth
-    // and the other combat and event fields Reset clears.
+    SoldierPool::SetFreeSlotsCount((unsigned)Setting("reserve_slot_start").GetInt());
+    SoldierPool::SetMaxSlotsCount((unsigned)Setting("reserve_slot_max").GetInt());
+    // UNVERIFIED (milestone 4): mVirtualHealth and the other combat and event fields Reset clears.
     g_dailyBonusCount = 0;
     g_tutorialType = 0;
     g_presents.clear();
@@ -577,10 +578,6 @@ void SidKey(uint8_t k[32]) {
     for (int i = 0; i < 31; ++i) k[i + 1] = (uint8_t)((int)(k[i] * 0x10d) >> 7);
 }
 
-// PORT (milestone 4): the entities LoadEntities does not create yet (the hero, soldiers, a
-// visiting friend's squad) are kept as loaded, each as its chunk 0xd and followers, and
-// SaveEntities writes them back after the live ones.
-std::vector<std::vector<SaveManager::Chunk>> g_keptEntities;
 std::unique_ptr<SaveManager::SaveBlock> g_entityDataCopy;   // GameState::entityDataCopy
 }  // namespace
 
@@ -694,7 +691,7 @@ void Save(uint32_t version) {
     SaveMap(g_mapCollectionInfo);
     EndChunk();
     BeginChunk(0x29);
-    SaveUnsigned(g_soldierFreeSlots);   // SoldierPool::GetTotalSlotsFree
+    SaveUnsigned(SoldierPool::GetTotalSlotsFree());
     EndChunk();
     BeginChunk(0x2b);
     SaveUnsigned(g_timeStart);
@@ -1061,7 +1058,7 @@ void Load(SaveManager::SaveBlock* block) {
             uint32_t v = r.u32();
             int max = Setting("reserve_slot_max").GetInt();
             if (max < (int)v) v = (uint32_t)Setting("reserve_slot_max").GetInt();
-            g_soldierFreeSlots = v;
+            SoldierPool::SetFreeSlotsCount(v);
             break;
         }
         case 0x2b: g_timeStart = r.u32(); break;
@@ -1222,7 +1219,7 @@ void Load(SaveManager::SaveBlock* block) {
 
 void SaveEntities() {
     BeginChunk(SaveManager::kEntityHeader);
-    SaveShort((int16_t)(EntityManager::GetEntityCount(true) + (int)g_keptEntities.size()));
+    SaveShort((int16_t)EntityManager::GetEntityCount(true));
     EndChunk();
     uint32_t nextId = 0;
     for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i)
@@ -1259,20 +1256,14 @@ void SaveEntities() {
         SaveUnsigned(e->GetUniqueID() ? e->GetUniqueID() : nextId++);
         EndChunk();
     }
-    for (auto& group : g_keptEntities) {
-        for (const SaveManager::Chunk& c : group) {
-            BeginChunk(c.type);
-            for (uint8_t b : c.data) SaveChar(b);
-            EndChunk();
-        }
-    }
 }
 
-// The player's city: the player's hero and soldiers, workers and farmers; a friend's city (not
-// ported): that player's squad. In the player's city the loaded chunks are also copied to
-// entityDataCopy (LoadEntitiesFromCopy restores them on the return from a campaign map).
+// The player's city: the player's hero (0xc/0xd; a second one is an error) with its squad, the
+// soldiers (in SoldierSlots and the hero's squad when +0x3b is set, else inactive in SoldierPool; dead
+// ones that are not elite are left to EntityManager::Clean), workers and farmers. In the player's city
+// the loaded chunks are also copied to entityDataCopy (LoadEntitiesFromCopy restores them on the
+// return from a campaign map); a dropped soldier's follower chunks are not copied, as on the original.
 void LoadEntities(SaveManager::SaveBlock* block) {
-    g_keptEntities.clear();
     std::unique_ptr<SaveManager::SaveBlock> copy;
     if (IsPlayerCity()) copy = std::make_unique<SaveManager::SaveBlock>();
     block->SkipToChunk(SaveManager::kEntityHeader);
@@ -1281,31 +1272,29 @@ void LoadEntities(SaveManager::SaveBlock* block) {
     SaveManager::Reader hr(header);
     int count = hr.s16();
     block->EndChunkLoading(hr);
+    bool havePlayer = false;
     for (int i = 0; i < count; ++i) {
         block->SkipToChunk(SaveManager::kEntity);
         const SaveManager::Chunk& c = block->GetChunk();
         if (copy) copy->AddChunk(c);
         SaveManager::Reader r(c);
         int id = r.s16();
-        EntityData* d = EntityFactory::GetEntityByID(id);
-        int clas = d ? d->clas : 0;
-        if ((unsigned)(id - 0xc) <= 1 || clas == 5 || clas == 10 || clas == 0x16) {
-            // PORT (milestone 4): the hero (0xc/0xd: the first one becomes the player, a second one
-            // is an error), soldiers (class 10, dead ones that are not elite dropped; inactive
-            // ones to SoldierPool, the others into the player's squad and SoldierSlots) and squads
-            // (classes 5 and 0x16, CreateSquad, the HP over-limit setup) are kept as loaded.
-            std::vector<SaveManager::Chunk> group{c};
-            while (block->NextChunkID() == 0x23 || block->NextChunkID() == 0x32 || block->NextChunkID() == 0x53 ||
-                   block->NextChunkID() == 0x67) {
-                const SaveManager::Chunk& f = block->GetChunk();
-                if (copy && f.type != 0x67) copy->AddChunk(f);
-                group.push_back(f);
+        bool hero = (unsigned)(id - 0xc) <= 1;
+        Entity* e;
+        if (IsPlayerCity()) {
+            if (hero && havePlayer) {
+                std::fprintf(stderr, "ERROR: Save contains multiple player entities (ID: %d)", id);
+                block->EndChunkLoading(r);
+                continue;
             }
-            g_keptEntities.push_back(std::move(group));
-            continue;
+            e = EntityManager::CreateEntity(id, false, true);
+            if (hero) havePlayer = true;
+        } else {
+            e = EntityManager::CreateEntity(id, hero, true);
         }
-        Entity* e = EntityManager::CreateEntity(id, false, true);
         e->temporary = false;
+        // PORT: a visited friend's hero (class 5 outside the player's city) becomes class 0x16 on the
+        // original (EntityData::PartialClone, SetCustomEntityData); friends' cities are online only.
         e->hasHome = r.u8() != 0;
         e->homeX = r.s16();
         e->homeY = r.s16();
@@ -1316,6 +1305,7 @@ void LoadEntities(SaveManager::SaveBlock* block) {
         e->SetHP(r.s16());
         e->firstNameIdx = r.u8();
         e->surnameIdx = r.u8();
+        int clas = e->GetEntityData()->clas;
         if (clas == 0 || clas == 2) {   // workers, farmers
             int farmer = clas == 2 ? 1 : 0;
             e->firstName = EntityFactory::GetNameByIdx(e->GetEntityData()->female, farmer, e->firstNameIdx);
@@ -1323,36 +1313,54 @@ void LoadEntities(SaveManager::SaveBlock* block) {
         }
         e->SetCurrentMap(r.s16());
         e->f3b = r.u8() != 0;
-        // (With +0x3b set the original adds the entity to the player's squad, a soldier's case:
-        // milestone 4.)
-        if (!e->f3b) e->SetActive(false, false);
+        if (clas == 5 || clas == 0x16) e->CreateSquad();
+        if (clas == 10 && e->IsDead() && !e->IsEliteSoldier()) {
+            e->temporary = true;
+            block->EndChunkLoading(r);
+            continue;
+        }
+        if (!e->f3b) {
+            e->SetActive(false, false);
+            if (clas == 10 && IsPlayerCity()) SoldierPool::AddSoldier(e);
+        } else if (!IsPlayerCity()) {
+            GetFriendPlayer()->GetSquad()->AddSoldier(e);
+        } else {
+            EntityManager::GetPlayer()->GetSquad()->AddSoldier(e);
+            SoldierSlots::AddSoldier(e);
+        }
         block->EndChunkLoading(r);
         if (block->NextChunkID() == 0x23) {
             const SaveManager::Chunk& f = block->GetChunk();
             if (copy) copy->AddChunk(f);
             SaveManager::Reader fr(f);
-            e->f100 = fr.s16();   // SetAP
+            e->SetAP(fr.s16());
             block->EndChunkLoading(fr);
         }
         if (block->NextChunkID() == 0x32) {
             const SaveManager::Chunk& f = block->GetChunk();
             if (copy) copy->AddChunk(f);
             SaveManager::Reader fr(f);
-            e->hpMax = fr.s16();   // SetHpMax
+            e->SetHpMax(fr.s16());
             block->EndChunkLoading(fr);
         }
         if (block->NextChunkID() == 0x53) {
             const SaveManager::Chunk& f = block->GetChunk();
             if (copy) copy->AddChunk(f);
             SaveManager::Reader fr(f);
-            e->overrideAttack = fr.s16();
-            e->overrideDefense = fr.s16();
+            e->SetOverrideAttack(fr.s16());
+            e->SetOverrideDefense(fr.s16());
             block->EndChunkLoading(fr);
         }
         if (block->NextChunkID() == 0x67) {
             SaveManager::Reader fr(block->GetChunk());
             e->SetUniqueID(fr.u32());
             block->EndChunkLoading(fr);
+        }
+        if (e->player) {
+            // The saved HP may be above HpMax: the excess becomes the HP over-limit.
+            Entity::SetupPlayerHPOverlimit(true, true);
+            e->AddHP(0);
+            Entity::SetupPlayerHPOverlimit(false, true);
         }
     }
     if (copy) {
@@ -1363,5 +1371,20 @@ void LoadEntities(SaveManager::SaveBlock* block) {
         g_entityDataCopy = std::move(copy);   // CopyEntityData
     }
 }
+
+unsigned GetSoldierSlotCount() {
+    return TaskCompleted((unsigned)Setting("squad_slot_02_quest_unlock").GetInt()) ? 3 : 2;
+}
+
+Entity* GetFriendPlayer() {
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i)
+        if (e->GetEntityData()->clas == 0x16) return e;
+    return nullptr;
+}
+
+void SetSoldierReserveSlots(unsigned n) { SoldierPool::SetFreeSlotsCount(n); }
+unsigned GetSoldierReserveSlots() { return SoldierPool::GetTotalSlotsFree(); }
+
+BaseCombat* GetActiveCombat() { return nullptr; }   // UNVERIFIED (milestone 4g): currentCombat
 
 }  // namespace GameState

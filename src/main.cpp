@@ -54,6 +54,8 @@
 #include "game/Map.h"
 #include "game/MapMovement.h"
 #include "game/SaveManager.h"
+#include "game/SoldierSlots.h"
+#include "game/Squad.h"
 
 namespace {
 
@@ -64,7 +66,8 @@ struct Options {
     std::string storage;      // the save folder (FileManager::GetStoragePath)
     bool save = false;        // PORT test aid: save at the end of a headless run
     std::string screenshot;
-    float camX = 2520.f, camY = 300.f, zoom = 1.f;  // centre of the starting area (area 1)
+    float camX = 0.f, camY = 0.f, zoom = 1.f;   // PORT test aid: a view other than Map::Load's
+    bool camera = false;
     enum InputType { kClick, kPress, kDrag, kType, kKey };
     struct Input { InputType type; int x, y, x2, y2; std::string text; };
     std::vector<Input> inputs;   // headless input, applied before the screenshot
@@ -122,6 +125,7 @@ Options Parse(int argc, char** argv) {
             o.camX = (float)std::atof(next());
             o.camY = (float)std::atof(next());
             o.zoom = (float)std::atof(next());
+            o.camera = true;
         }
     }
     return o;
@@ -261,14 +265,25 @@ int main(int argc, char** argv) {
     FileManager::SetStoragePath(opt.storage);
     SetSaveNames();
     SaveManager::Init();
+    SoldierPool::Init();
+    SoldierSlots::Init();
+    // (PvP::Init and the PvP tutorial players: online, not ported)
     bool corrupt = false;
     SaveManager::Load(nullptr, &corrupt);
     if (!LoadSavedGame(false)) {
         // PORT test path: without a save the original starts the tutorial on campaign map 0x15
-        // (milestone 4); the port boots map opt.map with the finished city tutorial instead.
+        // (milestone 4h); the port boots map opt.map with the finished city tutorial instead. The
+        // hero, its squad and the first soldier are made as LoadSavedGame's new game makes them.
         GameState::Reset();
         GameState::playerSeed = (uint32_t)opt.seed;
         GameState::tutorial = 0x100;
+        Entity* hero = EntityManager::CreateEntity(0xc, false, true);
+        hero->CreateSquad();
+        hero->temporary = false;
+        Entity* soldier = EntityManager::CreateEntity(0x1a2, false, true);
+        SoldierSlots::AddSoldier(soldier);
+        hero->GetSquad()->AddSoldier(soldier);
+        soldier->temporary = false;
         GameState::SetCurrentMapID(opt.map);
         if (!Map::Load(SaveManager::GetMapData(opt.map), (uint32_t)Timer::GetGlobalTime())) return 1;
     }
@@ -282,10 +297,11 @@ int main(int argc, char** argv) {
     if (lastSpawned && opt.walkX >= 0) lastSpawned->GetAI()->WalkTo(opt.walkX, opt.walkY);
 
     MapMovement::Init();
-    Render::zoom = Render::GetDefaultZoom();
-    // UNVERIFIED stand-in: Map::Load centres the view on the player entity (milestone 4).
-    Render::CenterOn(opt.camX, opt.camY);
-    Render::zoom *= opt.zoom;
+    // (Map::Load centred the view: on the player, in the city on tile (0x1e, 0xc))
+    if (opt.camera) {
+        Render::CenterOn(opt.camX, opt.camY);
+        Render::zoom = Render::GetDefaultZoom() * opt.zoom;
+    }
 
     // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
     // WindowManager::Update (the windows waiting to be shown), the window queue, HUDWindow::Update,

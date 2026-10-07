@@ -4,8 +4,8 @@
 // Offsets are the original's.
 //
 // Not ported yet (milestone 4, marked UNVERIFIED where they would run): combat (attacks, damage,
-// projectiles, squads, fury/AP), spawn points, patrols' combat side, meta expressions, quests
-// (talk tasks), particles, glow effects, hover dialogs and sounds.
+// projectiles, fury), spawn points, patrols' combat side, meta expressions, quests (talk tasks),
+// particles, glow effects, hover dialogs and sounds.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -17,6 +17,8 @@ namespace AI { struct Waypoint; }
 struct EntityData;
 struct AnimationController;
 class AIBaseState;
+class BaseSquad;
+struct SpawnPoint;
 
 class Entity {
 public:
@@ -111,9 +113,24 @@ public:
     bool IsSpeedRunning() const { return speedRunning; }   // @0x150890
     float GetBaseSpeedMultiplier() const;        // @0x151434
     bool IsDead() const { return hp < 1; }       // @0x150064
+    bool IsDying() const { return dying; }       // @0x150054
+    bool IsActuallyDying() const { return actuallyDying; }   // @0x15005c
     int GetHP() const { return hp; }             // @0x150078
     int GetHpMax() const { return hpMax; }       // @0x150298
     int GetAP() const { return f100; }           // @0x150080
+    int GetApMax() const { return f104; }        // @0x1502a0
+    void SetAP(int v);                           // @0x1502a8 (capped at GetApMax)
+    void AddAP(int v);                           // @0x1502d4 (0..GetApMax)
+    void SetHpMax(int v) { hpMax = v; }          // @0x1503b8
+    void SetOverrideAttack(int v) { overrideAttack = v; }     // @0x150338
+    void SetOverrideDefense(int v) { overrideDefense = v; }   // @0x150390
+    // @0x1520ac: HP above HpMax is cut to HpMax; for the player while the over-limit setup's first
+    // flag is on, the excess goes to the over-limit (+0xfc, capped by "hp_gift_overlimit").
+    void AddHP(int v);
+    void ConsumeHpOverlimit(bool addHp);         // @0x152224
+    // @0x1508fc: the player's HP over-limit handling (0x6119b4: AddHP keeps the excess, 0x6119b5:
+    // ConsumeHpOverlimit may use it).
+    static void SetupPlayerHPOverlimit(bool keepExcess, bool consume);
     int GetHpOverlimit();                        // @0x151c30 (the player's, capped by "hp_gift_overlimit")
     int GetOverrideAttack() const { return overrideAttack; }     // @0x150340
     int GetOverrideDefense() const { return overrideDefense; }   // @0x150398
@@ -122,6 +139,30 @@ public:
     void SetHP(int v);                           // @0x150b74
     void ResetStats(bool hpToo);                 // @0x154d84
     bool NeedRemove() const { return needRemove; }   // @0x150878
+
+    // Squads (Squad.h). The hero leads a PlayerSquad, other leaders an EnemySquad.
+    BaseSquad* GetSquad() const { return squad; }    // @0x14ffbc
+    void CreateSquad();                              // @0x155418 (replaces the old one)
+    void OnAddedToSquad(BaseSquad* s);               // @0x150480 (the player also gets +0x3b)
+    void OnRemovedFromSquad();                       // @0x151f18
+    bool HasSquad(BaseSquad* s) const { return squad && squad == s; }   // @0x15084c
+    bool HasEntity(Entity* e);                       // @0x150824 its AI's HasEntity
+    bool ReportReadiness() const { return fae; }     // @0x150868
+    void SetReportReadiness(bool on) { fae = on; }   // @0x150870
+    void SetRetreating(bool on) { fad = on; }        // @0x150914
+    bool IsRetreating() const { return fad; }        // @0x15091c
+    // @0x151ca4: by "healable_soldiers": 1 a soldier bought with the second currency (except type
+    // 0x11), 2 any once the city tutorial is done, 3 a second-currency one, 4 like 2.
+    bool IsEliteSoldier() const;
+    void EnableSpeedRun();                           // @0x151500 twice the base speed
+    void DisableSpeedRun();                          // @0x1514ac
+    // @0x150498: the previous tile becomes the spawn/safe tile (+0x54/+0x58) unless in combat (+0x36)
+    // or +0x38 is set.
+    static void UpdateSafePos(Entity* e);
+    SpawnPoint* GetSpawnPoint() const { return spawnPoint; }   // @0x1504e4
+    // @0x151d88. UNVERIFIED (milestone 4f): the spawn point's HP fields are not read until spawn
+    // points are ported; only null is passed yet.
+    void SetSpawnPoint(SpawnPoint* sp);
 
     struct QueuedAnim { std::string name; float time; };   // 0x1c bytes
 
@@ -132,10 +173,11 @@ public:
     int linearX = 0, linearY = 0;    // +0x20 +0x24 (Map::TileCoordinatesToLinear)
     bool player = false;             // +0x34
     bool onFarm = false;             // +0x35 classes 3, 4, 6, 7, 0xf (farm coordinates)
-    bool f36 = false, f37 = false, f38 = false;   // +0x36..+0x38
+    bool f36 = false;                // +0x36 in combat
+    bool f37 = false, f38 = false;   // +0x37 +0x38
     bool f39 = true;                 // +0x39
     bool temporary = true;           // +0x3a removed by EntityManager::Clean (CreateEntity's arg)
-    bool f3b = false;                // +0x3b
+    bool f3b = false;                // +0x3b in SoldierSlots / the player's squad
     float worldX = 0.f, worldY = 0.f;   // +0x3c +0x40
     int tileX = 0, tileY = 0;        // +0x44 +0x48
     int prevX = 0, prevY = 0;        // +0x4c +0x50
@@ -144,7 +186,7 @@ public:
     int workX = 0, workY = 0;        // +0x68 +0x6c
     int workType = 0;                // +0x70 1 building, 2 decoration
     bool hasHome = false;            // +0x74
-    bool f75 = true;                 // +0x75
+    bool f75 = true;                 // +0x75 may act (combat turns; squads move only such members)
     int f78 = 0;                     // +0x78
     Render::Sprite* underlay = nullptr;  // +0x7c
     Render::Sprite* debugText = nullptr; // +0x80 (Map::debugEntity overlay, off)
@@ -154,7 +196,8 @@ public:
     Render::Sprite* glow = nullptr;  // +0xa0
     float glowTime = 0.f, glowAlpha = 0.f;   // +0xa4 +0xa8
     bool disappearOnArrival = false; // +0xac
-    bool fad = false, fae = false;   // +0xad +0xae
+    bool fad = false;                // +0xad retreating
+    bool fae = false;                // +0xae reports readiness to its squad
     bool speedRunning = false;       // +0xaf
     bool offline = false;            // +0xb0
     int currentMap = -1;             // +0xb4
@@ -163,6 +206,8 @@ public:
     AnimationController* anim = nullptr;   // +0xc0
     Render::Sprite* sprite = nullptr;      // +0xc4
     Render::Sprite* ring = nullptr;        // +0xc8 the underlay ring
+    BaseSquad* squad = nullptr;            // +0xcc
+    SpawnPoint* spawnPoint = nullptr;      // +0xd0
     std::vector<QueuedAnim> animQueue;     // +0xd4
     // +0xe0 patrol points (0x50 bytes each), +0xec index, +0xf0 step  UNVERIFIED: not ported
     int hp = 0;                      // +0xf4
@@ -196,6 +241,8 @@ public:
     float f18c = 0.f, f190 = 0.f;    // +0x18c +0x190
     bool spawnSound = false;         // +0x194
     bool needRemove = false;         // +0x195
+    bool dying = false;              // +0x196 the death animation was started
+    bool actuallyDying = false;      // +0x197
     int f198 = 0;                    // +0x198 forced ring style
     int ringStyle = 0;               // +0x19c
     void* hoverWindow = nullptr;     // +0x1a0 the hover window that follows it (SetHoverWindowPositionHandling)

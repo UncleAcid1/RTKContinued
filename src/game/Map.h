@@ -175,6 +175,8 @@ void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
 void TileCoordinatesToLinear(int& x, int& y);          // @0x1b62f4
 // @0x1c4dd8, the part ported so far: every building's and decoration's Update.
 void Update(double dt);
+void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile; spawn points: milestone 4f
+void SpawnEntities();    // @0x1c0460 (Map::Load) the player's squad appears around it
 // @0x1b6754: after the app's pause every building and decoration runs one Update with the time
 // paused (main_Loop_Func).
 void OfflineUpdate(double dt);

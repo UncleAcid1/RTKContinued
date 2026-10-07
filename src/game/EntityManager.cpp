@@ -11,6 +11,8 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
+#include "game/SoldierSlots.h"
+#include "game/Squad.h"
 
 namespace EntityManager {
 namespace {
@@ -88,7 +90,10 @@ void RemoveEntity(Entity* e, bool any) {
 }
 
 void DestroyEntity(Entity* e) {
-    // UNVERIFIED (milestone 4): class 10 soldiers leave SoldierSlots and the player's squad.
+    if (e->GetEntityData()->clas == 10) {
+        SoldierSlots::RemoveSoldier(e, false);
+        if (GetPlayer() && GetPlayer()->GetSquad()) GetPlayer()->GetSquad()->RemoveSoldierFromSquad(e);
+    }
     BuildingHovers::UnregisterEntity(e);
     delete e;
 }
@@ -222,6 +227,28 @@ unsigned GetEntityCountByID(unsigned id) {
     for (Entity* e : g_entities)
         if (e->data->id == id) ++n;
     return n;
+}
+
+}  // namespace EntityManager
+
+namespace EntityManager {
+
+void AssignSoldiersToPlayerSquad() {
+    for (Entity* e : g_entities) {
+        if (e->GetEntityData()->clas != 10) continue;
+        if (!e->f3b) {
+            e->SetActive(false, false);
+            SoldierPool::AddSoldier(e);
+        } else {
+            GetPlayer()->GetSquad()->AddSoldier(e);
+            SoldierSlots::AddSoldier(e);
+        }
+    }
+}
+
+void GetPlayerAndSoldiers(std::vector<Entity*>& out) {
+    for (Entity* e : g_entities)
+        if (e->GetEntityData()->clas == 10 || e->GetEntityData()->clas == 5) out.push_back(e);
 }
 
 }  // namespace EntityManager

@@ -47,6 +47,8 @@ add_executable(rtk
   src/game/AIFarm.cpp
   src/game/Entity.cpp
   src/game/EntityManager.cpp
+  src/game/SoldierSlots.cpp
+  src/game/Squad.cpp
   src/game/GameState.cpp
   src/game/MetaData.cpp
   src/game/Setting.cpp

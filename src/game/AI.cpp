@@ -7,6 +7,7 @@
 
 #include "engine/Render.h"
 #include "game/AIState.h"
+#include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
@@ -462,6 +463,49 @@ Waypoint* GetRandomFreeWP(int w, int h, int x, int y) {
         if (--attempts < 1) retry = false;
         if (!retry) return wp;
     }
+}
+
+Waypoint* GetRandomWaypointInRange(int x, int y, int range, int inner, bool weightOne, Entity* e, bool reachable) {
+    static std::vector<Waypoint*> found;   // 0x610b60
+    int size = range * 2 + 1;
+    int innerSize = inner != 0 ? inner * 2 + 1 : 0;
+    found.clear();
+    // From (x, y) to the square's top corner: `range` steps up-left, then `range` steps up-right.
+    int half = size / 2;
+    if (half != 0) {
+        int end = y - half;
+        do {
+            if (std::abs(y) & 1) ++x;
+            --y;
+            --x;
+        } while (y != end);
+        end = y - half;
+        do {
+            if (y % 2 == 1) ++x;
+            --y;
+        } while (y != end);
+    }
+    int lo = (size - innerSize) / 2, hi = range * 2 - lo;   // the inner square left out
+    for (int row = 0; row < size; ++row) {
+        int cx = x, cy = y;
+        for (int col = 0; col < size; ++col) {
+            if (!(lo <= col && col <= hi && lo <= row && row <= hi)) {
+                Waypoint* wp = GetWaypoint(cx, cy, false);
+                bool ok;
+                if (weightOne) ok = wp && wp->weight == 1.f;
+                else ok = wp && !EntityManager::GetEntityAtXY(wp->x, wp->y) && !Map::GetBuilding(wp->x, wp->y);
+                if (ok && reachable && e) ok = e->GetAI()->SetTarget(wp, true);
+                if (ok) found.push_back(wp);
+            }
+            if (cy % 2 == 1) ++cx;
+            ++cy;
+        }
+        if (std::abs(y) & 1) ++x;
+        --x;
+        ++y;
+    }
+    if (found.empty()) return nullptr;
+    return found[(size_t)((unsigned long)Rand48::lrand48() % found.size())];
 }
 
 }  // namespace AI

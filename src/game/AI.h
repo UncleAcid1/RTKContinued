@@ -72,5 +72,10 @@ Waypoint* GetRandomFreeWP(int w, int h, int x, int y);   // @0xe396c
 // @0xe388c: up to 64 tries at a random tile of the w x h grid rectangle at (x, y) that has a
 // waypoint and no decoration, building, entity or entity heading there.
 Waypoint* GetRandomFreeWPRect(int w, int h, int x, int y);
+// @0xe4cdc: a random waypoint in the (2 range + 1)-tile square around (x, y) (in tile steps), leaving
+// out the inner (2 inner + 1) square (inner 0: the centre tile). weightOne: any waypoint of weight 1; else one
+// without an entity or building. With reachable and e, only those e's AI finds a path to (SetTarget
+// is called on e's AI for each). Null if none.
+Waypoint* GetRandomWaypointInRange(int x, int y, int range, int inner, bool weightOne, Entity* e, bool reachable);
 
 }  // namespace AI
