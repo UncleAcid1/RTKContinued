@@ -163,7 +163,9 @@ void SetExchangeLimit(unsigned limit);            // @0x2f6efc the most Buy all 
 void SetLevelFailMessage(const char32_t* text);   // @0x2f6dd0 replaces "SHOP_UNLOCK"
 void SetGoldFailMesage(const char32_t* text);     // @0x2f6de4 replaces "NO_GOLD" (sic)
 void SetUpgradableBuilding(Map::Building* b);     // @0x2f6df8
-void SetItemToProduce(uint32_t item, uint32_t amount, float x, float y);   // @0x2f6e0c (milestone 4)
+// @0x2f6e0c: an order that makes `item` (drop subtask `subtask`, at world point x, y) can be bought
+// instead when its level is not reached (OnBuyItem drops it there).
+void SetItemToProduce(uint32_t item, uint32_t subtask, float x, float y);
 // @0x2f8c60: true when nothing is missing. UNVERIFIED (milestone 4): the profession requirement.
 bool CheckRequirements();
 void SetDescriptionText(const char32_t* text, const char32_t* title);   // @0x2f7134

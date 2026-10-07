@@ -119,7 +119,10 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     bool IsHQ() const { return id - 99u < 2; }   // @0x11c3b0 the castle (99, 100)
 };
 
-bool Load();
+// Map::LoadDecorationList (decors.xml) and Map::LoadBuildingList (buildings.xml); the sold or
+// giveable ones also become items (Items::AddDecorationAsItem / AddBuildingAsItem).
+bool LoadDecorations();
+bool LoadBuildings();
 const DecorData* GetDecoration(uint32_t id);     // Map::GetDecoration(unsigned) @0x130ebc
 const BuildingData* GetBuilding(uint32_t id);    // Map::GetBuilding @0x11c3cc
 // Map::EnumBuildings @0x1201a8 / EnumDecors @0x13b75c: in file order (first occurrence of an id),

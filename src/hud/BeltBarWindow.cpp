@@ -5,7 +5,9 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Timer.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
@@ -67,6 +69,35 @@ WindowManager::FunctionalWindow* Queue() {
 }
 
 bool IsVisible() { return g_root && g_root->visibleSelf; }
+
+void GetBeltItemLocation(int& x, int& y, int slot) {
+    x = g_root->x + g_slots[slot].holder->x;
+    y = g_root->y + g_slots[slot].holder->y;
+}
+
+void GetAdjustedSideButtonLocation(int& x, int& y, int w, int h) {
+    x = g_root->x + g_inventoryIcon->x + g_inventoryIcon->w / 2 - w / 2;
+    if (!g_root->visibleSelf) x -= g_root->w / 2;
+    y = g_root->y + g_inventoryIcon->y + g_inventoryIcon->h / 2 - h / 2;
+}
+
+void AutoBind(uint32_t id) {
+    if (GameState::GetItemAmount(id, true) == 0) return;
+    Items::ItemInfo* info = Items::GetItemInfo(id);
+    if (!info || info->type != 3 || info->IsLocked()) return;
+    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i)
+        if (GameState::GetBeltItemAt(i) == id) return;
+    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i) {
+        if (i == 0 && GameState::SecondTutorialStep() == 0x94) continue;
+        uint32_t cur = GameState::GetBeltItemAt(i);
+        if (cur != 0 && GameState::GetItemAmount(cur, true) != 0) continue;
+        GameState::BindBeltItemTo(i, id);
+        Items::ItemInfo* bound = Items::GetItemInfo(id);
+        if (!bound || !bound->CanBeActivated() || GameState::SecondTutorialStep() == 0x85) return;
+        GameState::SetBeltItemActivationTimeAt(i, (uint32_t)Timer::GetGlobalTime());
+        return;
+    }
+}
 
 // @0x250ebc
 void Init() {

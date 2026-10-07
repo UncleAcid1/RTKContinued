@@ -1,6 +1,7 @@
 // The city HUD: HUDWindow (the driver) and its panels. Each panel is a set of static functions behind
 // a WindowManager::FunctionalWindow, as on the original.
 #pragma once
+#include <cstdint>
 
 namespace WindowManager { class FunctionalWindow; }
 
@@ -40,6 +41,18 @@ RTK_HUD_PANEL(BattleBarWindow)
 RTK_HUD_PANEL(BottomCityWindow)
 RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
+
+namespace BeltBarWindow {
+// @0x24c738: the screen point of belt slot `slot`'s holder.
+void GetBeltItemLocation(int& x, int& y, int slot);
+// @0x24c6b8: where a w x h image centred on the inventory button goes (half the belt further left
+// while the belt is hidden).
+void GetAdjustedSideButtonLocation(int& x, int& y, int w, int h);
+// @0x24dafc: an unlocked orb (type 3) the player has, not on the belt yet, goes to the first empty
+// slot (or one whose item ran out; not slot 0 at second-tutorial step 0x94); an activatable one
+// starts its activation time (not at step 0x85).
+void AutoBind(uint32_t id);
+}
 
 // The farm view's bottom bar (Farm_buttons_container.xml): Back to the city, the main action
 // (plant / harvest / clear / clean up, whatever the patches need), Upgrade and the powder Speed

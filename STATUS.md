@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 4b.2 done; next 4b.3) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 4b.3 done; next 4b.4) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -266,7 +266,31 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    (temporary hook, removed): sword 193 equipped -> hero initiative 50->65, melee 1->3, soldier
    +5/+1 (PARTY); a cookie HP=1; buffs 685 (HEALTH_PC 30: 9 -> 12/12) and 684 (MELEE_DAMAGE_PC 30:
    3 -> 4); save and reload keeps the item, its binding and the stats; city and real save load.
-   NEXT: milestone 4, step 4b.3 (item drops, items in the shop's producing lines and factory boosts).
+   4b.3 DONE: items in the world and in the economy. BuildingHovers: DropItem (boost items only with
+   "item_boosts", limited items, quest-locked items; no drop image -> straight in),
+   ItemDrop::StartAnimation, HasDroppedItem, Collect's item branch (AddItem + BeltBarWindow::AutoBind,
+   item 0x26a heals, 0x16c/0x16d count times only, "+%d %s" in the quality's text style), OnCollect's
+   item flight (its belt slot, else the inventory button: BeltBarWindow::GetBeltItemLocation /
+   GetAdjustedSideButtonLocation). Production orders know their item (Contracts: GetItemInfo(title);
+   ~20 of 75 orders), finished orders drop it (OnBuildingFinishedClick), the shop shows the products'
+   images, the boost hovers compute GetAmountToBoostTime and use up the item (only with
+   "item_boosts", off by default), AIPlayer's map-0xd tap check for dropped item 0x254. GameData's
+   load is split into LoadDecorations (before items, as on the original) and LoadBuildings (after
+   deliveries); sold/giveable decorations and sold buildings become items 0x8000+/0x4000+.
+   NotEnoughWindow: item requirement lines, items in Buy all (price and AddItem), SetItemToProduce
+   from the factory hover, the "NEED_ITEM_BUY <item>" button and OnBuyItem (crystals -> the item
+   drops at the building). Fixed from 3e.4: Buy all shows only when everything missing can be bought
+   (the original's local_c7c: not with a level, people, crystals/XP, buildings, building levels or an
+   item without a price; the port had read it as "level reached"). Left: the item Find (needs
+   Tasks::HelpWithLocation 4c, NeedItemWindow 4b.4, the global map / item shop / crafting M5),
+   profession point items (M5), decoration-job boosts (4e), map 0xb's item arrows (4f), tutorial
+   steps around items (4h), sounds (6). Verified headless (temporary hooks, removed): a cookie x2 and
+   a sword drop beside the hero and lie there, collecting adds 2 cookies; a NotEnough dialog with a
+   level, gold and 3 cookies needed shows the item line and "Buy Donut 5", tapping it takes 5 of 50
+   crystals and drops a donut; the shop's Bakery shows its five products; city, reload and a real
+   save load as before.
+   NEXT: milestone 4, step 4b.4 (the item windows: ItemHoverWindow, UseItemHoverWindow,
+   FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
@@ -564,7 +588,7 @@ Milestones:
               expressions), Tags, Items (items.xml, item_packs.xml, ItemInfo and its getters),
               PlayerItem::info on load. 4b.2 (done): GameState item APIs (AddItem, bindings/equip, belt,
               sell) and the hero's equipment bonuses (MetaExpression::OnApplyItemEffect /
-              GetSummaryEffectsValue / CanApplyItemEffect, Entity stat getters). 4b.3: item drops
+              GetSummaryEffectsValue / CanApplyItemEffect, Entity stat getters). 4b.3 (done): item drops
               (ItemDrop item kind, Map::ItemPlaceContinuation), items in the shop's producing lines
               and factory boosts. 4b.4: the item windows (ItemHoverWindow, UseItemHoverWindow,
               FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder).

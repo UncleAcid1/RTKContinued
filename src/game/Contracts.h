@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+namespace Items { struct ItemInfo; }
+
 namespace Contracts {
 
 struct ContractMission {         // 0x5c bytes
@@ -13,7 +15,7 @@ struct ContractMission {         // 0x5c bytes
     unsigned rewardGold = 0;     // +0x04 "reward_gold"
     unsigned rewardXp = 0;       // +0x08 "reward_xp"
     const char32_t* title = nullptr;  // +0x0c StringTable "title"
-    const void* item = nullptr;  // +0x10 Items::GetItemInfo(title)  UNVERIFIED: Items not ported yet
+    Items::ItemInfo* item = nullptr;  // +0x10 Items::GetItemInfo(title): the item the order makes
     std::string icon;            // +0x14 "icon"
     unsigned price = 0;          // +0x18 "price" (gold)
     unsigned priceResourceCount = 0;  // +0x1c "price_resource_count"

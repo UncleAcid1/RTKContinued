@@ -14,6 +14,7 @@
 #include "game/Contracts.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -738,8 +739,9 @@ void ResourceRestoreHoverWindow::OnSpeedUpFinished() {
     if (!itemBoosts) {
         int cost = GameState::AdjustCrystalCost(building->data->speedupCb);
         GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
+    } else {
+        GameState::RemoveItem(boostItem, boostAmount);
     }
-    // UNVERIFIED (Items): with item boosts the item is used up (GameState::RemoveItem).
     Hide();
     BuildingHovers::Hide();
     BuildingHovers::Update(0.0, true);
@@ -751,7 +753,7 @@ void ResourceRestoreHoverWindow::Update(float dt) {
         if (speedT > 1.f) OnSpeedUpFinished();
     }
     if (!building) return;
-    // UNVERIFIED (Items): boostAmount = Items::GetAmountToBoostTime(boostItem, buildLeft).
+    if (boostItem != 0) boostAmount = Items::GetAmountToBoostTime(boostItem, (uint32_t)(long long)building->buildLeft);
     int price = itemBoosts ? boostAmount : GameState::AdjustCrystalCost(building->data->speedupCb);
     std::string ps = std::to_string(price);
     priceText->SetText(std::u32string(ps.begin(), ps.end()).c_str());
@@ -1110,8 +1112,8 @@ void BuildProgressHoverWindow::Update(float dt) {
         }
         left = (float)(b->buildLeft / (double)(unsigned)b->data->constructionTime);
         double t = std::ceil(b->buildLeft);
-        auto setPrice = [&](int crystals) {
-            // UNVERIFIED (Items): boostAmount = Items::GetAmountToBoostTime(boostItem, ...).
+        auto setPrice = [&](int crystals, uint32_t seconds) {
+            boostAmount = Items::GetAmountToBoostTime(boostItem, seconds);
             int v = itemBoosts ? boostAmount : crystals;
             std::string s = std::to_string(v);
             priceText->SetText(std::u32string(s.begin(), s.end()).c_str());
@@ -1121,12 +1123,12 @@ void BuildProgressHoverWindow::Update(float dt) {
             left = (float)(b->buildLeft / (double)(unsigned)u.time);
             itemIcon->SetTexture(IconManager::GetIcon("golden_hammers_35"), true);
             boostItem = 0x264;
-            setPrice(GameState::AdjustCrystalCost(u.speedupCb));
+            setPrice(GameState::AdjustCrystalCost(u.speedupCb), (uint32_t)(long long)b->buildLeft);
         }
         if (b->needsBuilder != 0) {
             itemIcon->SetTexture(IconManager::GetIcon("golden_hammers_35"), true);
             boostItem = 0x264;
-            setPrice(GameState::AdjustCrystalCost(b->data->speedupCb));
+            setPrice(GameState::AdjustCrystalCost(b->data->speedupCb), (uint32_t)(long long)b->buildLeft);
         }
         int secs;
         bool order = false, interpolate = false;
@@ -1138,7 +1140,9 @@ void BuildProgressHoverWindow::Update(float dt) {
             interpolate = cls == 0xc ? b->WorkerIsWorking(0) : true;
             itemIcon->SetTexture(IconManager::GetIcon("hourglass_speed_35"), true);
             boostItem = 0x269;
-            setPrice(GameState::AdjustCrystalCost(b->GetContractSpeedUpCost()));
+            // (the original's seconds: progress x (1 - progress))
+            setPrice(GameState::AdjustCrystalCost(b->GetContractSpeedUpCost()),
+                     (uint32_t)(int)(b->GetContractProgress(0, -1) * left));
             order = true;
             if (b->contractDone) {
                 Hide();

@@ -71,6 +71,7 @@ inline bool IsCombatActive() { return GetActiveCombat() != nullptr; }   // @0x19
 // combats are ported (GameState::currentCombat is always null), so it is false.
 inline bool IsBossCombatActive() { return false; }
 bool IsTameTutorial();                         // @0x190bb4
+bool IsFirstVirtualTutorial();                 // @0x190b44 second-tutorial steps 0x200..0x205
 // @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.
 bool IsPvPTutorial();
 bool TaskCompleted(unsigned id);               // @0x1908ac (the 0x1000-entry lookup cache is not ported)

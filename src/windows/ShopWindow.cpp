@@ -22,6 +22,7 @@
 #include "game/Contracts.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -281,9 +282,8 @@ void ShowPurpose(const GameData::BuildingData* d) {
         for (unsigned i = 0; i < 5; ++i) {
             if (i >= c->missions.size()) continue;
             const Contracts::ContractMission& m = c->missions[i];
-            // UNVERIFIED (Items): an item mission puts the item's image in the holder
-            // (Items::ItemInfo::PutImageInHolder); items are not ported, so .item is always null.
-            if (!m.item && !m.icon.empty()) SetIcon(g_producing.icons[i], IconManager::GetIcon(m.icon.c_str(), false));
+            if (m.item) m.item->PutImageInHolder(g_producing.icons[i]);
+            else if (!m.icon.empty()) SetIcon(g_producing.icons[i], IconManager::GetIcon(m.icon.c_str(), false));
         }
         for (Window* w : g_producing.confirms) w->SetVisibility(false);
         for (Window* w : g_producing.locks) w->SetVisibility(false);

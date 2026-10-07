@@ -304,7 +304,8 @@ void AIPlayer::ClickedTile(int x, int y, int, int) {
         return;
     }
     if (GameState::GetCurrentMapID() == 0xd) {
-        // UNVERIFIED (milestone 4b): a dropped item 0x254 (BuildingHovers::HasDroppedItem) blocks it.
+        float dx, dy;
+        if (BuildingHovers::HasDroppedItem(0x254, dx, dy)) return;   // (the item must be taken first)
         if ((unsigned)(GameState::tutorial - 0x14) < 2) return;
     }
     if (GameState::GetCurrentMapID() == 0) {

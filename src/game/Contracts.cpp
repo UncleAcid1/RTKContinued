@@ -11,6 +11,7 @@
 #include "engine/Splitter.h"
 #include "engine/Timer.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 
@@ -57,7 +58,7 @@ bool Init(const char* file) {
         for (pugi::xml_node m = d.child("d_mission"); m; m = m.next_sibling("d_mission")) {
             ContractMission cm;
             cm.title = StringTable::GetString(m.attribute("title").value());
-            // UNVERIFIED (milestone 3, Items): cm.item = Items::GetItemInfo(title).
+            cm.item = Items::GetItemInfo(m.attribute("title").value());
             cm.icon = m.attribute("icon").value();
             cm.price = m.attribute("price").as_uint();
             cm.priceResource = GameState::ExternalResourceTypeToInternal(m.attribute("price_resource").as_uint());

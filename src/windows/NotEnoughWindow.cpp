@@ -16,6 +16,7 @@
 #include "game/BuildingHovers.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -77,7 +78,7 @@ unsigned g_exchangeLimit = 0;          // 0x62598c
 Map::Building* g_upgradable = nullptr; // 0x625990
 bool g_actionFlag = false;             // 0x625994
 uint32_t g_produceItem = 0;            // 0x625998
-uint32_t g_produceAmount = 0;          // 0x6259a0
+uint32_t g_produceSubtask = 0;         // 0x6259a0 the drop's subtask
 float g_produceX = 0.f, g_produceY = 0.f;   // 0x6259a4 0x6259a8
 Window* g_upgrade = nullptr;           // 0x62599c button_upgrade_window_upgrade (the action)
 Textfield* g_upgradeText = nullptr;    // 0x6259ac
@@ -272,7 +273,9 @@ void OnFindActual(unsigned i) {
         }
         break;
     case kItem:
-        // UNVERIFIED (milestone 4, Items): dropped items, mission maps, crafting, the item shop.
+        // UNVERIFIED (milestones 4b.4/4c/5): a lying drop (BuildingHovers::HasDroppedItem, then
+        // Tasks::HelpWithLocation), the mission map with the item (GlobalMapWindow, RaidInfoWindow),
+        // NeedItemWindow::OnProduce for types 6/9, the item shop, the crafting collections.
         break;
     }
 }
@@ -328,7 +331,11 @@ void ApplyBuyAllModifier() {
 // @0x2fd2ac: the shortfall bought with crystals; the action runs when nothing else is missing.
 void OnBuyAll() {
     g_buyAllPrice = ResourceCrystalPrice();
-    // UNVERIFIED (milestone 4, Items): missing items add their crystal price (ItemInfo +0x30) x count.
+    for (auto& [id, count] : g_items) {
+        Items::ItemInfo* info = Items::GetItemInfo(id);
+        if (!info || count <= (unsigned)GameState::GetItemAmount(id, false)) continue;
+        g_buyAllPrice += (int)(info->cost2 * (count - (unsigned)GameState::GetItemAmount(id, false)));
+    }
     g_buyAllPrice = GameState::AdjustCrystalCost(g_buyAllPrice);
     if (g_buyAllPrice != 0) ApplyBuyAllModifier();
     if ((int)GameState::GetResourceAmount(GameState::kCrystal) < g_buyAllPrice) {
@@ -343,7 +350,10 @@ void OnBuyAll() {
         if (need == 0 || (int)GameState::GetResourceAmount(t) >= need) continue;
         GameState::ChangeResourceAmount(t, need - (int)GameState::GetResourceAmount(t));
     }
-    // UNVERIFIED (milestone 4, Items): missing items are added (GameState::AddItem).
+    for (auto& [id, count] : g_items) {
+        if (!Items::GetItemInfo(id) || count <= (unsigned)GameState::GetItemAmount(id, false)) continue;
+        GameState::AddItem(id, (int)(count - (unsigned)GameState::GetItemAmount(id, false)), false, false, false);
+    }
     // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
     GameState::ChangeResourceAmount(GameState::kCrystal, -g_buyAllPrice);
     // Billing::LogCBPurchase(0x1c, 0, price): online logging, not ported.
@@ -357,8 +367,21 @@ void OnBuyAll() {
 
 // @0x2f7450
 void OnBuyItem() {
-    // UNVERIFIED (milestone 4, Items): buys the item to produce for crystals and drops it at
-    // (g_produceX, g_produceY) (BuildingHovers::DropItem).
+    Items::ItemInfo* info = Items::GetItemInfo(g_produceItem);
+    if (!info) return;
+    if ((int)GameState::GetResourceAmount(GameState::kCrystal) < (int)info->cost2) {
+        ExchangeWindow::Show();
+        ExchangeWindow::OnTab(1, SWPrintf(0x80, StringTable::GetString("NO_CRYSTALS"),
+                                          {ToWideString((int)info->cost2), GameState::GetPlayerName()})
+                                     .c_str());
+        return;
+    }
+    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+    GameState::ChangeResourceAmount(GameState::kCrystal, -(int)info->cost2);
+    // Billing::LogCBPurchase(0xd, id, price): online logging, not ported.
+    BuildingHovers::DropItem(g_produceX, g_produceY, info, g_produceSubtask, 1);
+    BuildingHovers::Hide();
+    Hide();
 }
 
 void CenterOnScreen() {
@@ -496,10 +519,10 @@ void SetGoldFailMesage(const char32_t* text) { g_goldFailMessage = text; }      
 void SetUpgradableBuilding(Map::Building* b) { g_upgradable = b; }              // @0x2f6df8
 
 // @0x2f6e0c
-void SetItemToProduce(uint32_t item, uint32_t amount, float x, float y) {
+void SetItemToProduce(uint32_t item, uint32_t subtask, float x, float y) {
     g_produceY = y;
     g_produceItem = item;
-    g_produceAmount = amount;
+    g_produceSubtask = subtask;
     g_produceX = x;
 }
 
@@ -587,7 +610,9 @@ void UpdateContents() {
     g_buyAllPrice = 0;
 
     unsigned n = 0;
-    bool levelOk = true;
+    // (local_c7c) everything missing can be bought with Buy all: not with the level, the profession,
+    // an item without a crystal price, people, crystals or experience, buildings or their levels.
+    bool canBuyAll = true;
     if (g_level != 0 && (unsigned)GameState::GetLevel() < g_level) {
         Line& l = g_lines[0];
         l.root->SetVisibility(true);
@@ -606,12 +631,38 @@ void UpdateContents() {
             l.complete->SetTexture(IconManager::GetIcon("gold_confirm"), false);
         }
         n = 1;
-        levelOk = false;
+        canBuyAll = false;
         l.type = kLevel;
     }
-    // UNVERIFIED (milestone 4): the profession line ("REQUIRES_REPUTATION_LEVEL", type 4) and the
-    // item lines (type 8; their crystal price x shortfall joins Buy all). Items::GetItemInfo is not
-    // ported, so the original would skip the item lines here too.
+    // UNVERIFIED (milestone 5): the profession line ("REQUIRES_REPUTATION_LEVEL", type 4).
+    // The item lines: the name in the colour of its quality, the count (short: with Find); the
+    // crystal price of the shortfall joins Buy all.
+    for (auto& [id, count] : g_items) {
+        Items::ItemInfo* info = Items::GetItemInfo(id);
+        if (!info) continue;
+        Line& l = g_lines[n];
+        l.root->SetVisibility(true);
+        l.icon->SetVisibility(true);
+        l.icon->SetTexture(info->GetIcon(), true);
+        l.itemClass[info->itemLevel]->SetVisibility(true);
+        l.itemClass[info->itemLevel]->SetText(info->title);
+        if (count > (unsigned)GameState::GetItemAmount(id, false)) {
+            l.itemQuantityShort->SetVisibility(true);
+            l.itemQuantityShort->SetText(ToWideString((int)count));
+            l.find->SetVisibility(true);
+            l.findText->SetText(StringTable::GetString("PERFORM_FIND"));
+            if (info->cost2 == 0) canBuyAll = false;
+            else g_buyAllPrice += (int)(info->cost2 * (count - (unsigned)GameState::GetItemAmount(id, false)));
+        } else {
+            l.itemQuantity->SetVisibility(true);
+            l.itemQuantity->SetText(ToWideString((int)count));
+            l.complete->SetVisibility(true);
+            l.complete->SetTexture(IconManager::GetIcon("gold_confirm"), false);
+        }
+        l.itemId = id;
+        l.type = kItem;
+        ++n;
+    }
 
     if (g_population != 0 && GameState::GetPlayerWorkersCount() - Map::GetUsedWorkerCount() < (int)g_population) {
         Line& l = g_lines[n];
@@ -619,6 +670,7 @@ void UpdateContents() {
         l.icon->SetVisibility(true);
         l.icon->SetTexture(IconManager::GetIcon("icon_b_houses"), true);
         if (GameState::GetPlayerWorkersCount() - Map::GetUsedWorkerCount() < (int)g_population) {
+            canBuyAll = false;
             int need = (int)g_population + Map::GetUsedWorkerCount() - GameState::GetPlayerWorkersCount();
             l.levelShort->SetVisibility(true);
             l.levelShort->SetText(
@@ -660,6 +712,8 @@ void UpdateContents() {
                 float rate = Setting(kExchangeSettings[t]).GetFloat();
                 g_buyAllPrice +=
                     (int)std::ceil(rate * (float)(unsigned)((int)g_required[t] - (int)GameState::GetResourceAmount(t)));
+            } else {
+                canBuyAll = false;
             }
         } else {
             l.quantity->SetVisibility(true);
@@ -682,6 +736,7 @@ void UpdateContents() {
             ? SWPrintf(0x100, StringTable::GetString("NEED_BUILDING_NAME"), {name})
             : SWPrintf(0x100, StringTable::GetString("NEED_BUILDING_NAME_MULTIPLE"), {ToWideString((int)count), name});
         if ((unsigned)Map::GetBuildingCount(id, false) < count) {
+            canBuyAll = false;
             Line& l = g_lines[n++];
             l.root->SetVisibility(true);
             l.levelShort->SetVisibility(true);
@@ -704,6 +759,7 @@ void UpdateContents() {
         std::u32string text = SWPrintf(0x100, StringTable::GetString("NEED_BUILDING_LEVEL"),
                                        {StringTable::GetString(d->name.c_str()), ToWideString((int)level)});
         if ((unsigned)Map::GetBuildingMaxUpgrade(id) < level) {
+            canBuyAll = false;
             Line& l = g_lines[n++];
             l.root->SetVisibility(true);
             if (d->id - 99u < 2) {   // the castle
@@ -725,25 +781,39 @@ void UpdateContents() {
 
     if (g_buyAllPrice != 0) ApplyBuyAllModifier();
 
-    // UNVERIFIED (milestone 4, Items): with an item to produce that has a crystal price (and something
-    // missing, level reached) buy_all_02 and upgrade_02 show instead. Items::GetItemInfo is not ported.
-    g_buyAll02->SetVisibility(false);
-    g_upgrade02->SetVisibility(false);
-    g_buyAll->SetVisibility(g_missing != 0);
-    g_buyAllText->SetText(StringTable::GetString("BUY_ALL"));
-    g_buyAllPriceText->SetText(ToWideString(g_buyAllPrice));
-    if (g_missing == 0) {
-        g_upgrade->SetVisibility(true);
-        g_upgrade->SetEnabled(true);
-        g_upgradeLock->SetVisibility(false);
-        g_upgradeBuilder->SetVisibility(true);
-    } else if (!levelOk) {
-        g_upgrade->SetVisibility(true);
-        g_upgrade->SetEnabled(false);
-        g_upgradeLock->SetVisibility(true);
-        g_upgradeBuilder->SetVisibility(false);
-    } else {
+    // With something missing that Buy all cannot cover, an item to produce with a crystal price can
+    // be bought instead ("NEED_ITEM_BUY <item>", OnBuyItem).
+    Items::ItemInfo* produce = Items::GetItemInfo(g_produceItem);
+    if (produce && g_missing != 0 && !canBuyAll && produce->cost2 != 0) {
+        g_buyAll->SetVisibility(false);
         g_upgrade->SetVisibility(false);
+        g_buyAll02->SetVisibility(true);
+        g_buyAll02Text->SetText(
+            SWPrintf(0x100, U"%s %s", {StringTable::GetString("NEED_ITEM_BUY"), produce->title}).c_str());
+        g_buyAll02Price->SetText(ToWideString((int)produce->cost2));
+        g_upgrade02->SetVisibility(true);
+        g_upgrade02->SetEnabled(false);
+        g_upgrade02Lock->SetVisibility(true);
+        g_upgrade02Builder->SetVisibility(false);
+    } else {
+        g_buyAll02->SetVisibility(false);
+        g_upgrade02->SetVisibility(false);
+        g_buyAll->SetVisibility(g_missing != 0 && canBuyAll);
+        g_buyAllText->SetText(StringTable::GetString("BUY_ALL"));
+        g_buyAllPriceText->SetText(ToWideString(g_buyAllPrice));
+        if (g_missing == 0) {
+            g_upgrade->SetVisibility(true);
+            g_upgrade->SetEnabled(true);
+            g_upgradeLock->SetVisibility(false);
+            g_upgradeBuilder->SetVisibility(true);
+        } else if (!canBuyAll) {
+            g_upgrade->SetVisibility(true);
+            g_upgrade->SetEnabled(false);
+            g_upgradeLock->SetVisibility(true);
+            g_upgradeBuilder->SetVisibility(false);
+        } else {
+            g_upgrade->SetVisibility(false);
+        }
     }
 
     // The lines' height: from the first line to the last shown one.

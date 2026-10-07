@@ -226,13 +226,14 @@ int main(int argc, char** argv) {
     // The data files, in LoadSystemConfiguration order (the ones not ported yet are skipped).
     // UNVERIFIED: Map::LoadPersonList (persons.xml into the map's own 0x58-byte person list) runs
     // first on the original; nothing ported reads that list yet.
+    if (!GameData::LoadDecorations()) return 1;
     EntityFactory::Init();
     EntityFactory::LoadData("../resource/res_files/1Original/persons.xml");
     Items::Init("../resource/res_files/1Original/items.xml");
     Items::InitPacks("../resource/res_files/1Original/item_packs.xml");
     Items::InitSpecial();
     Contracts::Init("../resource/res_files/1Original/deliveries.xml");
-    if (!GameData::Load()) return 1;
+    if (!GameData::LoadBuildings()) return 1;
     GUI::Init("fonts/ARICYRB.ttf", false);
     // The game's windows: their static FunctionalWindow objects are constructed in the binary's
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.

@@ -10,6 +10,7 @@
 #include "engine/Resources.h"
 #include "game/Contracts.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/MetaData.h"
 
 namespace GameData {
@@ -42,9 +43,11 @@ bool LoadXml(const char* path, pugi::xml_document& doc) {
     return (bool)r;
 }
 
-void LoadDecorations() {
+}  // namespace
+
+bool LoadDecorations() {
     pugi::xml_document doc;
-    if (!LoadXml("../resource/res_files/1Original/decors.xml", doc)) return;
+    if (!LoadXml("../resource/res_files/1Original/decors.xml", doc)) return false;
     for (auto n : doc.child("DecorOptions").children("Decor")) {
         DecorData d;
         d.id = n.attribute("id").as_uint();
@@ -71,6 +74,7 @@ void LoadDecorations() {
         bool fresh = g_decors.find(d.id) == g_decors.end();
         g_decors[d.id] = d;
         if (fresh) g_decorList.push_back(&g_decors[d.id]);
+        if (d.buy || d.giveable) Items::AddDecorationAsItem(d.id);
     }
     // Each decoration points at the road style listing its id (the first of the three).
     for (auto& [id, d] : g_decors) {
@@ -79,7 +83,10 @@ void LoadDecorations() {
             if (d.road) break;
         }
     }
+    return !g_decors.empty();
 }
+
+namespace {
 
 // Value of child i of a list, 0 past the end (the loader's "count > i ? GetInt : 0" pattern).
 int IntAt(const MetaData* m, unsigned i) { return i < m->GetChildrenCount() ? m->GetChild(i)->GetInt() : 0; }
@@ -94,9 +101,11 @@ MetaData* ParseOptional(pugi::xml_node n, const char* name) {
     return *v ? ParseCustomStyleData(v, ",", "1") : nullptr;
 }
 
-void LoadBuildings() {
+}  // namespace
+
+bool LoadBuildings() {
     pugi::xml_document doc;
-    if (!LoadXml("../resource/res_files/1Original/buildings.xml", doc)) return;
+    if (!LoadXml("../resource/res_files/1Original/buildings.xml", doc)) return false;
     for (auto n : doc.child("BuildingsOptionsDefault").children("Building")) {
         uint32_t id = n.attribute("id").as_uint();
         if (g_buildings.find(id) == g_buildings.end()) g_buildingList.push_back(&g_buildings[id]);
@@ -294,18 +303,14 @@ void LoadBuildings() {
             p.xp = f.attribute("xp").as_uint();
             b.parts.push_back(p);
         }
-        // UNVERIFIED (milestone 3, Items): Items::AddBuildingAsItem(id) when buy or byte +0x31 is set.
+        // (or byte +0x31, which buildings.xml never sets)
+        if (b.buy) Items::AddBuildingAsItem(b.id);
     }
-}
-
-}  // namespace
-
-bool Load() {
-    LoadDecorations();
-    LoadBuildings();
     std::printf("GameData: %zu decorations, %zu buildings\n", g_decors.size(), g_buildings.size());
-    return !g_decors.empty() && !g_buildings.empty();
+    return !g_buildings.empty();
 }
+
+
 
 BuildingData* EnumBuildings(unsigned i) { return i < g_buildingList.size() ? g_buildingList[i] : nullptr; }
 DecorData* EnumDecors(unsigned i) { return i < g_decorList.size() ? g_decorList[i] : nullptr; }

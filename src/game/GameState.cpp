@@ -333,6 +333,7 @@ bool IsTameTutorial() {
     return false;
 }
 bool IsPvPTutorial() { return false; }
+bool IsFirstVirtualTutorial() { return (unsigned)(secondTutorial - 0x200) < 6; }
 
 bool TaskCompleted(unsigned id) { return g_completedTasks.count(id) != 0; }
 bool IsTaskStarted(unsigned id) { return g_startedTasks.count(id) != 0; }

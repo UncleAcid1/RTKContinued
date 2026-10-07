@@ -12,6 +12,8 @@
 // and steps, item drops (DropItem, Items), farms (DropFarmFood, the farm hovers and windows: 3f),
 // the entity hovers (talk, health bars, boss time, player names) and the text cache.
 #pragma once
+
+namespace Items { struct ItemInfo; }
 #include <cstdint>
 
 #include "gui/GUI.h"
@@ -87,6 +89,13 @@ bool IsItemMoving();                        // @0x26333c
 // @0x2707ac: drop `amount` of a resource at a world point as bouncing pickups (gold as piles of up
 // to 100). collectNow collects each at once (flying to the HUD); bonus marks the bonus text.
 void DropResource(float x, float y, int type, unsigned amount, bool collectNow, bool bonus);
+// @0x2702dc: `amount` of an item drops at a world point with its drop image and a glow; subtask is
+// completed when it is collected. Boost items (type 0x10) only with the "item_boosts" setting; a
+// limited item drops only what fits; an item locked by a quest not done does not drop. Without a
+// drop image the item is added at once.
+void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigned amount);
+// @0x264ab0: the first lying drop of item id (0: any), its sprite's top centre.
+bool HasDroppedItem(unsigned id, float& x, float& y);
 // @0x26976c: a harvested crop (resource `type`, `amount`) drops at a world point with its farm drop
 // image; its subtasks are farm drop id `dropId`. On the farm, drops below y 3000 move up to 2995.
 void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* tex, unsigned dropId);

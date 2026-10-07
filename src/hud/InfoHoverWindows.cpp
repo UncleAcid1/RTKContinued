@@ -16,6 +16,7 @@
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -534,8 +535,10 @@ void FactoryHoverWindow::OnLaunchContract() {
     if (c != 0 || multi) {
         NotEnoughWindow::ResetRequirements();
         NotEnoughWindow::SetDescriptionText(StringTable::GetString("REQUIREMENT_MISSION"), nullptr);
-        // UNVERIFIED (milestone 4, Items): below the order's level, an order that makes an item
-        // names it (NotEnoughWindow::SetItemToProduce); missions carry no items yet.
+        // Below the order's level, an order that makes an item names it (with its drop subtask and
+        // the building's point).
+        if ((unsigned)GameState::GetLevel() < m.playerLevel && m.item)
+            NotEnoughWindow::SetItemToProduce(m.item->id, sel + del->id * 10, b->baseX, b->minY);
         NotEnoughWindow::AddRequirement(m.priceResource, m.priceResourceCount * multiCount);
         NotEnoughWindow::AddRequirement(GameState::kGold, m.price * multiCount);
         NotEnoughWindow::AddLevelRequirement(m.playerLevel);
@@ -584,7 +587,8 @@ void FactoryHoverWindow::OnLaunchContract() {
     NotEnoughWindow::AddRequirement(m.priceResource, m.priceResourceCount * multiCount);
     NotEnoughWindow::AddRequirement(GameState::kGold, m.price * multiCount);
     NotEnoughWindow::AddLevelRequirement(m.playerLevel);
-    // UNVERIFIED (milestone 4, Items): NotEnoughWindow::SetItemToProduce (see above).
+    if ((unsigned)GameState::GetLevel() < m.playerLevel && m.item)
+        NotEnoughWindow::SetItemToProduce(m.item->id, sel + del->id * 10, b->baseX, b->minY);
     if (!NotEnoughWindow::CheckRequirements()) {
         std::u32string t = SWPrintf(0x100, StringTable::GetString("FACTORY_ORDER"), {m.title});
         NotEnoughWindow::SetActionCallback([this] { OnLaunchContract(); }, t.c_str(), false);
@@ -764,8 +768,9 @@ void FactoryHoverWindow::SetBuilding(Map::Building* b) {
         speedupItem->SetVisibility(itemBoosts);
         SetIcon(speedupItem, "hourglass_speed_35");
         boostItem = 0x269;
-        // UNVERIFIED (milestone 4, Items): boostAmount = Items::GetAmountToBoostTime(0x269, time left).
-        boostAmount = 0;
+        boostAmount = Items::GetAmountToBoostTime(
+            0x269, (uint32_t)(int)((float)(unsigned)b->GetContractTime(PatchOf(entity)) *
+                                   (1.f - b->GetContractProgress(0, PatchOf(entity)))));
         speedupPrice->SetText(ToWideString(itemBoosts ? boostAmount : GameState::AdjustCrystalCost((int)m.speedupCost2)));
         SetIcon(stopIcon, "impossible");
         stopText->SetText(StringTable::GetString("FACTORY_STOP"));

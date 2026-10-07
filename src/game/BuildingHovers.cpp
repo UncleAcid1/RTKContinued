@@ -20,8 +20,10 @@
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
+#include "game/Setting.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/TextStyleManager.h"
@@ -37,7 +39,7 @@ namespace {
 // seconds it collects itself.
 struct ItemDrop {
     int kind = 0;                     // +0x00 0 resource, 1 item, 2 farm food
-    const void* item = nullptr;       // +0x04 ItemInfo (items: not ported yet)
+    Items::ItemInfo* item = nullptr;  // +0x04 (items)
     int type = 0;                     // +0x08 resource type
     unsigned amount = 0;              // +0x0c
     Render::Sprite* sprite = nullptr; // +0x10
@@ -54,6 +56,10 @@ struct ItemDrop {
     float glowT = 0;                  // +0x58
     float lifetime = 10.f;            // +0x5c
     int bounce = 100;                 // +0x60 how far below groundY it may fall
+    // @0x263660: falls from (x, y) (on other maps kept above the bottom edge, on the farm below
+    // y 3000) with horizontal speed vx after delay seconds; bounce h (2/3 and vx / 3 on small
+    // screens before the city tutorial's end).
+    void StartAnimation(float x, float y, float vx, float delay, int h);
     void Animate(float dt);           // @0x263d30
     void Collect(bool automatic, bool showWindow);   // @0x26d218
 };
@@ -722,7 +728,40 @@ void ItemDrop::Collect(bool automatic, bool) {
         // sounds are not ported yet.
         // UNVERIFIED (milestone 4): on other maps GameState::AddMapResourceCollectionInfo.
     }
-    // UNVERIFIED (Items): kind 1 (items, profession points, chests).
+    if (kind == 1) {
+        uint32_t id = item->id;
+        // UNVERIFIED (milestone 5, chests and quests): the starter chest 0x2b6 opens ChestsWindow
+        // (SetStarterChestMode 0x35, or 0x3f with "starter_chest_b") and restarts task 0x75b.
+        bool timesOnly = id - 0x16cu < 2;   // (also clears 0x6188e0)
+        // UNVERIFIED (milestone 5): profession point items (Professions::GetProfessionForPointItem)
+        // add profession points and show them at the belt; without professions they are items.
+        if (id == 0x26a) {
+            EntityManager::GetPlayer()->AddHP((int)amount);
+        } else {
+            GameState::AddItem(id, (int)amount, false, timesOnly, false);
+            BeltBarWindow::AutoBind(id);
+            // UNVERIFIED (milestone 4g): BeltBarWindow::UpdateContents.
+        }
+        Render::Sprite* s = nullptr;
+        if (!automatic) {
+            sprite->w *= GUI::GetHudScaleFactor();
+            sprite->h *= GUI::GetHudScaleFactor();
+            s = sprite;
+        }
+        OnCollect(id, s, false, false, 0xb, timesOnly);
+        if (amount < 2) {
+            ShowTextHoverWithStyle(x, y, item->title, (int)item->itemLevel + 0xe, 2.f, 50.f, false, false);
+        } else {
+            std::u32string text = SWPrintf(0x100, U"+%d %s", {amount, item->title});
+            ShowTextHoverWithStyle(x, y, text.c_str(), (int)item->itemLevel + 0xe, 2.f, 50.f, false, false);
+        }
+        // SoundsManager::PlaySound("collect_item", 1, false): sounds are not ported yet.
+        // UNVERIFIED (milestone 4f): on other maps GameState::AddMapItemCollectionInfo (not item 0x88
+        // in the city tutorial).
+        // UNVERIFIED (milestone 4h): item 0x6b at second-tutorial step 0xa0 hides the arrow and moves
+        // to 0xa1; item 0x88 at step 0x94 locks the interaction; map 0xb hides the arrow.
+        return;
+    }
     if (kind != 2) return;
     // (HideWorldDialog(nullptr) first: there is no world dialog yet)
     GameState::ChangeResourceAmount(type, (int)amount);
@@ -840,6 +879,84 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
     // UNVERIFIED (tutorial): steps 0x14 (unlock) and 0x21 (lock on the gold drop).
 }
 
+void ItemDrop::StartAnimation(float px, float py, float pvx, float pdelay, int h) {
+    if (GameState::GetCurrentMapID() != 0) {
+        float limit = ((float)(unsigned)Map::GetGridHeight() * 42.f * 0.5f - 42.f) + (float)h * -1.5f;
+        if (py > limit) py = limit;
+    }
+    if (Map::GetCurrentFarm() && py > 3000.f) py = 2995.f;
+    vx = pvx;
+    delay = pdelay;
+    x = px;
+    y = py;
+    bounce = h;
+    animating = true;
+    if (GUI::IsSmallScreenVersion() && GameState::SecondTutorialStep() != 0x100) {
+        bounce = (int)((float)h / 1.5f);
+        vx /= 3.f;
+    }
+    groundY = py;
+    vy = 0.f;
+    Render::SetPosition(sprite, px, py, 0.2f);
+    Render::SetVisibility(sprite, false);
+}
+
+void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigned amount) {
+    if (!info) {
+        std::puts("BuildingHovers::DropItem() Cannot drop item - no info");
+    } else {
+        if (GameState::IsTameTutorial() && info->id == 0x62) return;
+        if (info->type == 0x10 && Setting("item_boosts").GetInt() == 0) return;
+        if (info->IsLimited() && (amount = (unsigned)info->ApplyLimitToAmount((int)amount)) == 0) return;
+        // (GameState::GetServerSetting(0xb3) is 0 offline; with it items 0x38..0x3c went straight in)
+        if (info->GetDropIcon()) {
+            if (info->activatedByQuest != 0 && !GameState::TaskCompleted(info->activatedByQuest)) return;
+            if (info->id == 0x86 && (GameState::SecondTutorialStep() == 0x81 || GameState::IsFirstVirtualTutorial()))
+                GameState::secondTutorial = 0x82;
+            g_itemDrops.emplace_back();
+            ItemDrop& d = g_itemDrops.back();
+            d.kind = 1;
+            d.amount = amount;
+            d.item = info;
+            d.sprite = Render::CreateSprite(info->GetDropIcon(), 0xc, false, false);
+            long r = Rand48::lrand48();
+            float vx;
+            if (!GameState::IsTutorial()) vx = (float)(r % 0x3c) - 30.f;
+            else vx = (float)(Rand48::lrand48() % 0x28) - 10.f;
+            float hw = (float)(info->GetDropIcon()->w / 2), hh = (float)(info->GetDropIcon()->h / 2);
+            d.StartAnimation(x - hw, y - hh, vx, 0.f, (int)(Rand48::lrand48() % 0x28) + 0x5a);
+            for (int& s : d.subtasks)
+                if (s == 0) {
+                    s = (int)subtask;
+                    break;
+                }
+            d.glow = Render::CreateSprite(IconManager::GetIcon("Pickup_item_glow"), 0xb, false, false);
+            Render::SetShaderType(d.glow, 8);
+            Render::SetVisibility(d.glow, false);
+            // CheckForSpecialDrops (see DropResource). SoundsManager::PlaySound("chest_opened" for
+            // type 8, else item_level 0 "item_dropped_light" / "item_dropped_special"): no sounds yet.
+            // UNVERIFIED (milestone 4h): tutorial step 0x56 locks the interaction to the drop.
+            // UNVERIFIED (milestone 4f): on map 0xb an arrow callback for the item (FUN_002643e8) and
+            // the first arrow's +0x24.
+            return;
+        }
+        std::puts("BuildingHovers::DropItem() Cannot drop item - no image");
+        GameState::AddItem(info->id, 1, false, false, false);
+    }
+    // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0xd, subtask, 1) when subtask != 0.
+}
+
+bool HasDroppedItem(unsigned id, float& x, float& y) {
+    for (ItemDrop& d : g_itemDrops) {
+        if (id != 0 && !(d.item && d.item->id == id)) continue;
+        if (!d.sprite) continue;
+        x = d.sprite->x + d.sprite->w * 0.5f;
+        y = d.sprite->y - d.sprite->h;
+        return true;
+    }
+    return false;
+}
+
 void AddItemMovement(Render::Sprite* sprite, int x, int y, bool screenSpace, float duration, int w, int h,
                      bool topLayer, bool fadeOut) {
     if (!sprite) return;
@@ -867,7 +984,7 @@ void AddItemMovement(Render::Sprite* sprite, int x, int y, bool screenSpace, flo
     m.duration = duration;
 }
 
-void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glow, int type, bool) {
+void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glow, int type, bool noBelt) {
     if (!sprite) return;
     g_itemMoves.emplace_back();
     if (glow) g_itemMoves.emplace_back();
@@ -897,7 +1014,34 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
             m.endY = sprite->h + 0.f;
         }
     }
-    // UNVERIFIED (Items): items fly to the belt, the character window or a profession badge.
+    else {
+        // UNVERIFIED (milestone 5): profession point items fly to the badge (235 x the HUD scale).
+        // UNVERIFIED (milestone 4h): item 0xaf at tutorial step 0x15, or step 0x57, flies to (18, 18).
+        if (!noBelt) {
+            int slot = -1;
+            for (unsigned i = 0; i < GameState::GetBeltSlotCount() && slot == -1; ++i)
+                if (GameState::GetBeltItemAt(i) == item) slot = (int)i;
+            if (GameState::SecondTutorialStep() == 0x94) slot = 1;
+            int tx = 0, ty = 0;
+            // (step 0x85, or no belt slot: CharacterInfoWindow::CanMoveIntoEquippedBelt (the open
+            // window's belt, milestone 5), else the inventory button)
+            if (GameState::SecondTutorialStep() == 0x85 || slot == -1) {
+                BeltBarWindow::GetAdjustedSideButtonLocation(tx, ty, (int)sprite->w, (int)sprite->h);
+                m.endX = (float)tx;
+                m.endY = (float)(int)((float)ty + m.sprite->h);
+                // UNVERIFIED (milestone 5): over the open character, item shop, craft item or
+                // competition window it draws on layer 0xf.
+            } else {
+                BeltBarWindow::GetBeltItemLocation(tx, ty, slot);
+                m.endX = (float)tx;
+                m.endY = (float)(int)((float)ty + m.sprite->h);
+                Render::ChangeLayer(m.sprite, 0xf);
+            }
+        } else {
+            m.endX = (float)(int)((sprite->w * -0.5f + (float)Render::ScreenWidth() * 0.5f) - 40.f);
+            m.endY = (float)(int)(18.f + sprite->h * 0.5f);
+        }
+    }
     m.t = 0.f;
     m.duration = 1.25f;
     if (glow) {
@@ -1444,8 +1588,10 @@ void OnBuildingFinishedClick(Map::Building* b) {
                       0.f, 0x19, 5, 5.f, true, 2.f, 50.f);
         return;
     }
-    // UNVERIFIED (Items, Tasks): an item reward drops (DropItem); without one the order's subtask
-    // completes (Tasks::CompleteSubtask(0xd, contract - 1 + delivery id * 10)).
+    // An order making an item drops it, its subtask contract - 1 + delivery id * 10.
+    unsigned subtask = b->contract - 1 + b->data->delivery->id * 10;
+    if (m.item) DropItem(b->baseX, b->minY, m.item, subtask, 1);
+    // UNVERIFIED (milestone 4c): else Tasks::CompleteSubtask(0xd, subtask, 1).
     int step = GameState::TutorialStep();
     if (step != 0x58 && step != 0x56) {
         DropResource(b->baseX, b->minY, m.rewardResource, m.rewardResourceCount, false, false);
