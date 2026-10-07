@@ -88,6 +88,15 @@ int GetTileset();
 
 Building* GetBuilding(int x, int y);                   // @0x1b63f0
 Building* GetCurrentFarm();                            // @0x1b73c4 the farm being visited (0x6136b8)
+// The farm view: a 3 x 4 grid of 196 x 98 px tiles at world (150, 2880), used while the current
+// location is 1 (GetBlock/SetBlock then use its blocks).
+int GetFarmGridWidth();                                // @0x1b6b50
+int GetFarmGridHeight();                               // @0x1b6b64
+float GetFarmWorldX();                                 // @0x1b739c
+float GetFarmWorldY();                                 // @0x1b73b0
+Patch* GetFarmPatch();                                 // @0x1b7388
+void CreateFarmPatch();                                // @0x1b94f0
+void ShowFarm(bool show, Building* b);                 // @0x1b9228
 void SetBuilding(int x, int y, Building* b);           // @0x1b6388
 // @0x1b6434: the tile's decoration, else its virtual decoration (a road being placed).
 Decor* GetDecoration(int x, int y);

@@ -8,6 +8,12 @@ namespace Background {
 namespace {
 Render::Sprite* g_land = nullptr;     // +0x2c
 Render::Sprite* g_horizon = nullptr;  // +0x04
+// The farm view (CreateFarm): its ground, the farm's building (and the animal farm's fence) and
+// the four paper margins around it.
+Render::Sprite* g_farmBg = nullptr;       // 0x61162c
+Render::Sprite* g_farmBuilding = nullptr; // 0x611640
+Render::Sprite* g_farmFence = nullptr;    // 0x61163c
+Render::Sprite* g_farmPaper[4] = {};      // 0x611648..0x611654 top, bottom, left, right
 }  // namespace
 
 void CreateLand(unsigned tileset) {
@@ -55,5 +61,81 @@ void CreateLand(unsigned tileset) {
         }
     }
 }
+
+// @0x10b4fc: the farm's ground (images/Farm/farm_bg) at the farm patch's row, the farm's own
+// building in its corner, and four tiled paper margins framing the ground. (The farm argument is
+// unused.)
+void CreateFarm(int) {
+    // UNVERIFIED: the original sets a flag at +0x48 on these textures before creating the sprites
+    // (keeping them resident); the port's textures have no such flag.
+    Map::Patch* patch = Map::GetFarmPatch();
+    float row = (float)patch->y * 42.f * 0.5f;
+    if (Render::Texture* t = Resources::GetImage("images/Farm/farm_bg")) {
+        g_farmBg = Render::CreateSprite(t, Render::kLayerGround, false, false);
+        Render::SetPosition(g_farmBg, 30.f, ((float)t->h + row) - 80.f, 1.f);
+    }
+    uint32_t id = Map::GetCurrentFarm()->id;
+    auto place = [](const char* image, int layer, float x, float y) -> Render::Sprite* {
+        Render::Texture* t = Resources::GetImage(image);
+        if (!t) return nullptr;
+        Render::Sprite* s = Render::CreateSprite(t, layer, false, false);
+        Render::SetPosition(s, x, y + (float)t->h, 1.f);
+        return s;
+    };
+    if (id == 0x13) {
+        g_farmBuilding = place("images/Buildings/farm/small/small_farm", Render::kLayerFlat3, 205.f, 70.f + row);
+    } else if (id == 0x72) {
+        g_farmBuilding = place("images/Buildings/farm/oil/building", Render::kLayerFlat3, 130.f, row - 85.f);
+    } else if (id == 0x3ee) {
+        g_farmBuilding = place("images/Buildings/farm/animal/building", Render::kLayerFlat3, 15.f, 25.f + row);
+        // (the fence is placed by the building image's height, as on the original)
+        if (Render::Texture* t = Resources::GetImage("images/Buildings/farm/animal/fence")) {
+            g_farmFence = Render::CreateSprite(t, Render::kLayer9, false, false);
+            float h = g_farmBuilding ? g_farmBuilding->tex->h : 0.f;
+            Render::SetPosition(g_farmFence, 25.f, 40.f + row + h, 1.f);
+        }
+    }
+    Render::Texture* paper = Resources::GetImage("images/WorldMap/pattern_paper_bg");
+    if (!paper) return;   // (the original falls back to Render::GetImageDebugTex)
+    static const float kScale[4][2] = {{8.f, 1.f}, {8.f, 1.f}, {2.f, 4.f}, {2.f, 4.f}};
+    for (int i = 0; i < 4; ++i) {
+        Render::Sprite* s = Render::CreateSprite(paper, Render::kLayerGUI, false, false);
+        s->screenSpace = false;
+        s->w *= kScale[i][0];
+        s->u1 *= kScale[i][0];
+        s->vBottom *= kScale[i][1];
+        s->h *= kScale[i][1];
+        Render::SetWrapping(s->tex, true);
+        g_farmPaper[i] = s;
+    }
+    if (g_farmBg) {
+        float x = g_farmBg->x, y = g_farmBg->y, w = g_farmBg->w, h = g_farmBg->h;
+        float left = x - g_farmPaper[2]->w;
+        Render::SetPosition(g_farmPaper[0], left, y - h, 1.f);
+        Render::SetPosition(g_farmPaper[1], left, y + g_farmPaper[1]->h, 1.f);
+        Render::SetPosition(g_farmPaper[2], left, y, 1.f);
+        Render::SetPosition(g_farmPaper[3], x + w, y, 1.f);
+    }
+    // UNVERIFIED: Render::EnableTerrainShadowing(false) (the terrain shadow pass is not ported).
+}
+
+// @0x10b47c. PORT: the low-memory device path (Render::FreeMemory) is left out.
+void RemoveFarm() {
+    g_farmBg = Render::RemoveSprite(g_farmBg);
+    for (Render::Sprite*& s : g_farmPaper) s = Render::RemoveSprite(s);
+    g_farmBuilding = Render::RemoveSprite(g_farmBuilding);
+    g_farmFence = Render::RemoveSprite(g_farmFence);
+}
+
+// @0x10b1f0: the farm ground's left, top, right and bottom (world).
+void GetFarmBounds(float& left, float& top, float& right, float& bottom) {
+    if (!g_farmBg) return;
+    left = g_farmBg->x;
+    top = g_farmBg->y - g_farmBg->h;
+    right = g_farmBg->x + g_farmBg->w;
+    bottom = g_farmBg->y;
+}
+
+void SetBrokenFence(bool broken) { Render::ChangeLayer(g_farmFence, broken ? Render::kLayerFlat3 : Render::kLayer9); }
 
 }  // namespace Background

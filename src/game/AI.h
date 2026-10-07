@@ -7,7 +7,8 @@
 // layer-0 city decoration, 0.1 on a road decoration, 10 under a decoration with meta type 0x6f.
 // ClassifyWaypoints numbers the connected parts; paths are only searched within one part.
 //
-// The farm's own waypoint grid (GetWaypoint(x, y, true), CreateFarmWaypoints) is not ported yet.
+// The farm view has its own small grid (GetWaypoint(x, y, true), CreateFarmWaypoints), linked
+// diagonally only.
 #pragma once
 #include <vector>
 
@@ -45,6 +46,10 @@ void FreeWaypoints();                             // @0xe26f0
 bool IsValidWaypoint(const Waypoint* wp);         // @0xe19cc
 int GetNextWaypointMarker();                      // @0xe19ac
 const std::vector<Waypoint*>& GetWaypoints();     // the list (0x610af8)
+const std::vector<Waypoint*>& GetFarmWaypoints(); // the farm's list (0x610b08)
+void CreateFarmWaypoints(int x, int y);           // @0xe7a08
+void LinkAdjacentFarmWaypoints();                 // @0xe35f4
+void RemoveFarmWaypoints();                       // @0xe192c
 
 // The shared search list (0x610b38) and GetNearest @0xe1b7c (lowest cost; 0 for 0 or 1 entries).
 std::vector<Waypoint*>& SearchList();

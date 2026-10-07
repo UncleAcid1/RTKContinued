@@ -563,7 +563,7 @@ void ItemDrop::Animate(float dt) {
     if (vy > 0.f && GameState::GetCurrentMapID() != 0 &&
         y > (float)(unsigned)Map::GetGridHeight() * 42.f * 0.5f - 42.f)
         vy = -vy;
-    // UNVERIFIED (farms): on the farm map a falling drop below y 3100 bounces back.
+    if (vy > 0.f && Map::GetCurrentFarm() && y > 3100.f) vy = -vy;   // the farm ground's edge
     Render::SetPosition(sprite, x, y, 0.2f);
 }
 
@@ -599,7 +599,63 @@ void ItemDrop::Collect(bool automatic, bool) {
         // sounds are not ported yet.
         // UNVERIFIED (milestone 4): on other maps GameState::AddMapResourceCollectionInfo.
     }
-    // UNVERIFIED (Items, farms): kind 1 (items, profession points, chests) and kind 2 (farm food).
+    // UNVERIFIED (Items): kind 1 (items, profession points, chests).
+    if (kind != 2) return;
+    // (HideWorldDialog(nullptr) first: there is no world dialog yet)
+    GameState::ChangeResourceAmount(type, (int)amount);
+    OnCollect(0, automatic ? nullptr : sprite, false, false, 0xb, false);
+    // UNVERIFIED: the text's format (the decompile shows only its "+"; the city drops' "+%d %s").
+    std::u32string text = U"+";
+    std::string n = std::to_string(amount);
+    text.append(n.begin(), n.end());
+    text += U' ';
+    if (const char32_t* name = GameState::GetResourceGameName(type)) text += name;
+    ShowTextHover(x, y - (float)sprite->tex->h, text.c_str(), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true,
+                  2.f, 50.f);
+    // SoundsManager::PlaySound("collect_farm_item", 1, false): sounds are not ported yet.
+    if (GameState::tutorial == 0x49) GameState::tutorial = 0x4c;
+}
+
+void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* tex, unsigned dropId) {
+    if (!tex) {
+        std::puts("BuildingHovers::DropFarmFood() Cannot drop item - no image");
+        // UNVERIFIED (milestone 4, Tasks): Tasks::CompleteSubtask(0xd, dropId, 1).
+        return;
+    }
+    g_itemDrops.emplace_back();
+    ItemDrop& d = g_itemDrops.back();
+    d.kind = 2;
+    d.item = nullptr;
+    d.type = type;
+    d.amount = amount;
+    d.sprite = Render::CreateSprite(tex, 0xc, false, false);
+    y -= (float)(tex->h / 2);
+    float sx = x - (float)(tex->w / 2);
+    float delay = (float)(Rand48::lrand48() % 10) * 0.04f;
+    int h = (int)(Rand48::lrand48() % 0x28) + 0x5a;
+    if (GameState::GetCurrentMapID() != 0) {
+        float limit = ((float)(unsigned)Map::GetGridHeight() * 42.f * 0.5f - 42.f) + (float)h * -1.5f;
+        if (y > limit) y = limit;
+    }
+    if (Map::GetCurrentFarm() && y > 3000.f) y = 2995.f;
+    d.delay = delay;
+    d.x = sx;
+    d.y = y;
+    d.bounce = h;
+    d.animating = true;
+    d.vx = 30.f;
+    if (GUI::IsSmallScreenVersion() && GameState::SecondTutorialStep() != 0x100) {
+        d.bounce = (int)((float)h / 1.5f);
+        d.vx /= 3.f;
+    }
+    d.vy = 0.f;
+    d.groundY = y;
+    Render::SetPosition(d.sprite, sx, y, 0.2f);
+    Render::SetVisibility(d.sprite, false);
+    for (int& s : d.subtasks)
+        if (s == 0) s = (int)dropId;
+    // SoundsManager::PlaySound("farm_item_dropped", 1, false): sounds are not ported yet.
+    // UNVERIFIED (tutorial): step 0x48 locks the interaction to the drop's sprite.
 }
 
 void DropResource(float x, float y, int type, unsigned amount, bool collectNow, bool bonus) {
@@ -632,7 +688,7 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
             float limit = ((float)(unsigned)Map::GetGridHeight() * 42.f * 0.5f - 42.f) + (float)h * -1.5f;
             if (sy > limit) sy = limit;
         }
-        // UNVERIFIED (farms): on the farm map drops below y 3000 move up to 2995.
+        if (Map::GetCurrentFarm() && sy > 3000.f) sy = 2995.f;
         d.vx = vx;
         d.x = sx;
         d.y = sy;
@@ -908,6 +964,14 @@ void Update(double dtIn, bool force) {
 
 // ---- the city tap ----
 
+// The farm view opens (OnBuildingClick and Click share these steps).
+static void EnterFarmView(Map::Building* b) {
+    GameState::SetCurrentLocation(1);
+    // UNVERIFIED (milestone 4, Tasks): HUDWindow::UpdateTasks.
+    HUDWindow::SetBottomType(3);
+    Map::ShowFarm(true, b);
+}
+
 bool Click(int x, int y, bool pressed) {
     if (!GameState::IsPlayerCity() || BuildingMovement::Activated() || BuildingPlacement::Activated() ||
         ShopWindow::IsVisible())
@@ -981,7 +1045,10 @@ bool Click(int x, int y, bool pressed) {
                 }
                 if (b) {
                     if (t == kFarmWater || t == kFarmReady || t == kFarmSleeping) {
-                        // UNVERIFIED (farms): the farm map (SetCurrentLocation(1), Map::ShowFarm).
+                        if (GameState::GetTutorialType() == 1 && GameState::secondTutorial != 0x100 &&
+                            (unsigned)(GameState::tutorial - 0x3a) > 0x17)
+                            return true;
+                        EnterFarmView(b);
                         return true;
                     }
                     if (t == kBuildProgress && b->BuilderAssigned()) {
@@ -1102,11 +1169,8 @@ bool OnBuildingClick(Map::Building* b, int, int) {
         int cls = b->data->buildingClass;
         if (cls == 0xd && b->IsOpened()) {
             if (tutorialFarmLock && (unsigned)(GameState::tutorial - 0x3a) > 0x17) return true;
-            // UNVERIFIED (3f): the farm view (GameState::SetCurrentLocation(1), HUDWindow::UpdateTasks,
-            // HUDWindow::SetBottomType(3), Map::ShowFarm(true, b)).
-            return false;
-        }
-        if (cls == 4 && b->WorkerAssigned(0)) {
+            EnterFarmView(b);   // (then on to the window tail, as on the original)
+        } else if (cls == 4 && b->WorkerAssigned(0)) {
             g_currentHover = g_resourceActiveWindow;
         } else if (b->IsOpened() && b->id == 0x12) {
             g_currentHover = g_storageWindow;

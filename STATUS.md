@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-06, 3f.1 done; next 3f.2) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 3f.2 done; next 3f.3) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3e done, 3f (farms) left:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -140,10 +140,33 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    5 crystals (the 3e untested item); decoration window. A castle tap first collects its taxes (the
    tax hover takes the tap, as the original); hovers refresh once per real second, so a headless
    run (shorter than a second) cannot tap it twice.
-   NEXT: 3f.2 farm data, the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints) and
-   the patch entities; then 3f.3 farmers (AIFarmerBig/Small, AIPatch), 3f.4 farm HUD
-   (BottomFarmWindow, HUD Enter/ExitFarm), the farm hovers (FarmGrow, FarmRestore, PatchProgress),
-   soil patch buying (LandWindow/LandExpandedWindow patch halves), 3f.5 offline contracts.
+   3f.2 DONE: the farm view and its AI. Map::ShowFarm (farm grid 3x4 of 196x98 tiles at world
+   (150, 2880), its own blocks/viewport, Map::CreateFarmPatch), Background::CreateFarm/RemoveFarm/
+   GetFarmBounds/SetBrokenFence, the farm waypoints (AI::CreateFarmWaypoints/LinkAdjacentFarm-
+   Waypoints/RemoveFarmWaypoints; a pool so waypoints outlive ShowFarm(false)), farm-aware walking
+   and SetPos; src/game/AIFarm.cpp: AIPatch (patch states, growth from patchStart, rot with task
+   0x429, the powder speed-up and PatchAnimationController, crop entities per order),
+   AIFarmerBig (Farm queue, walk, seed/water/mow/showel, WorkTime = 2 plays of the animation);
+   Building::SpawnFarm/DespawnFarm/SetFarmPatches/OnSoilPatchBuy/CleanFarm/SpeedupFarm/RestoreFarm,
+   the WorkEnded(patch) farm branch (plant, clear rotten, harvest -> DropFarmFood + XP drop + replant
+   for the order's gold price, clean), patchProgress (+0x180); BuildingHovers::DropFarmFood and the
+   farm-food collect (kind 2), the farm drop bounds (3000/2995, 3100); GameState::
+   GetFarmDropImageName; HUDWindow::EnterFarm/ExitFarm; the farm tap (OnBuildingClick class 0xd and
+   the farm hover types 8/9/10 in Click) opens the farm view. Verified headless with a temporary
+   RTK_FARM hook in main (removed): a built vegetable farm with resourceLeft 2 shows 3 owned patches,
+   one for sale, two locked; a growing and a ready crop; the farmer waters the growing patch, idles
+   and wanders; Farm(1, 1, false) on the ready patch walks, mows, drops the wheat (it drifts right:
+   vx is a constant 30 on the original), cleans, pays 35 gold and replants; ExitFarm returns to the
+   city centred on the farm with the farm entities gone; the oil and animal farms render. Known
+   gaps: no BottomFarmWindow yet, so in the real game there is no way back to the city or to plant
+   (3f.4); EnterFarm shows the farm name on the info line instead of the zooming map-name popup
+   (ShowMapName + its HUDWindow::Update animation, UNVERIFIED); sounds; tutorial steps 0x45..0x4c.
+   NEXT: 3f.3 the city side: SetupSmallFarm / FarmCollectAndReplant (the small farm's crop entity
+   and AIFarmerSmall), Map::GetFarmAfter/Before, FillFarmBuildings, the farm-farmer pass in
+   Map::AssignEntities; 3f.4 farm HUD (BottomFarmWindow, PatchProgressHoverWindow, ShowFarmHover,
+   the OnEntityClick farm branch, FarmGrow/FarmRestore windows, the factory window's farm parts,
+   ShowMapName), soil patch buying (LandWindow/LandExpandedWindow patch halves, BuildingPlacement's
+   default patches); 3f.5 offline contracts.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),

@@ -42,6 +42,7 @@ int ExternalResourceTypeToInternal(unsigned type);   // @0x190d44 data files: 0 
 
 bool IsPlayerCity();                           // @0x1905b8: city state 0 or 1
 int GetCurrentLocation();                      // @0x190530: 0 city, 1 farm, 2 campaign, 3 arena
+void SetCurrentLocation(int location);         // @0x190544
 uint32_t GetCurrentMapID();                    // @0x190558
 void SetCurrentMapID(uint32_t id);             // @0x19056c
 bool IsTutorial();                             // @0x190ad4 tutorial < 0x18 (the opening campaign)
@@ -74,6 +75,9 @@ uint32_t GetGameStartTime();                   // @0x19130c
 
 const char* GetResourceIconName(int type);      // @0x190cfc the 16 px icons (table 0x601594)
 const char* GetResourceWorkerIconName(int type);   // @0x190d2c (table 0x6015ec)
+// @0x190d5c: the dropped crop's image for farm drop id (delivery id * 10 - 1 + order); wheat for
+// the ids without their own.
+const char* GetFarmDropImageName(unsigned id);
 const char* GetResourceMapIconName(int type);   // @0x190d14 (table 0x6015c0)
 const char32_t* GetResourceGameName(int type);  // @0x191cf8 StringTable name (table 0x601618)
 

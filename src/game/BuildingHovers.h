@@ -16,7 +16,7 @@
 
 #include "gui/GUI.h"
 
-namespace Render { struct Sprite; }
+namespace Render { struct Sprite; struct Texture; }
 namespace Map { struct Building; struct Decor; }
 namespace WindowManager { class FunctionalWindow; }
 class Entity;
@@ -75,6 +75,9 @@ bool IsItemMoving();                        // @0x26333c
 // @0x2707ac: drop `amount` of a resource at a world point as bouncing pickups (gold as piles of up
 // to 100). collectNow collects each at once (flying to the HUD); bonus marks the bonus text.
 void DropResource(float x, float y, int type, unsigned amount, bool collectNow, bool bonus);
+// @0x26976c: a harvested crop (resource `type`, `amount`) drops at a world point with its farm drop
+// image; its subtasks are farm drop id `dropId`. On the farm, drops below y 3000 move up to 2995.
+void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* tex, unsigned dropId);
 // @0x26c534: a collected pickup's sprite flies to the HUD (resources: the top bar or, XP, the
 // level badge), optionally with a glow.
 // @0x26c124: a copy of `sprite` flies (over `duration` seconds) to the screen point (x, y + its

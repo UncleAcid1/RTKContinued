@@ -23,6 +23,7 @@
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
+#include "hud/HUD.h"
 #include "windows/Windows.h"
 
 namespace Map {
@@ -44,7 +45,13 @@ uint32_t g_currentTime = 0;                     // 0x6118c4
 bool g_loaded = false;                          // 0x613798 (set at the end of Map::Load)
 int g_lastWorldX = 0, g_lastWorldY = 0;         // Map::lastWorldX/Y 0x6138dc 0x6138e0
 int g_owned[4] = {};                            // 0x613660 owned extent: min x, min y, max x, max y
-Building* g_currentFarm = nullptr;              // 0x6136b8 the farm shown (Map::ShowFarm, 3f)
+Building* g_currentFarm = nullptr;              // 0x6136b8 the farm shown (Map::ShowFarm)
+// The farm view: a grid of 3 x 4 tiles (196 x 98 px each) at world (150, 2880), with its own walk
+// blocks (0x613794, the 0x10-byte cells' +0xc flag) and its patch (0x6136b4).
+const int kFarmGridW = 3, kFarmGridH = 4;       // 0x60effc 0x60f000
+const float kFarmWorldX = 150.f, kFarmWorldY = 2880.f;   // 0x60f004 0x60f008
+std::vector<uint8_t> g_farmBlocks;              // 0x613794 (empty: the farm is not shown)
+std::unique_ptr<Patch> g_farmPatch;             // 0x6136b4
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
 std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
@@ -533,6 +540,56 @@ void Building::LinkBaseToBuilding() {
 bool IsLoaded() { return g_loaded; }
 
 Building* GetCurrentFarm() { return g_currentFarm; }
+int GetFarmGridWidth() { return kFarmGridW; }
+int GetFarmGridHeight() { return kFarmGridH; }
+float GetFarmWorldX() { return kFarmWorldX; }
+float GetFarmWorldY() { return kFarmWorldY; }
+Patch* GetFarmPatch() { return g_farmPatch.get(); }
+
+// @0x1b94f0: the farm view's patch (area 0x29a at row 120, 3 x 6 tiles).
+void CreateFarmPatch() {
+    g_farmPatch = std::make_unique<Patch>();
+    g_farmPatch->areaId = 0x29a;
+    g_farmPatch->x = 0;
+    g_farmPatch->y = 0x78;
+    g_farmPatch->w = 3;
+    g_farmPatch->h = 6;
+}
+
+// @0x1b9228: in: the farm's location, blocks, view bounds, ground, waypoints (every tile but (1, 0)),
+// its entities, the farm HUD and the camera; out: back to the city as it was.
+// PORT: the low-memory device path (Render::FreeMemory) is left out.
+void ShowFarm(bool show, Building* b) {
+    if (show) {
+        GameState::SetCurrentLocation(1);
+        g_currentFarm = b;
+        g_farmBlocks.assign((size_t)(kFarmGridW * kFarmGridH), 1);
+        Render::SetViewportMapBounds(1, 0x75, 0xc, 0x98);
+        Background::CreateFarm(0);
+        for (int y = 0; y < kFarmGridH; ++y)
+            for (int x = 0; x < kFarmGridW; ++x)
+                if (!(x == 1 && y == 0)) AI::CreateFarmWaypoints(x, y);
+        AI::LinkAdjacentFarmWaypoints();
+        b->SpawnFarm();
+        HUDWindow::EnterFarm();
+        // UNVERIFIED: the original animates the camera there at zoom 0.4 (CenterOn's animated path).
+        Render::CenterOn(600.f, 2840.f);
+        return;
+    }
+    if (GameState::GetCurrentLocation() == 1) GameState::SetCurrentLocation(0);
+    UpdateOwnedAreaBorders();
+    int minX = 0, minY = 0, maxX = 0, maxY = 0;
+    GetAreaBorders(minX, minY, maxX, maxY);
+    Render::SetViewportMapBounds(minX, minY - 0xd, maxX + 1, maxY);
+    Background::RemoveFarm();
+    AI::RemoveFarmWaypoints();
+    g_farmBlocks.clear();
+    Building* farm = g_currentFarm;
+    // UNVERIFIED: animated on the original (zoom 0.4).
+    Render::CenterOn(farm->baseX, (farm->maxY + farm->minY) * 0.5f);
+    farm->DespawnFarm();
+    g_currentFarm = nullptr;
+}
 
 Building* GetBuilding(int x, int y) {
     Cell* c = At(x, y);
@@ -703,11 +760,20 @@ void UpdateRoadConnections(int x0, int y0, int x1, int y1) {
 // UNVERIFIED: both read the farm's own grid (0x613794) while the current location is the farm;
 // the farm is not ported yet.
 bool GetBlock(int x, int y) {
+    if (GameState::GetCurrentLocation() == 1) {
+        if ((unsigned)x >= (unsigned)kFarmGridW || (unsigned)y >= (unsigned)kFarmGridH || g_farmBlocks.empty())
+            return false;
+        return g_farmBlocks[(size_t)(kFarmGridW * y + x)] != 0;
+    }
     Cell* c = At(x, y);
     return c && c->block;
 }
 
 void SetBlock(int x, int y, bool block) {
+    if (GameState::GetCurrentLocation() == 1) {
+        g_farmBlocks[(size_t)(kFarmGridW * y + x)] = block;
+        return;
+    }
     if (g_loaded && block) {
         bool found = false;
         for (auto& t : g_blockedTiles) found = found || (t.first == (uint8_t)x && t.second == (uint8_t)y);
@@ -1000,6 +1066,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
             }
         }
     }
+    CreateFarmPatch();   // (LoadPlayer, after the patches)
     // PORT (milestone 4): spawn points (2, 9 and followers), portals (3, 10) and the fog (0x17, 0x30)
     // are not loaded yet; their chunks are kept for SaveMap.
     g_otherChunks.clear();

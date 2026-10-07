@@ -6,7 +6,12 @@
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "game/Building.h"
+#include "game/BuildingHovers.h"
+#include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Map.h"
+#include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "windows/Windows.h"
@@ -203,6 +208,32 @@ void SetBottomType(int type) {
         BottomCityWindow::Hide();
     }
     Render::SortRenderLayer(Render::kLayerGUI, 1);
+}
+
+void EnterFarm() {
+    BattleBarWindow::Hide();
+    BeltBarWindow::Hide();
+    // UNVERIFIED (3f.4): PlayerTopWindow::HideDialog and BottomFarmWindow::Show.
+    Map::Building* farm = Map::GetCurrentFarm();
+    if (!farm) return;
+    const char32_t* name = StringTable::GetString(farm->data->name.c_str());
+    // UNVERIFIED (3f.4): off tablets the name shows in the zooming map-name popup (ShowMapName
+    // @0x2c7588, animated by Update); until then both versions use the info line.
+    SetInfoText(name);
+}
+
+void ExitFarm() {
+    if (!Map::GetCurrentFarm()) return;
+    if (GameState::GetCurrentLocation() == 1) GameState::SetCurrentLocation(0);
+    // UNVERIFIED (milestone 4, Tasks): Tasks::Update(true) and UpdateTasks.
+    SetBottomType(0);
+    Map::ShowFarm(false, nullptr);
+    BuildingHovers::Hide();
+    BattleBarWindow::Show();
+    BeltBarWindow::Show();
+    CastleTopWindow::Show();
+    // UNVERIFIED (3f.4): BottomFarmWindow::Hide.
+    SetInfoText(nullptr);
 }
 
 float GetZ() { return g_z; }

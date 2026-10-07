@@ -70,9 +70,8 @@ void Entity::SetPos(int x, int y) {
         worldY = (float)y * 42.f * 0.5f;
         worldX = ((y % 2 == 1) ? 42.f : 0.f) + (float)x * 84.f + 42.f;
     } else {
-        // UNVERIFIED: farm tiles (196 x 98 plus Map::GetFarmWorldX/Y); the farm is not ported.
-        worldX = (float)x * 196.f + ((y % 2 == 1) ? 98.f : 0.f) + 98.f;
-        worldY = (float)tileY * 98.f * 0.5f;
+        worldX = (float)x * 196.f + ((y % 2 == 1) ? 98.f : 0.f) + 98.f + Map::GetFarmWorldX();
+        worldY = (float)tileY * 98.f * 0.5f + Map::GetFarmWorldY();
     }
     AI::Waypoint* old = waypoint;
     waypoint = AI::GetWaypoint(tileX, tileY, false);

@@ -26,6 +26,16 @@ int g_gridW = 0, g_gridH = 0;
 std::vector<Waypoint*> g_search;      // 0x610b38
 std::vector<Waypoint*> g_nearWeighted, g_nearAll;   // 0x610b48, 0x610b54
 int g_marker = 1;                     // 0x60ef08 (data: starts at 1)
+// The farm view's waypoints: their list (0x610b08, count 0x610b14) and grid (0x610af0; its size
+// 0x60eefc x 0x60eef8 is set on first use and kept, as are the cells, which the next farm visit
+// overwrites).
+std::vector<Waypoint*> g_farmList;
+std::vector<Waypoint*> g_farmGrid;
+int g_farmGridW = 0, g_farmGridH = 0;
+// Freed farm waypoints stay allocated for reuse, as in the original's pool: the farm's entities are
+// removed after its waypoints, and their AI may still point at them.
+std::vector<std::unique_ptr<Waypoint>> g_farmPool;
+std::vector<Waypoint*> g_farmFree;
 
 void ClassifyWaypoint(Waypoint* wp, unsigned part) {   // @0xe1648
     wp->part = part;
@@ -90,9 +100,64 @@ void AddToList(Waypoint* wp) {
 }  // namespace
 
 Waypoint* GetWaypoint(int x, int y, bool farm) {
-    if (farm) return nullptr;   // UNVERIFIED: the farm grid (0x610af0) is not ported
+    if (farm) {
+        if (g_farmGrid.empty() || (x | y) < 0 || y >= g_farmGridH || x >= g_farmGridW) return nullptr;
+        return g_farmGrid[(size_t)(g_farmGridW * y + x)];
+    }
     if (g_grid.empty() || (x | y) < 0 || y >= g_gridH || x >= g_gridW) return nullptr;
     return g_grid[(size_t)(g_gridW * y + x)];
+}
+
+const std::vector<Waypoint*>& GetFarmWaypoints() { return g_farmList; }
+
+// @0xe7a08: a farm tile's waypoint (unblocked, weight 1) at its world point.
+void CreateFarmWaypoints(int x, int y) {
+    Map::SetBlock(x, y, false);
+    Waypoint* wp;
+    if (!g_farmFree.empty()) {
+        wp = g_farmFree.back();
+        g_farmFree.pop_back();
+    } else {
+        g_farmPool.push_back(std::make_unique<Waypoint>());
+        wp = g_farmPool.back().get();
+    }
+    *wp = Waypoint{};
+    wp->weight = 1.f;
+    wp->x = x;
+    wp->y = y;
+    wp->wx = (float)(int)((float)x * 196.f + ((y & 1) ? 98.f : 0.f) + 98.f + Map::GetFarmWorldX());
+    wp->wy = (float)(int)(((float)y * 98.f * 0.5f - 49.f) + Map::GetFarmWorldY());
+    wp->index = (unsigned)g_farmList.size();
+    g_farmList.push_back(wp);
+    if (g_farmGrid.empty()) {
+        g_farmGridW = Map::GetFarmGridWidth();
+        g_farmGridH = Map::GetFarmGridHeight();
+        g_farmGrid.assign((size_t)(g_farmGridW * g_farmGridH), nullptr);
+    }
+    g_farmGrid[(size_t)(g_farmGridW * y + x)] = wp;
+}
+
+// @0xe35f4: the farm waypoints get their diagonal neighbours only (no straight steps).
+void LinkAdjacentFarmWaypoints() {
+    for (Waypoint* wp : g_farmList) {
+        int x = wp->x, y = wp->y;
+        bool odd = (y & 1) != 0;
+        auto link = [&](int i, int tx, int ty) {
+            if (!Map::GetBlock(tx, ty)) wp->n[i] = GetWaypoint(tx, ty, true);
+        };
+        link(0, odd ? x : x - 1, y - 1);
+        link(3, odd ? x + 1 : x, y - 1);
+        link(2, odd ? x : x - 1, y + 1);
+        link(1, odd ? x + 1 : x, y + 1);
+    }
+    for (Waypoint* wp : g_farmList) wp->part = 0;
+    Render::SortRenderLayer(9, false);
+}
+
+// @0xe192c: the farm waypoints go back to the pool (their grid cells stay as they were).
+void RemoveFarmWaypoints() {
+    for (Waypoint* wp : g_farmList) g_farmFree.push_back(wp);
+    g_farmList.clear();
 }
 
 const std::vector<Waypoint*>& GetWaypoints() { return g_list; }
@@ -213,7 +278,9 @@ void FreeWaypoints() {
 bool IsValidWaypoint(const Waypoint* wp) {
     for (Waypoint* w : g_list)
         if (w == wp) return true;
-    return false;   // (and the farm list)
+    for (Waypoint* w : g_farmList)
+        if (w == wp) return true;
+    return false;
 }
 
 int GetNextWaypointMarker() { return g_marker++; }

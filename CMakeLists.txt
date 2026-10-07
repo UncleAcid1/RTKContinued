@@ -44,6 +44,7 @@ add_executable(rtk
   src/game/Animation.cpp
   src/game/AI.cpp
   src/game/AIState.cpp
+  src/game/AIFarm.cpp
   src/game/Entity.cpp
   src/game/EntityManager.cpp
   src/game/GameState.cpp

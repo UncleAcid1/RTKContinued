@@ -338,13 +338,66 @@ void Building::WorkStarted() {
     UpdateImage();
 }
 
-void Building::WorkEnded() {
+void Building::WorkEnded(int p) {
     BuildingHovers::Update(0.0, true);
     if (data->buildingClass == 4) {
         if (data->id == 0x11 || data->id == 0x95) anim.paused = true;
+        return;
     }
-    // UNVERIFIED (farm): class 0xd on the current farm moves the patch worker on to its next step
-    // (planting, harvest drops, cleaning); the farm is not ported yet.
+    if (data->buildingClass != 0xd || GameState::GetCurrentLocation() != 1 || Map::GetCurrentFarm() != this) return;
+    AIBaseState* ai = patchEntities[(size_t)p]->GetAI();
+    int st = ai->GetState();
+    if (st == 0x12) {
+        ai->SetItem((int)data->delivery->id, patchContract[p] - 1, p);
+        // UNVERIFIED (tutorial): at step 0x45 the camera glides to (600, 2795) and the farmer
+        // (EntityManager::GetEntityByClass(0xdf)) says "DESC412" in a world dialog.
+    } else if (st == 0x1a) {
+        if (ai->GetItem()) {
+            ai->Clean();
+            ai->ChangeState(0x13);
+            resources[p] = 0x13;
+        }
+        contractDone = false;
+        patchContract[p] = 0;
+    } else if (st == 0x19) {
+        unsigned had = 0;
+        if (ai->GetItem()) {
+            ai->Clean();
+            ai->ChangeState(0x13);
+            resources[p] = 0x13;
+            had = 1;
+        }
+        float wx = 0.f, wy = 0.f;
+        farmer->GetWorldPos(wx, wy);
+        const Contracts::Contract* del = data->delivery;
+        int c = patchContract[p];
+        const Contracts::ContractMission& m = del->missions[(size_t)c - 1];
+        unsigned dropId = del->id * 10 - 1 + (unsigned)c;
+        Render::Texture* tex = Resources::GetImage(GameState::GetFarmDropImageName(dropId));
+        BuildingHovers::DropFarmFood(wx, (float)(tex ? tex->h : 0) + wy, m.rewardResource,
+                                     m.rewardResourceCount * had, tex, dropId);
+        BuildingHovers::DropResource(wx, wy, 10, m.rewardXp * had, false, false);
+        if (GameState::tutorial == 0x4a) {
+            GameState::tutorial = 0x4b;
+        } else if (GameState::tutorial != 0x4b) {
+            farmer->GetAI()->Farm(999, p, false);   // the harvest marker
+            if (GameState::tutorial != 0x4b && (int)GameState::GetResourceAmount(GameState::kGold) - (int)m.price >= 0) {
+                GameState::ChangeResourceAmount(GameState::kGold, -(int)m.price);
+                farmer->GetAI()->Farm(c - 1, p, true);   // planted again
+                return;
+            }
+        }
+        patchContract[p] = 0;
+    } else if (st == 0x13) {
+        int& r = resources[p];
+        if (r == 0x13) {
+            r = 0x12;
+            ai->ChangeState(0x12);
+        } else {
+            if (r == 0x1c) r = 0x12;
+            ai->ChangeState(r);
+        }
+    }
 }
 
 void Building::GetSpawnTile(int& tx, int& ty) const {
@@ -1022,6 +1075,99 @@ void Building::GetDeliveryTile(int& tx, int& ty) const { GetBuildTile(tx, ty); }
 
 // UNVERIFIED (3c): the crop entity of a farm's first growing patch (ids by contract type and crop).
 void Building::SetupSmallFarm() {}
+
+void Building::SpawnFarm() {
+    int farmerId = (!workers.empty() && workers[0] && workers[0]->GetEntityData()->id == 7) ? 0xdf : 0xe;
+    static const int kTiles[6][2] = {{2, 0}, {2, 1}, {1, 1}, {2, 2}, {1, 2}, {1, 3}};
+    if (data->id == 0x13 || data->id == 0x72) {
+        int pid = data->id == 0x13 ? 10 : 0xe8;
+        for (const auto& t : kTiles) patchEntities.push_back(EntityManager::SpawnEntityAt(pid, t[0], t[1], false, false));
+    } else if (data->id == 0x3ee) {
+        patchEntities.push_back(EntityManager::SpawnEntityAt(0xe0, 1, 1, false, false));
+    }
+    if (resources[0] == 0) {
+        SetFarmPatches(0);
+    } else {
+        for (size_t i = 0; i < patchEntities.size(); ++i) patchEntities[i]->GetAI()->ChangeState(resources[i]);
+    }
+    // Patches with an order get their crop; the farmer starts at one still growing.
+    std::vector<std::pair<int, int>> growing;
+    for (size_t i = 0; i < patchEntities.size(); ++i) {
+        AIBaseState* ai = patchEntities[i]->GetAI();
+        if (patchContract[i] < 1) {
+            ai->SetFarmPatchNum((unsigned)i);
+            continue;
+        }
+        ai->SetItem((int)data->delivery->id, patchContract[i] - 1, (int)i);
+        patchEntities[i]->GetAI()->Update(0.f);
+        int st = patchEntities[i]->GetAI()->GetState();
+        if (st != 0x19 && st != 0x1a) growing.emplace_back(patchEntities[i]->tileX, patchEntities[i]->tileY);
+    }
+    if (!growing.empty()) {
+        const auto& t = growing[(size_t)Rand48::lrand48() % growing.size()];
+        farmer = EntityManager::SpawnEntityAt(farmerId, (unsigned)t.first, (unsigned)t.second, false, false);
+        // (the patch is whatever entity GetEntityAtXY finds on that tile; PORT: none is skipped)
+        if (Entity* at = EntityManager::GetEntityAtXY(t.first, t.second))
+            farmer->GetAI()->SetCurrentPatch((unsigned)at->GetAI()->GetFarmPatchNum());
+    } else {
+        farmer = EntityManager::SpawnEntityAt(farmerId, 0, 1, false, false);
+    }
+    farmer->SetWorkplace(this);
+    // SoundsManager::PlaySound("farm_enter", 1, false): sounds are not ported yet.
+}
+
+void Building::DespawnFarm() {
+    EntityManager::RemoveEntity(farmer, true);
+    farmer = nullptr;
+    for (size_t i = 0; i < patchEntities.size(); ++i) {
+        patchEntities[i]->GetAI()->Clean();
+        EntityManager::RemoveEntity(patchEntities[i], true);
+    }
+    patchEntities.clear();
+    if (farmEntity) {
+        EntityManager::RemoveEntity(farmEntity, true);
+        farmEntity = nullptr;
+    }
+    SetupSmallFarm();
+}
+
+void Building::SetFarmPatches(int from) {
+    for (int i = from; i < (int)patchEntities.size(); ++i) {
+        AIBaseState* ai = patchEntities[(size_t)i]->GetAI();
+        if (i <= resourceLeft) {
+            ai->ChangeState(0x12);
+            if (resources[i] != 0x1c) resources[i] = 0x12;
+        } else if (i == resourceLeft + 1) {
+            ai->ChangeState(0x1b);
+            resources[resourceLeft + 1] = 0x1b;
+        } else {
+            ai->ChangeState(0x14);
+            resources[i] = 0x14;
+        }
+    }
+}
+
+void Building::OnSoilPatchBuy() {
+    ++resourceLeft;
+    if (0 < patchContract[resourceLeft]) resources[resourceLeft] = 0x1c;
+    SetFarmPatches(resourceLeft);
+    // PORT: OG::MakeRequest(0x10, 0xc, id, -1, 0) (the online stats) is left out.
+}
+
+void Building::CleanFarm(unsigned p) {
+    Entity* e = patchEntities[p];
+    if (!e || !e->GetAI()->GetItem()) return;
+    e->GetAI()->CleanFarm();
+}
+
+void Building::SpeedupFarm(int seconds, int p) { patchEntities[(size_t)p]->GetAI()->SpeedUp(seconds); }
+
+void Building::RestoreFarm(unsigned p) {
+    Entity* e = patchEntities[p];
+    if (!e || !e->GetAI()->GetItem()) return;
+    patchArg[p] = Timer::GetGlobalTime();
+    e->GetAI()->Revive();
+}
 
 // A workshop with a contract still running shows smoke. UNVERIFIED (milestone 5): AddSmoke.
 void Building::UpdateOfflineStateNoWorker() {

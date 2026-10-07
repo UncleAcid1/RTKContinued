@@ -10,8 +10,10 @@
 #include <vector>
 
 #include "game/AI.h"
+#include "game/Contracts.h"
 
 namespace GameState { struct Order; }
+namespace Render { struct Sprite; struct Texture; }
 
 class Entity;
 namespace Map { struct Building; struct Decor; }
@@ -174,6 +176,103 @@ public:
     float orderTime = 0.f;        // +0xe0 seconds to the next GetOrder
     GameState::Order* order = nullptr;   // +0xe4
     int step = 0;                 // +0xe8 0 free, 1/2 carrying, 3/4 to the pile, 5 decoration job
+};
+
+class AIPatch;
+
+// PatchAnimationController (0x14 bytes): plays the growth powder's frames on its patch's dust
+// sprite and removes the sprite after the last frame. Port of @0x1e3e04..0x1e3fdc.
+struct PatchAnimationController {
+    explicit PatchAnimationController(AIPatch* p) : patch(p) {}   // @0x1e3e04
+    void Pause(bool on) { paused = on; }                          // @0x1e3e54
+    void SetAnim(Render::Texture* t) { acc = 0.f; frame = 0; tex = t; }   // @0x1e3e5c
+    void Update(float dt);                                        // @0x1e3e78
+
+    int frame = 0;                  // +0x00
+    Render::Texture* tex = nullptr; // +0x04
+    AIPatch* patch = nullptr;       // +0x08
+    float acc = 0.f;                // +0x0c
+    bool paused = false;            // +0x10
+};
+
+// A farm view's soil patch (class 6: entities 10, 0xe8, 0xe0): its state is the patch state
+// (0x12 empty, 0x13 dirty, 0x14 locked, 0x15..0x18 growing, 0x19 ready, 0x1a rotten, 0x1b for sale,
+// 0x1c bought with an order waiting); its crop is a separate entity whose frame is the growth stage.
+class AIPatch : public AIBaseState {
+public:
+    explicit AIPatch(Entity* e);                      // @0xed688
+    ~AIPatch() override;                              // @0xed5f8
+    bool HasEntity(Entity* e) override;               // +0x10 @0xed0f4
+    void Update(float dt) override;                   // +0x4c @0xed8a0
+    void UpdateLastTarget() override;                 // +0x68 @0xecff4
+    void ChangeState(int s) override;                 // +0xc4 @0xed14c
+    void Clean() override;                            // +0xf4 @0xed5ac
+    // +0xf8 @0xedac0: -2 ends the current growth stage now, -1 starts the powder speed-up (a stage
+    // per second until ready), n > 0 moves the patch's timers n seconds earlier.
+    void SpeedUp(int n) override;
+    bool SpeedUpProcess() override { return speedingUp; }   // +0xfc @0xecfd8
+    // +0x120 @0xedd30: the crop of order `contract` (0-based) of delivery list `deliveryId`, as the
+    // farm's order on `patch`; it is planted if the patch is empty.
+    void SetItem(int deliveryId, int contract, int patch) override;
+    int GetItem() override { return crop ? 1 : 0; }   // +0x124 @0xecfd0 (the crop entity)
+    void Revive() override;                           // +0x128 @0xed00c
+    void CleanFarm() override;                        // +0x12c @0xed088
+    int GetFarmPatchNum() override { return patchNum; }          // +0x130 @0xecfb0
+    void SetFarmPatchNum(unsigned n) override { patchNum = (int)n; }   // +0x134 @0xecfb8
+    Map::Building* GetFarm() const { return farmBuilding; }   // +0x158 @0xecfc0
+    Render::Sprite* GetDust() const { return dust; }  // +0x15c @0xecfc8
+    void StopDust();                                  // +0x160 @0xed134
+
+    int cropId = 0;               // +0xe0 the crop entity's id
+    Entity* crop = nullptr;       // +0xe4
+    Map::Building* farmBuilding = nullptr;  // +0xe8 Map::GetCurrentFarm() at creation
+    int type = 0;                 // +0xec 1 vegetable farm (0x13), 3 oil farm (0x72), 4 animal farm (0x3ee)
+    Contracts::ContractMission mission;   // +0xf0 a copy of the order (growTimes at +0x140)
+    Render::Sprite* sign = nullptr;       // +0x14c the locked / for-sale sign (vegetable farm)
+    Render::Texture* lockedTex = nullptr; // +0x150 images/Farm/soil_patch_locked2
+    Render::Texture* buyTex = nullptr;    // +0x154 images/Farm/soil_patch_buy2
+    Render::Sprite* dust = nullptr;       // +0x158 the speed-up powder
+    PatchAnimationController* dustAnim = nullptr;   // +0x15c
+    int patchNum = -1;            // +0x160 index in the farm's patch list
+    bool force = true;            // +0x164 the next ChangeState runs even for the same state
+    bool speedingUp = false;      // +0x165
+};
+
+// The farm view's farmer (class 5: entities 0xe, 0xdf): walks to the patches, plants, waters,
+// harvests and cleans them; Farm queues the orders it is given.
+class AIFarmerBig : public AIBaseState {
+public:
+    struct FarmActionQueue { int patch, contract, flag; };   // 0xc bytes
+
+    explicit AIFarmerBig(Entity* e);                  // @0xeb9c4
+    ~AIFarmerBig() override;                          // @0xeb7dc
+    void Update(float dt) override;                   // +0x4c @0xeb1b4
+    void UpdateLastTarget() override;                 // +0x68 @0xeaf38
+    void AnimEnded() override;                        // +0xc8 @0xeace4
+    void WalkCompleted() override {}                  // +0xd8 @0xea8b8
+    // +0x100 @0xeb4a0: queue order `contract` on `patch` (plant: launch it first); 999 marks a
+    // harvest. A patch already queued with a real order is ignored.
+    void Farm(int contract, int patch, bool plant) override;
+    void SetCurrentPatch(unsigned p) override { patch = (int)p; }   // +0x11c @0xea8b0
+    void StartHarvesting();                           // @0xea8e4
+    void StartCleaning();                             // @0xeaa1c
+    void StartWatering();                             // @0xeaafc
+    void StartSeeding();                              // @0xeac04
+    void Move(bool plant, int p);                     // @0xeaecc to patch p
+    void ChooseAction();                              // @0xeaf78 at the patch: the work it needs
+    // @0xeb0a4: one of the first n patch entities, n = the patches neither locked nor for sale (all:
+    // empty ones count too).
+    Entity* GetRandomPatch(bool all);
+
+    AI::Waypoint* moveTarget = nullptr;   // +0x64 the patch waypoint being walked to
+    float idleTime = 0.f;         // +0xe0
+    float actionLeft = 0.f;       // +0xe4
+    float actionTime = 0.f;       // +0xe8
+    bool water = true;            // +0xec the current patch wants watering
+    bool idle = true;             // +0xed no queued work running
+    int patch = -1;               // +0xf0
+    int loops = 1;                // +0xf4 replays of the work animation left
+    std::vector<FarmActionQueue> queue;   // +0xf8
 };
 
 // AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,

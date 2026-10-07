@@ -280,6 +280,7 @@ int StringToResourceType(const char* name) {
 
 bool IsPlayerCity() { return (unsigned)g_cityState <= 1; }
 int GetCurrentLocation() { return g_location; }
+void SetCurrentLocation(int location) { g_location = location; }
 uint32_t GetCurrentMapID() { return g_mapId; }
 void SetCurrentMapID(uint32_t id) {
     g_location = id != 0 ? 2 : 0;   // SetCurrentLocation: campaign maps / city
@@ -435,6 +436,22 @@ const char* GetResourceWorkerIconName(int type) {
         "Icon_profession_lumberjack", "Icon_profession_miner", "", "", "Icon_profession_stone_cutter", "", "", "", "",
         "", ""};
     return kIcons[type];
+}
+
+const char* GetFarmDropImageName(unsigned id) {
+    switch (id) {
+    case 10: return "images/Items/FarmDrops/res_crrot_drop";
+    case 0xc: return "images/Items/FarmDrops/res_pumpkin_drop";
+    case 0xd: return "images/Items/FarmDrops/res_corn_drop";
+    case 0xe: return "images/Items/FarmDrops/res_cabbage_drop";
+    case 0x1e: return "images/Items/FarmDrops/res_canola_drop";
+    case 0x1f: return "images/Items/FarmDrops/res_flax_drop";
+    case 0x20: return "images/Items/FarmDrops/res_sunflower_drop";
+    case 0x21: return "images/Items/FarmDrops/res_sesame_drop";
+    case 0x22: return "images/Items/FarmDrops/res_peanut_drop";
+    case 0x28: case 0x29: case 0x2a: case 0x2b: case 0x2c: return "images/Items/quest_items/icon_quest_meat";
+    default: return "images/Items/FarmDrops/res_wheat_drop";
+    }
 }
 
 const char* GetResourceMapIconName(int type) {

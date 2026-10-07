@@ -92,7 +92,7 @@ void TargetedAI::OnWaypointRemove(AI::Waypoint* wp) {
 // part it is in; the four straight steps (left/down/right/up) cost weightCost times the weight
 // (50 times for class 9 and type 0x11). Stops when target is taken off the open list.
 static void SearchFrom(TargetedAI* ai, AI::Waypoint* target, bool reachMode) {
-    for (AI::Waypoint* wp : AI::GetWaypoints()) {   // (the farm list when ai->farm)
+    for (AI::Waypoint* wp : ai->farm ? AI::GetFarmWaypoints() : AI::GetWaypoints()) {
         wp->cost = kUnvisited;
         wp->parent = nullptr;
     }
@@ -371,9 +371,8 @@ void AIBaseState::UpdateWalking(float dt, int depth) {
         tx = ((nxt->y & 1) ? 42.f : 0.f) + (float)nxt->x * 84.f + 42.f;
         ty = (float)nxt->y * 42.f * 0.5f;
     } else {
-        // UNVERIFIED: farm tiles (196 x 98 plus Map::GetFarmWorldX/Y); the farm is not ported.
-        tx = (float)nxt->x * 196.f + ((nxt->y & 1) ? 98.f : 0.f) + 98.f;
-        ty = (float)nxt->y * 98.f * 0.5f;
+        tx = (float)nxt->x * 196.f + ((nxt->y & 1) ? 98.f : 0.f) + 98.f + Map::GetFarmWorldX();
+        ty = (float)nxt->y * 98.f * 0.5f + Map::GetFarmWorldY();
     }
     float dy = ty - y, dx = tx - x;
     float sp = speed;
@@ -793,10 +792,12 @@ AIBaseState* CreateAIState(int state, Entity* e) {
     case 0: return new AIBaseState(e);
     case 3:
     case 4: return new AIWorker(e);
+    case 5: return new AIFarmerBig(e);
+    case 6: return new AIPatch(e);
     case 7: return new AIGoblin(e);
     default:
-        // UNVERIFIED (milestones 3-4): AIWarrior (1), AIPlayer (2), AIFarmerBig (5), AIPatch (6),
-        // AIFarmerSmall (8), AIEnemy (9), AISpell (10), AIPlayerBot (11) are not ported yet;
+        // UNVERIFIED (milestones 3-4): AIWarrior (1), AIPlayer (2), AIFarmerSmall (8, 3f),
+        // AIEnemy (9), AISpell (10), AIPlayerBot (11) are not ported yet;
         // those entities get the base behaviour.
         return new AIBaseState(e);
     }

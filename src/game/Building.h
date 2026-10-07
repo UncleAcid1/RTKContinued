@@ -99,6 +99,7 @@ struct Building {
     Render::Sprite* ring = nullptr;  // +0x174 ring under trees/rocks
     BuildingAnim anim;           // +0x178
     bool firstUpdate = true;     // +0x17c
+    float patchProgress[6] = {}; // +0x180 farm view: each patch's current growth stage or work, 0..1
     bool liverAway = false;      // +0x199 a liver left for work (WorkerLeftToWork brings one back)
     int hp = 0, maxHp = 0;       // +0x1a8, +0x1ac (BuildingData hp)
     Entity* target = nullptr;    // +0x1b4
@@ -138,7 +139,10 @@ struct Building {
     void AssignLiver(Entity* e);                 // @0x124d18
     void WorkerLeftToWork();                     // @0x11e3d4
     void WorkStarted();                          // @0x11e324
-    void WorkEnded();                            // @0x11de78
+    // @0x11de78: a worker finished a step. On the visited farm, soil patch `patch` moves on: an
+    // empty one is planted, a rotten one cleared, a ready one harvested (food and XP drop, and the
+    // order is planted again if the gold is there), a dirty one is clean.
+    void WorkEnded(int patch = -1);
     void GetSpawnTile(int& tx, int& ty) const;   // @0x11c538
     void GetWorkTile(int& tx, int& ty) const;    // @0x11c568
     void GetBuildTile(int& tx, int& ty) const;   // @0x11c598
@@ -197,6 +201,17 @@ struct Building {
     void HireGolbin();                           // @0x124d74 a delivery goblin from a storage
     void GetDeliveryTile(int& tx, int& ty) const;   // @0x11c5f8
     void SetupSmallFarm();                       // @0x11f498
+    // Farm view (3f). SpawnFarm @0x128468: the soil patch entities (by farm type) with their saved
+    // states and orders, and the farmer, at a patch still growing if there is one.
+    void SpawnFarm();
+    void DespawnFarm();                          // @0x120664
+    // @0x11fcac: from patch `from` on: owned patches (up to resourceLeft) empty, the next one for
+    // sale, the rest locked; resources[] keeps the states.
+    void SetFarmPatches(int from);
+    void OnSoilPatchBuy();                       // @0x11fdd8
+    void CleanFarm(unsigned patch);              // @0x11d1a0
+    void SpeedupFarm(int seconds, int patch);    // @0x11d344
+    void RestoreFarm(unsigned patch);            // @0x11d444
     void UpdateOfflineStateNoWorker();           // @0x11ea90
     void UpdateOfflineState();                   // @0x126498 (a worker's workplace on load)
     void UpdateOfflineResources();               // @0x124450
