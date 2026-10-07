@@ -175,6 +175,9 @@ void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
 void TileCoordinatesToLinear(int& x, int& y);          // @0x1b62f4
 // @0x1c4dd8, the part ported so far: every building's and decoration's Update.
 void Update(double dt);
+// @0x1b6754: after the app's pause every building and decoration runs one Update with the time
+// paused (main_Loop_Func).
+void OfflineUpdate(double dt);
 float GetSpriteZ(float a, float b, int c);             // @0x1b6814
 // Extent (tiles) of the unowned patches that border owned land; the whole grid if there are none.
 void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b6a20

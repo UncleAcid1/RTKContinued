@@ -2,6 +2,10 @@
 #pragma once
 
 extern bool done;          // 0x6123f8: the main loop ends
+// 0x6123f9: the app is in the background (Android's SDLMain.mcPauseEvent; the port: SDL's
+// background/foreground events). main_Loop_Func then only sleeps and counts the time paused.
+extern bool paused;
+extern float pauseTime;    // 0x61236c: seconds paused, given to Map::OfflineUpdate on resume
 void MainExit();           // @0x184eec
 // @0x188480: the "exit" answer of the back-key question. UNVERIFIED (online): with a profile that
 // wants warnings, the player's city first goes to the server (LoadingInternetWindow, NET_SendSave);

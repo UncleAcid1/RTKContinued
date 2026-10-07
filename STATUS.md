@@ -2,8 +2,8 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 3f.4 done; next 3f.5) — read this first in a new conversation
-**Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3e done, 3f (farms) left:
+## Handoff (last updated 2026-10-07, 3f done; next milestone 4) — read this first in a new conversation
+**Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
 (branch main, first pushed 2026-10-06). Push after a finished step only when the user asks.
@@ -219,7 +219,20 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    opens the Oil Farm; Improve shows the quest lock (milestone 4 stand-in); the city side of 3f.3
    unchanged. Headless note: hovers refresh once per real second, and the speed-up box's bar resets
    each wall-clock second, so short runs show it past 100%.
-   NEXT: 3f.5 offline orders (contracts).
+   3f.5 DONE: offline orders. In 5.11 the offline contract hooks are empty (Map::ProcessOfflineContracts,
+   GameState::UpdateOfflineBuildings; the offline building list is for the global map, milestone 4):
+   workshop orders and farm patches run on global-time stamps, so they catch up on load by
+   themselves. Verified headless (temporary RTK_OFF hook and a clock offset, removed): a bakery order
+   (300 s) and two planted patches saved, reloaded 400 s later -> the bread bubble and the ripe carrot
+   bubble; 100000 s later both patches ripe. Ported the remaining catch-up, the app pause:
+   Game::paused/pauseTime (0x6123f9/0x61236c; Android's SDLMain.mcPauseEvent, the port: SDL's
+   WILL_ENTER_BACKGROUND/DID_ENTER_FOREGROUND, which desktop systems do not send), main_Loop_Func's
+   paused turn (sleep 500 ms, +0.5 s) and Map::OfflineUpdate (@0x1b6754: each building's Update with
+   the time paused, once more than 2 s; the decorations' half waits for Decor::Update, milestone 4).
+   Verified: a construction site with 29 s left and its builder working finishes after
+   OfflineUpdate(100000). Also Timer::ApplyDeltaTimeCompensation (@0x23ea38): the frame time is now
+   clamped to 0.2 s as on the original (the port had 0.1 s); TimeCompensationBlock not ported (0).
+   NEXT: milestone 4.
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
@@ -230,7 +243,7 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    are created but not yet placed in houses), Building::UpdateOfflineState, Decor::UpdateOfflineState,
    Map::UpdateOfflineResources (a stub comment in LoadSavedGame, src/game/Game.cpp). Hook point:
    the UNVERIFIED comment at the end of Map::Load.
-2. 3f farms (see the 3f entry): next.
+2. 3f farms: done (3f.1-3f.5).
 3. Milestone 4: hero/army/AI, quests (Tasks, MetaExpression), items (GameState keeps the item list and
    bindings already; Items::GetItemInfo missing), new-game tutorial on map 0x15 (replaces the PORT
    test city in main.cpp), spawns/portals/fog (their map chunks are passed through raw in
@@ -439,7 +452,7 @@ Milestones:
               limits, area buying; economy dialogs (level-up, NotEnoughWindow, ExchangeWindow),
               offline resources, Map::AssignEntities and the offline worker states. The farm
               hovers and the farm-patch halves of the land windows moved to 3f.
-       3f [ ] farms: the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints), the
+       3f [x] (done 2026-10-07) farms: the farm view (Map::ShowFarm, Background::CreateFarm, farm waypoints), the
               patch entities (AIPatch), AIFarmerBig/AIFarmerSmall, Building farm functions
               (SpawnFarm, FarmCollectAndReplant, soil patch states), the farm hovers and windows.
        Note: with no save, LoadSavedGame (@0x1885e0) starts a new game on campaign map 0x15 with the

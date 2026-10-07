@@ -947,6 +947,14 @@ void Update(double dt) {
     }
 }
 
+void OfflineUpdate(double dt) {
+    for (auto& p : g_patches) {
+        for (size_t i = 0; i < p->buildings.size(); ++i) p->buildings[i]->Update(dt);
+        // UNVERIFIED (milestone 4): then each decoration's Update (vtable +0x44, Decor::Update
+        // @0x13577c, not ported yet).
+    }
+}
+
 void TileCoordinatesToWorld(int& x, int& y) {
     float fx = (float)x;
     float off = (y & 1) ? 42.f : 0.f;

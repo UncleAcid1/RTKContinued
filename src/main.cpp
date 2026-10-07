@@ -548,6 +548,10 @@ int main(int argc, char** argv) {
                         BuildingPlacement::Decline();
                         Map::Save(0);
                     }
+                    paused = true;   // SDLMain.mcPauseEvent(1)
+                    break;
+                case SDL_EVENT_DID_ENTER_FOREGROUND:
+                    paused = false;   // SDLMain.mcPauseEvent(0)
                     break;
                 case SDL_EVENT_KEY_DOWN:
                     // PORT aids: Esc quits (not while typing), F12 saves a screenshot.
@@ -586,11 +590,23 @@ int main(int argc, char** argv) {
                 default: break;
             }
         }
+        // main_Loop_Func: while paused the loop only sleeps and counts the time (0.5 s a turn); once
+        // back, more than 2 s paused goes to the buildings in one Map::OfflineUpdate.
+        if (paused) {
+            SDL_Delay(500);
+            lastTicks = SDL_GetTicks();
+            pauseTime += 0.5f;
+            continue;
+        }
         uint64_t now = SDL_GetTicks();
         float dt = (float)(now - lastTicks) / 1000.f;
         lastTicks = now;
         edgeScroll(dt);
-        tick(dt > 0.1f ? 0.1f : dt);
+        if (2.f < pauseTime) {
+            Map::OfflineUpdate((double)pauseTime);
+            pauseTime = 0.f;
+        }
+        tick((float)Timer::ApplyDeltaTimeCompensation((double)dt));
         Render::Frame();
         SDL_GL_SwapWindow(win);
     }

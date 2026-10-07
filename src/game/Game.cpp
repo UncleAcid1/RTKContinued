@@ -13,6 +13,8 @@
 #include "game/SaveManager.h"
 
 bool done = false;
+bool paused = false;
+float pauseTime = 0.f;
 
 void MainExit() { done = true; }
 
