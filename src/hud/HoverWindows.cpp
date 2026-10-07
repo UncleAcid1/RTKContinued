@@ -17,7 +17,10 @@
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/AIState.h"
+#include "game/Entity.h"
 #include "gui/GUI.h"
+#include "hud/HUD.h"
 #include "windows/Windows.h"
 
 // ---- BuildingHoverWindow ----
@@ -108,9 +111,13 @@ void BubbleHoverWindow::Update(float dt) {
     // UNVERIFIED (tutorial): step 0x55 points the tutorial arrow at the bubble.
 }
 
+// A ready soil patch (AI state 0x19, only AIPatch has it) shows its crop.
 void BubbleHoverWindow::SetEntity(Entity* e) {
     BuildingHoverWindow::SetEntity(e);
-    // UNVERIFIED (farms): a farmer (AI state 0x19) shows the crop of the patch it works.
+    if (!e || !e->GetAI() || e->GetAI()->GetState() != 0x19) return;
+    AIPatch* ai = static_cast<AIPatch*>(e->GetAI());
+    Map::Building* farm = ai->GetFarm();
+    icon->SetTexture(MissionIcon(farm, farm->patchContract[ai->GetFarmPatchNum()]));
 }
 
 void BubbleHoverWindow::SetBuilding(Map::Building* b) {
@@ -134,8 +141,11 @@ void BubbleHoverWindow::SetBuilding(Map::Building* b) {
             if (b->GetFarmState(0) == 1) {
                 iconName = "gold_water";
             } else {
-                // UNVERIFIED (farms): a farm with a ready patch shows that patch's crop
-                // (GetFirstReadySoilPath).
+                // A farm with a ready crop shows the crop.
+                if (bb->data->buildingClass == 0xd && bb->GetFirstReadySoilPath() != -1) {
+                    icon->SetTexture(MissionIcon(bb, bb->patchContract[bb->GetFirstReadySoilPath()]));
+                    return;
+                }
                 if (bb->data->buildingClass != 0xc) return;
                 iconName = "gold_school";
             }
@@ -150,7 +160,8 @@ void BubbleHoverWindow::SetPosition(int x, int y) {
     BuildingHoverWindow::SetPosition(x, y);
     root->SetPosition(x - root->w / 2, y - root->h);
     baseY = y - root->h;
-    // UNVERIFIED (farms): a farm with a ready patch refreshes the crop icon here.
+    if (building && building->data->buildingClass == 0xd && building->GetFirstReadySoilPath() != -1)
+        icon->SetTexture(MissionIcon(building, building->patchContract[building->GetFirstReadySoilPath()]));
     Update(0.f);
 }
 
@@ -182,7 +193,16 @@ bool BubbleHoverWindow::Click(int x, int y, bool pressed) {
                 return true;
             }
             if (cls == 0xd) {
-                // UNVERIFIED (farms): FarmCollectAndReplant, else the farm map (ShowFarm).
+                // The harvest; if there is nothing to take in (or no room for it), the farm view.
+                if (b->needsBuilder != 0 || b->upgrading != 0 || ShopWindow::IsVisible()) return true;
+                if (!building->FarmCollectAndReplant() && !Map::GetCurrentFarm()) {
+                    GameState::SetCurrentLocation(1);
+                    // UNVERIFIED (milestone 4, Tasks): HUDWindow::UpdateTasks.
+                    HUDWindow::SetBottomType(3);
+                    Map::ShowFarm(true, building);
+                    return true;
+                }
+                BuildingHovers::ScheduleUpdate();
                 return true;
             }
             if (cls == 0xc) {
@@ -191,8 +211,74 @@ bool BubbleHoverWindow::Click(int x, int y, bool pressed) {
             }
         }
     }
-    // UNVERIFIED (farms): a farmer's bubble (AI state 0x19) opens the patch's farm hover.
+    // UNVERIFIED (3f.4): on the farm view a ready patch's bubble (entity AI state 0x19) shows
+    // "WORK_RES_NO_SPACE" over it when the crop would not fit in the storage, else opens
+    // BuildingHovers::ShowFarmHover(false, patch, 1) and hides itself.
     return true;
+}
+
+// ---- SleepingHoverWindow ----
+
+SleepingHoverWindow::~SleepingHoverWindow() { sprite = Render::RemoveSprite(sprite); }
+
+void SleepingHoverWindow::SetZ(float z) {
+    if (!sprite || sprite->z == z) return;
+    Render::SetPosition(sprite, sprite->x, sprite->y, z);
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
+}
+
+bool SleepingHoverWindow::Click(int x, int y, bool pressed) {
+    (void)pressed;
+    if (shownHover) Map::MouseCoordinatesToWorld(x, y);   // (and nothing else)
+    return false;
+}
+
+void SleepingHoverWindow::Show() {
+    if (shownHover) return;
+    shownHover = true;
+    if (sprite) Render::SetVisibility(sprite, true);
+}
+
+void SleepingHoverWindow::Hide() {
+    if (!shownHover) return;
+    if (sprite) Render::SetVisibility(sprite, false);
+    BuildingHoverWindow::Hide();
+}
+
+// Over 1 s the icon rises 20 and moves 10 to the right per second, turning by -0.5 rad/s (the
+// rotated shader turns it about its centre), fading in for 0.25 s and out after 0.75 s (alpha up
+// to 1.5, as the original); then it waits until 1.5 s and starts again.
+void SleepingHoverWindow::Update(float dt) {
+    t += dt;
+    if (!sprite) return;
+    if (building) {
+        building->FindBaseCoordinates();
+        float iconY = (float)building->data->iconY;
+        if ((float)startY != (building->minY - sprite->h) + iconY)
+            SetPosition((int)((building->minX + building->maxX) * 0.5f), (int)(building->minY + iconY));
+    }
+    Render::SetShaderType(sprite, 8);
+    Render::SetPosition(sprite, (float)startX + t * 10.f, (float)startY + t * -20.f, sprite->z);
+    sprite->color[0] = sprite->x + sprite->w * 0.5f;   // the rotation centre and angle
+    sprite->color[1] = sprite->h * 0.5f - sprite->y;
+    sprite->color[2] = t * -0.5f;
+    if (t > 1.f) Render::SetAlpha(sprite, 0.f);
+    else if (t > 0.75f) Render::SetAlpha(sprite, ((t - 0.75f) * -4.f + 1.f) * 1.5f);
+    else if (t < 0.25f) Render::SetAlpha(sprite, t * 4.f * 1.5f);
+    else Render::SetAlpha(sprite, 1.5f);
+    if (t > 1.5f) t = 0.f;
+}
+
+void SleepingHoverWindow::SetPosition(int x, int y) {
+    BuildingHoverWindow::SetPosition(x, y);
+    startX = x - 30;
+    startY = y + 50;
+}
+
+void SleepingHoverWindow::SetBuilding(Map::Building* b) {
+    BuildingHoverWindow::SetBuilding(b);
+    if (!building || sprite) return;
+    sprite = Render::CreateSprite(IconManager::GetIcon("worker_sleep"), Render::kLayerGUI, false, false);
 }
 
 // ---- TaxesHoverWindow ----

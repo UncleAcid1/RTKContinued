@@ -795,9 +795,10 @@ AIBaseState* CreateAIState(int state, Entity* e) {
     case 5: return new AIFarmerBig(e);
     case 6: return new AIPatch(e);
     case 7: return new AIGoblin(e);
+    case 8: return new AIFarmerSmall(e);
     default:
-        // UNVERIFIED (milestones 3-4): AIWarrior (1), AIPlayer (2), AIFarmerSmall (8, 3f),
-        // AIEnemy (9), AISpell (10), AIPlayerBot (11) are not ported yet;
+        // UNVERIFIED (milestone 4): AIWarrior (1), AIPlayer (2), AIEnemy (9), AISpell (10),
+        // AIPlayerBot (11) are not ported yet;
         // those entities get the base behaviour.
         return new AIBaseState(e);
     }

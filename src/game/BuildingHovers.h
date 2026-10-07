@@ -67,6 +67,7 @@ void ActivateBuildingHover(Map::Building* b);    // @0x263018
 inline bool IsWorldDialogVisible() { return false; }   // @0x2632c4 UNVERIFIED: no world dialog yet
 bool IsHoverVisible();                      // @0x263320
 void ScheduleUpdate();                      // @0x2630a4
+void AddDeliveryContractToFinishOnLastItem(unsigned id);   // @0x263164
 void SetHoverVisiblity(bool visible, bool arg);  // @0x2630bc
 bool HasDroppedItems();                     // @0x2631b0
 void CollectAll();                          // @0x26e0e8 every drop collected at once (before a save)

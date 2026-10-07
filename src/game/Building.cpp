@@ -1073,8 +1073,90 @@ void Building::HireGolbin() {
 
 void Building::GetDeliveryTile(int& tx, int& ty) const { GetBuildTile(tx, ty); }   // (the same steps)
 
-// UNVERIFIED (3c): the crop entity of a farm's first growing patch (ids by contract type and crop).
-void Building::SetupSmallFarm() {}
+void Building::SetupSmallFarm() {
+    if (data->buildingClass != 0xd) return;
+    int p = GetFirstGrowingPatchNum();
+    if (GetFarmState(p) < 1 || GetFarmState(p) > 6) {
+        // No crop shown: the farmer goes just in front of the crop or the farm.
+        if (!livers.empty() && livers[0]) {
+            if (farmEntity) livers[0]->SetCustomZ(farmEntity->customZ + 0.0005f);
+            else if (!sprites.empty()) livers[0]->SetCustomZ(sprites.front()->z - 0.0005f);
+        }
+        return;
+    }
+    // The crop entity per delivery list and order (1-based).
+    unsigned list = data->delivery->id;
+    int c = patchContract[p];
+    if (list == 3) {
+        static const int kOil[5] = {0xce, 0xcf, 0xd3, 0xd2, 0xd0};
+        if (c >= 1 && c <= 5) farmEntityId = kOil[c - 1];
+    } else if (list == 4) {
+        if (GetFarmState(p) == 1) return;
+        static const int kAnimals[5] = {0x26, 0x27, 0x28, 0x2a, 0x29};
+        if (c >= 1 && c <= 5) farmEntityId = kAnimals[c - 1];
+    } else if (list == 1) {
+        static const int kVegetables[5] = {0xca, 0xc9, 0xcd, 0xcb, 0xcc};
+        if (c >= 1 && c <= 5) farmEntityId = kVegetables[c - 1];
+    }
+    Entity* e = EntityManager::SpawnEntityAt(farmEntityId, x, y, false, false);
+    e->f9c = false;
+    farmEntity = e;
+    if (upgrading && e->GetSprite()) Render::SetVisibility(farmEntity->GetSprite(), false);
+    float wx = 0.f, wy = 0.f;
+    GetParkingSpot(0, wx, wy);
+    farmEntity->SetWorldPos(wx, wy);
+    farmEntity->SetDirection(IsMirrored() ? 7 : 1);
+    if (data->delivery->id == 4) farmEntity->AdjustWorldPos(IsMirrored() ? 16.f : -21.f, 8.f);
+    if (data->delivery->id == 1 && (unsigned)(farmEntityId - 0xcc) < 2)
+        farmEntity->AdjustWorldPos(IsMirrored() ? -4.f : 8.f, 4.f);
+    if (farmEntity->GetSprite()) {
+        // (+0xd4 is the head of the sprite chain, the newest sprite: sprites.front() here)
+        farmEntity->SetCustomZ(sprites.empty() ? farmEntity->GetSprite()->z : sprites.front()->z - 0.001f);
+    }
+    if (!livers.empty() && livers[0]) livers[0]->SetCustomZ(farmEntity->customZ + 0.0005f);
+    if (farmEntity->GetSprite()) {
+        // Animals move; a crop holds the frame of its growth stage (Update sets it).
+        if (data->delivery->id == 4) farmEntity->SetAnimationP("idle_1", true, false, false);
+        else farmEntity->SetAnimationP("idle_1", false, true, false);
+    }
+}
+
+bool Building::FarmCollectAndReplant() {
+    if (GameState::IsCityTutorial()) return false;
+    const Contracts::Contract* delivery = data->delivery;
+    unsigned n = data->id == 0x3ee ? 1 : 6;
+    unsigned amounts[8] = {};
+    std::vector<unsigned> finished;   // Tasks ids of the harvested orders
+    for (unsigned i = 0; i < n; ++i) {
+        if (!(1.f <= GetContractProgress(0, (int)i)) || patchContract[i] == 0) continue;
+        const Contracts::ContractMission& m = delivery->missions[(size_t)patchContract[i] - 1];
+        amounts[m.rewardResource] += m.rewardResourceCount;
+        finished.push_back(delivery->id * 10 - 1 + (unsigned)patchContract[i]);
+    }
+    for (int r = 0; r < 8; ++r)
+        if (amounts[r] != 0 && (unsigned)GameState::resourceAmountMax <= amounts[r] + (unsigned)GameState::GetResourceAmount(r))
+            return false;
+    for (unsigned i = 0; i < n; ++i) {
+        if (!(1.f <= GetContractProgress(0, (int)i)) || patchContract[i] == 0) continue;
+        const Contracts::ContractMission& m = delivery->missions[(size_t)patchContract[i] - 1];
+        if ((int)GameState::GetResourceAmount(GameState::kGold) < (int)m.price ||
+            (int)GameState::GetResourceAmount(m.priceResource) < (int)m.priceResourceCount) {
+            patchContract[i] = 0;
+            resources[i] = 0x13;   // dirty
+        } else {
+            GameState::ChangeResourceAmount(GameState::kGold, -(int)m.price);
+            GameState::ChangeResourceAmount(m.priceResource, -(int)m.priceResourceCount);
+            patchStart[i] = Timer::GetGlobalTime();
+        }
+    }
+    if (farmEntity) EntityManager::RemoveEntity(farmEntity, true);
+    farmEntity = nullptr;
+    SetupSmallFarm();
+    for (int r = 0; r < 8; ++r)
+        if (amounts[r] != 0) BuildingHovers::DropResource(baseX, minY, r, amounts[r], false, false);
+    for (unsigned id : finished) BuildingHovers::AddDeliveryContractToFinishOnLastItem(id);
+    return true;
+}
 
 void Building::SpawnFarm() {
     int farmerId = (!workers.empty() && workers[0] && workers[0]->GetEntityData()->id == 7) ? 0xdf : 0xe;
@@ -1331,7 +1413,27 @@ void Building::Update(double dt) {
         }
         if (!gathered) UpdateGrowing();
     } else if (cls == 0xd) {
-        // UNVERIFIED (3c): the crop entity's frame follows GetFarmState; tutorial worker fade-out.
+        // The city crop's frame is its growth stage (animals keep moving).
+        if (data->delivery->id != 4 && farmEntity && farmEntity->GetSprite()) {
+            switch (GetFarmState(GetFirstGrowingPatchNum())) {
+            case 1: farmEntity->SetAnimationFrame(4); break;
+            case 2:
+            case 3: farmEntity->SetAnimationFrame(0); break;
+            case 4: farmEntity->SetAnimationFrame(1); break;
+            case 5: farmEntity->SetAnimationFrame(2); break;
+            case 6: farmEntity->SetAnimationFrame(3); break;
+            default: break;
+            }
+        }
+        // In the first tutorial, outside steps 0x3a..0x57, the farmer is hidden.
+        if (GameState::GetTutorialType() == 1 && GameState::secondTutorial != 0x100 &&
+            (unsigned)(GameState::tutorial - 0x3a) > 0x1d && !workers.empty() && workers[0] &&
+            1.f <= workers[0]->alpha) {
+            Entity* w = workers[0];
+            w->Disappear();
+            w->SetAlpha(0.f);
+            w->Update(0.f);
+        }
     }
     if (firstUpdate) {
         UpdateStorage();

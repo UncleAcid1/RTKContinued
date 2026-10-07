@@ -92,8 +92,8 @@ struct Building {
     Entity* farmer = nullptr;    // +0x140 the farm view's farmer (AIFarmerBig, 3f)
     std::vector<Entity*> patchEntities;   // +0x144 one soil patch entity (AIPatch) each (3f)
     int patchContract[6] = {};   // +0x150 farm patch contracts, 1-based (0 empty)
-    Entity* farmEntity = nullptr;  // +0x15c
-    int farmEntityId = 0;        // +0x160
+    Entity* farmEntity = nullptr;  // +0x15c the crop on the city map (SetupSmallFarm)
+    int farmEntityId = 0;        // +0x160 its entity id
     Entity* piles[4] = {};       // +0x164 storage piles (lumber, rocks, food, planks)
     Entity* trainee = nullptr;   // +0x170
     Render::Sprite* ring = nullptr;  // +0x174 ring under trees/rocks
@@ -200,7 +200,14 @@ struct Building {
     void Upgrade(unsigned level);
     void HireGolbin();                           // @0x124d74 a delivery goblin from a storage
     void GetDeliveryTile(int& tx, int& ty) const;   // @0x11c5f8
-    void SetupSmallFarm();                       // @0x11f498
+    // @0x11f498: the city map's crop entity (+0x15c, id +0x160 by order) for the first patch with
+    // an order while it grows (ready or rotten crops show none), at the parking spot under the
+    // farm's sprites; the farmer is drawn just in front of it.
+    void SetupSmallFarm();
+    // @0x11f91c: the city bubble's harvest: every finished patch's crop drops at the farm and its
+    // order is planted again if the gold and resources are there (else the patch is left dirty).
+    // False (nothing done) in the city tutorial or when a crop would not fit in the storage.
+    bool FarmCollectAndReplant();
     // Farm view (3f). SpawnFarm @0x128468: the soil patch entities (by farm type) with their saved
     // states and orders, and the farmer, at a patch still growing if there is one.
     void SpawnFarm();

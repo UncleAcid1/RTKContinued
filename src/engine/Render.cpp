@@ -250,9 +250,9 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 // Shader table from Render::InitMain @0x1f7bd4 (types 0..15). Only types used so far are loaded;
 // the rest are recorded here for completeness.
 //   0 main/main  1 text/text  2 main/main  3 text/grayscale  4 mask/mask  5 ring/ring
-//   6 boss_intro  7 ?/ghostly  8 rotatedVS/?  9 ?/sepia  10 ?/grayscaleTransition  11 color/color
+//   6 boss_intro  7 ?/ghostly  8 rotated/text  9 ?/sepia  10 ?/grayscaleTransition  11 color/color
 //   12 overlay/overlay  13 rotatedYVS/?  14 scaledVS/?  15 buildingAnimate/buildingAnimate
-//   UNVERIFIED: the VS/PS that stay in the sprintf buffers for types 7-10, 13, 14.
+//   UNVERIFIED: the VS/PS that stay in the sprintf buffers for types 7, 9, 10, 13, 14.
 bool Init(int screenW, int screenH) {
     g_screenW = screenW;
     g_screenH = screenH;
@@ -263,6 +263,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(2, "mainVS.txt", "mainPS.txt") && ok;
     ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
     ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
+    ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
     // Render::Update: no depth test, premultiplied alpha blending (ONE, ONE_MINUS_SRC_ALPHA).
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);

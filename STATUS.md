@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 3f.2 done; next 3f.3) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 3f.3 done; next 3f.4) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) steps 3a–3e done, 3f (farms) left:
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -161,9 +161,28 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    gaps: no BottomFarmWindow yet, so in the real game there is no way back to the city or to plant
    (3f.4); EnterFarm shows the farm name on the info line instead of the zooming map-name popup
    (ShowMapName + its HUDWindow::Update animation, UNVERIFIED); sounds; tutorial steps 0x45..0x4c.
-   NEXT: 3f.3 the city side: SetupSmallFarm / FarmCollectAndReplant (the small farm's crop entity
-   and AIFarmerSmall), Map::GetFarmAfter/Before, FillFarmBuildings, the farm-farmer pass in
-   Map::AssignEntities; 3f.4 farm HUD (BottomFarmWindow, PatchProgressHoverWindow, ShowFarmHover,
+   3f.3 DONE: the farm on the city map. Building::SetupSmallFarm (the crop entity +0x15c/+0x160 of
+   the first patch with an order, at parking spot 0, z under the farm, farmer just in front),
+   FarmCollectAndReplant (the bubble's harvest: storage check, one drop per resource, replant for
+   the order's price or leave the patch dirty, AddDeliveryContractToFinishOnLastItem), the crop's
+   growth frame in Building::Update (and the first tutorial's farmer hiding), AIFarmerSmall
+   (src/game/AIFarm.cpp: seed/water/rest by GetFarmState(0), idle 5-9 s; WalkCompleted's tutorial
+   steps, OnTutorialFarmerWomanAction is M4), BubbleHoverWindow's farm parts (ready-crop icon in
+   SetBuilding/SetPosition/SetEntity, the farm tap: harvest, else the farm view), UpdateHovers' farm
+   branch (ready 9 first, then 8, then 10), SleepingHoverWindow (the "Zzz" for types 10 and 0xb:
+   idle farms and also workshops without an order, a 3c gap) with shader type 8 (rotatedVS +
+   textPS) in the renderer, Map::FillFarmBuildings/GetFarmAfter/GetFarmBefore, and
+   Map::AssignEntities' farm parts (the in-loop farmer case checked against the decompile, plus the
+   final pass: a farm without its farmer takes a jobless resident, else a farmer 6/7 living there).
+   Verified headless (temporary RTK_FARM3 hook in main, removed): a bought + finished vegetable farm
+   with two orders shows the sprouting crop and the farmer watering it (4.3 s, then idles); ready
+   crops show full grown with the carrot bubble; tapping it drops 35 food and replants both
+   (exactly 5 + 35 gold); an idle farm shows the Zzz with the farmer resting; save -> reload puts
+   the farmer back at the parking spot still watering and recreates the crop; a farmer saved
+   without a job is given back to its farm by the final pass; tapping the farm still opens the
+   farm view. Left for 3f.4: the farm view's ready-patch bubble tap (WORK_RES_NO_SPACE check and
+   ShowFarmHover, noted in BubbleHoverWindow::Click).
+   NEXT: 3f.4 farm HUD (BottomFarmWindow, PatchProgressHoverWindow, ShowFarmHover,
    the OnEntityClick farm branch, FarmGrow/FarmRestore windows, the factory window's farm parts,
    ShowMapName), soil patch buying (LandWindow/LandExpandedWindow patch halves, BuildingPlacement's
    default patches); 3f.5 offline contracts.

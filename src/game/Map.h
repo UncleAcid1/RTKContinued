@@ -128,6 +128,11 @@ void CreateRoadAI();                                   // @0x1bb868 the waypoint
 // resources left, or one waiting for construction or an upgrade.
 Building* GetIdleWorkplace();
 Building* GetBuildingWithID(uint32_t id);              // @0x1b6c04 (BuildingData id)
+void FillFarmBuildings();                              // @0x1be338 the opened farms, in map order (0x613818)
+// The opened farm after / before b, wrapping around (BottomFarmWindow's arrows); the only farm if
+// there is one; null if there is none or b is not an opened farm.
+Building* GetFarmAfter(Building* b);                   // @0x1be4a4
+Building* GetFarmBefore(Building* b);                  // @0x1be544
 // @0x1ba4b8: a tap on a for-sale sign opens LandWindow for that area (in the player's city,
 // after the tutorials). Screen coordinates.
 bool ClickToBuyArea(int x, int y);

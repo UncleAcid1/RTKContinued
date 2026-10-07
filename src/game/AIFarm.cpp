@@ -1,6 +1,6 @@
-// The farm view's AI: the soil patches (AIPatch, @0xecfb0..0xee398), the farmer (AIFarmerBig,
-// @0xea8b0..0xebd20) and the patch's growth-powder animation (PatchAnimationController,
-// @0x1e3e04..0x1e3fdc).
+// The farm AI: the farm view's soil patches (AIPatch, @0xecfb0..0xee398), its farmer (AIFarmerBig,
+// @0xea8b0..0xebd20), the patch's growth-powder animation (PatchAnimationController,
+// @0x1e3e04..0x1e3fdc) and the farmer at a farm on the city map (AIFarmerSmall, @0xebd3c..0xec3d8).
 //
 // A farm building keeps each patch's order in patchContract (1-based), its growth start in
 // patchStart and its rot timer start in patchArg; the patch AI turns those into its state every
@@ -489,5 +489,75 @@ void AIFarmerBig::Farm(int contract, int p, bool plant) {
     if (queue.size() < 2) {
         actionTime = actionLeft = 0.f;
         Move(plant, p);
+    }
+}
+
+// ------------------------------------------------------------------------------ AIFarmerSmall
+
+void AIFarmerSmall::StartResting() {
+    ChangeState(0x11);
+    actionLeft = 5.f;
+}
+
+void AIFarmerSmall::WalkCompleted() {
+    if (GameState::tutorial == 0x38) {
+        GameState::tutorial = 0x39;
+        // UNVERIFIED (milestone 4, tutorial): OnTutorialFarmerWomanAction @0xebd90 (the farmer's
+        // world dialog DESC1017, the camera and the arrow to the farm site, step 0x3a).
+        if (GameState::tutorial == 0x3e) GameState::tutorial = 0x3f;
+        return;
+    }
+    if (GameState::tutorial == 0x3e) GameState::tutorial = 0x3f;
+}
+
+// The farmer stands at the farm's first parking spot, facing along it.
+void AIFarmerSmall::AssignToJob(Map::Building*) {
+    float wx = 0.f, wy = 0.f;
+    Map::Building* b = entity->GetWorkplace();
+    b->GetParkingSpot(1, wx, wy);
+    entity->SetWorldPos(wx, wy);
+    entity->SetDirection(entity->GetWorkplace()->IsMirrored() ? 7 : 1);
+}
+
+void AIFarmerSmall::StartWatering() {
+    ChangeState(0x10);
+    // (the animal farm's farmer scatters feed)
+    entity->SetAnimationP(entity->GetWorkplace()->id == 0x3ee ? "seed" : "watering", true, false, false);
+    actionLeft = 4.3f;
+}
+
+void AIFarmerSmall::StartSeeding() {
+    ChangeState(0xf);
+    entity->SetAnimationP("seed", true, false, false);
+    actionLeft = 4.3f;
+}
+
+// The first patch's state (GetFarmState, called as often as the original: it can push a late
+// crop's rot timer on): empty or overdue -> rest, planted -> seed, growing -> water.
+void AIFarmerSmall::ChooseAction() {
+    Map::Building* w = entity->GetWorkplace();
+    if (!w) return;
+    if (w->GetFarmState(0) == 0 || entity->GetWorkplace()->GetFarmState(0) == 6) StartResting();
+    if (entity->GetWorkplace()->GetFarmState(0) == 2) StartSeeding();
+    if (entity->GetWorkplace()->GetFarmState(0) < 3) return;
+    if (entity->GetWorkplace()->GetFarmState(0) > 5) return;
+    StartWatering();
+}
+
+// Only in the city: idle (state 0) until idleTime runs out, then the next action; an action ends
+// after actionLeft with 5-9 s of idling.
+void AIFarmerSmall::Update(float dt) {
+    AIBaseState::Update(dt);
+    if (GameState::GetCurrentLocation() != 0) return;
+    if (state == 0) {
+        idleTime -= dt;
+        if (idleTime < 0.f) ChooseAction();
+        return;
+    }
+    actionLeft -= dt;
+    if (actionLeft < 0.f) {
+        ChangeState(0);
+        entity->SetAnimationP("idle_1", true, false, false);
+        idleTime = (float)(Rand48::lrand48() % 5) + 5.f;
     }
 }

@@ -180,8 +180,10 @@ void HoverInfo::SetHoverType(int t) {
     else if (t == kTaxes)
         w = new TaxesHoverWindow();
     // UNVERIFIED (not ported yet): TalkHoverWindow (0xc), HealthbarHoverWindow (0xd), HealthbarTinyHoverWindow (0xe),
-    // UseItemHoverWindow (0xf), BossTimeHoverWindow (0x10), SleepingHoverWindow (10, 0xb),
-    // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13).
+    // UseItemHoverWindow (0xf), BossTimeHoverWindow (0x10) come before the sleeping window;
+    // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13) after it.
+    else if (t == kFarmSleeping || t == kDelivery)
+        w = new SleepingHoverWindow();
     else
         return;
     window = w;
@@ -368,6 +370,18 @@ void Hide() {
 
 bool IsHoverVisible() { return g_currentHover && g_currentHover->shownHover; }
 void ScheduleUpdate() { g_lastTime = 0; }
+
+// @0x263164: the last drop completes the harvested order's task when collected (its first free
+// subtask slot).
+void AddDeliveryContractToFinishOnLastItem(unsigned id) {
+    if (g_itemDrops.empty()) return;
+    for (int& s : g_itemDrops.back().subtasks) {
+        if (s == 0) {
+            s = (int)id;
+            return;
+        }
+    }
+}
 bool HasDroppedItems() { return !g_itemDrops.empty(); }
 
 void CollectAll() {
@@ -463,9 +477,9 @@ void UpdateHovers() {
                 } else if (cls == 0xc && b->HasActiveContract() && !b->contractDone) {
                     h->SetHoverType(kBuildProgress);
                 } else if (cls == 0xd) {
-                    // UNVERIFIED (farms): a ready patch (GetFirstReadySoilPath) shows 9, the first
-                    // patch's state 1 shows 8, an idle farm with its farmer shows 10.
-                    if (b->GetFarmState(0) == 1) h->SetHoverType(kFarmWater);
+                    // A ready crop, a rotten first patch, or an idle farm with its farmer asleep.
+                    if (b->GetFirstReadySoilPath() != -1) h->SetHoverType(kFarmReady);
+                    else if (b->GetFarmState(0) == 1) h->SetHoverType(kFarmWater);
                     else if (!b->HasActiveContract() && !b->livers.empty() && b->livers[0] &&
                              b->livers[0]->IsAppeared())
                         h->SetHoverType(kFarmSleeping);

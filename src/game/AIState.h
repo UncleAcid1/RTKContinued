@@ -275,6 +275,23 @@ public:
     std::vector<FarmActionQueue> queue;   // +0xf8
 };
 
+// The farmer at a farm on the city map (class 2: entities 6, 7): stands at the farm's parking spot
+// and, from the first patch's state, seeds, waters or rests for a while, then idles 5-9 s.
+class AIFarmerSmall : public AIBaseState {
+public:
+    explicit AIFarmerSmall(Entity* e) : AIBaseState(e) {}   // @0xec354
+    void Update(float dt) override;                   // +0x4c @0xec1e0
+    void WalkCompleted() override;                    // +0xd8 @0xebf18 (tutorial steps)
+    void AssignToJob(Map::Building* b) override;      // +0x104 @0xebfa4
+    void StartResting();                              // @0xebd3c state 0x11
+    void StartWatering();                             // @0xec018 state 0x10
+    void StartSeeding();                              // @0xec0ac state 0xf
+    void ChooseAction();                              // @0xec100
+
+    float idleTime = 0.f;         // +0xe0 until the next ChooseAction (state 0)
+    float actionLeft = 0.f;       // +0xe4 of the current action
+};
+
 // AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,
 // 5 AIFarmerBig, 6 AIPatch, 7 AIGoblin, 8 AIFarmerSmall, 9 AIEnemy, 10 AISpell, 11 AIPlayerBot.
 AIBaseState* CreateAIState(int state, Entity* e);

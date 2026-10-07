@@ -61,6 +61,26 @@ public:
     int baseY = 0;                     // +0x40
 };
 
+// The "Zzz" over an idle farm (its farmer asleep) or a workshop without an order: worker_sleep
+// drifts up and right from beside the top of the building, turning and fading, every 1.5 s.
+class SleepingHoverWindow : public BuildingHoverWindow {
+public:
+    SleepingHoverWindow() { name = "SleepingHoverWindow"; }   // @0x395b34
+    ~SleepingHoverWindow() override;             // @0x395a90
+    void Init() override { t = 0.f; }            // +0x08 @0x395744
+    void SetZ(float z) override;                 // +0x10 @0x3959f0
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x3959bc (never takes the tap)
+    void Show() override;                        // +0x1c @0x395a34
+    void Hide() override;                        // +0x20 @0x395a5c
+    void Update(float dt) override;              // +0x24 @0x395754
+    void SetPosition(int x, int y) override;     // +0x3c @0x395994
+    void SetBuilding(Map::Building* b) override; // +0x40 @0x395944
+
+    Render::Sprite* sprite = nullptr;  // +0x34 worker_sleep (layer 0xe)
+    float t = 0.f;                     // +0x38
+    int startX = 0, startY = 0;        // +0x3c +0x40
+};
+
 // The round tax button over houses and decorations with collectable gold.
 class TaxesHoverWindow : public BuildingHoverWindow {
 public:

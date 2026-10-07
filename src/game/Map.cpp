@@ -1136,6 +1136,39 @@ Building* GetBuildingWithID(uint32_t id) {
     return nullptr;
 }
 
+namespace {
+std::vector<Building*> g_farmBuildings;   // 0x613818
+}
+
+void FillFarmBuildings() {
+    g_farmBuildings.clear();
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->buildingClass == 0xd && b->IsOpened()) g_farmBuildings.push_back(b.get());
+}
+
+Building* GetFarmAfter(Building* b) {
+    FillFarmBuildings();
+    const std::vector<Building*>& f = g_farmBuildings;
+    if (f.empty()) return nullptr;
+    if (f.size() == 1) return f[0];
+    if (f.back() == b) return f[0];
+    for (size_t i = 0; i + 1 < f.size(); ++i)
+        if (f[i] == b) return f[i + 1];
+    return nullptr;
+}
+
+Building* GetFarmBefore(Building* b) {
+    FillFarmBuildings();
+    const std::vector<Building*>& f = g_farmBuildings;
+    if (f.empty()) return nullptr;
+    if (f.size() == 1) return f[0];
+    if (f[0] == b) return f.back();
+    for (size_t i = 1; i < f.size(); ++i)
+        if (f[i] == b) return f[i - 1];
+    return nullptr;
+}
+
 Building* GetUnfinishedBuildingWithID(uint32_t id, bool upgrading) {
     for (auto& p : g_patches)
         for (auto& b : p->buildings)
@@ -1245,10 +1278,10 @@ void AssignEntities() {
                     jobDone = work->IsOpened();
                 }
                 if (farmer) {
-                    // UNVERIFIED (3f): the farmer stays the farm's worker (+0x124) and lives there.
+                    // The farmer is the farm's worker and lives there (its home is the farm).
                     if (!work->IsOpened()) e->Disappear();
                     if (!work->workers.empty()) work->workers[0] = e;
-                    if (home) {
+                    if (home) {   // PORT: guarded (the original uses the home unchecked)
                         home->AssignLiver(e);
                         e->SetWorkplace(home);
                         e->GetAI()->AssignToJob(home);
@@ -1334,8 +1367,38 @@ void AssignEntities() {
         }
         e->SetOfflineMode(false);
     }
-    // UNVERIFIED (3f): in the city a farm (class 0xd) without its farmer takes the farmer (ids 6
-    // and 7) living at it.
+    // In the city a farm without its farmer takes an entity living at it without a job, else a
+    // farmer (ids 6, 7) living at it, taken from any other job.
+    if (GameState::GetCurrentMapID() != 0) return;
+    for (auto& p : g_patches) {
+        for (auto& bp : p->buildings) {
+            Building* b = bp.get();
+            if (b->data->buildingClass != 0xd || b->workers.empty() || b->workers[0]) continue;
+            Entity* e = nullptr;
+            for (unsigned i = 0; (e = EntityManager::EnumEntities(i)) != nullptr; ++i)
+                if (e->workX == 0 && e->workY == 0 && e->homeX == b->x && e->homeY == b->y) break;
+            if (e) {
+                int tx = 0, ty = 0;
+                b->GetWorkTile(tx, ty);
+                EntityManager::SpawnEntityAt(e, (unsigned)tx, (unsigned)ty, false, false);
+            } else {
+                for (unsigned i = 0; (e = EntityManager::EnumEntities(i)) != nullptr; ++i) {
+                    uint32_t id = e->GetEntityData()->id;
+                    if ((id == 6 || id == 7) && e->homeX == b->x && e->homeY == b->y) break;
+                }
+                if (!e) continue;
+                if (Building* w = GetBuilding(e->workX, e->workY)) w->RemoveWorker(e);
+                int tx = 0, ty = 0;
+                b->GetWorkTile(tx, ty);
+                e->SetPos(tx, ty);
+            }
+            b->workers[0] = e;
+            b->AssignLiver(e);
+            e->SetWorkplace(b);
+            e->GetAI()->AssignToJob(b);
+            e->SetOfflineMode(false);
+        }
+    }
 }
 
 // ------------------------------------------------------------------------------------- saving
