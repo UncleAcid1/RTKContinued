@@ -76,6 +76,9 @@ Waypoint* GetRandomFreeWPRect(int w, int h, int x, int y);
 // out the inner (2 inner + 1) square (inner 0: the centre tile). weightOne: any waypoint of weight 1; else one
 // without an entity or building. With reachable and e, only those e's AI finds a path to (SetTarget
 // is called on e's AI for each). Null if none.
+// @0xe3af4: the nearest free waypoint on the four diagonals from (x, y), up to 10 steps (the third
+// argument is unused).
+Waypoint* GetNearestWPFromNonWP(int x, int y, Waypoint* unused);
 Waypoint* GetRandomWaypointInRange(int x, int y, int range, int inner, bool weightOne, Entity* e, bool reachable);
 
 }  // namespace AI

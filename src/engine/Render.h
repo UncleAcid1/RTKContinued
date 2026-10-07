@@ -13,6 +13,7 @@ struct Texture {
     unsigned glId = 0;
     int w = 0, h = 0;      // +0x04, +0x08 (pixel size of the full image / sheet)
     float frameTime = 0.f; // +0x0c seconds per frame (set by the users of animated textures)
+    Texture* next = nullptr;  // +0x14 the next frame of an animated texture chain (loops)
     int frames = 0;        // +0x4c  frame count of a one-file animation sheet (0/1 = static)
     std::vector<uint8_t> pixelMask;   // +0x50 GeneratePixelMask (empty: none), for HasPixelAt
     bool wrap = false;     // Texture::SetWrapping
@@ -106,6 +107,11 @@ float GetBaseZoomFactor();         // @0x1f61d4
 int ScreenWidth();
 int ScreenHeight();
 void Frame();                               // sort dirty layers, build vertices, draw all layers
+// @0x1fe378 (Render::Update, before drawing): sprites whose texture is a frame chain step to the
+// next texture every frameTime seconds (a timer past 12.5 frame times restarts at 0).
+void UpdateAnimatedSprites(float dt);
+void RegisterAnimatedSprite(Sprite* s);     // @0x1fe5d4 (CreateSprite, SetTexture)
+void UnregisterAnimatedSprite(Sprite* s);   // @0x1fe2f4 (SetTexture, Layer::RemoveSprite/Free)
 bool SaveScreenshot(const char* pngPath);   // PORT: verification aid
 size_t SpriteCount();
 

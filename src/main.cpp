@@ -1,7 +1,7 @@
 // Rule the Kingdom port: entry point (platform layer).
 // Milestone 1: open a window and show a map, loaded and placed by the ported game code.
 //
-// Usage: rtk [--root <backup folder>] [--map N] [--seed N]
+// Usage: rtk [--root <backup folder>] [--map N] [--seed N] [--second-tutorial N]
 //            [--screenshot out.png --camera X Y ZOOM]   (render one frame to a PNG and exit;
 //                                    the view centred on world X,Y at ZOOM times the default zoom)
 //            [--click X Y]... [--press X Y] [--drag X1 Y1 X2 Y2]... [--type TEXT]... [--key SCANCODE]...
@@ -68,6 +68,8 @@ struct Options {
     std::string screenshot;
     float camX = 0.f, camY = 0.f, zoom = 1.f;   // PORT test aid: a view other than Map::Load's
     bool camera = false;
+    int secondTutorial = -1;     // PORT test aid: GameState::secondTutorial for the test city (0x100: the
+                                 // finished city tutorial, which hero taps in the city need)
     enum InputType { kClick, kPress, kDrag, kType, kKey };
     struct Input { InputType type; int x, y, x2, y2; std::string text; };
     std::vector<Input> inputs;   // headless input, applied before the screenshot
@@ -87,6 +89,7 @@ Options Parse(int argc, char** argv) {
         if (a == "--root") o.root = next();
         else if (a == "--map") o.map = (unsigned)std::atoi(next());
         else if (a == "--seed") o.seed = std::atol(next());
+        else if (a == "--second-tutorial") o.secondTutorial = std::atoi(next());
         else if (a == "--screenshot") o.screenshot = next();
         else if (a == "--click" || a == "--press" || a == "--drag") {
             Options::Input in = {a == "--click" ? Options::kClick : a == "--press" ? Options::kPress : Options::kDrag,
@@ -277,6 +280,7 @@ int main(int argc, char** argv) {
         GameState::Reset();
         GameState::playerSeed = (uint32_t)opt.seed;
         GameState::tutorial = 0x100;
+        if (opt.secondTutorial >= 0) GameState::secondTutorial = opt.secondTutorial;
         Entity* hero = EntityManager::CreateEntity(0xc, false, true);
         hero->CreateSquad();
         hero->temporary = false;
@@ -324,6 +328,7 @@ int main(int argc, char** argv) {
             Map::Update(dt);
         }
         Render::ApplyViewportLimit();
+        Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
         WindowManager::DestroyPendingWindows();
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
@@ -377,7 +382,12 @@ int main(int argc, char** argv) {
         if (!MapMovement::IsActive() && !BuildingMovement::Activated() && !BuildingPlacement::Activated() &&
             Map::ClickToBuyArea(x, y))
             return;
-        // The rest of a click that reaches the desktop window goes to the world: milestones 3-4.
+        // The rest goes to the world: unless the map was dragged, to the player's AI (a character
+        // or a tile). (The original then prints the building and decoration there: debug output.)
+        int wx = x, wy = y;
+        Map::MouseCoordinatesToWorld(wx, wy);
+        std::printf("clicked tile at: (x: %d, y: %d) world pos\n", wx, wy);
+        if (!MapMovement::IsActive()) EntityManager::OnClick(wx, wy);
     };
     auto mouseMove = [&](int x, int y) {
         int dx = x - lastX, dy = y - lastY;

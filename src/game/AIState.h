@@ -4,7 +4,7 @@
 // AIWorker (@0xf7d28..0xf8a60) and AIStateFactory::CreateNewState.
 //
 // Virtual functions are in the original's vtable order (slot offsets in the comments). Slots
-// +0x88..+0xc0 (attacks, hits, magic) are the combat interface (milestone 4) and are not declared.
+// +0x88..+0xc0 (attacks, hits, magic) are the combat interface (milestone 4g) and are not declared.
 #pragma once
 #include <string>
 #include <vector>
@@ -16,6 +16,7 @@ namespace GameState { struct Order; }
 namespace Render { struct Sprite; struct Texture; }
 
 class Entity;
+class HiddenObjects;
 namespace Map { struct Building; struct Decor; }
 
 class BaseAI {
@@ -290,6 +291,64 @@ public:
 
     float idleTime = 0.f;         // +0xe0 until the next ChooseAction (state 0)
     float actionLeft = 0.f;       // +0xe4 of the current action
+};
+
+// The soldier (class 10) and the base of the hero's AI: walks with the squad ("run", 239.4 for
+// soldiers, 180 for others), reports to its squad when it arrives, trains at a city building.
+// Port of AIWarrior (@0xf208c..0xf4b78, vtable 0x6072a0). Its combat slots (+0x88..+0xcc: attacks,
+// hits, blocks, deaths, projectiles) and the combat timers in Update come with milestone 4g.
+class AIWarrior : public AIBaseState {
+public:
+    explicit AIWarrior(Entity* e);                    // @0xf39dc
+    using AIBaseState::WalkTo;
+    void Update(float dt) override;                   // +0x4c @0xf3660
+    void WalkTo(int x, int y) override;               // +0x6c @0xf2328
+    void AnimEnded() override;                        // +0xc8 @0xf48c4
+    void WalkCompleted() override;                    // +0xd8 @0xf240c
+    void StartTraining() override;                    // +0xe0 @0xf2550 swings at its workplace (state 0x1e)
+    void AssignToJob(Map::Building* b) override;      // +0x104 @0xf26cc walks to the work tile (state 0x1d)
+    void RemoveFromJob() override;                    // +0x10c @0xf2604
+    bool IsWorking() override { return GetState() == 0x1e; }   // +0x114 @0xf20dc
+    void StopMovement() override;                     // +0x140 @0xf2244
+
+    float f74 = 1.f;              // +0x74 (magic hit argument)
+    bool f78 = true, f79 = false; // +0x78 +0x79
+    int f7c = 0;                  // +0x7c
+    float f8c = 0.f, f90 = 0.f, f94 = 0.f;   // +0x8c +0x90 +0x94 (combat timers with +0x80..+0x98)
+};
+
+// The hero (class 5). Taps on the map make the squad walk there (a "goto" marker shows the target,
+// a "blocked" one an unreachable tap); taps on characters start the matching action, which runs
+// when the hero arrives (ProcessAction). Port of AIPlayer (@0xee378..0xf19ac, vtable 0x606c88).
+// Actions (+0xe4): 1 portal, 2 talk, 3 decoration job, 4 blocked decoration, 5 decoration action,
+// 6/7 search a corpse, 8 a PvP shadow.
+class AIPlayer : public AIWarrior {
+public:
+    explicit AIPlayer(Entity* e);                     // @0xf188c
+    ~AIPlayer() override;                             // @0xf1788
+    void Update(float dt) override;                   // +0x4c @0xf14e0
+    void ClickedEntity(Entity* e) override;           // +0x50 @0xf05a4
+    void ClickedTile(int x, int y, int wx, int wy) override;   // +0x54 @0xf0eec
+    void AnimEnded() override;                        // +0xc8 @0xf03f0
+    void Reset(bool idle) override;                   // +0xd4 @0xeed48 (always to idle)
+    void WalkCompleted() override;                    // +0xd8 @0xf01fc
+    void UnableToWalk(int x, int y) override;         // +0xe4 @0xeec6c
+    bool TryToInterruptJob() override;                // +0x110 @0xef578
+    bool IsWorking() override { return GetState() == 0x21; }   // +0x114 @0xee378
+    void RemoveActionMarker() override;               // +0x13c @0xeeb80
+    void StopMovement() override;                     // +0x140 @0xeed68
+    void AutoInteraction() override { autoInteraction = true; }   // +0x144 @0xee398
+    void OnMapUnload() override;                      // +0x150 @0xee644
+    void ProcessAction();                             // @0xef6e0 the action of the tap, on arrival
+
+    AI::Waypoint* actionWP = nullptr;   // +0x64 where the action is done
+    void* actionTarget = nullptr;       // +0xe0 the tapped entity, decoration or portal
+    int action = 0;                     // +0xe4
+    int actionArg = 0;                  // +0xe8
+    int arrivalDir = -1;                // +0xec the direction to face on arrival (-1: keep)
+    bool autoInteraction = false;       // +0xf0
+    HiddenObjects* hidden = nullptr;    // +0xf4 decorations in front of the hero (faded in combat)
+    bool movingSquad = false;           // +0xf8 a tap is moving the squad (UnableToWalk retries)
 };
 
 // AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,

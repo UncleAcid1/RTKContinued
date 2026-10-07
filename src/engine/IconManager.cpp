@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "engine/Render.h"
 #include "engine/Resources.h"
 
 namespace IconManager {
@@ -54,8 +55,49 @@ Render::Texture* GetIcon(const char* name, bool async) {
     return t;
 }
 
-Render::Texture* GetSandClockIcon() { return Resources::GetDirectImage("images/icon_60_timer (1).png"); }
+// FUN_002dc20c: frames 1..n of `pattern` loaded once into `cache`, each shown frameTime seconds and
+// linked to the next (the last back to the first). The first frame is returned.
+static Render::Texture* GetAnimatedIcon(Render::Texture** cache, unsigned n, const char* pattern, float frameTime) {
+    if (!cache[0] && n != 0) {
+        char path[64];
+        for (unsigned i = 0; i < n; ++i) {
+            std::snprintf(path, sizeof path, pattern, i + 1);
+            cache[i] = Resources::GetDirectImage(path);
+            // (the original also clears the texture's +0x28)
+        }
+        for (unsigned i = 0; i < n; ++i) {
+            if (!cache[i]) continue;
+            cache[i]->frameTime = frameTime;
+            cache[i]->next = cache[(i + 1) % n];
+        }
+    }
+    return cache[0];
+}
 
-Render::Texture* GetExclamaitionIcon() { return Resources::GetDirectImage("images/exc_mark_0001.png"); }
+Render::Texture* GetSandClockIcon() {
+    static Render::Texture* frames[1];
+    return GetAnimatedIcon(frames, 1, "images/icon_60_timer (%d).png", 1.f / 30.f);
+}
+
+Render::Texture* GetExclamaitionIcon() {
+    static Render::Texture* frames[15];
+    // UNVERIFIED: the original also checks a field of the cached first frame before returning it.
+    return GetAnimatedIcon(frames, 15, "images/exc_mark_%04d.png", 1.f / 15.f);
+}
+
+Render::Texture* GetPlayerMarkerAttack() {
+    static Render::Texture* frames[15];  // 0x622bb8
+    return GetAnimatedIcon(frames, 15, "images/attack_marker%04d.png", 1.f / 30.f);
+}
+
+Render::Texture* GetPlayerMarkerBlocked() {
+    static Render::Texture* frames[13];  // 0x622bf4
+    return GetAnimatedIcon(frames, 13, "images/icon_60_player_marker_blocked_%03d.png", 1.f / 30.f);
+}
+
+Render::Texture* GetPlayerMarkerGoto() {
+    static Render::Texture* frames[15];  // 0x622c28
+    return GetAnimatedIcon(frames, 15, "images/icon_60_player_marker_goto_%03d.png", 1.f / 30.f);
+}
 
 }  // namespace IconManager

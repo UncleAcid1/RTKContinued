@@ -333,6 +333,7 @@ Sprite* CreateSprite(Texture* tex, int layer, bool mirror, bool flip) {
     Layer& l = g_layers[layer];
     s->index = (int)l.sprites.size();
     l.sprites.push_back(s);
+    if (tex->next) RegisterAnimatedSprite(s);
     return s;
 }
 
@@ -346,6 +347,7 @@ Sprite* RemoveSprite(Sprite* s) {
             break;
         }
     }
+    if (s->tex && s->tex->next) UnregisterAnimatedSprite(s);
     if (s->isText && s->tex) RemoveTexture(s->tex);   // Layer::RemoveSprite @0x1fc9b8
     delete s;
     return next;
@@ -435,8 +437,40 @@ void SetMirror(Sprite* s, bool mirror, bool flip) {
 
 void SetTexture(Sprite* s, Texture* t) {
     if (!s || s->tex == t) return;
+    if (s->tex && s->tex->next) UnregisterAnimatedSprite(s);
     s->tex = t;
     s->frame1 = 0;
+    if (t && t->next) RegisterAnimatedSprite(s);
+}
+
+namespace {
+std::vector<Sprite*> g_animated;   // 0x614160 (count 0x61416c)
+}  // namespace
+
+// @0x1fe5d4
+void RegisterAnimatedSprite(Sprite* s) { g_animated.push_back(s); }
+
+// @0x1fe2f4: the last entry takes the removed one's place.
+void UnregisterAnimatedSprite(Sprite* s) {
+    for (size_t i = 0; i < g_animated.size(); ++i) {
+        if (g_animated[i] != s) continue;
+        g_animated[i] = g_animated.back();
+        g_animated.pop_back();
+        return;
+    }
+}
+
+void UpdateAnimatedSprites(float dt) {
+    for (Sprite* s : g_animated) {
+        Texture* t = s->tex;
+        if (!t->next) continue;
+        if (t->frameTime * 12.5f < s->animTime) s->animTime = 0.f;
+        s->animTime += dt;
+        if (t->frameTime < s->animTime) {
+            s->tex = t->next;
+            s->animTime -= t->frameTime;
+        }
+    }
 }
 
 void SetFrameMirror(Sprite* s, bool mirror) {

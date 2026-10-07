@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 4a.1 done; next 4a.2) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 4a done; next 4b) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -232,7 +232,7 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified: a construction site with 29 s left and its builder working finishes after
    OfflineUpdate(100000). Also Timer::ApplyDeltaTimeCompensation (@0x23ea38): the frame time is now
    clamped to 0.2 s as on the original (the port had 0.1 s); TimeCompensationBlock not ported (0).
-   NEXT: milestone 4, step 4a (plan in the milestone list below).
+   NEXT: milestone 4, step 4b (items; plan in the milestone list below).
    4a.1 DONE: squads and the army. src/game/Squad.* (BaseSquad/PlayerSquad/EnemySquad in vtable order:
    formations table 0x579d8c, SpawnAt/SpawnSquadAt, MoveTo/MoveSquadTo, ready flags, heal/rearrange/
    remove with SoldierPool reserves), src/game/SoldierSlots.* (SoldierSlots + SoldierPool), the
@@ -251,6 +251,30 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    is byte-identical from the second reload on (the first moves the new hero's HP 10 over HpMax 9
    into the over-limit: chunk 0x4f's HP goes 10 -> 9, as on the original); the soldier reloads in
    SoldierSlots and the squad. Old port saves have no hero (SpawnEntities skips: PORT guard).
+   4a.2 DONE (4a complete): the hero walks where you tap and the army follows. src/game/AIPlayer.cpp:
+   AIWarrior (soldiers: speed 239.4 / 180, "run", SetReady on arrival, city training at a workplace
+   with the random swing/block/rest, AssignToJob/RemoveFromJob, StopMovement) and AIPlayer (Update with
+   the 0.25 s pass that fades decorations in front of the squad in combat, ClickedTile with every
+   original gate: tutorial >= 8, step 0x17 needs task 0x771, the city only at secondTutorial 0x100,
+   not over the shop/edit modes, only owned land and tiles of weight <= 1; ClickedEntity's non-combat
+   path: a reachable character gets Entity::OnClick and the blocked marker, an unreachable one moves the
+   squad there; WalkCompleted (arrival direction, someone on the tile steps aside, ProcessAction,
+   SetReady), UnableToWalk, TryToInterruptJob, Reset, StopMovement, RemoveActionMarker, the tutorial
+   0xb/0xd arrows; ProcessAction's skeleton: cases by milestone, 6 -> 7 search ported). The tap
+   markers ("goto", "blocked"; 1.5 s, layer 0xc), IconManager's animated icons (FUN_002dc20c frame
+   chains, also the sand clock and "!" now animate) and the renderer's animated-sprite registry
+   (Render::Register/UnregisterAnimatedSprite, UpdateAnimatedSprites in the tick before drawing,
+   Texture::next). main routes a desktop tap after ClickToBuyArea to EntityManager::OnClick (not while
+   dragging), with the original's "clicked tile at" print. Also EntityManager::OnClick/
+   GetNonPlayerEntityAtXY, AI::GetNearestWPFromNonWP, WindowManager::GetMousePosition, HUDWindow::
+   Update's no-player return. PORT test aid: --second-tutorial N (the test city keeps 0x81, where the
+   original ignores city taps; pass 256 to walk).
+   Verified headless: a grass tap shows the animated goto marker, hero and soldier run there ("run",
+   the squad's MoveTo) and stop on/next to the tile idle; at 0x81 taps are ignored; taps on hovers stay
+   with BuildingHovers; save -> reload -> save byte-identical (the city always respawns the hero at
+   (0x1b, 0xd), as the original). Left for later steps (marked UNVERIFIED): combat (4g), talk/portal/
+   decoration actions (4c/4e/4f), the blocked-decoration path (4e), sounds (6).
+   Testing note: in zsh an unquoted "$c" holding "900 500" is one argument (--click then reads y = 0).
    Tools: tools/picvar.py (after picsym.py) resolves `iVarN + 0x......`; tools/wstr.py prints
    UTF-32 (wchar_t) literals.
 1. 3e shop/economy: ShopWindow, BuildingPlacement/BuildingMovement (Accept calls Map::Save(0)),
@@ -480,7 +504,7 @@ Milestones:
        GameState (PORT test path).
 4. [ ] Hero, army, quests, items, decoration jobs, the new-game tutorial. Sub-steps (planned 2026-10-07;
        each ends with a headless check, a commit and a short update to the user):
-       4a [ ] the hero and the army on the city map. 4a.1 (done): squads (BaseSquad/PlayerSquad/EnemySquad/
+       4a [x] the hero and the army on the city map. 4a.1 (done): squads (BaseSquad/PlayerSquad/EnemySquad/
               Squad, Entity::CreateSquad +0xcc), SoldierSlots/SoldierPool, EntityManager::GetPlayer/
               GetPlayerAndSoldiers/AssignSoldiersToPlayerSquad, the hero/soldier/squad branches of
               GameState::LoadEntities/SaveEntities (g_keptEntities goes), Entity stats needed to load

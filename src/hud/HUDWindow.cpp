@@ -9,6 +9,7 @@
 #include "engine/Resources.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
+#include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
@@ -302,14 +303,13 @@ void SetZ(float z) {
     TopCityWindow::SetZ(z);
 }
 
-// @0x2c81c8 UNVERIFIED: locators, boss/mission timers, task arrows and screen darkening need
-// entities, combat and quests (milestones 3-4).
-// @0x2c81c8. PORT: the original returns at once without a player entity (milestone 4); only the
-// map-name popup is ported so far, and it runs regardless. Over the first second the name grows
-// from half size (on a quarter circle) and fades in; it fades out until 3 s, then hides.
-// UNVERIFIED (milestone 4): the player's damage locator pulse, the locators, the screen darkening,
-// the mission timer, the task locator search and the HUD's return after the city tutorial.
+// @0x2c81c8. Nothing without a player entity. The map-name popup: over the first second the name
+// grows from half size (on a quarter circle) and fades in; it fades out until 3 s, then hides.
+// UNVERIFIED (milestones 4d/4g): the player's damage locator pulse (male/female portrait), the
+// locators, the screen darkening, the mission timer, the task locator search and the HUD's return
+// after the city tutorial.
 void Update(float dt) {
+    if (!EntityManager::GetPlayer()) return;
     Render::Sprite* s = g_mapNameText->sprite;
     if (!g_mapName->visibleSelf || !s) return;
     const float W = (float)GUI::ScreenWidth(), H = (float)GUI::ScreenHeight();

@@ -92,6 +92,7 @@ void ProcessUpdate(float dt);                 // @0x36e2a8
 void ProcessMove(int x, int y);               // @0x36e218
 void DestroyPendingWindows();                 // @0x36e85c deletes the windows marked pendingDestroy
 void SetMousePosition(int x, int y);          // @0x36e8a4
+void GetMousePosition(int& x, int& y);        // @0x36e8c8
 int GetShownWindowCount();                    // @0x36e7b8
 WindowQueue* ProcessBack();                   // @0x36f008 (the first window, top down, whose Back() takes it)
 void WindowShow(bool quiet);                  // @0x36ec60

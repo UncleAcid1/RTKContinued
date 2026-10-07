@@ -159,6 +159,11 @@ void SetMousePosition(int x, int y) {   // @0x36e8a4
     g_mouseY = y;
 }
 
+void GetMousePosition(int& x, int& y) {   // @0x36e8c8
+    x = g_mouseX;
+    y = g_mouseY;
+}
+
 // @0x36e2a8 / @0x36e218: bottom first (from the tail through prev).
 void ProcessUpdate(float dt) {
     for (WindowQueue* w = g_tail; w; w = w->prev) w->Update(dt);

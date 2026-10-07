@@ -790,6 +790,8 @@ void AIGoblin::ResetOrder(Map::Building* b) {
 AIBaseState* CreateAIState(int state, Entity* e) {
     switch (state) {
     case 0: return new AIBaseState(e);
+    case 1: return new AIWarrior(e);
+    case 2: return new AIPlayer(e);
     case 3:
     case 4: return new AIWorker(e);
     case 5: return new AIFarmerBig(e);
@@ -797,8 +799,8 @@ AIBaseState* CreateAIState(int state, Entity* e) {
     case 7: return new AIGoblin(e);
     case 8: return new AIFarmerSmall(e);
     default:
-        // UNVERIFIED (milestone 4): AIWarrior (1), AIPlayer (2), AIEnemy (9), AISpell (10),
-        // AIPlayerBot (11) are not ported yet;
+        // UNVERIFIED (milestones 4f/5): AIEnemy (9), AISpell (10), AIPlayerBot (11) are not ported
+        // yet;
         // those entities get the base behaviour.
         return new AIBaseState(e);
     }

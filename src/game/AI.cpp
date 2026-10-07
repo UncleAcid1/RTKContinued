@@ -508,4 +508,32 @@ Waypoint* GetRandomWaypointInRange(int x, int y, int range, int inner, bool weig
     return found[(size_t)((unsigned long)Rand48::lrand48() % found.size())];
 }
 
+Waypoint* GetNearestWPFromNonWP(int x, int y, Waypoint*) {
+    // Four diagonal rays from (x, y), one step each per round for 10 rounds: down-left, up-left,
+    // up-right, down-right; the first waypoint without an entity.
+    int dlX = x, ulX = x, urX = x, drX = x;
+    int down = y, up = y;
+    do {
+        int nd = down + 1;
+        if (std::abs(down) & 1) ++dlX;
+        --dlX;
+        Waypoint* wp = GetWaypoint(dlX, nd, false);
+        if (wp && !EntityManager::GetEntityAtXY(dlX, nd)) return wp;
+        if (std::abs(up) & 1) ++ulX;
+        --ulX;
+        int nu = up - 1;
+        wp = GetWaypoint(ulX, nu, false);
+        if (wp && !EntityManager::GetEntityAtXY(ulX, nu)) return wp;
+        if (up % 2 == 1) ++urX;
+        wp = GetWaypoint(urX, nu, false);
+        if (wp && !EntityManager::GetEntityAtXY(urX, nu)) return wp;
+        if (down % 2 == 1) ++drX;
+        wp = GetWaypoint(drX, nd, false);
+        if (wp && !EntityManager::GetEntityAtXY(drX, nd)) return wp;
+        down = nd;
+        up = nu;
+    } while (down != y + 10);
+    return nullptr;
+}
+
 }  // namespace AI

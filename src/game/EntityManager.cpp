@@ -11,6 +11,7 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
+#include "game/Map.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 
@@ -171,6 +172,30 @@ Entity* GetEntityAtXY(int x, int y) {
     for (Entity* e : g_entities)
         if (e->IsActive() && !e->IsDead() && e->tileX == x && e->tileY == y) return e;
     return nullptr;
+}
+
+Entity* GetNonPlayerEntityAtXY(int x, int y) {
+    for (Entity* e : g_entities)
+        if (!e->player && e->IsActive() && !e->IsDead() && e->tileX == x && e->tileY == y) return e;
+    return nullptr;
+}
+
+void OnClick(int x, int y) {
+    if (!g_player || !g_player->GetAI()) return;
+    if (Entity* e = GetEntityAtWorldXY(x, y)) {
+        // UNVERIFIED (milestones 4b/4g): a dead entity with a corpse item (Entity::HasCorpseItem) can
+        // be tapped too; (4c) its meta expression is printed.
+        if (e->IsActive() && !e->IsDead()) {
+            g_player->GetAI()->ClickedEntity(e);
+            return;
+        }
+        std::printf("EntityManager::OnClick() Ignoring click on inactive entity (active = %d, dead = %d) (spawn ID = %d)\n",
+                    e->IsActive(), e->IsDead(), 0);   // (spawn points: milestone 4f)
+    }
+    int tx = x, ty = y;
+    Map::WorldCoordinatesToTile(tx, ty);
+    if (tx > -1 && tx <= Map::GetGridWidth() && ty > -1 && ty <= Map::GetGridHeight())
+        g_player->GetAI()->ClickedTile(tx, ty, x, y);
 }
 
 Entity* GetEntityAtWorldXY(int x, int y) {
