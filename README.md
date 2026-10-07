@@ -19,7 +19,7 @@ friends, PvP and purchases all went online. When those services ended, the game 
 played as it was. No server data or content beyond version 5.11 survives, so this project brings
 back what the game files themselves contain.
 
-| City and HUD | Shop and requirements |
+| The shop | Requirements |
 |---|---|
 | ![Shop](docs/images/shop.jpg) | ![Requirements](docs/images/requirements.jpg) |
 
