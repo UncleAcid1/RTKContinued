@@ -1,15 +1,47 @@
 # RTKContinued
 
-A native, open-source C++ port of **Rule the Kingdom** (Game Insight, 2012–2014), rebuilt function by
-function from the Android 5.11 game library so it can keep running on modern systems. Offline-first;
-macOS (Apple Silicon) first, other platforms later. Built with SDL3 and OpenGL.
+A native, open-source C++ port of **Rule the Kingdom**, rebuilt function by function from the
+original Android 5.11 game library so the game can be played again on modern computers.
 
-**Status:** work in progress. The city map, HUD, workers, the economy, saves and building placement
-work. The shop is next. See [STATUS.md](STATUS.md) for the detailed progress and plan.
+![The city](docs/images/city.jpg)
 
-**Game data is not included.** You need your own copy of the original game files (the 5.11 Android
-APK assets and the `.kbf` expansion packs). This repository contains only the port's source code and
-the tools used to read the original formats.
+## The game that was
+
+Rule the Kingdom was published by **Game Insight** and developed by **innoWate** in 2012. It called
+itself "an unprecedented blend of RPG action, city-building, farming and storytelling": you led a
+hero and a squad of warriors through forests, deserts and tundra, cast spells, found hundreds of
+items and enhanced them with magical gems, and built up a kingdom whose subjects gathered
+resources, farmed and ran workshops. It shipped on Android through Google Play, and later on iOS,
+Windows 8, Windows Phone and Facebook. The last Android version, 5.11, dates from October 2014.
+
+Like many free-to-play games of its era, it depended on its publisher's servers: saves, events,
+friends, PvP and purchases all went online. When those services ended, the game could no longer be
+played as it was. No server data or content beyond version 5.11 survives, so this project brings
+back what the game files themselves contain.
+
+| City and HUD | Shop and requirements |
+|---|---|
+| ![Shop](docs/images/shop.jpg) | ![Requirements](docs/images/requirements.jpg) |
+
+## Scope
+
+- **A faithful port, not a remake.** Every function is translated from the original's code and
+  tagged with its address (`// @0x...`); its formats, formulas and even its quirks are kept.
+  Guesses are marked `UNVERIFIED`.
+- **Offline first.** Everything that needed the server is rebuilt to run locally: seasonal events
+  follow the calendar, crystals are earned in play (daily rewards, chests, quests) instead of bought,
+  and the arena, PvP and friends will work offline. Online code is kept dormant so a community
+  server could be added later. There are no real-money purchases.
+- **Platforms:** macOS, Linux and Windows (Android possibly later), with SDL3 and OpenGL.
+- **Saves** stay in the original's format.
+- **No game data is included.** You need your own copy of the original files (the 5.11 Android
+  APK assets and the `.kbf` expansion packs). This repository holds only the port's source and the
+  tools that read the original formats.
+
+**Status:** work in progress (milestone 4 of 7). The city, HUD, workers, economy, farms, shop,
+saves, the hero and his army, and items work; quests, campaign maps and combat are next. See
+[STATUS.md](STATUS.md) for the detailed progress and plan, and
+[docs/port_inventory.md](docs/port_inventory.md) for where every part of the original goes.
 
 ## Building (macOS)
 Requirements: CMake 3.20+, a C++17 compiler, and SDL3, pugixml, libpng, libjpeg and zlib
