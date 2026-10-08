@@ -162,6 +162,9 @@ Building* GetNearestStorage(Building* b, bool notSelf);
 void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b5fcc
 // @0x1b8bfc: the storage limit is the sum of every storage's "storage_space" at its level.
 void UpdateStorageMax();
+void UpdateStorages();                     // @0x1b8b74 every storage's piles (Building::UpdateStorage)
+// @0x1b7224: the city's storage limit; away from the city (map id != 0) the last non-zero one.
+int GetTotalStorageLimit();
 void WorldCoordinatesToScreen(int& x, int& y);         // @0x1b60fc
 void MouseCoordinatesToWorld(int& x, int& y);          // @0x1b6004 screen pixels to world
 void WorldCoordinatesToTile(int& x, int& y);           // @0x1b61cc

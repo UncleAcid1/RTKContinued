@@ -242,8 +242,7 @@ void Update(float dt) {
                 s.text->SetText(ToWide(g_shown[i]).c_str());
                 s.icon->SetVisibility(g_shown[i] != 0);
                 s.iconInactive->SetVisibility(g_shown[i] == 0);
-                // UNVERIFIED: Map::GetTotalStorageLimit (milestone 3); 1000 below tutorial step 0x18.
-                int limit = 1000;
+                int limit = GameState::tutorial > 0x17 ? Map::GetTotalStorageLimit() : 1000;
                 s.textLimit->SetVisibility(limit <= g_shown[i]);
                 s.textLimit->SetText(ToWide(g_shown[i]).c_str());
             }

@@ -835,6 +835,16 @@ void UpdateStorageMax() {
     if (GameState::resourceAmountMax > 0) GameState::lastResourceAmountMax = GameState::resourceAmountMax;
 }
 
+void UpdateStorages() {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->buildingClass == 7) b->UpdateStorage();
+}
+
+int GetTotalStorageLimit() {
+    return g_mapId != 0 ? GameState::lastResourceAmountMax : GameState::resourceAmountMax;
+}
+
 void GetOwnedAreaBorders(int& minX, int& minY, int& maxX, int& maxY) {
     minX = g_owned[0];
     minY = g_owned[1];

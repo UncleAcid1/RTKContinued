@@ -16,6 +16,7 @@
 #include "game/EntityManager.h"
 #include "game/Combat.h"
 #include "game/Items.h"
+#include "game/Map.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 #include "game/SaveManager.h"
@@ -27,7 +28,7 @@ namespace GameState {
 
 bool updated = true;             // 0x60efcc (a change to save)
 int resourceAmountMax = 0;       // 0x6134a4 storage limit (CheckStorageFull)
-int lastResourceAmountMax = 0;   // GameState::lastResourceAmountMax
+int lastResourceAmountMax = 0;   // 0x6134a8 GameState::lastResourceAmountMax
 int maxLevel = 0x1d;             // 0x60efc8
 int totalGoldSpent = 0;          // 0x613418
 int totalGoldEarned = 0;         // 0x61341c
@@ -248,9 +249,7 @@ void ChangeResourceAmount(int type, int amount) {
         return;
     }
     if (type > kOil) return;
-    if (GetCurrentMapID() == 0) {
-        // UNVERIFIED (milestone 3c): Map::UpdateStorages().
-    }
+    if (GetCurrentMapID() == 0) Map::UpdateStorages();
 }
 
 void AddCrystals(int amount) {
