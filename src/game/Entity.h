@@ -40,8 +40,8 @@ public:
     // false if this entity has no such animation (it has animations at all).
     bool SetAnimation(const char* name, int playCount, bool randomStart, bool paused, bool holdLast,
                       bool notify, bool bounce);  // @0x156a24
-    bool SetAnimationP(const char* name, bool randomStart, bool paused, bool bounce);   // @0x159420 (forever)
-    bool SetAnimationOnce(const char* name, bool randomStart, bool paused, bool holdLast, bool notify);  // @0x158ba0
+    bool SetAnimationP(const char* name, bool randomStart, bool paused, bool bounce);   // @0x159420 (forever; the std::string overload @0x1594d4)
+    bool SetAnimationOnce(const char* name, bool randomStart, bool paused, bool holdLast, bool notify);  // @0x158ba0 (std::string overload @0x159044)
     bool SetAnimationMult(const char* name, int count, bool randomStart, bool paused, bool notify);     // @0x15d0e0
     void EnqueueAnimation(const char* name, float time);   // @0x158c60
     void SetAnimationFrame(int f);               // @0x155410

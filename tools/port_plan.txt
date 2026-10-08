@@ -22,8 +22,25 @@
 4b.4  ^GetChanceString$
 4b.4  ^Shared::(ItemHolder|ItemIconHolder)::
 
+# ---- placed by the 4b.5 review: an overload or a stub of a later step, not a hole ----------
+5     @127294   # Map::Building::LaunchContract(Entity*): barracks training (HireTroopsWindow::OnTrain)
+5     ^(Map::Building::(IsTrainingCompleted|TrainingCompleted)|Map::TrainingcontractRunning)$   # barracks training
+5     @1d14d0   # MetaExpression::OnApplyItemEffect(int*, bool): crafting, player info, sets, character window
+5     ^HUDWindow::OnFarmTimer$   # opens RaidInfoWindow (the port's stub does nothing)
+4d    ^(HUDWindow::OnFindTask|TaskHolderWindow::QuickTaskWindow::(Init|Update))$
+4g    ^BattleBarWindow::Update$   # the port's stub; the army slots
+4f    @168138   # EntityManager::SpawnEntityAt(SpawnPoint*, ...)
+4f    ^WindowManager::WindowQueue::IsWindowHigherThan$   # WorldHintHoverWindow::Update
+4f    ^(Entity::(SetGUID|GetGUID)|EntityManager::GetEntityWithGUID)$   # spawn points, PvP players' hover (type 0x11), tasks
+util  @16debc   # FileManager: std::map operator[] of the blob entries
+util  ^(StringHash|StringTable::FUN_00228ba4)$   # the GUI name hash (the port's maps), StringTable's string pool
+util  ^GUI::FUN_(0017c258|0017c284|0017c2b8|0017c2ec|0017ebd4|0017ee7c|0017f0d0|001803d8)   # RegisterBinaryUI's vector sizes / inserts and its std::map<string> lookup
+util  ^(EntityFactory::FUN_(0015fb4c|00160374|0016134c)|SoldierSlots::FUN_(0021e738|0021ea08)|HiddenObjects::FUN_003a4b80|CastleTopWindow::FUN_002784cc)   # wcsdup/strdup, vector inserts, std::map inserts, push_back
+implicit  ^CastleTopWindow::FUN_00277144   # a callback object factory (Update's three callbacks)
+dead  ^WindowManager::(WindowQueue::HideWindows|FunctionalWindow::(UnRegisterTopWindow|RegisterContentScroller|UnregisterContentScroller))$   # no caller
+
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
-4b.5  ^(FileManager::LoadFile|Map::Free|MetaExpression::OnApplyItemEffect|BattleBarWindow::Update|HUDWindow::(OnFindTask|OnFarmTimer)|TaskHolderWindow::QuickTaskWindow::(Init|Update)|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::Building::LaunchContract|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|EntityManager::SpawnEntityAt|GameState::Reset|GUI::Window::SetOnClick)$
+4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
 
 # ---- online and removed first, so their constructors stay with them --------------------------
 online  ^(CMyServer|CConnection|CGZIP2AT|NeighboursServer|NeighboursServerNS|Neighbours|MyNeighbours|MyFacebook|SocNets|SocialConnectWindow|FacebookSyncWindow|VisitFriendWindow|FriendInfoHoverWindow|SelectFriendsWindow|Window_switch_profiles|WallPost|ViralFeatures|OG|OG2|ServerFlags|CouponEntryWindow|CouponGetWindow|CouponSetWindow|DownloadManager|AsyncImageLoader|LoadingInternetWindow|ToS|Save|PlayerCompetitionWindow)::
@@ -199,7 +216,7 @@ lib  (^|::)(entry|RecursivelyCalculateShapeTree)$
 4b.5  ^BuildingHovers::(SetArrowAlpha|MoveWindowDown|HideWorldDialog)$   # PopupWindow / HUD return (KNOWN BUG) / the hero's taps
 4b.5  ^BuildingHovers::ShowWorldDialog$   # Building::WorkEnded and Entity::OnDeath call it too (also 4h)
 4b.5  ^(AI::SetWeight|StringTable::(SetEmptyNameReplacement|GetStringF|GetUndecoratedString|FUN_\w+)|Timer::(Init|GetRealGlobalTime)|StringHash|GetData|SaveManager::SaveBlock::BeginChunkLoading)$   # startup / save loading helpers: ported inline or unmarked, verify
-4b.5  ^(AnimationController::(GetActiveAnim|GetCurrentFrame|SetMult|GetMult)|Resources::|EntityFactory::FUN_|SoldierSlots::FUN_|HiddenObjects::FUN_|CastleTopWindow::FUN_|PlayerTopWindow::FUN_|FileManager::FUN_|GUI::|HUDWindow::OnFarmTimer|WindowManager::)   # called by ported code: ported inline or without its marker, verify and mark
+4b.5  ^(AnimationController::(GetActiveAnim|GetCurrentFrame|SetMult|GetMult)|Resources::|EntityFactory::FUN_|SoldierSlots::FUN_|HiddenObjects::FUN_|CastleTopWindow::FUN_|PlayerTopWindow::FUN_|FileManager::FUN_|GUI::|WindowManager::)   # called by ported code: ported inline or without its marker, verify and mark
 4b.5  ^Render::   # renderer internals: the port's SDL3/OpenGL renderer stands in; mark the ones it follows, record the rest as PORT
 
 # ---- 4b.5: holes in finished work (milestones 1-3, 4a, 4b) found by the coverage pass ----------

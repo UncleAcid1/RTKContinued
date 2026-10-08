@@ -12,7 +12,7 @@ std::vector<Tag*> g_tags;   // 0x616944
 
 bool Tag::IsActive() const {
     if (to == 0) return active;
-    // Timer::GetRealGlobalTime + GameState::GetServerTimeOffset (0x612f1c, 0 offline).
+    // Timer::GetRealGlobalTime (@0x23ebe8: time(nullptr)) + GameState::GetServerTimeOffset (0x612f1c, 0 offline).
     uint32_t now = (uint32_t)time(nullptr);
     return from <= now && now <= to;
 }

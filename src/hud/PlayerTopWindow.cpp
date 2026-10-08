@@ -10,6 +10,7 @@
 namespace PlayerTopWindow {
 namespace {
 
+using GUI::Button;
 using GUI::Textfield;
 using GUI::Window;
 
@@ -112,6 +113,10 @@ void Init() {
     g_hpText->SetClipRect(&g_hpClip);
     g_maleGood = GUI::GetWindowTyped<Window>(g_root, "button_player_box_picture.icon_char_damage_holder.locator_character_male_good");
     g_femaleGood = GUI::GetWindowTyped<Window>(g_root, "button_player_box_picture.icon_char_damage_holder.locator_character_female_good");
+    // The portrait (@0x3299b4: GetWindowTyped<Button> of its clickArea, falling back to GUI::Init's
+    // template windows). UNVERIFIED (4g): OnCharacter @0x327b30 is a no-op until it is ported.
+    GUI::GetWindowTyped<Button>(g_root, "button_player_box_picture.clickArea")->SetOnClick([] {});
+    GUI::GetWindowTyped<Button>(g_root, "button_player_box_picture.clickArea")->SetActionSound("", 1);
     g_maleBad = GUI::GetWindowTyped<Window>(g_root, "button_player_box_picture.icon_char_damage_holder.locator_character_male_bad");
     g_maleBad->SetVisibility(false);
     g_femaleBad = GUI::GetWindowTyped<Window>(g_root, "button_player_box_picture.icon_char_damage_holder.locator_character_female_bad");

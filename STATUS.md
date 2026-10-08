@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-08, 4b.4 done; next 4b.5) — read this first in a new conversation
+## Handoff (last updated 2026-10-08, 4b.5 part 1 done) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -370,7 +370,21 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    it), Ok closes, "Tap to continue" glows and any tap closes, map 7's loot from the collection
    record, daily_bonus_chest_1 / new_daily_bonus_1 from settings, "No items found", giving: gold
    0 -> 600, crystals 20 -> 15. City save -> reload and a copy of the real save load as before.
-   NEXT: 4b.5 (the holes list in docs/port_inventory.md section 0).
+   4b.5 PART 1 DONE (verify and mark, no behaviour change except one fix): every `--unmarked`
+   name checked against the original. Marked where the port already follows it (WindowManager's
+   FunctionalWindow virtuals and WindowQueue::Click/Update, Map getters, GameState::Reset, the
+   SetAnimation std::string overloads, EntityFactory::Init (a branch to InitNames), FileManager::
+   LoadFile's size-less overload, SaveChunk's Save* wrappers, GetData<T> / BeginChunkLoading, the
+   SystemFuncs settings, AnimationController / Building getters, Timer::Init, GetRealGlobalTime,
+   GUI::GetFont, SetOnClick's overloads). Re-placed (port_plan.txt "placed by the 4b.5 review"):
+   overloads and stubs of later steps (barracks training 5, OnApplyItemEffect(int*, bool) 5,
+   HUD OnFarmTimer 5 / OnFindTask 4d, QuickTaskWindow 4d, BattleBarWindow::Update 4g, spawn-point
+   SpawnEntityAt / GUIDs / IsWindowHigherThan 4f), dead WindowManager helpers, container helpers
+   (util). Fixed: PlayerTopWindow::Init now wires the portrait's clickArea (no-op OnCharacter, no
+   sound), as the original does. Found holes for later pieces: StringTable::GetUndecoratedString
+   (the text popups' decoration pass), Map::Free's missing parts, AI::SetWeight in main_Loop_Init.
+   NEXT: 4b.5 part 2 (renderer/Resources verify and mark), then the real gaps (every frame,
+   economy, startup/shutdown, text).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The

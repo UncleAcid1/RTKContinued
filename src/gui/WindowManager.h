@@ -18,11 +18,11 @@ public:
     virtual void Init() {}                                   // +0x08
     virtual void Deinit() {}                                 // +0x0c
     virtual void SetZ(float) {}                              // +0x10
-    virtual bool Click(int, int, bool) { return false; }     // +0x14
+    virtual bool Click(int, int, bool) { return false; }     // +0x14 @0x36deb8
     virtual void Move(int, int) {}                           // +0x18
     virtual void Show() {}                                   // +0x1c
     virtual void Hide() {}                                   // +0x20
-    virtual void Update(float) {}                            // +0x24
+    virtual void Update(float) {}                            // +0x24 @0x184c5c (returns its argument)
     virtual void Wheel(bool) {}                              // +0x28
     virtual bool Back() { return false; }                    // +0x2c
     virtual bool IsVisible() { return true; }                // +0x30 @0x184c6c
@@ -55,16 +55,16 @@ public:
         std::function<float()> zRange;                 // +0x44
     };
     FunctionalWindow(const char* n, Functions f);
-    void Init() override { if (fn.init) fn.init(); }
+    void Init() override { if (fn.init) fn.init(); }                 // @0x36e660 (no null check there)
     void Deinit() override { if (fn.deinit) fn.deinit(); }
-    void SetZ(float z) override { if (fn.setZ) fn.setZ(z); }
+    void SetZ(float z) override { if (fn.setZ) fn.setZ(z); }         // @0x36e680 (no null check there)
     bool Click(int x, int y, bool pressed) override;     // @0x36e694
-    void Move(int x, int y) override { if (fn.move) fn.move(x, y); }
-    void Show() override { if (fn.show) fn.show(); }
-    void Hide() override { if (fn.hide) fn.hide(); }
-    void Update(float dt) override { if (fn.update) fn.update(dt); }
-    void Wheel(bool up) override { if (fn.wheel) fn.wheel(up); }
-    bool Back() override { return fn.back ? fn.back() : false; }
+    void Move(int x, int y) override { if (fn.move) fn.move(x, y); } // @0x36e6f4
+    void Show() override { if (fn.show) fn.show(); }                 // @0x36ebb8 (also printf's the name)
+    void Hide() override { if (fn.hide) fn.hide(); }                 // @0x36e714
+    void Update(float dt) override { if (fn.update) fn.update(dt); } // @0x36e72c
+    void Wheel(bool up) override { if (fn.wheel) fn.wheel(up); }     // @0x36e748
+    bool Back() override { return fn.back ? fn.back() : false; }     // @0x36e764
     bool IsVisible() override { return fn.isVisible ? fn.isVisible() : true; }     // @0x36e77c
     float ZRange() override { return fn.zRange ? fn.zRange() : 0.03f; }          // @0x36e798
     void RegisterTopWindow(GUI::Window* w);              // @0x36eec0

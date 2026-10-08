@@ -236,7 +236,9 @@ Window* Window::GetChild(const char* n) {   // @0x178af8: matches the last name 
 }
 
 void Window::SetClipRect(ClipRect* r) { clip = r; }   // @0x175d80
-void Window::SetOnClick(Callback cb) { onClick = std::move(cb); }   // @0x175d88
+// @0x175d88; the inline overloads taking a plain function (@0x3024f4) or a function and its
+// argument (@0x2e7e80) wrap it in a callback object the same way.
+void Window::SetOnClick(Callback cb) { onClick = std::move(cb); }
 void Window::MoveWindow(int dx, int dy) { SetPosition(dx + x, dy + y); }   // @0x175dbc
 
 void Window::RestorePosition() {   // @0x175de0

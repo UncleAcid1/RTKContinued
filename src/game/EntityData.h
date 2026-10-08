@@ -108,7 +108,7 @@ struct EntityData {              // 0x160 bytes
 namespace EntityFactory {
 
 bool LoadData(const char* file);                  // @0x162828
-void Init();                                      // @0x161a1c the worker/farmer name lists
+void Init();                                      // @0x161a1c InitNames: the worker/farmer name lists (Init @0x162820 only branches to it)
 EntityData* GetEntityByID(int id);                // @0x15f7b4
 EntityData* EnumEntity(unsigned i);               // @0x1608a8 (file order)
 int GetEntityIDByName(const std::string& name);   // @0x1605c8 (-1 if none)

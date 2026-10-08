@@ -29,7 +29,7 @@ bool FileExists(const char* name);                                              
 bool GetFileInfo(const char* name, int& w, int& h, unsigned& bpp, bool quiet);  // @0x16b0d8
 // Returns a malloc'd, NUL-terminated buffer (size excludes the NUL) or nullptr.
 // Payloads flagged as gzip (flags & 1) are inflated, as in LoadFile @0x172ff0.
-uint8_t* LoadFile(const char* name, uint32_t& size);
+uint8_t* LoadFile(const char* name, uint32_t& size);   // (the size-less overload @0x1735fc: callers here keep the size)
 void FreeFile(uint8_t* p);
 
 size_t EntryCount();

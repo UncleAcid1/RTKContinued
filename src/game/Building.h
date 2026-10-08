@@ -65,7 +65,7 @@ struct Building {
     int resources[11] = {};      // +0x70 resources held per type (storage: the player's amounts; farm: each soil patch's state)
     uint32_t patchArg[6] = {};   // +0x9c farm patch rot timer start (chunk 0x31)
     uint32_t patchStart[6] = {}; // +0xb4 farm patch start times (chunk 0x2d)
-    const GameData::BuildingData* data = nullptr;  // +0xcc
+    const GameData::BuildingData* data = nullptr;  // +0xcc (GetData @0x11c444)
     float partZ = 0.f;           // +0xd0 z step per part sprite
     std::vector<Render::Sprite*> sprites;  // +0xd4 sprite chain (newest first on the original)
     bool fd8 = false;            // +0xd8

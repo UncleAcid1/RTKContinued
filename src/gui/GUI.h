@@ -244,7 +244,7 @@ bool IsAnyAnimationActive();                                                   /
 // @0x178b64 Init(fontFile, ..., highDPI): desktop window, default textfield/button, text cache.
 void Init(const char* fontFile, bool highDPI);
 void Deinit();                                                     // @0x17d60c
-const char* GetFontFile();
+const char* GetFontFile();                                         // @0x176170 GetFont
 
 // @0x180784 / @0x183400: load "<layout>.xmlb" (falls back to the XML layout, not ported: every
 // layout the game uses exists as .xmlb). scale < 0: fit the layout to the screen (GetScaleFactor).

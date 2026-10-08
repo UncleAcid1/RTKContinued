@@ -42,16 +42,16 @@ struct AnimationController {     // 0x30 bytes
     void Pause() { paused = true; }              // @0xf9c5c
     void Update(float dt);                       // @0xf9cc0
 
-    Animation* anim = nullptr;   // +0x00
+    Animation* anim = nullptr;   // +0x00 (GetActiveAnim @0xf9c4c)
     Animation* prev = nullptr;   // +0x04 resumed when a counted animation ends
-    int frame = 0;               // +0x08
+    int frame = 0;               // +0x08 (GetCurrentFrame @0xf9c54)
     int playCount = 1;           // +0x0c (-1: forever)
     Entity* owner = nullptr;     // +0x10
     float acc = 0.f;             // +0x14
     bool paused = false;         // +0x18
     bool holdLast = false;       // +0x19 stop on the last frame
     bool notify_ = true;         // +0x1a tell the AI and the entity when a play ends
-    float mult = 1.f;            // +0x1c speed multiplier
+    float mult = 1.f;            // +0x1c speed multiplier (SetMult @0xf9c84, GetMult @0xf9c8c)
     int first = -1, last = -1;   // +0x20 +0x24 frame range (-1: the whole animation)
     bool bounce = true;          // +0x28 play back and forth (loop flag of the caller)
     int step = 1;                // +0x2c +1 or -1

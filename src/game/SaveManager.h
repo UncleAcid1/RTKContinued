@@ -40,6 +40,8 @@ struct Reader {
     bool HasData(size_t k) const { return ok(k); }   // SaveChunk::HasData
     uint8_t u8() { return ok(1) ? p[i++] : 0; }
     int8_t s8() { return (int8_t)u8(); }
+    // GetData<short> @0x21288c / GetData<unsigned short> @0x2128ac, GetData<int> @0x214290 /
+    // GetData<unsigned int> @0x2142c4: big-endian reads that move the cursor (bounds checks: PORT).
     int16_t s16() { if (!ok(2)) return 0; int16_t v = (int16_t)((p[i] << 8) | p[i + 1]); i += 2; return v; }
     uint32_t u32() {
         if (!ok(4)) return 0;
@@ -71,7 +73,7 @@ struct SaveBlock {                   // 100 bytes
     void BeginChunk(uint32_t type);  // @0x212a6c
     void EndChunk();                 // @0x214a48
     void AddChunk(const Chunk& c);   // @0x2147cc a copy of a loaded chunk
-    // @0x212ac4 GetChunk / BeginChunkLoading: the chunk at the cursor (END past the last one).
+    // @0x212ac4 GetChunk / BeginChunkLoading (@0x212bfc calls GetChunk): the chunk at the cursor (END past the last one).
     const Chunk& GetChunk();
     void EndChunkLoading(const Reader& r);   // @0x212fa0 reports a chunk not read to its end
     uint32_t NextChunkID() const;    // @0x212be8
@@ -127,9 +129,9 @@ std::string GetBackupSaveName();                    // @0x214f68
 // Writing into the main save's current block (SaveData::BeginData selects it).
 void BeginChunk(uint32_t type);              // @0x212d10
 void EndChunk();                             // @0x214b54
-void SaveChar(uint8_t c);                    // @0x21666c
-void SaveShort(int16_t s);                   // @0x21678c
-void SaveUnsigned(uint32_t u);               // @0x2169d4
+void SaveChar(uint8_t c);                    // @0x21666c (SaveChunk::SaveChar @0x216660 forwards here)
+void SaveShort(int16_t s);                   // @0x21678c (SaveChunk::SaveShort @0x216780 forwards here)
+void SaveUnsigned(uint32_t u);               // @0x2169d4 (SaveChunk::SaveUnsigned @0x2169c8 forwards here)
 
 uint32_t GetLastSaveTS();                    // @0x212d74
 void SetLastSaveTS(uint32_t t);              // @0x212d88

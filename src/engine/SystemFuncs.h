@@ -6,8 +6,9 @@
 
 namespace SystemFuncs {
 
-// @0x3d7fac / @0x3d7ea0: integer settings, stored per file (Android SharedPreferences "MyCountry_mute",
-// ...). UNVERIFIED (milestone 6): the port keeps them in memory; persistence is not ported yet.
+// Settings stored per file (Android SharedPreferences "MyCountry_mute", ...; a null file is the
+// default one): Int @0x3d7fac / @0x3d7ea0, Bool @0x3d81c4 / @0x3d7d94, String @0x3d9148 / @0x3d82dc
+// (get / set). UNVERIFIED (milestone 6): the port keeps them in memory; persistence is not ported yet.
 int GetSetting_Int(const char* key, int def, const char* file = nullptr);
 void SetSetting_Int(const char* key, int value, const char* file = nullptr);
 bool GetSetting_Bool(const char* key, bool def, const char* file = nullptr);
@@ -17,7 +18,7 @@ void SetSetting_String(const char* key, const char* value, const char* file = nu
 
 // @0x3d7664: the device id shown in the settings window. UNVERIFIED (offline port): empty.
 std::string getGUID();
-// The Android id the online state chunk keeps. UNVERIFIED (offline port): empty.
+// @0x3da2d0: the Android id the online state chunk keeps. UNVERIFIED (offline port): empty.
 std::string getSID();
 
 // @0x3d7954: Google Play Games sign-in. Offline port: never signed in.

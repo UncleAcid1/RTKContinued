@@ -520,10 +520,10 @@ bool Building::CanBePlaced(bool ignoreFake) const {
     return ok;
 }
 
-int GetGridWidth() { return g_gridW; }
-int GetGridHeight() { return g_gridH; }
-uint32_t GetMapID() { return g_mapId; }
-int GetTileset() { return g_tileset; }
+int GetGridWidth() { return g_gridW; }     // @0x1b68cc
+int GetGridHeight() { return g_gridH; }   // @0x1b68e0
+uint32_t GetMapID() { return g_mapId; }   // @0x1b68b8
+int GetTileset() { return g_tileset; }    // @0x1b73d8
 
 void TileCoordinatesToLinear(int& x, int& y) {
     int d = y + x * -2;

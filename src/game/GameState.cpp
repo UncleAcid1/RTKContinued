@@ -135,6 +135,7 @@ std::string g_sid, g_guid;            // 0x612f28 / 0x612f2c (null until loaded:
 bool g_hasSid = false, g_hasGuid = false;
 }
 
+// @0x1a1424
 void Reset() {
     g_monsterKills.clear();
     g_res[0xdd] = 0x84358e6d;
