@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, coverage pass done; next 4b.4, then 4b.5) — read this first in a new conversation
+## Handoff (last updated 2026-10-07, 4b.4 part 1 done; next 4b.4 part 2, then 4b.5) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -305,8 +305,49 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    helpers ported inline or without their `// @0x` (e.g. GameState::Reset, Render::Init,
    FileManager::LoadFile, RegisterBinaryUI's helpers, FunctionalWindow's virtuals); renderer
    internals get a marker where followed, else a PORT note.
-   NEXT: milestone 4, step 4b.4 (the item windows: ItemHoverWindow, UseItemHoverWindow,
-   FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder), then 4b.5.
+   4b.4 PART 1 DONE: src/hud/ItemHoverWindow.* (the item / resource / text / unit popup: layout
+   from Mini_hint and its parts, the 19 action buttons, FinalizeSetup's frame size, SetPosition's
+   stacking, RecomputePosition's eight-arrow placement with the fallback to the next side that fits
+   (read from the asm), Click with the tutorial holds, SetItem with its type / level-lock / producer /
+   effect / troop-stat lines, description, durability bars and the inventory buttons (Drink, Turn
+   on/off, Equip/Unequip, Repair, Remove, Improve/Craft, Find, Shop, Place, Open, Ask friends),
+   SetEntity's unit stats and Train/Save/Move/Dismiss, the handlers and the Help* arrows;
+   GetProbabilityString, ItemPlaceContinuation). MetaExpression's item-effect texts:
+   GetItemEffectName / IconName, IsValidItemEffect, GetBonusIcon (its jump table read from the asm:
+   Ghidra's case labels are shifted), GenerateDescription (35 KB; Ghidra cut it at its jump table:
+   decompiled whole with the new tools/ghidra_scripts/DecompRange.java), GetChanceString.
+   src/windows/NeedItemWindow.cpp (all of it: craft / buy, the quest / find / map-object modes,
+   OnProduce to the producing building's order or its shop cell, RunLastHelpItem;
+   GetBuildingThatProducesItem). UseItemHoverWindow (hover type 0xf; its trigger
+   Map::Decor::ShowUseItemHover moved to 4e, it needs the decorations' expressions).
+   Items::GetItemOffsetInHolder (both overloads, the per-item id table from the asm),
+   Shared::DiscountInfo / ItemIconHolder / ItemHolder. Also: BuildingHovers::
+   AllowWindowOverHoverOnce / ShowArrowAtSpeedup / ShowArrowAtUpgrade / ShowArrowAtFactoryContract,
+   BuildProgressHoverWindow::HelpWithSpeedUp, IconManager::GetLoadingCogsIcon, Decor::
+   GetIconOffsetY (+ DecorData icon_y), EntityData::GetSmallSpellIcon, Entity::HasMeleeDamage,
+   GameState::IsArenaCombatActive, PlayerItem::IsBroken, StringTable::StringNotEmpty / GetStringF,
+   ToWideString(format, ...) (its own 4-buffer ring), NotEnoughWindow::FindResourceHelp public.
+   GUI::RegisterUI's XML-layout branch, root window only (kingdom_icons/*.xml; the child windows
+   are a 4b.5 item, UNVERIFIED in GUI.cpp).
+   Fixed on the way: NotEnoughWindow's Find arrows now open the building's info window
+   (BuildingHovers::OnBuildingClick, ported in 3f.1, had stale stand-ins there) and point at Improve
+   (ShowArrowAtUpgrade); ShopWindow::OnBuy deleted the Building it hands to BuildingBought (the
+   original's deleting destructor; the port leaked it) and set +0x24/+0x30 as the original.
+   Stand-ins (UNVERIFIED, their milestones): Sets / Collections / Professions / Chests / item shop /
+   global map / raids / tavern / repair / crafting / CharacterInfoWindow's own holders (the
+   equipment bindings are read instead) / the friends hub (online, dormant).
+   Verified headless (a temporary --show hook in main, removed): the sword's popup (type, +15
+   initiative, +2 damage, squad bonus, durability 40/40, Equip) at the bottom-left arrow, the frame
+   sized to its parts; a fury potion (Drink: AP 0 -> 100, the potion used up); orbs, buffs, a troop
+   contract; a soldier (20/20 health, Train more, Heal / To Reserve / Dismiss disabled as the rules
+   say); a resource and a plain text popup; a cookie (Food, Bakery, Find, Buy disabled): Find
+   centres the Bakery, opens its order window on Cookie with the arrow at "Order Cookie"; a hut
+   item: Place -> placement -> Confirm builds it at once and uses the item. Holder offsets match
+   the XML (belt 611,154; item 0x2c4's -2 correction). City save -> reload and a copy of the real
+   save load as before.
+   Not yet tested (no owner opens them yet): the popup's hosts (the belt and battle bar slot taps
+   are 4g; the character and shop windows 5).
+   NEXT: 4b.4 part 2, FoundItemsWindow (the "items found" reward dialog), then 4b.5.
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The

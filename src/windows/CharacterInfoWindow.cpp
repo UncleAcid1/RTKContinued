@@ -10,11 +10,8 @@
 namespace CharacterInfoWindow {
 
 namespace {
-// @0x1ad2c4 Items::ItemData::IsBroken: an item with durability and none left.
-bool IsBroken(const GameState::PlayerItem* it) { return it->info && it->info->durability != 0 && it->f0c == 0; }
-
 void ApplyEquipment(GameState::PlayerItem* it, Entity* player) {
-    if (it && it->info && it->info->meta && !IsBroken(it)) it->info->meta->OnApplyItemEffect(player);
+    if (it && it->info && it->info->meta && !it->IsBroken()) it->info->meta->OnApplyItemEffect(player);
 }
 }  // namespace
 

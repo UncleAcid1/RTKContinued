@@ -3,6 +3,7 @@
 #include <pugixml.hpp>
 
 #include <cctype>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <unordered_map>
@@ -107,6 +108,24 @@ const char32_t* GetString(const char* key) {
     if (s && !s->empty()) return s->c_str();
     s = Find(std::string("EN_") + key);
     return s ? s->c_str() : nullptr;
+}
+
+// @0x228d7c: the "<lang>_" record if there is one, else the "EN_" record: whether its text is not
+// empty (false without either).
+bool StringNotEmpty(const char* key) {
+    if (const std::u32string* s = Find(std::string(g_lang) + "_" + key)) return !s->empty();
+    if (const std::u32string* s = Find(std::string("EN_") + key)) return !s->empty();
+    return false;
+}
+
+// @0x22c908: GetString of the key printed from fmt (vsnprintf into 0x100 characters).
+const char32_t* GetStringF(const char* fmt, ...) {
+    char key[0x100];
+    va_list ap;
+    va_start(ap, fmt);
+    std::vsnprintf(key, sizeof key, fmt, ap);
+    va_end(ap);
+    return GetString(key);
 }
 
 std::u32string GetTimeString(int t, bool compact) {
@@ -374,6 +393,14 @@ std::u32string SWPrintf(unsigned size, const char32_t* f, std::initializer_list<
     }
     if (out.size() == size && size != 0) out.pop_back();
     return out;
+}
+
+const char32_t* ToWideString(const char32_t* format, std::initializer_list<StringArgument> args) {
+    static std::u32string ring[4];    // 0x61593c counter, 4 x 0x80-character buffers
+    static unsigned next = 0;
+    std::u32string& s = ring[next++ & 3];
+    s = SWPrintf(0x80, format, args);
+    return s.c_str();
 }
 
 const char32_t* ToWideString(int n) {

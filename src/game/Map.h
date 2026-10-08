@@ -41,6 +41,8 @@ struct Decor {
     // @0x131234: the data of `id`, looked up on first use. UNVERIFIED: an id that is a building's
     // (the original then looks it up and drops it) gives null.
     const GameData::DecorData* GetData() const;
+    // @0x13120c: its data's icon_y (without data, that of a building with its id; else 0).
+    int GetIconOffsetY() const;
     void GetStartTile(int& tx, int& ty) const;       // +0x18 MapObject @0x1c7658
     void GetBuildZone(int& w, int& h) const;         // +0x1c MapObject @0x1c76e4
     void ToggleMirror() { mirrored = !mirrored; }    // +0x28 MapObject @0x1c7724

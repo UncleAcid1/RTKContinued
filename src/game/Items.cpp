@@ -558,4 +558,96 @@ int GetAmountToBoostTime(uint32_t id, uint32_t seconds) {
     return 1;
 }
 
+// ---- item holders ----
+
+namespace {
+struct HolderOffset {                    // 0x40-byte records of the hash 0x6135b4
+    bool haveLarge = false;              // +0x18
+    int largeX = 0, largeY = 0;          // +0x1c +0x20
+    bool haveSmall = false;              // +0x24
+    int smallX = 0, smallY = 0;          // +0x28 +0x2c
+    bool found = false;                  // +0x30
+};
+// FUN_001af000 / FUN_001afa68 free the hash and its pool at exit (the map's own destructor here).
+std::unordered_map<std::string, HolderOffset> g_holderOffsets;
+}  // namespace
+
+// @0x1af0fc
+bool GetItemOffsetInHolder(int& x, int& y, bool large, const char* name) {
+    HolderOffset& h = g_holderOffsets[name];
+    if (large ? h.haveLarge : h.haveSmall) {
+        x = large ? h.largeX : h.smallX;
+        y = large ? h.largeY : h.smallY;
+        return h.found;
+    }
+    char path[0x100];
+    std::snprintf(path, sizeof path, "../resource/kingdom_icons/1Original/%s.xml", name);
+    GUI::Window* w = GUI::RegisterUI(path, "", 1.f, 0, 0, 0, 0, false, 1.f);
+    if (!w) {
+        x = y = 0;
+        h.found = false;
+        h.haveSmall = h.haveLarge = true;
+        h.largeX = h.largeY = h.smallX = h.smallY = 0;
+        return false;
+    }
+    if (large) {
+        h.largeX = w->baseX;
+        h.largeY = w->baseY;
+        h.haveLarge = true;
+    } else {
+        h.smallX = w->baseX;
+        h.smallY = w->baseY;
+        h.haveSmall = true;
+    }
+    h.found = true;
+    x = w->baseX;
+    y = w->baseY;
+    delete w;
+    return true;
+}
+
+// @0x1af810 (the id table read from the asm)
+bool GetItemOffsetInHolder(int& x, int& y, bool large, uint32_t id, const char* suffix) {
+    ItemInfo* info = GetItemInfo(id);
+    if (!info) return false;
+    info->offsetX = 0;
+    info->offsetY = 0;
+    auto in = [id](uint32_t first) { return id - first <= 2; };   // first .. first + 2
+    if (id == 0x2c4) {
+        info->offsetX = -2;
+    } else if (id == 0x2c5 || id == 0x2c6 || in(0x2ca)) {
+        info->offsetX = -1;
+        info->offsetY = 1;
+    } else if (in(0x2c7)) {
+        info->offsetX = 1;
+        info->offsetY = 1;
+    } else if (id == 0x2ec || id == 0x2ed) {
+        info->offsetY = 1;
+    } else if (id == 0x2ee) {
+        info->offsetY = 2;
+    } else if (in(0x2dd)) {
+        // none
+    } else if (in(0x2e3) || in(0x2d4)) {
+        info->offsetX = -1;
+    } else if (in(0x2f1)) {
+        info->offsetY = 1;
+    } else if (in(0x2be)) {
+        info->offsetY = 2;
+    } else if (in(0x2c1)) {
+        info->offsetY = 1;
+    }
+    char name[0x100];
+    std::snprintf(name, sizeof name, "%s%s", info->name, suffix);
+    if (large) {
+        if (!GetItemOffsetInHolder(info->holderX, info->holderY, true, name)) return false;
+        x = info->offsetX + info->holderX;
+        y = info->offsetY + info->holderY;
+    } else {
+        if (!GetItemOffsetInHolder(info->holderSmallX, info->holderSmallY, false, name)) return false;
+        x = info->offsetX + info->holderSmallX;
+        y = info->offsetY + info->holderSmallY;
+    }
+    return true;
+}
+
 }  // namespace Items

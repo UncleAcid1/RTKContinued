@@ -190,9 +190,11 @@ void HoverInfo::SetHoverType(int t) {
         w = new ResourceRestoreHoverWindow();
     else if (t == kTaxes)
         w = new TaxesHoverWindow();
-    // UNVERIFIED (not ported yet): TalkHoverWindow (0xc), HealthbarHoverWindow (0xd), HealthbarTinyHoverWindow (0xe),
-    // UseItemHoverWindow (0xf), BossTimeHoverWindow (0x10) come before the sleeping window;
+    // UNVERIFIED (not ported yet): TalkHoverWindow (0xc), HealthbarHoverWindow (0xd),
+    // HealthbarTinyHoverWindow (0xe) and BossTimeHoverWindow (0x10) come before the sleeping window;
     // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13) after it.
+    else if (t == kUseItem)
+        w = new UseItemHoverWindow();
     else if (t == kFarmSleeping || t == kDelivery)
         w = new SleepingHoverWindow();
     else
@@ -253,6 +255,33 @@ bool CanAutoHideArrow() { return g_canHideArrow; }
 int GetArrowClickCallbackID() { return g_arrowCallbackID; }
 
 void SetArrowVisibleWindowLimit(unsigned limit) { g_arrowVisibleWindowLimit = limit; }
+
+// @0x262fe8: the next info window may open over other windows (OnBuildingClick's check is skipped once).
+void AllowWindowOverHoverOnce() { g_skipHoverCheck = true; }
+
+// @0x263bd0: the arrow at the hurry button of b's build progress hover.
+void ShowArrowAtSpeedup(Map::Building* b) {
+    if (g_hoverData.empty()) return;
+    for (HoverInfo* h : g_hoverData) {
+        if (h->building != b) continue;
+        if (h->type == 2) static_cast<BuildProgressHoverWindow*>(h->window)->HelpWithSpeedUp();
+        return;
+    }
+}
+
+// @0x263c44: the arrow at the Improve button of the open info window.
+void ShowArrowAtUpgrade() {
+    if (g_castleWindow->shownHover) g_castleWindow->ShowArrowAtUpgrade();
+    if (g_storageWindow->shownHover) g_storageWindow->ShowArrowAtUpgrade();
+    if (g_livingWindow->shownHover) g_livingWindow->ShowArrowAtUpgrade();
+    if (g_factoryWindow->shownHover) g_factoryWindow->ShowArrowAtUpgrade();
+}
+
+// @0x263cfc: the arrow at the factory window's order i (ignoreCompletion: its Complete Now is ignored).
+void ShowArrowAtFactoryContract(unsigned i, bool ignoreCompletion) {
+    g_factoryWindow->ShowArrowAt(i);
+    if (ignoreCompletion) g_factoryWindow->IgnoreCompletion();
+}
 
 int SetArrowClickCallback(GUI::Callback* cb) {
     HelperArrow* a = g_arrows.back();
@@ -613,8 +642,9 @@ void UpdateHovers() {
             }
         } else if (GameState::IsPlayerCity()) {
             if (d) {
-                // UNVERIFIED (milestone 4): the battle health bar, decorations being searched by a
-                // worker (2) and the use-item hover (0xf) need the decoration jobs and items.
+                // UNVERIFIED (milestone 4e): the battle health bar, decorations being searched by a
+                // worker (2) and the use-item hover (0xf, Map::Decor::ShowUseItemHover: its window is
+                // ported) need the decorations' expressions and jobs.
                 const GameData::DecorData* dd = d->data;
                 if (dd && dd->collectTime != 0 && GameState::GetCurrentMapID() == 0 && d->patch->owned &&
                     Timer::GetGlobalTime() > dd->collectTime + d->collectStart) {

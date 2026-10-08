@@ -3,6 +3,7 @@
 
 namespace GUI { class Window; class Textfield; }
 namespace Render { struct Texture; }
+namespace Items { struct ItemInfo; }
 
 namespace Shared {
 
@@ -147,6 +148,51 @@ struct HouseLivingWorkerInfo {           // 0x14 bytes, LoadFrom @0x343ebc
     GUI::Textfield* tax = nullptr;       // +0x0c text_tax
     GUI::Textfield* workers = nullptr;   // +0x10 text_worker
     void LoadFrom(GUI::Window* root, const char* prefix);
+};
+
+// Shared::DiscountInfo (8 bytes): a discount label. LoadFrom @0x343984.
+struct DiscountInfo {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Textfield* text = nullptr;      // +0x04 text_discount
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+
+// Shared::ItemIconHolder (0x70 bytes): an item's icon with its quality frame, lock, discount
+// labels and state marks. LoadFrom @0x3448b8 (repOverlay: the shop's valor overlay, else the
+// dummy window), SetItem @0x3459ec.
+struct ItemIconHolder {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* locked = nullptr;       // +0x04 item_class_locked
+    GUI::Window* broken = nullptr;       // +0x08 item_class_broken
+    GUI::Window* repOverlay = nullptr;   // +0x0c shop_rep_item_overlay
+    GUI::Window* itemClass[5] = {};      // +0x10 item_class_01..05
+    GUI::Window* icon = nullptr;         // +0x24 item_icon_holder_item (takes a depth slot)
+    DiscountInfo discount[4];            // +0x28 blue, green, purple, red
+    GUI::Window* lock = nullptr;         // +0x48
+    GUI::Textfield* lockLevel = nullptr; // +0x4c lock.text_level_req
+    GUI::Window* redX = nullptr;         // +0x50 icon_red_x ("red_x" when it has no image)
+    GUI::Window* owned = nullptr;        // +0x54 icon_gold_owned ("gold_confirm" likewise)
+    GUI::Window* recommended = nullptr;  // +0x58 recomended_item
+    GUI::Window* state = nullptr;        // +0x5c icon_16_state
+    GUI::Window* lockSmall = nullptr;    // +0x60 (takes a depth slot)
+    GUI::Window* repProf = nullptr;      // +0x64 icon_16_rep_prof (takes a depth slot)
+    GUI::Textfield* levelReq = nullptr;  // +0x68 text_level_req
+    unsigned itemId = 0;                 // +0x6c
+    void LoadFrom(GUI::Window* root, const char* prefix, bool repOverlay);
+    // The item's quality frame and image, the marks hidden (null: only forgets the item).
+    void SetItem(Items::ItemInfo* info);
+};
+
+// Shared::ItemHolder (0x88 bytes): an inventory cell. LoadFrom @0x344c5c.
+struct ItemHolder {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* selected = nullptr;     // +0x04 selected_item
+    GUI::Window* emptyBg = nullptr;      // +0x08 item_icon_inventory_empty_bg
+    ItemIconHolder icon;                 // +0x0c inventory_item_icon_holder
+    GUI::Textfield* quantity = nullptr;  // +0x7c text_quantity
+    GUI::Textfield* quantityRed = nullptr;   // +0x80 text_quantity_red
+    GUI::Window* lockTiny = nullptr;     // +0x84 icon_lock_tiny
+    void LoadFrom(GUI::Window* root, const char* prefix, bool repOverlay);
 };
 
 }  // namespace Shared

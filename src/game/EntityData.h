@@ -92,6 +92,10 @@ struct EntityData {              // 0x160 bytes
     Animation* GetAnimation(const char* name) const;   // @0x15f13c
     bool AnimationExists(const char* name) const;      // @0x15f0e4
     // The *ForLevel getters read the level table when "hp" had per-level values, else the plain value.
+    // @0x15ebf0: "gold_16_lightning" (spell_fx 2), "gold_16_ice" (3), else "gold_16_mages".
+    const char* GetSmallSpellIcon() const {
+        return spellFx == 2 ? "gold_16_lightning" : spellFx == 3 ? "gold_16_ice" : "gold_16_mages";
+    }
     int GetHpForLevel(int level) const;                // @0x15eb3c
     int GetAttackMeleeForLevel(int level) const;       // @0x15eb54
     int GetAttackRangedForLevel(int level) const;      // @0x15eb6c

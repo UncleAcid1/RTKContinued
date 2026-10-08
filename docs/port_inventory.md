@@ -70,6 +70,9 @@ Real gaps (behaviour the port lacks or stands in for):
   random-decoration entry points (`Map::CreateRandomDecors`, `AddPatches`, `AddOnePatch`,
   `AddRandomDecorations`; the port reaches Patch::AddRandomDecors its own way), `Map::UpdateResources`.
 
+- **GUI**: GUI::RegisterUI's XML-layout branch beyond the root window (added in 4b.4: shapes,
+  buttons, text fields with glow filters of kingdom_icons/*.xml, e.g. Character_item_holder.xml).
+
 Verify and mark (about 200): helpers that ported code calls, ported inline or without a marker:
 renderer internals (layers, shaders, textures, atlases: the SDL3/OpenGL renderer stands in; mark
 what it follows, record the rest as PORT), RegisterBinaryUI's helpers, WindowManager's

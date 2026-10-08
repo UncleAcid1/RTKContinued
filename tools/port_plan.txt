@@ -16,11 +16,8 @@
 4b.4  ^FoundItemsWindow::
 4b.4  ^NeedItemWindow::
 4b.4  ^Items::GetItemOffsetInHolder
-4b.4  ^Items::FUN_001af000   # GetItemOffsetInHolder's table helper (static init caller)
-4b.4  ^Items::FUN_001afa68
 4b.4  ^GetProbabilityString$   # ItemHoverWindow's drop chances
 4b.4  ^GetChanceString$
-4b.4  ^Map::Decor::ShowUseItemHover   # opens UseItemHoverWindow
 4b.4  ^Shared::(ItemHolder|ItemIconHolder)::
 
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---

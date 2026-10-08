@@ -5,9 +5,11 @@
 // whose type is the keyword's ExpressionType, with one child: the parsed value (an integer, a string,
 // or a ':' / '|' / ';' list; see MetaData.h). ParseSingle tries the keywords in the original's order.
 #pragma once
+#include <string>
 
 class MetaData;
 class Entity;
+namespace Items { struct ItemInfo; }
 
 // The keyword types (MetaData::type of a node's data). Names follow the keywords; aliases share one.
 enum ExpressionType {
@@ -79,6 +81,23 @@ public:
     // @0x1d17fc: the percentage parts (HEALTH_PC, *_DAMAGE_PC) of a buff.
     void OnApplyItemBuffEffect(Entity* e);
 
+    // The item windows' effect lines (ItemHoverWindow::SetItem).
+    // @0x1c7920 / @0x1c7a18: the StringTable key / icon of an ItemEffect (0..10: health, damage,
+    // magic damage, initiative, melee / ranged dodge, melee / ranged absorb, belt slots, belt size,
+    // HP regeneration); nullptr past 10.
+    static const char* GetItemEffectName(unsigned effect);
+    static const char* GetItemEffectIconName(unsigned effect);
+    // @0x1c7b10: false for the PvP / customisation markers (FOUND_IN_PVP .. KEEP_HAIR) and for HP on
+    // an item of type 6; true otherwise (also without data).
+    bool IsValidItemEffect(const Items::ItemInfo* info) const;
+    // @0x1c7b80: the 16 px icon of this part's line.
+    const char* GetBonusIcon(const Items::ItemInfo* info);
+    // @0x1c8710 (35 KB on the original; Ghidra cut it at its jump table, decompiled whole with
+    // tools/ghidra_scripts/DecompRange.java): this part's text, at most size characters, into buf.
+    // Some parts (a speed-up or buff time of 0, an unknown RANDOM_SPELL, HP_REGEN without an entity,
+    // GIVE_TROOPS of an unknown unit) leave buf as it was, as the original does with its buffer.
+    void GenerateDescription(std::u32string& buf, unsigned size, Entity* e);
+
 private:
     MetaExpression(MetaExpression* prev, const char* text);   // @0x1d63a0 the node after prev
     void Parse(const char* p);                            // @0x1d6264
@@ -89,3 +108,7 @@ private:
     bool ownsText = false;            // +0x08
     const char* text = nullptr;       // +0x0c the whole text (a later node: the text from its part)
 };
+
+// @0x1c8204: CHANCE_LOW up to low, CHANCE_MEDIUM up to medium, CHANCE_HIGH up to high, else
+// CHANCE_VERY_HIGH.
+const char32_t* GetChanceString(unsigned chance, unsigned low, unsigned medium, unsigned high);

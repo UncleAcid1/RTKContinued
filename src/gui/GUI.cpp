@@ -1,5 +1,7 @@
 #include "gui/GUI.h"
 
+#include <pugixml.hpp>
+
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -1356,12 +1358,82 @@ Window* DuplicateWindow(Window* src, bool detached, bool deep, Window* newRoot) 
     return w;
 }
 
+// @0x183400: the binary layout (.xmlb) if there is one, else the XML layout (the Flash export as
+// text: <children><child name= class= type= x= y= w= h= .../>...). In 5.11 only
+// kingdom_icons/1Original/*.xml use the XML path (item holders; Items::GetItemOffsetInHolder reads
+// their origin). Files under 0x1000 bytes stay cached by path (0x612240, FUN_00182814).
+// UNVERIFIED (step 4b.5): of the XML branch only the root window is ported (its origin, size and
+// scale, and the root image); the child windows (shapes, buttons, text fields with their glow
+// filters) are skipped. The windows that show these layouts (the character / item shop / chest
+// windows) are milestone 5.
 Window* RegisterUI(const char* layout, const char* rootImage, float scale, int offsetX, int offsetY,
                    int fitExtraW, int fitExtraH, bool async, float fontScale) {
     Window* w = RegisterBinaryUI(layout, rootImage, scale, offsetX, offsetY, fitExtraW, fitExtraH, async,
                                  fontScale);
-    if (!w) std::printf("GUI::RegisterUI: %s: no binary layout (XML layouts are not ported)\n", layout);
-    return w;
+    if (w) return w;
+    static std::unordered_map<std::string, std::string> cache;   // 0x612240
+    std::string text;
+    auto cached = cache.find(layout);
+    if (cached != cache.end()) {
+        text = cached->second;
+    } else {
+        uint32_t size = 0;
+        uint8_t* data = FileManager::LoadFile(layout, size);
+        if (!data) {
+            std::printf("GUI::RegisterUI() Failed to load UI list (File not found: %s)\n", layout);
+            return nullptr;
+        }
+        text.assign((const char*)data, size);
+        delete[] data;
+        if (size < 0x1000) cache[layout] = text;
+    }
+    pugi::xml_document doc;
+    pugi::xml_parse_result res = doc.load_buffer_inplace(&text[0], text.size(), 0x74);
+    if (!res) {
+        std::printf("GUI::RegisterUI() Failed to load UI list (%s)\n", res.description());
+        return nullptr;
+    }
+    Render::Texture* tex = Resources::GetUIImage(rootImage, true, false);
+    if (!tex) tex = IconManager::GetIcon(rootImage, false);
+    Window* root = new Window();
+    root->index = (int)g_all.size();   // the window list only, not the name table
+    g_all.push_back(root);
+    root->name = layout;
+    root->symbol = "";
+    root->type = Window::kWindow;
+    root->scale = scale < 0.f ? 1.f : scale;
+    root->x = root->origX = root->y = root->origY = 0;
+    std::string rootClass;
+    for (pugi::xml_node c = doc.child("children").child("child"); c; c = c.next_sibling("child")) {
+        const char* name = c.attribute("name").value();
+        if (std::strcmp("__STAGE__", name) == 0) continue;
+        if (std::strcmp("__ROOT__", name) != 0) continue;   // UNVERIFIED (4b.5): the child windows
+        if (scale < 0.f) {
+            scale = GetScaleFactor(c.attribute("w").as_int() + fitExtraW, c.attribute("h").as_int() + fitExtraH,
+                                   !IsTabletVersion(), -scale);
+            root->scale = scale;
+        }
+        root->baseX = c.attribute("x").as_int() + offsetX;
+        root->baseY = c.attribute("y").as_int() + offsetY;
+        root->origW = (int16_t)c.attribute("w").as_int();
+        root->w = (int16_t)(int)((float)root->origW * scale);
+        root->origH = (int16_t)c.attribute("h").as_int();
+        root->h = (int16_t)(int)((float)root->origH * scale);
+        rootClass = c.attribute("class").value();
+    }
+    root->symbol = rootClass;
+    (void)async;
+    (void)fontScale;
+    if (tex) {
+        root->texture = tex;
+        root->sprite = Render::CreateSprite(tex, Render::kLayerGUI, false, false);
+        Render::SetShaderType(root->sprite, 0);
+        root->sprite->screenSpace = true;
+        root->sprite->h = (float)root->h;
+        root->sprite->w = (float)root->w;
+        Render::SetPosition(root->sprite, (float)root->x, (float)root->y + (float)root->h, 0.1f);
+    }
+    return root;
 }
 
 }  // namespace GUI

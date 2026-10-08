@@ -250,6 +250,7 @@ int main(int argc, char** argv) {
     LandExpandedWindow::Queue();
     LandWindow::Queue();
     LevelUpWindow::Queue();
+    NeedItemWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();

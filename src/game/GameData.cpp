@@ -66,6 +66,7 @@ bool LoadDecorations() {
         d.buy = n.attribute("buy").as_bool();
         d.needLevel = n.attribute("need_level").as_int();
         d.isRoad = n.attribute("isroad").as_bool();
+        d.iconY = n.attribute("icon_y").as_int();
         d.giveable = n.attribute("giveable").as_bool();
         d.collectTime = n.attribute("collecttime").as_uint();
         d.collectMoney = n.attribute("collectmoney").as_uint();

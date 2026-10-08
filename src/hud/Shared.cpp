@@ -1,7 +1,10 @@
 #include "hud/Shared.h"
 
 #include "engine/IconManager.h"
+#include "game/Items.h"
 #include "gui/GUI.h"
+
+#include <cstdio>
 
 namespace Shared {
 
@@ -214,6 +217,71 @@ void HouseLivingWorkerInfo::LoadFrom(Window* r, const char* p) {
     icon->takesZ = true;
     tax = GUI::GetWindowTypedF<Textfield>(r, "%s.text_tax", p);
     workers = GUI::GetWindowTypedF<Textfield>(r, "%s.text_worker", p);
+}
+
+// @0x343984
+void DiscountInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_discount", p);
+}
+
+// @0x3448b8
+void ItemIconHolder::LoadFrom(Window* r, const char* p, bool withRepOverlay) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    locked = GUI::GetWindowTypedF<Window>(r, "%s.item_class_locked", p);
+    broken = GUI::GetWindowTypedF<Window>(r, "%s.item_class_broken", p);
+    repOverlay = withRepOverlay ? GUI::GetWindowTypedF<Window>(r, "%s.shop_rep_item_overlay", p) : GUI::DummyWindow();
+    for (int i = 0; i < 5; ++i) itemClass[i] = GUI::GetWindowTypedF<Window>(r, "%s.item_class_%02d", p, i + 1);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.item_icon_holder_item", p);
+    icon->takesZ = true;
+    static const char* const kLabels[4] = {"blue", "green", "purple", "red"};
+    char name[0x100];
+    for (int i = 0; i < 4; ++i) {
+        std::snprintf(name, sizeof name, "%s.discount_label_holder.discount_label_%s", p, kLabels[i]);
+        discount[i].LoadFrom(r, name);
+    }
+    lock = GUI::GetWindowTypedF<Window>(r, "%s.lock", p);
+    lockLevel = GUI::GetWindowTypedF<Textfield>(r, "%s.lock.text_level_req", p);
+    redX = GUI::GetWindowTypedF<Window>(r, "%s.icon_red_x", p);
+    if (!redX->texture) redX->SetTexture(IconManager::GetIcon("red_x"), true);
+    owned = GUI::GetWindowTypedF<Window>(r, "%s.icon_gold_owned", p);
+    if (!owned->texture) owned->SetTexture(IconManager::GetIcon("gold_confirm"), true);
+    recommended = GUI::GetWindowTypedF<Window>(r, "%s.recomended_item", p);
+    state = GUI::GetWindowTypedF<Window>(r, "%s.icon_16_state", p);
+    lockSmall = GUI::GetWindowTypedF<Window>(r, "%s.lock_small", p);
+    lockSmall->takesZ = true;
+    repProf = GUI::GetWindowTypedF<Window>(r, "%s.icon_16_rep_prof", p);
+    repProf->takesZ = true;
+    levelReq = GUI::GetWindowTypedF<Textfield>(r, "%s.text_level_req", p);
+    itemId = 0;
+}
+
+// @0x3459ec
+void ItemIconHolder::SetItem(Items::ItemInfo* info) {
+    if (!info) {
+        itemId = 0;
+        return;
+    }
+    itemId = info->id;
+    for (unsigned i = 0; i < 5; ++i) itemClass[i]->SetVisibility(info->itemLevel == i);
+    info->PutImageInHolder(icon);
+    redX->SetVisibility(false);
+    owned->SetVisibility(false);
+    recommended->SetVisibility(false);
+    state->SetVisibility(false);
+}
+
+// @0x344c5c
+void ItemHolder::LoadFrom(Window* r, const char* p, bool repOverlay) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    selected = GUI::GetWindowTypedF<Window>(r, "%s.selected_item", p);
+    emptyBg = GUI::GetWindowTypedF<Window>(r, "%s.item_icon_inventory_empty_bg", p);
+    char name[0x100];
+    std::snprintf(name, sizeof name, "%s.inventory_item_icon_holder", p);
+    icon.LoadFrom(r, name, repOverlay);
+    quantity = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity", p);
+    quantityRed = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity_red", p);
+    lockTiny = GUI::GetWindowTypedF<Window>(r, "%s.icon_lock_tiny", p);
 }
 
 }  // namespace Shared

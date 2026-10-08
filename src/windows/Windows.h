@@ -5,7 +5,7 @@
 #include <functional>
 
 namespace WindowManager { class FunctionalWindow; }
-namespace Map { struct Building; }
+namespace Map { struct Building; struct Decor; }
 namespace Render { struct Texture; }
 
 namespace CityRenameWindow {
@@ -174,6 +174,31 @@ void UpdateContents();                      // @0x2f8ecc
 void Show();                                // @0x2fc7f8
 void Hide();                                // @0x2f73f4
 void RunLastHelpItem();                     // @0x2f8790
+// @0x2f7a0c: the arrow to where a resource comes from (its building, else its shop cell); line
+// and fromLine: the dialog's line that asked.
+void FindResourceHelp(int type, unsigned line, bool fromLine);
+}
+
+// "Item needed": craft the item in its building or buy it; also the quest/map-object item questions.
+namespace NeedItemWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "NeedItemWindow" (_INIT_ 0x2f474c)
+void Init();                                // @0x2f6800
+void Deinit();                              // @0x2f6754
+bool IsVisible();                           // @0x2f46b4
+void Show();                                // @0x2f65b4
+void Hide();                                // @0x2f5e08
+uint32_t GetBuildingThatProducesItem(uint32_t item, unsigned& slot);   // @0x2f4840
+void SetParameters(uint32_t item, Map::Decor* decor);                  // @0x2f578c
+void SetItemsToBeRemoved(unsigned task, std::function<void()>* cb);    // @0x2f48ec (cb owned)
+void SetFindParameters(uint32_t item, std::function<void()>* cb);      // @0x2f4cf0 (cb owned)
+void SetSearchParameters(uint32_t item, int resource, unsigned amount, std::function<void()>* onOk,
+                         std::function<void()>* onCancel);             // @0x2f50c8 (owned)
+void OnBuy();                               // @0x2f5f00
+void OnProduce(uint32_t item);              // @0x2f619c (0: the dialog's item)
+void ExecuteFirstHelp();                    // @0x2f6114
+void SetLastHelpItem(unsigned id);          // @0x2f46c8
+void EnableLastHelpItem();                  // @0x2f46dc
+void RunLastHelpItem();                     // @0x2f6568
 }
 
 // CharacterInfoWindow: the hero's equipment and inventory window. Only the stat part of

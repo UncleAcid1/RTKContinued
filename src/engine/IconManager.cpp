@@ -85,6 +85,12 @@ Render::Texture* GetExclamaitionIcon() {
     return GetAnimatedIcon(frames, 15, "images/exc_mark_%04d.png", 1.f / 15.f);
 }
 
+// @0x2dc350
+Render::Texture* GetLoadingCogsIcon() {
+    static Render::Texture* frames[25];  // 0x622b18
+    return GetAnimatedIcon(frames, 0x19, "images/anim_cogs_35_%04d.png", 1.f / 30.f);
+}
+
 Render::Texture* GetPlayerMarkerAttack() {
     static Render::Texture* frames[15];  // 0x622bb8
     return GetAnimatedIcon(frames, 15, "images/attack_marker%04d.png", 1.f / 30.f);

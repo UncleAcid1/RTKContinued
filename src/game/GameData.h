@@ -25,6 +25,7 @@ struct DecorData {               // DecorData
     std::string name;            // +0x04 "name"
     int w = 0, h = 0;            // +0x08 "lockzoneX", +0x0c "lockzoneY"
     int ox = 0, oy = 0;          // +0x10 "x", +0x14 "y"
+    int iconY = 0;               // +0x18 "icon_y"
     int layer = 0;               // +0x20 "layer"
     int tab = 0, subtab = 0;     // +0x24 "tab", +0x28 "subtab" (shop)
     int visid = 0;               // +0x2c "visid" (0: numbered from 500 by ShopWindow::Init)

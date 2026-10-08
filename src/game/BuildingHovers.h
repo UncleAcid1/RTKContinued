@@ -127,6 +127,10 @@ int GetArrowClickCallbackID();              // @0x2631e8
 void SetArrowVisibleWindowLimit(unsigned limit);   // @0x26330c the arrow hides above this many windows
 // @0x264270: the last arrow calls `cb` (owned) when tapped; returns the new callback id.
 int SetArrowClickCallback(GUI::Callback* cb);
+void AllowWindowOverHoverOnce();            // @0x262fe8
+void ShowArrowAtSpeedup(Map::Building* b);  // @0x263bd0
+void ShowArrowAtUpgrade();                  // @0x263c44
+void ShowArrowAtFactoryContract(unsigned i, bool ignoreCompletion);   // @0x263cfc
 // @0x266088: a tap on a visible arrow runs its callback (on the release) and hides the arrows.
 // UNVERIFIED (tutorial): the +0x24..+0x2c fields it clears are not ported.
 bool ClickOnArrow(int x, int y, bool pressed);

@@ -999,6 +999,15 @@ void BuildProgressHoverWindow::FakeSpeedup() {
 
 // The hurry button: as ResourceRestoreHoverWindow::OnSpeedUp (the confirmation is skipped away
 // from the home map); the bar then runs out in two seconds from where it stands.
+// @0x3716f0: the tutorials' arrow at the hurry button (FUN_0037102c: OnSpeedUp(true) on its tap).
+void BuildProgressHoverWindow::HelpWithSpeedUp() {
+    BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnSpeedUp(true); }));
+    BuildingHovers::SetArrowVisibleWindowLimit(1);
+    GUI::Window* h = hurry;
+    BuildingHovers::ArrowAt((float)(h->w + h->x + root->x), (float)(root->y + h->y + h->h / 2), false, true, false,
+                            false, screen, false, false);
+}
+
 void BuildProgressHoverWindow::OnSpeedUp(bool confirmed) {
     if (!itemBoosts) {
         NotEnoughWindow::ResetRequirements();
@@ -1340,4 +1349,65 @@ void PlaceBuildingHoverWindow::OnAccept() {
     BuildingHovers::HideArrow();
     if (BuildingPlacement::Activated()) BuildingPlacement::Accept();
     if (BuildingMovement::Activated()) BuildingMovement::Accept();
+}
+
+// ---- UseItemHoverWindow ----
+
+UseItemHoverWindow::~UseItemHoverWindow() { delete root; }
+
+void UseItemHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Button_work_here_holder.xml",
+                           "Button_work_here_holder.png", 1.f, 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    root->SetScreenSpace(false);
+    GUI::GetWindowTyped<GUI::Window>(root, "button_work_here.button_round_bg_red")->SetVisibility(false);
+    icon = GUI::GetWindowTyped<GUI::Window>(root, "button_work_here.icon_work_here");
+    t = 0.f;
+    icon->takesZ = true;
+}
+
+void UseItemHoverWindow::SetZ(float z) {
+    root->SetZ(z);
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
+}
+
+void UseItemHoverWindow::Show() {
+    if (shownHover) return;
+    BuildingHoverWindow::Show();
+    root->SetVisibility(true);
+    icon->SetTexture(IconManager::GetLoadingCogsIcon(), false);
+}
+
+void UseItemHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+// Above the decoration's sprite, bobbing 4 px (cos of 8 times the time).
+void UseItemHoverWindow::Update(float dt) {
+    t += dt;
+    if (!decor || !root->sprite) return;
+    float cx = decor->sprite->x + decor->sprite->w * 0.5f;
+    root->SetPosition((int)(cx - (float)(root->w / 2)),
+                      (int)((float)baseY + std::cos(t * 8.f) * 4.f) + decor->GetIconOffsetY());
+}
+
+void UseItemHoverWindow::SetPosition(int x, int y) {
+    BuildingHoverWindow::SetPosition(x, y);
+    baseY = y - root->h;
+    float bob = std::cos(t * 8.f) * 4.f;
+    float off = decor ? (float)decor->GetIconOffsetY() : 0.f;
+    root->SetPosition(x - root->w / 2, (int)off + (int)((float)baseY + bob));
+}
+
+bool UseItemHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    int wx = x, wy = y;
+    Map::MouseCoordinatesToWorld(wx, wy);
+    if (!root->Click(wx, wy, pressed, false)) return false;
+    if (BuildingHovers::ClickOnArrow(wx, wy, pressed)) return true;
+    if (BuildingHovers::ArrowVisible()) BuildingHovers::HideArrow();
+    if (decor && !pressed) BuildingHovers::OnDecorClick(decor, wx, wy);
+    return true;
 }

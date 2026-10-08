@@ -150,11 +150,9 @@ bool OnBack() {
 }
 
 // FUN_002f79a4: the helper arrow's callback, the building's info window as if tapped at (x, y).
+// FUN_002f79a4: the arrow's callback, BuildingHovers::OnBuildingClick(b, x, y).
 GUI::Callback* BuildingClickCallback(Map::Building* b, int x, int y) {
-    return new GUI::Callback([b, x, y] {
-        // UNVERIFIED (3e, building info windows): BuildingHovers::OnBuildingClick(b, x, y).
-        (void)b, (void)x, (void)y;
-    });
+    return new GUI::Callback([b, x, y] { BuildingHovers::OnBuildingClick(b, x, y); });
 }
 
 // The arrow over a building, after centring the view on it: a tap on it opens the building.
@@ -168,6 +166,7 @@ void PointAtBuilding(Map::Building* b) {
     BuildingHovers::ArrowAt(b->baseX, b->minY, false, false, false, false, false, false, false);
 }
 
+}  // namespace
 // @0x2f7a0c: where a resource comes from: its building, else the shop cell selling it.
 void FindResourceHelp(int type, unsigned line, bool fromLine) {
     uint32_t id = 0;
@@ -197,6 +196,7 @@ void FindResourceHelp(int type, unsigned line, bool fromLine) {
     }
     // UNVERIFIED (milestone 4): GlobalMapWindow::SwitchMap(0, false, true) travels home first.
 }
+namespace {
 
 // @0x2f7b98
 void OnFindActual(unsigned i) {
@@ -238,8 +238,8 @@ void OnFindActual(unsigned i) {
             }
             if (b->IsOpened() && b->data->buildingClass != 0xd && (!b->HasActiveContract() || !b->contractDone)) {
                 Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);   // UNVERIFIED: zoom 0.4, see above
-                // UNVERIFIED (3e, building info windows): BuildingHovers::OnBuildingClick(b, W/2, H/2)
-                // and ShowArrowAtUpgrade.
+                BuildingHovers::OnBuildingClick(b, GUI::ScreenWidth() / 2, GUI::ScreenHeight() / 2);
+                BuildingHovers::ShowArrowAtUpgrade();
                 return;
             }
             PointAtBuilding(b);

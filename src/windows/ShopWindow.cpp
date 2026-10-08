@@ -442,13 +442,14 @@ void OnBuy() {
         BuildingHovers::SetArrowVisibleWindowLimit(0);
     }
     auto* b = new Map::Building();
-    b->baseX = b->maxY = 0.f;
+    b->baseX = b->baseY = 0.f;   // +0x24, +0x30
     b->data = d;
     b->id = d->id;
     b->SetOpened();
     g_showBarsOnHide = false;
     Hide();
     BuildingPlacement::BuildingBought(b, icon, false);
+    delete b;   // (vfunc +4, the deleting destructor: BuildingBought keeps a duplicate)
     delete b;
 }
 

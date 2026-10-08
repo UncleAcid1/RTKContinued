@@ -76,6 +76,7 @@ add_executable(rtk
   src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
+  src/windows/NeedItemWindow.cpp
   src/windows/NotEnoughWindow.cpp
   src/windows/CharacterInfoWindow.cpp
   src/hud/PlayerTopWindow.cpp
@@ -87,6 +88,7 @@ add_executable(rtk
   src/hud/TaskHolderWindow.cpp
   src/hud/HoverWindows.cpp
   src/hud/InfoHoverWindows.cpp
+  src/hud/ItemHoverWindow.cpp
 )
 target_include_directories(rtk PRIVATE src)
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)

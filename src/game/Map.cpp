@@ -436,6 +436,14 @@ const GameData::DecorData* Decor::GetData() const {
     return data;
 }
 
+int Decor::GetIconOffsetY() const {
+    if (!data) {
+        const GameData::BuildingData* b = GameData::GetBuilding(id);
+        return b ? b->iconY : 0;
+    }
+    return data->iconY;
+}
+
 void Decor::GetStartTile(int& tx, int& ty) const {
     if (!GetData()) { tx = ty = 0; return; }
     tx = x;

@@ -8,6 +8,8 @@
 #include "game/GameState.h"
 #include "game/MetaData.h"
 #include "game/SoldierSlots.h"
+#include "game/StringTable.h"
+#include "game/Items.h"
 #include "game/Squad.h"
 
 namespace {
@@ -433,5 +435,182 @@ void MetaExpression::OnApplyItemBuffEffect(Entity* e) {
         case kExpRangedDamagePc: e->AddAttackRanged(Percent(e->GetAttackRanged(), d)); break;
         case kExpMagicDamagePc: e->AddAttackMagic(Percent(e->GetAttackMagic(), d)); break;
         }
+    }
+}
+
+// ---- The item windows' effect lines ----
+
+// @0x1c7920
+const char* MetaExpression::GetItemEffectName(unsigned effect) {
+    static const char* const kNames[] = {
+        "INVENTORY_STAT_HEALTH", "INVENTORY_STAT_DAMAGE", "INVENTORY_STAT_MAGIC_DAMAGE",
+        "INVENTORY_STAT_INITIATIVE", "INVENTORY_STAT_MELEE_DODGE", "INVENTORY_STAT_RANGED_DODGE",
+        "INVENTORY_STAT_MELEE_ABSORB", "INVENTORY_STAT_RANGED_ABSORB", "INVENTORY_STAT_BELT_SLOTS",
+        "INVENTORY_STAT_BELT_SIZE", "INVENTORY_STAT_HP_REGENERATION"};
+    return effect <= 10 ? kNames[effect] : nullptr;
+}
+
+// @0x1c7a18
+const char* MetaExpression::GetItemEffectIconName(unsigned effect) {
+    static const char* const kIcons[] = {
+        "gold_16_health", "gold_16_attack", "gold_16_mages", "gold_16_initiative",
+        "gold_16_defence_melee", "gold_16_defence", "gold_16_defence_melee", "gold_16_defence",
+        "gold_16_belt", "gold_16_belt", "gold_16_injure"};
+    return effect <= 10 ? kIcons[effect] : nullptr;
+}
+
+// @0x1c7b10
+bool MetaExpression::IsValidItemEffect(const Items::ItemInfo* info) const {
+    if (!data) return true;
+    int t = data->type;
+    if (t == kExpFoundInPvp || t == kExpAddCustom || t == kExpHideBind || t == kExpHideCustom ||
+        t == kExpKeepHair)
+        return false;
+    if (t == kExpHp && info) return info->type != 6;
+    return true;
+}
+
+// @0x1c7b80 (its jump table read from the asm: Ghidra's case labels are shifted)
+const char* MetaExpression::GetBonusIcon(const Items::ItemInfo* info) {
+    if (!data) return "gold_16_initiative";
+    auto toolIcon = [info]() -> const char* {
+        if (!info) return "gold_16_initiative";
+        return info->reputationId == 3 ? "gold_16_sickle" : "gold_16_pickaxe";
+    };
+    switch (data->type) {
+    case kExpHpMax: case kExpHealthPc: case kExpHp: case kExpRestoreHp: return "gold_16_health";
+    case kExpMeleeAttack: case kExpMeleeDamagePc: case kExpCritChance: case kExpFuryBonus:
+        return "gold_16_attack";
+    case kExpMeleeDefense: case kExpMeleeAbsorb: case kExpAllDefense: return "gold_16_defence_melee";
+    case kExpRangedAttack: case kExpRangedDamagePc: return "gold_16_ranged_attack";
+    case kExpRangedDefense: case kExpRangedAbsorb: return "gold_16_defence";
+    case kExpMagicAttack: case kExpMagicDefense: case kExpMagicAbsorb: case kExpMagicDamagePc:
+    case kExpOrbAttack: case kExpOrbDefense: case kExpOrbCritical: case kExpOrbVampire:
+    case kExpOrbPhoenix: case kExpRandomSpell:
+        return "gold_16_mages";
+    case kExpParty: return "";
+    case kExpHpRegen: return "gold_16_injure";
+    case kExpGatherChance:
+        if (!FindByType(kExpGatherTime)) return "prof_tamer_16";
+        return toolIcon();
+    case kExpGatherTime: return toolIcon();
+    case kExpLimitQuantity: return "16_crystal";
+    case kExpLuck: return "gold_16_chance";
+    }
+    return "gold_16_initiative";
+}
+
+// @0x1c8204
+const char32_t* GetChanceString(unsigned chance, unsigned low, unsigned medium, unsigned high) {
+    if (chance <= low) return StringTable::GetString("CHANCE_LOW");
+    if (chance > medium) {
+        if (chance > high) return StringTable::GetString("CHANCE_VERY_HIGH");
+        return StringTable::GetString("CHANCE_HIGH");
+    }
+    return StringTable::GetString("CHANCE_MEDIUM");
+}
+
+// @0x1c8710
+void MetaExpression::GenerateDescription(std::u32string& buf, unsigned size, Entity* e) {
+    if (!data) return;
+    const MetaData* v = data->GetChild(0);
+    // "+n" (SWPrintf into 0x20 characters) into the key's %s.
+    auto signedLine = [&](const char* key) {
+        std::u32string n = SWPrintf(0x20, U"%+d", {v->GetInt()});
+        buf = SWPrintf(size, StringTable::GetString(key), {n.c_str()});
+    };
+    auto plainLine = [&](const char* key) {   // "%d" into the key's %s
+        std::u32string n = SWPrintf(0x20, U"%d", {v->GetInt()});
+        buf = SWPrintf(size, StringTable::GetString(key), {n.c_str()});
+    };
+    auto valueLine = [&](const char* key) {   // ToWideString(value) into the key's %s
+        buf = SWPrintf(size, StringTable::GetString(key), {ToWideString(v->GetInt())});
+    };
+    auto textLine = [&](const char* key) { buf = SWPrintf(size, StringTable::GetString(key)); };
+    auto orbLine = [&](const char* key) {     // the value and the charges (1 without a second value)
+        const char32_t* a = ToWideString(v->GetChild(0)->GetInt());
+        const char32_t* b = ToWideString(v->GetChildrenCount() < 2 ? 1 : v->GetChild(1)->GetInt());
+        buf = SWPrintf(size, StringTable::GetString(key), {a, b});
+    };
+    auto timeLine = [&](const char* key) {
+        int t = v->GetInt();
+        if (t == 0) return;
+        std::u32string s = StringTable::GetTimeString(t, false);
+        buf = SWPrintf(size, StringTable::GetString(key), {s.c_str()});
+    };
+    switch (data->type) {
+    case kExpInitiative: signedLine("ITEM_BONUS_INITIATIVE"); break;
+    case kExpHpMax: signedLine("ITEM_BONUS_HP_MAX"); break;
+    case kExpHealthPc: valueLine("ITEM_BONUS_HP_MAX_PERCENT"); break;
+    case kExpMeleeAttack: signedLine("ITEM_BONUS_MELEE_ATTACK"); break;
+    case kExpMeleeDefense: signedLine("ITEM_BONUS_MELEE_DEFENSE"); break;
+    case kExpMeleeAbsorb: plainLine("ITEM_BONUS_MELEE_ABSORB"); break;
+    case kExpMeleeDamagePc: valueLine("ITEM_BONUS_MELEE_ATTACK_PERCENT"); break;
+    case kExpRangedAttack: signedLine("ITEM_BONUS_RANGED_ATTACK"); break;
+    case kExpRangedDefense: signedLine("ITEM_BONUS_RANGED_DEFENSE"); break;
+    case kExpRangedAbsorb: plainLine("ITEM_BONUS_RANGED_ABSORB"); break;
+    case kExpRangedDamagePc: valueLine("ITEM_BONUS_RANGED_ATTACK_PERCENT"); break;
+    case kExpMagicAttack: signedLine("ITEM_BONUS_MAGIC_ATTACK"); break;
+    case kExpMagicDefense: signedLine("ITEM_BONUS_MAGIC_DEFENSE"); break;
+    case kExpMagicAbsorb: plainLine("ITEM_BONUS_MAGIC_ABSORB"); break;
+    case kExpMagicDamagePc: valueLine("ITEM_BONUS_MAGIC_ATTACK_PERCENT"); break;
+    case kExpAllDefense: signedLine("ITEM_BONUS_ALL_DEFENSE"); break;
+    case kExpCritChance: signedLine("ITEM_BONUS_CRIT_CHANCE"); break;
+    case kExpFuryBonus: signedLine("ITEM_BONUS_FURY_BONUS"); break;
+    case kExpParty: textLine("ITEM_BONUS_PARTY"); break;
+    case kExpGold: valueLine("ITEM_BONUS_GOLD_DROP"); break;
+    case kExpHp: valueLine("ITEM_BONUS_ADD_HP"); break;
+    case kExpMana: valueLine("ITEM_BONUS_ADD_MANA"); break;
+    case kExpOrbAttack: orbLine("ITEM_BONUS_ORB_ATTACK"); break;
+    case kExpOrbDefense: orbLine("ITEM_BONUS_ORB_DEFENSE"); break;
+    case kExpOrbCritical: orbLine("ITEM_BONUS_ORB_CRITICAL"); break;
+    case kExpOrbVampire: {   // the health return (0 without it), the damage, the charges
+        const char32_t* a = ToWideString(v->GetChildrenCount() < 2 ? 0 : v->GetChild(1)->GetInt());
+        const char32_t* b = ToWideString(v->GetChild(0)->GetInt());
+        const char32_t* c = ToWideString(v->GetChildrenCount() < 3 ? 1 : v->GetChild(2)->GetInt());
+        buf = SWPrintf(size, StringTable::GetString("ITEM_BONUS_ORB_VAMPIRE"), {a, b, c});
+        break;
+    }
+    case kExpOrbPhoenix: textLine("ITEM_BONUS_ORB_PHOENIX"); break;
+    case kExpSpeed: valueLine("ITEM_BONUS_SPEED"); break;
+    case kExpHpRegen:   // the unit's regeneration time minus the bonus
+        if (!e) return;
+        buf = SWPrintf(size, StringTable::GetString("ITEM_BONUS_HP_REGENERATION"),
+                       {ToWideString(e->GetEntityData()->hpRate - v->GetInt())});
+        break;
+    case kExpBeltSlots: valueLine("ITEM_BONUS_BELT_SLOTS"); break;
+    case kExpBeltSize: valueLine("ITEM_BONUS_BELT_SIZE"); break;
+    case kExpGatherChance:
+        if (!FindByType(kExpGatherTime)) {   // a taming item
+            buf = SWPrintf(size, U"%s %s", {StringTable::GetString("TAME_CH"),
+                                            GetChanceString(v->GetInt(), 0x14, 0x28, 0x3c)});
+        } else {
+            buf = SWPrintf(size, StringTable::GetString("ITEM_BONUS_GATHER_CHANCE"),
+                           {GetChanceString(v->GetInt(), 0x46, 0x50, 0x5a)});
+        }
+        break;
+    case kExpGatherTime: valueLine("ITEM_BONUS_GATHER_TIME"); break;
+    case kExpGiveTroops: {
+        EntityData* d = EntityFactory::GetEntityByID(v->GetInt());
+        if (!d) return;
+        buf = SWPrintf(size, StringTable::GetString("ITEM_BONUS_GIVE_TROOPS"), {d->title});
+        break;
+    }
+    case kExpLimitQuantity: textLine("ITEM_BONUS_LIMIT_QUANTITY"); break;
+    case kExpLuck: valueLine("ITEM_BONUS_LUCK"); break;
+    case kExpSpeedGoblin: timeLine("speed_goblin_DESC"); break;
+    case kExpSpeedBuild: timeLine("speed_build_DESC"); break;
+    case kExpSpeedTime: timeLine("speed_energy_DESC"); break;
+    case kExpRestoreHp: textLine("ITEM_BONUS_RESTORE_HP"); break;
+    case kExpBuffTime: timeLine("ITEM_BONUS_BUFF_TIME"); break;
+    case kExpRandomSpell: {   // the spell's first number: 1-3 unknown, 4-6 tempest, 7-9 snowball
+        int n = v->GetChild(0)->GetInt();
+        if (n == 0) return;
+        if (n >= 1 && n <= 3) textLine("buff_unknown_DESC");
+        else if (n >= 4 && n <= 6) textLine("buff_tempest_DESC");
+        else if (n >= 7 && n <= 9) textLine("buff_snowball_DESC");
+        break;
+    }
+    default: buf = SWPrintf(size, U"Unknown effect"); break;
     }
 }

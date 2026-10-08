@@ -140,6 +140,7 @@ public:
     int GetAttackMelee() const { return attackMelee == 0 ? 0 : attackMelee + f88; }   // @0x150318
     int GetAttackRanged() const;                 // @0x151e88 0 without ranged damage at this level
     int GetAttackMagic() const;                  // @0x151e2c
+    bool HasMeleeDamage() const { return true; } // @0x150178
     bool HasRangedDamage() const;                // @0x151e60 the level's ranged attack > 0
     bool HasMagicDamage() const;                 // @0x151e04
     int GetDefenseMelee() const { return f84 + defenseMelee; }    // @0x150358

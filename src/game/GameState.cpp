@@ -1535,4 +1535,13 @@ unsigned GetSoldierReserveSlots() { return SoldierPool::GetTotalSlotsFree(); }
 
 BaseCombat* GetActiveCombat() { return nullptr; }   // UNVERIFIED (milestone 4g): currentCombat
 
+// @0x190fd0
+bool IsArenaCombatActive() {
+    BaseCombat* c = GetActiveCombat();
+    return c && c->GetType() > 4;
+}
+
+// @0x1ad2c4 Items::ItemData::IsBroken
+bool PlayerItem::IsBroken() const { return info && info->durability != 0 && f0c == 0; }
+
 }  // namespace GameState

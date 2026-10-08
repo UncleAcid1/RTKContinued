@@ -7,7 +7,6 @@
 //
 // Not ported: ChangeItemAttribute / ChangeItemsOfSlotAttributes / ChangeItemsOfTypeAttributes and
 // SetTransactionTime (the server's item changes and its clock for timed discounts; online only).
-// GetItemOffsetInHolder (the item art's offsets in UI holders) comes with the item windows.
 #pragma once
 #include <cstdint>
 
@@ -111,6 +110,12 @@ void AddBuildingAsItem(uint32_t buildingId);     // @0x1b0038 item 0x4000 + id
 // @0x1ad650: the id of the player's best gathering tool (the highest GATHER_CHANCE among items
 // without GATHER_TIME), else 0.
 uint32_t GetPlayersBestNet();
+// @0x1af0fc: the origin of the item holder layout kingdom_icons/1Original/<name>.xml (large or
+// small), cached by name (0x6135b4); false when there is no such layout.
+bool GetItemOffsetInHolder(int& x, int& y, bool large, const char* name);
+// @0x1af810: the same for item id's "<name><suffix>" holder, plus its per-item correction
+// (ItemInfo +0xa8/+0xac, a table of hand-fixed ids); the result is kept in the ItemInfo.
+bool GetItemOffsetInHolder(int& x, int& y, bool large, uint32_t id, const char* suffix);
 // @0x1ad6e0: how many boost items (0x263 goblin, 0x269 time, else build speed-up) cover seconds.
 int GetAmountToBoostTime(uint32_t id, uint32_t seconds);
 

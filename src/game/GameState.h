@@ -70,6 +70,8 @@ inline bool IsCombatActive() { return GetActiveCombat() != nullptr; }   // @0x19
 // @0x190f90: a combat whose type (vfunc +0x50) is above 2 is running. UNVERIFIED (milestone 4): no
 // combats are ported (GameState::currentCombat is always null), so it is false.
 inline bool IsBossCombatActive() { return false; }
+// @0x190fd0: an arena combat (type above 4) is running.
+bool IsArenaCombatActive();
 bool IsTameTutorial();                         // @0x190bb4
 bool IsFirstVirtualTutorial();                 // @0x190b44 second-tutorial steps 0x200..0x205
 // @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.
@@ -131,7 +133,9 @@ struct PlayerItem {             // 0x18 bytes, the player's items (vector 0x612f
     uint32_t id = 0;            // +0x00
     Items::ItemInfo* info = nullptr;   // +0x04 Items::GetItemInfo
     uint32_t uniqueId = 0;      // +0x08
-    uint32_t f0c = 0, f10 = 0;  // +0x0c +0x10
+    uint32_t f0c = 0, f10 = 0;  // +0x0c the durability left, +0x10
+    // @0x1ad2c4 Items::ItemData::IsBroken: an item with durability and none left.
+    bool IsBroken() const;
     bool f14 = false;           // +0x14
 };
 struct ItemBinding {            // 0xc bytes: the item bindings 0x612ad8 (10) and 0x612b50 (32)

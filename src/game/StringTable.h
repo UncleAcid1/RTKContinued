@@ -24,6 +24,8 @@ const char* GetLanguage();
 // SetEmptyNameReplacement, is not ported.)
 const char32_t* GetString(const char* key);
 bool StringExists(const char* key);              // @0x22c980
+bool StringNotEmpty(const char* key);            // @0x228d7c
+const char32_t* GetStringF(const char* fmt, ...);   // @0x22c908
 // @0x22b1a0: a duration with the units of "TIME_STR" ("h,m,s"): "HH:MM h" from an hour, "MM:SS m"
 // from a minute, else "S s"; compact gives "H h" / "M m" instead. (The original writes into a
 // caller buffer; callers pass 0x20 characters.)
@@ -70,3 +72,5 @@ struct StringArgument {
 std::u32string SWPrintf(unsigned size, const char32_t* format, std::initializer_list<StringArgument> args = {});
 // @0x22e0f8: L"%d" into one of 16 rotating buffers (the pointer stays valid for 15 more calls).
 const char32_t* ToWideString(int n);
+// @0x22df6c: SWPrintf into one of 4 rotating buffers of 0x80 characters (its own ring).
+const char32_t* ToWideString(const char32_t* format, std::initializer_list<StringArgument> args);

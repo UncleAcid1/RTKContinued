@@ -121,6 +121,27 @@ public:
     int startX = 0, startY = 0;        // +0x3c +0x40
 };
 
+// The bobbing cogs over a map object that wants an item used on it (Button_work_here_holder.xml,
+// world space). A tap is the decoration's tap. Port of UseItemHoverWindow (0x44 bytes).
+class UseItemHoverWindow : public BuildingHoverWindow {
+public:
+    UseItemHoverWindow() { name = "UseItemHoverWindow"; }   // @0x39af88 (also @0x39afd8)
+    ~UseItemHoverWindow() override;              // @0x39aec4 (deleting @0x39af18, @0x39af34)
+    void Init() override;                        // +0x08 @0x39adf4
+    void SetZ(float z) override;                 // +0x10 @0x39ad28
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x39ac60
+    void Show() override;                        // +0x1c @0x39ad88
+    void Hide() override;                        // +0x20 @0x39ad50
+    void Update(float dt) override;              // +0x24 @0x39aaf0
+    void SetPosition(int x, int y) override;     // +0x3c @0x39abbc
+    void SetDecoration(Map::Decor* d) override { decor = d; }   // +0x48 @0x39abb8
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* icon = nullptr;       // +0x38 button_work_here.icon_work_here
+    float t = 0.f;                     // +0x3c bob time
+    int baseY = 0;                     // +0x40
+};
+
 // The round tax button over houses and decorations with collectable gold.
 class TaxesHoverWindow : public BuildingHoverWindow {
 public:
@@ -220,6 +241,7 @@ public:
     int GetSpeedUpCost();                        // @0x3710ac
     int GetRemainingTime();                      // @0x37163c
     void OnSpeedUp(bool confirmed);              // @0x371430
+    void HelpWithSpeedUp();                      // @0x3716f0
     void OnSpeedUpFinished();                    // @0x37116c
     void FakeSpeedup();                          // @0x370f6c
     // The repeated layout step: the hurry button and "tap to speed up" lines shown or hidden, the
