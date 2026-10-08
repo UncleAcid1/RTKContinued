@@ -57,6 +57,23 @@ std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blo
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
 bool g_victoryPose = false;   // 0x6138cc the player won a fight on the way here (milestone 4g sets it)
 std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
+bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap: milestone 4f)
+bool g_allowBuildingVisibility = false;         // 0x60ef20
+bool g_allowDecorationVisibility = false;       // 0x60ef21
+float g_visibilityTimer = 0.f, g_fogTimer = 0.f;   // 0x6138d0 0x6138d4
+float g_resortTimer = 0.f;                      // 0x6138d8 layer 8 is re-sorted every 0.757 s
+float g_mapTimer = 0.f;                         // 0x6138c8 360 s on mission maps, then a ding
+// The ambient sky (PrepareImages, Map::Load, Map::Update).
+bool g_imagesPrepared = false;                  // 0x6137ac
+Render::Texture* g_birdTex[12] = {};            // 0x6137b0 bird_000..003, bird_c_000/002/003/004, bird_d_000..003
+Render::Texture* g_cloudTex[6] = {};            // 0x6137e0 cloud_no_shad_001..003, cloud_small_001..003
+Render::Sprite* g_clouds[12] = {};              // 0x61388c
+struct Bird {                                   // 0x10 bytes (FUN_001c273c resizes the vector)
+    float tx = 0.f, ty = 0.f;                   // +0x00 +0x04 where it flies to
+    Render::Sprite* sprite = nullptr;           // +0x08
+    int dir = 0;                                // +0x0c the heading sector shown (0..7)
+};
+std::vector<Bird> g_birds;                      // 0x613828
 
 Cell* At(int x, int y) {
     if ((unsigned)x >= (unsigned)g_gridW || (unsigned)y >= (unsigned)g_gridH) return nullptr;
@@ -835,6 +852,149 @@ void UpdateStorageMax() {
     if (GameState::resourceAmountMax > 0) GameState::lastResourceAmountMax = GameState::resourceAmountMax;
 }
 
+void AllowBuildingVisibilityUpdate(bool on) { g_allowBuildingVisibility = on; }
+void AllowDecorationVisibilityUpdate(bool on) { g_allowDecorationVisibility = on; }
+
+void UpdateResources() {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings) b->UpdateResources();
+}
+
+void PrepareImages() {
+    if (g_imagesPrepared) return;
+    g_imagesPrepared = true;
+    static const char* const kBirds[12] = {
+        "images/bird/bird_000.png",   "images/bird/bird_001.png",   "images/bird/bird_002.png",
+        "images/bird/bird_003.png",   "images/bird/bird_c_000.png", "images/bird/bird_c_002.png",
+        "images/bird/bird_c_003.png", "images/bird/bird_c_004.png", "images/bird/bird_d_000.png",
+        "images/bird/bird_d_001.png", "images/bird/bird_d_002.png", "images/bird/bird_d_003.png"};
+    bool all = true;
+    for (int i = 0; i < 12; ++i) {
+        g_birdTex[i] = Resources::GetDirectImage(kBirds[i]);
+        if (g_birdTex[i]) g_birdTex[i]->frameTime = 0.2f;
+        else all = false;
+    }
+    if (all)
+        for (int c = 0; c < 12; c += 4)
+            for (int f = 0; f < 4; ++f) g_birdTex[c + f]->next = g_birdTex[c + (f + 1) % 4];
+    static const char* const kClouds[6] = {
+        "images/Effects/clouds/cloud_no_shad_001", "images/Effects/clouds/cloud_no_shad_002",
+        "images/Effects/clouds/cloud_no_shad_003", "images/Effects/clouds/cloud_small_001",
+        "images/Effects/clouds/cloud_small_002",   "images/Effects/clouds/cloud_small_003"};
+    for (int i = 0; i < 6; ++i) g_cloudTex[i] = Resources::GetImage(kClouds[i]);
+    // UNVERIFIED: each cloud texture's byte +0x28 is cleared; the port's Texture has no such field.
+}
+
+// (Map::Load) twelve clouds on layer 11 at random spots above the map.
+void CreateClouds() {
+    for (unsigned i = 0; i < 12; ++i) {
+        Render::Texture* t = g_cloudTex[i % 6];
+        if (!t) continue;
+        Render::Sprite* s = Render::CreateSprite(t, Render::kLayerFog, false, false);
+        g_clouds[i] = s;
+        long rx = Rand48::lrand48();
+        long ry = Rand48::lrand48();
+        Render::SetPosition(s, (float)(rx % 4000) - 1000.f, (float)(ry % 300) - 350.f, 0.31f);
+    }
+}
+
+// (Map::Load) one bird per 256 tiles, at a random spot of the map, each flying to a point up to
+// 250 px away.
+void CreateBirds() {
+    int maxX = (int)(1.f + (float)(unsigned)GetGridWidth() * 84.f);
+    int maxY = (int)(1.f + (float)(unsigned)GetGridHeight() * 42.f * 0.5f);
+    g_birds.resize((unsigned)(GetGridWidth() * GetGridHeight()) >> 8);
+    for (Bird& b : g_birds) {
+        if (g_birdTex[0]) {
+            b.sprite = Render::CreateSprite(g_birdTex[0], Render::kLayerFog, false, false);
+            b.sprite->animTime = 0.f;
+            long rx = Rand48::lrand48();
+            long ry = Rand48::lrand48();
+            Render::SetPosition(b.sprite, (float)(rx % maxX), (float)(ry % maxY), 0.31f);
+        }
+        if (!b.sprite) continue;   // PORT: the original reads the missing sprite
+        b.tx = b.sprite->x + (float)(Rand48::lrand48() % 500) - 250.f;
+        b.ty = b.sprite->y + (float)(Rand48::lrand48() % 500) - 250.f;
+    }
+}
+
+// (Map::Update) the clouds drift right at 30 px/s, turned by -22.5 degrees (shader 8), and come
+// back from the left past the map's right edge.
+void UpdateClouds(double dt) {
+    for (Render::Sprite* s : g_clouds) {
+        if (!s) continue;
+        Render::SetPosition(s, (float)(dt * 30.0) + s->x, s->y, s->z);
+        Render::SetShaderType(s, 8);
+        s->color[2] = -0.39269909f;
+        s->color[1] = s->h * 0.5f - s->y;
+        s->color[0] = s->x + s->w * 0.5f;
+        if (512.f + (float)(unsigned)GetGridWidth() * 84.f < s->x) s->x = -1000.f;
+        if (s->y < -1000.f) s->y = 3000.f;
+    }
+}
+
+// (Map::Update) each bird flies to its point at 100 px/s, showing one of eight headings (a frame
+// chain and its mirroring); at the point it picks another within 250 px; past the map's edges it
+// comes back from the other side.
+void UpdateBirds(double dt) {
+    // vBottom, vTop, u0, u1 per heading (0x583db0) and the heading's frame chain (0x583e30).
+    static const float kUV[8][4] = {{1, 0, 0, 1}, {0, 1, 1, 0}, {0, 1, 1, 0}, {0, 1, 0, 1},
+                                    {1, 0, 1, 0}, {1, 0, 0, 1}, {1, 0, 1, 0}, {1, 0, 1, 0}};
+    static const int kFrames[8] = {8, 0, 4, 0, 8, 0, 4, 0};
+    for (Bird& b : g_birds) {
+        Render::Sprite* s = b.sprite;
+        if (!s) continue;
+        float dy = s->y - b.ty, dx = s->x - b.tx;
+        float d2 = dy * dy + dx * dx;
+        float d = std::sqrt(d2);
+        float uy = -dy / d, ux = -dx / d;
+        double sy = (double)uy * dt * 100.0, sx = (double)ux * dt * 100.0;
+        s->y = s->y + (float)sy;
+        s->x = s->x + (float)sx;
+        double reach2 = (double)uy * sy * dt * 100.0 + (double)ux * sx * dt * 100.0;
+        float angle = (float)((double)std::atan2(-uy, ux) / 3.141592653589793 * 180.0);
+        int dir = 0;
+        if (angle >= -22.5f && angle < 22.5f) dir = 0;
+        else if (angle >= 22.5f && angle < 67.5f) dir = 1;
+        else if (angle >= 67.5f && angle < 112.5f) dir = 2;
+        else if (angle >= 112.5f && angle < 157.5f) dir = 3;
+        else if (angle >= 157.5f || angle < -157.5f) dir = 4;
+        else if (angle < -112.5f) dir = 5;
+        else if (angle < -67.5f) dir = 6;
+        else if (angle < -22.5f) dir = 7;
+        if (dir != b.dir) {
+            Render::SetTexture(s, g_birdTex[kFrames[dir] % 12]);
+            b.dir = dir;
+            s->vBottom = kUV[dir][0];
+            s->vTop = kUV[dir][1];
+            s->u0 = kUV[dir][2];
+            s->u1 = kUV[dir][3];
+        }
+        if ((double)d2 < reach2) {
+            b.tx = s->x + (float)(Rand48::lrand48() % 500) - 250.f;
+            b.ty = s->y + (float)(Rand48::lrand48() % 500) - 250.f;
+        }
+        float maxX = 512.f + (float)(unsigned)GetGridWidth() * 84.f;
+        float maxY = (float)(unsigned)GetGridHeight() * 42.f * 0.5f + (GameState::GetCurrentMapID() == 0 ? -128.f : 256.f);
+        if (s->x > maxX) {
+            s->x = -512.f;
+            b.tx = -512.f + (float)(Rand48::lrand48() % 500);
+        }
+        if (s->x < -512.f) {
+            s->x = maxX;
+            b.tx = s->x + (float)(Rand48::lrand48() % 500) - 100.f;
+        }
+        if (s->y > maxY) {
+            s->y = -256.f;
+            b.ty = s->y + (float)(Rand48::lrand48() % 500);
+        }
+        if (s->y < -256.f) {
+            s->y = maxY;
+            b.ty = s->y + (float)(Rand48::lrand48() % 500) - 500.f;
+        }
+    }
+}
+
 void UpdateStorages() {
     for (auto& p : g_patches)
         for (auto& b : p->buildings)
@@ -957,14 +1117,51 @@ void CreateRoadAI() {
 }
 
 void Update(double dt) {
-    // UNVERIFIED (milestones 4-5): the 0.1 s visibility pass on campaign maps (fog) and the cloud,
-    // weather and camera-path parts that follow the object updates.
+    if (g_loadQueued) {
+        // UNVERIFIED (milestone 4f): a queued map switch (EnqueueLoadMap): the global map and boss
+        // intro effects, the save, EntityManager::RemoveEntitiesByID and Map::Load.
+        return;
+    }
+    float fdt = (float)dt;
+    g_visibilityTimer += fdt;
+    g_fogTimer += fdt;
+    if (g_visibilityTimer >= 0.1f) {
+        AllowBuildingVisibilityUpdate(true);
+        AllowDecorationVisibilityUpdate(true);
+        // UNVERIFIED (milestone 4f): away from the city each sprite of the list 0x613844 is shown
+        // only where the fog is open (Fog::IsVisible).
+        g_visibilityTimer = 0.f;
+    }
+    if (g_fogTimer >= 0.05f) {
+        // UNVERIFIED (milestone 4f): Fog::Update.
+        g_fogTimer = 0.f;
+    }
     g_currentTime = Timer::GetGlobalTime();   // SetCurrentTime @0x130f2c (0x6118c4)
     for (auto& p : g_patches) {
         for (size_t i = 0; i < p->buildings.size(); ++i) p->buildings[i]->Update(dt);
-        // UNVERIFIED (milestone 3): Decor::Update (resource decorations, timers) and the removal of
-        // decorations that flag themselves (+0x40) afterwards.
+        // UNVERIFIED (milestone 4e): Decor::Update (resource decorations, timers) and the removal of
+        // decorations that flag themselves (+0x40) afterwards (RemoveDecoration).
     }
+    AllowBuildingVisibilityUpdate(false);
+    AllowDecorationVisibilityUpdate(false);
+    UpdateClouds(dt);
+    // UNVERIFIED (milestones 4c/4f/4g): the queued building placements (EnqueueBuildingPlacement,
+    // tutorial 0x3a), the camera points (AddCameraPoint: reveal, arrows, tasks), the camera shake
+    // (AddCameraShake) and the cinematic bars (AddCameraCinematic).
+    g_resortTimer += fdt;
+    if (g_resortTimer >= 0.757f) {
+        Render::SortRenderLayer(Render::kLayerObjects, 1);
+        g_resortTimer = 0.f;
+    }
+    float t = g_mapTimer, left = t;
+    if (0.f < t) left = t - fdt;
+    if (0.f < t) g_mapTimer = left;
+    if (left < 0.f) {
+        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("map_timer_ding").
+        g_mapTimer = 360.f;
+    }
+    UpdateBirds(dt);
+    Background::Update(dt);
 }
 
 void OfflineUpdate(double dt) {
@@ -1020,6 +1217,12 @@ void Free() {
     g_patches.clear();
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
     g_borderSprites.clear();
+    for (Render::Sprite*& s : g_clouds) {
+        if (s) Render::RemoveSprite(s);
+        s = nullptr;
+    }
+    for (Bird& b : g_birds) b.sprite = Render::RemoveSprite(b.sprite);
+    g_birds.clear();
     g_grid.clear();
 }
 
@@ -1129,16 +1332,55 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     AI::LinkAdjacentWaypoints();
     SpawnEntities();
     // UNVERIFIED (milestone 4f): EntityManager::UpdateAggroZone.
+    PrepareImages();
     if (GameState::GetCurrentMapID() == 0) {
         int x = 0x1e, y = 0xc;
         TileCoordinatesToWorld(x, y);
         Render::CenterOn((float)x, (float)y);
     }
+    UpdateResources();
+    // UNVERIFIED (milestones 4c/4h): the tutorial's task fixes (subtask 0x1e/0x2f in the city, the
+    // tutorial-type locks and completions), Tasks::Update and HUDWindow::RemoveTaskArrows.
+    BuildingHovers::Update(0.0, true);
+    BeltBarWindow::Show();
+    // UNVERIFIED (milestone 4f): Locations::IsMissionMap (the city is not one): from tileset 2 on, or
+    // off mission maps, the clouds.
+    const bool missionMap = false;
+    if ((unsigned)g_tileset >= 2 || !missionMap) CreateClouds();
+    Render::SortRenderLayer(Render::kLayerObjects, 0);
+    Render::SortRenderLayer(Render::kLayerFlat3, 1);
+    Render::SortRenderLayer(4, 0);
+    Render::SortRenderLayer(5, 1);
+    Render::SortRenderLayer(Render::kLayerObjects, 0);
+    Render::SortRenderLayer(Render::kLayerObjects, 0);
+    Render::SortRenderLayer(Render::kLayerObjects, 1);
+    // UNVERIFIED (milestones 4f/4g): the map's name (HUDWindow::ShowMapName) or the boss intro / PvP
+    // intro of a running combat.
     // (after the map name and the boss intro) the player's stats and its regenerated HP.
     if (EntityManager::GetPlayer()) {
         CharacterInfoWindow::UpdateContents();
         GameState::SetupPlayerRegenerationState();
     }
+    if (!missionMap || GameState::GetMapStartTime(GameState::GetCurrentMapID()) == 0)
+        GameState::SetMapStartTime(GameState::GetCurrentMapID(), (uint32_t)Timer::GetGlobalTime());
+    EntityManager::UpdateGraphics();
+    AllowBuildingVisibilityUpdate(true);
+    AllowDecorationVisibilityUpdate(true);
+    Update(0.0);
+    // (the loading screen closes here: not ported)
+    if (GameState::tutorial == 9) GameState::tutorial = 10;
+    // UNVERIFIED (milestone 4h): tutorial step 0x67 and second-tutorial step 0x20e send their
+    // tutorial events; during a tutorial the help arrows of the last help item are run again
+    // (NeedItemWindow, NotEnoughWindow, TaskListWindow, Tasks, FoundItemsWindow::RunPostAction,
+    // SultanArrivingWindow, ChoosePathWindow).
+    g_mapTimer = missionMap ? 360.f : 0.f;
+    GameState::ResetTimeModifier();
+    CreateBirds();
+    GameState::SetBeltItemMode(GameState::IsArenaCombatActive());
+    GameState::SetMapVisitTime(GameState::GetCurrentMapID(), (uint32_t)Timer::GetGlobalTime());
+    // OnMapLoaded @0x1b79c0 only reports some map ids to the online event log (OG2::MakeRequest).
+    // UNVERIFIED (milestone 4f): the map version update (UpdateCityMap / UpdateBattleMap,
+    // Get/SetMapVersion) on the first load.
     return true;
 }
 

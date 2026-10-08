@@ -78,6 +78,14 @@ void AddMapResourceCollectionInfo(uint32_t map, int type, int amount);
 int GetMapItemCollectionInfo(uint32_t map, uint32_t id);
 int GetMapResourceCollectionInfo(uint32_t map, int type);
 void ResetMapCollectionInfo(uint32_t map);
+void SetMapStartTime(uint32_t map, uint32_t t);   // @0x1984b8
+uint32_t GetMapStartTime(uint32_t map);           // @0x198484
+void SetMapVisitTime(uint32_t map, uint32_t t);   // @0x1983d8
+// The game speed factor (0x60efc0, 1 at start): Set @0x191138 ignores values above 1, Get @0x191160,
+// Reset @0x191174 puts back 1.
+void SetTimeModifier(float f);
+float GetTimeModifier();
+void ResetTimeModifier();
 bool IsTameTutorial();                         // @0x190bb4
 bool IsFirstVirtualTutorial();                 // @0x190b44 second-tutorial steps 0x200..0x205
 // @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.

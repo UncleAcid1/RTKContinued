@@ -178,8 +178,17 @@ Decor* GetDecorAtCoords(int x, int y, bool any);
 
 void TileCoordinatesToWorld(int& x, int& y);           // @0x1b632c
 void TileCoordinatesToLinear(int& x, int& y);          // @0x1b62f4
-// @0x1c4dd8, the part ported so far: every building's and decoration's Update.
+// @0x1c4dd8, the part ported so far: every building's Update, the clouds, the birds, the layer-8
+// re-sort, the map timer and Background::Update.
 void Update(double dt);
+// @0x1bb4d4 (Map::Load, once): the birds' frames (images/bird/, three looping chains of four
+// frames, 0.2 s each) and the cloud images (images/Effects/clouds/).
+void PrepareImages();
+void UpdateResources();                                // @0x1ba5ac every building's gathered pile
+// @0x11c428 / @0x130f18: buildings / decorations may update their fog visibility this frame (set by
+// Map::Update every 0.1 s; read on campaign maps only).
+void AllowBuildingVisibilityUpdate(bool on);
+void AllowDecorationVisibilityUpdate(bool on);
 void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile; spawn points: milestone 4f
 void SpawnEntities();    // @0x1c0460 (Map::Load) the player's squad appears around it
 // @0x1b6754: after the app's pause every building and decoration runs one Update with the time

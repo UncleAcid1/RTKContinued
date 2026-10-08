@@ -7,7 +7,11 @@
 namespace Background {
 namespace {
 Render::Sprite* g_land = nullptr;     // +0x2c
-Render::Sprite* g_horizon = nullptr;  // +0x04
+Render::Sprite* g_horizon = nullptr;  // +0x04 (0x611630) the sky strip
+// The mission maps' mountains and front strips (0x611634, 0x611638; CreateLand's mission-map
+// branch, milestone 4f): null in the city.
+Render::Sprite* g_mountains = nullptr;
+Render::Sprite* g_front = nullptr;
 // The farm view (CreateFarm): its ground, the farm's building (and the animal farm's fence) and
 // the four paper margins around it.
 Render::Sprite* g_farmBg = nullptr;       // 0x61162c
@@ -117,6 +121,16 @@ void CreateFarm(int) {
         Render::SetPosition(g_farmPaper[3], x + w, y, 1.f);
     }
     // UNVERIFIED: Render::EnableTerrainShadowing(false) (the terrain shadow pass is not ported).
+}
+
+// @0x10b238: with all three strips (mission maps) they follow the camera at different rates: the
+// sky by half the camera offset, the mountains by an eighth, the front strip not at all.
+void Update(double) {
+    if (!g_horizon || !g_mountains || !g_front) return;
+    float mid = (float)(unsigned)Map::GetGridWidth() * 84.f * 0.5f;
+    Render::SetPosition(g_horizon, (float)(g_horizon->tex->w << 3) * -0.5f + mid + Render::offsetX * -0.5f, -40.5f, 0.9f);
+    Render::SetPosition(g_mountains, (float)(g_mountains->tex->w << 3) * -0.5f + mid + Render::offsetX * -0.125f, -26.5f, 0.9f);
+    Render::SetPosition(g_front, (float)(g_front->tex->w << 3) * -0.5f + mid, -25.5f, 0.9f);
 }
 
 // @0x10b47c. PORT: the low-memory device path (Render::FreeMemory) is left out.

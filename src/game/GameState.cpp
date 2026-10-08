@@ -1576,6 +1576,15 @@ int GetMapResourceCollectionInfo(uint32_t map, int type) {
 }
 
 // @0x195318: every record of the map (the key's upper half).
+void SetMapStartTime(uint32_t map, uint32_t t) { g_mapStartTime[map] = t; }
+uint32_t GetMapStartTime(uint32_t map) { return g_mapStartTime[map]; }
+void SetMapVisitTime(uint32_t map, uint32_t t) { g_mapVisitTime[map] = t; }
+
+namespace { float g_timeModifier = 1.f; }   // 0x60efc0
+void SetTimeModifier(float f) { if (f <= 1.f) g_timeModifier = f; }
+float GetTimeModifier() { return g_timeModifier; }
+void ResetTimeModifier() { g_timeModifier = 1.f; }
+
 void ResetMapCollectionInfo(uint32_t map) {
     for (auto it = g_mapCollectionInfo.begin(); it != g_mapCollectionInfo.end();) {
         if ((uint16_t)(it->first >> 16) == map) it = g_mapCollectionInfo.erase(it);

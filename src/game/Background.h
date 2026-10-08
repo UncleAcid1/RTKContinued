@@ -4,6 +4,7 @@
 
 namespace Background {
 void CreateLand(unsigned tileset);
+void Update(double dt);         // @0x10b238 (Map::Update) the mission maps' horizon parallax
 void CreateFarm(int farm);      // @0x10b4fc the farm view's ground and frame (3f)
 void RemoveFarm();              // @0x10b47c
 void GetFarmBounds(float& left, float& top, float& right, float& bottom);   // @0x10b1f0
