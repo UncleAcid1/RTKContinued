@@ -191,6 +191,28 @@ void Entity::EnqueueAnimation(const char* name, float time) {
 
 void Entity::SetAnimationFrame(int f) { anim->SetCurrentFrame(f); }
 
+// Map::Free: the waypoint, home, workplaces, linked entity, hover window and spawn point go with
+// the map; a class 0x10 entity stops appearing/disappearing; the AI is told (AI +0x150).
+void Entity::OnMapUnload() {
+    waypoint = nullptr;
+    home = nullptr;
+    workplace = nullptr;
+    workplaceDecor = nullptr;
+    linked = nullptr;
+    hoverWindow = nullptr;
+    spawnPoint = nullptr;
+    if ((appearing || disappearing) && GetEntityData() && GetEntityData()->clas == 0x10) {
+        disappearing = false;
+        appearing = false;
+    }
+    if (ai) ai->OnMapUnload();
+}
+
+int Entity::GetAnimationFrameCount() const {
+    if (anim && anim->anim) return anim->anim->frameCount;
+    return 0;
+}
+
 bool Entity::AnimExists(const char* name) const { return data->AnimationExists(name); }
 
 void Entity::AnimationEnded() {

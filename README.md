@@ -40,7 +40,7 @@ back what the game files themselves contain.
 
 **Status:** work in progress (milestone 4 of 7). The city, HUD, workers, economy, farms, shop,
 saves, the hero and his army, and items work, and the city's birds, clouds and land patches
-follow the original. The last gaps in that finished work (43 functions) are being closed; quests,
+follow the original. The last gaps in that finished work (30 start-up and shutdown functions) are being closed; quests,
 campaign maps and combat come next. See
 [STATUS.md](STATUS.md) for the detailed progress and plan, and
 [docs/port_inventory.md](docs/port_inventory.md) for where every part of the original goes.

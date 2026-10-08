@@ -481,6 +481,19 @@ void DropGamePauseState() {
 }
 bool IsPaused() { return g_pause > 0; }
 
+int saveOnline = 0;
+
+void Update(float dt) {
+    if (saveOnline == 1) {
+        Map::Save(1);   // Map::SaveOnline @0x1bbe88
+        saveOnline = 0;
+    }
+    // Online, not ported: with Facebook on, showFBWindowTimer counts dt; past its limit, with no
+    // window shown, not signed in and not offline by default, once a day (0x15180 s) the
+    // FacebookSyncWindow is offered.
+    (void)dt;
+}
+
 // ----------------------------------------------------------------------------------------- items
 uint32_t GetBeltSlotCount() { return g_beltSlotCount; }
 void SetBeltSlotCount(uint32_t n) { g_beltSlotCount = n > 3 ? 3 : n; }

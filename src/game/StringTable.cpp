@@ -5,10 +5,16 @@
 #include <cctype>
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <string_view>
+#include <vector>
 #include <unordered_map>
 
 #include "engine/FileManager.h"
+#include "game/GameData.h"
+#include "game/GameState.h"
+#include "game/Items.h"
 
 namespace StringTable {
 namespace {
@@ -238,6 +244,57 @@ std::u32string GetNumericTimeString(int t, bool) {
 // @0x22c980 ("%s_%s" with the current language, then "EN_%s")
 bool StringExists(const char* key) {
     return Find(std::string(g_lang) + "_" + key) || Find(std::string("EN_") + key);
+}
+
+namespace {
+// FUN_0022c08c: a bracketed word's text (the word itself when it names nothing).
+const char32_t* ResolveDecoration(const char32_t* w) {
+    if (std::u32string_view(w) == U"player") return GameState::GetPlayerName();
+    if (std::u32string_view(w) == U"castle") return GameState::GetCastleName();
+    size_t len = std::char_traits<char32_t>::length(w);
+    if (len - 5 < 0x1a) {   // 5..30 characters, narrowed to bytes
+        char buf[32];
+        for (size_t i = 0; i < len; ++i) buf[i] = (char)w[i];
+        buf[len] = 0;
+        if (std::memcmp(buf, "item:", 5) == 0) {
+            if (const Items::ItemInfo* it = Items::GetItemInfo((uint32_t)std::atoi(buf + 5))) return it->title;
+        }
+        if (len > 8 && std::memcmp(buf, "building:", 9) == 0) {
+            if (const GameData::BuildingData* b = GameData::GetBuilding((uint32_t)std::atoi(buf + 9)))
+                return GetString(b->name.c_str());
+        }
+    }
+    return w;
+}
+}  // namespace
+
+std::u32string GetUndecoratedString(const char32_t* text, unsigned size, std::u32string* last, unsigned lastSize) {
+    if (!text) {
+        if (last) last->clear();
+        return U"";
+    }
+    // WSplitter(text, L"["): every part, empty ones included; each part after the first ends at ']'.
+    std::vector<std::u32string> parts;
+    std::u32string all = text;
+    for (size_t start = 0;;) {
+        size_t open = all.find(U'[', start);
+        parts.push_back(all.substr(start, open - start));
+        if (open == std::u32string::npos) break;
+        start = open + 1;
+    }
+    for (size_t i = 1; i < parts.size(); ++i) {
+        size_t close = parts[i].find(U']');
+        if (close != std::u32string::npos) parts[i].resize(close);
+    }
+    const char32_t* format = ResolveDecoration(parts[0].c_str());
+    const char32_t* a[8];
+    for (size_t i = 0; i < 8; ++i) a[i] = i + 1 < parts.size() ? ResolveDecoration(parts[i + 1].c_str()) : U"";
+    std::u32string out = SWPrintf(size, format, {a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]});
+    if (last) {
+        if (parts.size() < 2) last->clear();
+        else *last = SWPrintf(lastSize, U"%s", {parts.back().c_str()});
+    }
+    return out;
 }
 
 }  // namespace StringTable

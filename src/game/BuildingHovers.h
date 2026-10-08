@@ -120,6 +120,12 @@ int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, fl
 void ArrowAt(float x, float y, bool hide, bool left, bool mirror, bool flip, bool screenSpace, bool tablet,
              bool newArrow);
 void HideArrow();                           // @0x2663d8 back to the one (hidden) arrow
+// @0x264b94 (PopupWindow: 0 while it is shown, 1 after): every arrow's alpha; below 1 with the
+// alpha shader (type 1). UNVERIFIED (milestone 4h): the tablet rings (+0x18, +0x1c) go to alpha 0.
+void SetArrowAlpha(float a);
+// @0x2642dc (HUDWindow::Update's HUD return): every hover window, then BuildingHovers itself, to
+// the bottom of the window queue (main_Loop_Func keeps desktop_window below them).
+void MoveWindowDown();
 void UpdateArrow();                         // @0x264df8 the bobbing
 bool ArrowVisible();                        // @0x264a54
 bool CanAutoHideArrow();                    // @0x26324c

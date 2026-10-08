@@ -12,6 +12,7 @@
 #include "game/Map.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
+#include "game/Tags.h"
 
 bool done = false;
 bool paused = false;
@@ -63,4 +64,23 @@ void SaveOnExit() {
     // UNVERIFIED (milestone 4): SpellMovement::Deinit, MapMovement::Deinit.
     if (GameState::IsCityTutorial()) return;
     Map::Save(0);
+}
+
+void UpdateTagState() {
+    static uint32_t s_lastTime = 0;   // 0x6122e8
+    uint32_t now = (uint32_t)Timer::GetGlobalTime();
+    if (now == s_lastTime) return;
+    s_lastTime = now;
+    bool changed = false;
+    for (unsigned i = 0;; ++i) {
+        Tags::Tag* t = Tags::EnumTag(i);
+        if (!t) break;
+        if (t->f05 == t->IsActive()) continue;
+        changed = true;
+        // UNVERIFIED (milestone 4c): EntityManager::OnTagUpdate (0x16664c): entities whose meta
+        // expression (type 0x99) names the tag appear or are set up again.
+        t->f05 = t->IsActive();
+    }
+    if (!changed) return;
+    // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks (0x2c7ba8).
 }

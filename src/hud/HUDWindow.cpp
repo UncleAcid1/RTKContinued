@@ -303,15 +303,9 @@ void SetZ(float z) {
     TopCityWindow::SetZ(z);
 }
 
-// @0x2c81c8. Nothing without a player entity. The map-name popup: over the first second the name
-// grows from half size (on a quarter circle) and fades in; it fades out until 3 s, then hides.
-// UNVERIFIED (milestones 4d/4g): the player's damage locator pulse (male/female portrait), the
-// locators, the screen darkening, the mission timer, the task locator search and the HUD's return
-// after the city tutorial.
-void Update(float dt) {
-    if (!EntityManager::GetPlayer()) return;
-    Render::Sprite* s = g_mapNameText->sprite;
-    if (!g_mapName->visibleSelf || !s) return;
+namespace {
+// (HUDWindow::Update) the map-name popup's zoom and fade.
+void UpdateMapName(Render::Sprite* s, float dt) {
     const float W = (float)GUI::ScreenWidth(), H = (float)GUI::ScreenHeight();
     if (g_mapNameTime < 1.f) {
         float halfW = g_mapNameW * 0.5f;
@@ -331,6 +325,32 @@ void Update(float dt) {
         g_mapName->SetVisibility(false);
     }
     g_mapNameTime += dt;
+}
+}  // namespace
+
+// @0x2c81c8. Nothing without a player entity. The map-name popup: over the first second the name
+// grows from half size (on a quarter circle) and fades in; it fades out until 3 s, then hides.
+// Last, the HUD's return: with no window shown after the city tutorial (0x80), outside the second
+// tutorial's steps 0x93..0x96 and the tame tutorial, a HUD that is not at the top of the queue
+// comes back: the hovers go to the bottom and the panels are shown again.
+// UNVERIFIED (milestones 4d/4g): the player's damage locator pulse (male/female portrait).
+void Update(float dt) {
+    if (!EntityManager::GetPlayer()) return;
+    Render::Sprite* s = g_mapNameText->sprite;
+    if (g_mapName->visibleSelf && s) UpdateMapName(s, dt);
+    // UNVERIFIED (milestones 4d/4g): UpdatePlayerLocator, UpdateTaskLocator, UpdateScreenDarkening,
+    // the mission timer and the task locator (then Render::SortRenderLayer(GUI)).
+    // UNVERIFIED (milestone 4g): not while PlayerTopWindow::IsPlayerDialogVisible; LoadingInternetWindow
+    // is online.
+    if (WindowManager::GetShownWindowCount() == 0 && GameState::tutorial == 0x80 &&
+        3u < (unsigned)(GameState::secondTutorial - 0x93) && !GameState::IsTameTutorial() &&
+        WindowManager::Head() != Queue()) {
+        BuildingHovers::MoveWindowDown();
+        TaskHolderWindow::Show();
+        CastleTopWindow::Show();
+        TopCityWindow::Show();   // (not while ArenaTurnWindow is visible: milestone 5)
+        Queue()->MoveWindowOnTop(true);
+    }
 }
 
 // @0x2c6560: step size grows with the distance to the target.

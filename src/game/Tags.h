@@ -10,7 +10,7 @@ namespace Tags {
 struct Tag {                  // 0x10 bytes
     char* name = nullptr;     // +0x00
     bool active = false;      // +0x04
-    bool f05 = false;         // +0x05
+    bool f05 = false;         // +0x05 IsActive when UpdateTagState last looked
     uint32_t from = 0;        // +0x08 time window (real global time + server offset)
     uint32_t to = 0;          // +0x0c 0: no window, active decides
     bool IsActive() const;    // @0x22e42c

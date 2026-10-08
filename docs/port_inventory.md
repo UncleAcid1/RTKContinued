@@ -63,12 +63,13 @@ AssignUniqueIDs, CreateRandomDecors and ProcessOfflineContracts. Re-placed: Shop
 and Map::GetUniqueIDCount `dead`, GameState/Map::UpdateNotifications 5 (phone notifications),
 EntityManager::RemoveEntitiesByID 4f (the queued map switch).
 
-The 43 left are real gaps:
-- **Part 4d, in play (13)**: `Map::Free`'s missing parts with `Entity::OnMapUnload`,
-  `Building::AddSmoke` (workshop smoke) with `Entity::GetAnimationFrameCount`, `GameState::Update`,
-  `GameState::GetBuildingCount`, `UpdateTagState` (seasonal tags), `StringTable::GetUndecoratedString`
-  with `FUN_0022c08c` (the text popups' decoration pass), and `BuildingHovers::MoveWindowDown` (the
-  HUD return of the KNOWN BUG), `SetArrowAlpha` (PopupWindow), `Show/HideWorldDialog`.
+Part 4d (2026-10-08) ported AddSmoke with GetAnimationFrameCount, Map::Free with Entity::OnMapUnload,
+GameState::Update, UpdateTagState, GetUndecoratedString with FUN_0022c08c, BuildingHovers::
+SetArrowAlpha and MoveWindowDown (the HUD return, which fixed the KNOWN BUG). Re-placed:
+GameState::GetBuildingCount `dead` (warehouse mode only), BuildingHovers::Show/HideWorldDialog 4f
+(with WorldHintHoverWindow).
+
+The 30 left are real gaps:
 - **Part 5, start-up and shutdown (30)**: `Game::main_Loop_Init` / `main_Loop_Func` / `main_Loop_BeforeInit`
   / `main_Exit_Func` / `RepeatedMain` (partly in src/main.cpp without markers), `splashLoop`,
   `LoadLanguageTable`, `LoadSystemConfiguration`, `LoadEntityFactoryData`, `EntityManager::Init`,

@@ -220,6 +220,7 @@ struct Building {
     void SpeedupFarm(int seconds, int patch);    // @0x11d344
     void RestoreFarm(unsigned patch);            // @0x11d444
     void UpdateOfflineStateNoWorker();           // @0x11ea90
+    void AddSmoke();                             // @0x11e898 the workshops' chimney smoke (+0x170)
     void UpdateOfflineState();                   // @0x126498 (a worker's workplace on load)
     void UpdateOfflineResources();               // @0x124450
 };

@@ -46,7 +46,18 @@ std::u32string GetDeclinationString(const char32_t* forms, unsigned size, int de
 // UTF-8 to wide, using the decoder inlined in Init (invalid bytes are skipped).
 std::u32string DecodeUtf8(const char* s);
 
+// @0x22c1e8: a text whose "%s" slots are named by bracketed words at its end ("... %s.[player]"):
+// the text before the first '[' is the format, each "[word]" its next argument (up to 8; missing
+// ones are empty). Words: "player", "castle", "item:<id>" (the item's name), "building:<id>" (the
+// building's name), anything else is used as it is. `last` (when given) gets the last word as
+// written, or nothing without one. Cut at `size` characters as SWPrintf does.
+// UNVERIFIED (milestone 4c): with a task, the missing first three arguments are its counts
+// (TaskInfo +0x30, +0x78, +0xc0); no caller passes one yet.
+std::u32string GetUndecoratedString(const char32_t* text, unsigned size, std::u32string* last = nullptr,
+                                    unsigned lastSize = 0);
+
 }  // namespace StringTable
+
 
 // StringArgument (0x10 bytes: type +0x00, value +0x08): one argument of SWPrintf.
 struct StringArgument {

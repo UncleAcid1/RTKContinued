@@ -23,7 +23,9 @@
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
+#include "game/SoldierSlots.h"
 #include "game/Squad.h"
+#include "gui/GUI.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
 
@@ -1265,25 +1267,54 @@ float GetSpriteZ(float a, float b, int c) {
     return v <= 0.2f ? 0.5f - v : 0.3f;
 }
 
+// @0x1bf768 (Map::Load, the reload, the exit): everything of the map goes; its entities let go of it
+// and the temporary ones are removed.
 void Free() {
-    AI::FreeWaypoints();
+    // UNVERIFIED (milestone 6): Particles::ClearParticles.
     for (auto& p : g_patches) {
-        for (auto& b : p->buildings) BuildingHovers::UnregisterBuilding(b.get());
         for (auto& d : p->decors) {
             BuildingHovers::UnregisterDecoration(d.get());   // ~Decor
             if (d->sprite) Render::RemoveSprite(d->sprite);
+            d.reset();
+        }
+        for (auto& b : p->buildings) {
+            BuildingHovers::UnregisterBuilding(b.get());
+            b.reset();
         }
     }
     g_patches.clear();
+    // PORT: the area borders' sprites (UpdateAreaBorders) are kept outside the patches.
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
     g_borderSprites.clear();
+    g_grid.clear();
+    g_farmPatch.reset();
+    // UNVERIFIED (milestones 4c/4f): the queued building placements (0x613780) are dropped.
+    AI::FreeWaypoints();
     for (Render::Sprite*& s : g_clouds) {
         if (s) Render::RemoveSprite(s);
         s = nullptr;
     }
+    // UNVERIFIED (milestone 4f): the spawn points (0x6136a4) and portals (0x613740) are deleted.
+    for (unsigned i = 0;; ++i) {
+        Entity* e = EntityManager::EnumEntities(i);
+        if (!e) break;
+        e->OnMapUnload();
+    }
+    SoldierPool::DeactivateDeadSoldiers();
+    EntityManager::Clean(false);
+    HUDWindow::SetBottomType(0);
+    // UNVERIFIED (milestone 4h): TutorialWindow::ResetState.
+    if (!GameState::IsTutorial()) {
+        GUI::SetInteractionObjectLock(nullptr, nullptr);
+        GUI::SetInteractionLock(false);
+    } else if (GameState::tutorial == 0x17) {
+        GUI::SetInteractionLock(true);
+    }
+    // UNVERIFIED (milestone 4f): the sprites of the list 0x613844 (shown away from the city) are removed.
     for (Bird& b : g_birds) b.sprite = Render::RemoveSprite(b.sprite);
     g_birds.clear();
-    g_grid.clear();
+    // UNVERIFIED (milestone 4f): Fog::ClearFog. PORT: Render::FreeMemory on low-performance devices
+    // is not needed.
 }
 
 bool Load(SaveManager::SaveBlock* block, uint32_t time) {

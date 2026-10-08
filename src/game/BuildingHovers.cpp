@@ -327,6 +327,20 @@ void HideArrow() {
     ++g_arrowCallbackID;
 }
 
+void SetArrowAlpha(float a) {
+    for (HelperArrow* h : g_arrows) {
+        if (!h->sprite) continue;
+        Render::SetShaderType(h->sprite, a != 1.f ? 1 : 0);
+        Render::SetAlpha(h->sprite, a);
+    }
+}
+
+void MoveWindowDown() {
+    for (HoverInfo* h : g_hoverData)
+        if (h->window) h->window->MoveWindowDown(false);
+    g_wnd->MoveWindowDown(true);
+}
+
 // The arrows bob 8 px at 15 rad/s: down-pointing ones vertically, left-pointing ones sideways.
 void UpdateArrow() {
     for (HelperArrow* a : g_arrows) {
@@ -1106,7 +1120,7 @@ void ShowTextHover(float x, float y, const char32_t* text, float r, float g, flo
         std::puts("BuildingHovers::ShowTextHover() text is NULL");
         return;
     }
-    // StringTable::GetUndecoratedString: these texts carry no decorations.
+    std::u32string plain = StringTable::GetUndecoratedString(text, 0x100);
     Render::GlowFilter glow;
     glow.r = glowR;
     glow.g = glowG;
@@ -1119,7 +1133,7 @@ void ShowTextHover(float x, float y, const char32_t* text, float r, float g, flo
     ti.rise = rise;
     ti.grow = false;
     Render::Font* font = Render::CreateFont(GUI::GetFontFile(), (unsigned)fontSize);
-    ti.sprite = Render::CreateText(font, text, r, g, b, 1, false, &glow, nullptr, 0xc);
+    ti.sprite = Render::CreateText(font, plain.c_str(), r, g, b, 1, false, &glow, nullptr, 0xc);
     g_itemInfo.push_back(ti);
     Render::Sprite* s = ti.sprite;
     float z = 0.3f + (float)g_textCounter * -0.0001f;
@@ -1136,6 +1150,7 @@ int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, fl
         std::puts("BuildingHovers::ShowTextHoverWithStyle() text is NULL");
         return 0;
     }
+    std::u32string plain = StringTable::GetUndecoratedString(text, 0x100);
     int size = 0x14;
     float r = 0, g = 0, b = 0;
     Render::GlowFilter* glow = TextStyleManager::GetTextStyle((TextStyleManager::TextStyle)style, size, r, g, b);
@@ -1146,7 +1161,7 @@ int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, fl
     ti.grow = false;
     // (The original keeps a cache of up to 0x20 short texts' textures, TextCache; a speed-up only.)
     Render::Font* font = Render::CreateFont(GUI::GetFontFile(), (unsigned)size);
-    Render::Sprite* s = Render::CreateText(font, text, r, g, b, 1, false, glow, nullptr, topLayer ? 0xf : 0xd);
+    Render::Sprite* s = Render::CreateText(font, plain.c_str(), r, g, b, 1, false, glow, nullptr, topLayer ? 0xf : 0xd);
     ti.sprite = s;
     g_itemInfo.push_back(ti);
     float c = (float)g_styleCounter;

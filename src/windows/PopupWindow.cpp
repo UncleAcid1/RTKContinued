@@ -5,6 +5,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "game/BuildingHovers.h"
 #include "game/GameState.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -96,12 +97,13 @@ bool Click(int x, int y, bool pressed) {
     return r;
 }
 
-// @0x32d0d8. UNVERIFIED (milestone 3): BuildingHovers::SetArrowAlpha(1) is not ported.
+// @0x32d0d8
 void OnTweenOut() {
     WindowManager::WindowHide(false);
     g_queue->shown = false;
     g_queue->MoveWindowDown(true);
     GameState::DropGamePauseState();
+    BuildingHovers::SetArrowAlpha(1.f);
 }
 
 // @0x32d5e0: a forced popup stays at the top of the window queue.
@@ -213,7 +215,7 @@ void Deinit() {
     delete g_window;
 }
 
-// @0x32d630. UNVERIFIED (milestone 3): BuildingHovers::SetArrowAlpha(0) is not ported.
+// @0x32d630
 void Show(const char32_t* text, Callback onOk, Callback onCancel, Callback onExit, const char* okText,
           const char* cancelText) {
     if (!g_queue->shown) GameState::RaiseGamePauseState();
@@ -233,6 +235,7 @@ void Show(const char32_t* text, Callback onOk, Callback onCancel, Callback onExi
     g_window->SetZ(g_window->z);
     Render::SortRenderLayer(Render::kLayerGUI, 1);
     GUI::SetOutOfBandInteractions(g_left.root, g_right.root);
+    BuildingHovers::SetArrowAlpha(0.f);
 }
 
 // @0x32d79c: also interrupts a running tween so the popup always falls out.

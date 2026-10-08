@@ -321,12 +321,13 @@ int main(int argc, char** argv) {
     }
 
     // One game tick, in the order of the game's Update (@0x186770) when no map load is running:
-    // WindowManager::Update (the windows waiting to be shown), the window queue, HUDWindow::Update,
+    // GameState::Update, WindowManager::Update (the windows waiting to be shown), the window queue, HUDWindow::Update,
     // GUI animations, the movement controllers, BuildingHovers, then when the game is not paused the
     // entities (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's
-    // camera step (the camera tween, not ported, and ApplyViewportLimit) and DestroyPendingWindows;
+    // camera step (the camera tween, not ported, and ApplyViewportLimit), UpdateTagState and DestroyPendingWindows;
     // its drawing is Render::Frame.
     auto tick = [](float dt) {
+        GameState::Update(dt);
         WindowManager::Update(dt);
         WindowManager::ProcessUpdate(dt);
         HUDWindow::Update(dt);
@@ -342,7 +343,12 @@ int main(int argc, char** argv) {
         }
         Render::ApplyViewportLimit();
         Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
+        UpdateTagState();
         WindowManager::DestroyPendingWindows();
+        // main_Loop_Func, before the next frame's events: desktop_window (the world) is kept at the
+        // bottom of the window queue, under anything moved down (BuildingHovers::MoveWindowDown).
+        if (WindowManager::g_desktopWindow && WindowManager::g_desktopWindow->next)
+            WindowManager::g_desktopWindow->MoveWindowDown(true);
     };
     // Mouse input as in Game::main_Loop_Func. Coordinates are framebuffer pixels (the original scales
     // SDL's by a float factor). Not ported (UNVERIFIED): SpellMovement (milestone 4),

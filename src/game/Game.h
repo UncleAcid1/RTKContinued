@@ -21,3 +21,6 @@ void SetSaveNames();
 // main_Exit_Func's save: outside the city tutorial the drops are collected and the game saved.
 // UNVERIFIED (milestone 3e/4): the placement and movement modes and the windows it closes first.
 void SaveOnExit();
+// @0x185964 (the game's Update, once per second of global time): each tag whose IsActive changed
+// is passed to the entities (EntityManager::OnTagUpdate), then the HUD's tasks are refreshed.
+void UpdateTagState();

@@ -131,6 +131,12 @@ void RaiseGamePauseState();                    // @0x191064
 void DropGamePauseState();                     // @0x191080 (never below 0)
 bool IsPaused();                               // @0x191104
 
+// @0x1964ec (the game's Update, each frame): a save the platform asked for goes to the server.
+// Only the online paths set saveOnline (the Java/iOS mcAskToSaveOnline, CMyServer::
+// NET_SendOnlineSave), so it stays 0 offline; the Facebook sync reminder is online too.
+extern int saveOnline;                         // GameState::saveOnline
+void Update(float dt);
+
 // ------------------------------------------------------------------------------ saved state
 // Everything GameState::Save writes (GameStateSave.cpp). The containers of systems that are not
 // ported yet (tasks, items, events, arena, soldiers, PvP, ...) are kept as the original holds

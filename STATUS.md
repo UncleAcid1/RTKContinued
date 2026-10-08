@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-08, 4b.5 part 4c done, 43 functions left in 4b.5) — read this first in a new conversation
+## Handoff (last updated 2026-10-08, 4b.5 part 4d done, 30 functions left in 4b.5 (part 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -416,21 +416,40 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    FillPatches (no shop tab of type 5 in 5.11) and Map::GetUniqueIDCount.
    43 LEFT IN 4b.5 (`python3 tools/inventory.py --functions 4b.5`), listed in docs/port_inventory.md
    section 0: 13 in play (part 4d) and 30 start-up/shutdown (part 5).
-   NEXT: 4b.5 part 4d (the rest in play): Map::Free with Entity::OnMapUnload, Building::AddSmoke
-   with Entity::GetAnimationFrameCount, GameState::Update and GetBuildingCount, UpdateTagState,
-   StringTable::GetUndecoratedString (with FUN_0022c08c), and BuildingHovers' MoveWindowDown /
-   SetArrowAlpha / Show/HideWorldDialog (MoveWindowDown is the KNOWN BUG's HUD return below).
-   Then part 5 (start-up and shutdown), then 4c.
-   KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
-   closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
-   head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
-   original's fix is HUDWindow::Update's "HUD return" (@0x2c81c8: with no window shown, tutorial
-   0x80, secondTutorial not 0x93..0x96, not the tame tutorial and HUD not the head ->
-   BuildingHovers::MoveWindowDown @0x2642dc, TaskHolder/CastleTop/TopCity Show, HUD MoveWindowOnTop).
-   Ported once, it fixed Settings but sank BuildingHovers below desktop_window, so building taps
-   stopped; how the original keeps them is unresolved (check the static-init queue order and what
-   moves BuildingHovers::wnd back up). Reverted; a draft is not kept. Test aids from this:
-   RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
+   4b.5 PART 4d DONE (the rest in play; 13 functions): Building::AddSmoke @0x11e898 (the smoke entity
+   0x17c "smoke_1" over workshops 0x6b 0x3ef 0x86 0x66 0x65 0x6a 0x3f0 at the particle point of
+   their level, from LaunchContract, UndoAction, OnMoved and UpdateOfflineStateNoWorker) with
+   Entity::GetAnimationFrameCount @0x151168; OnContractCompleted now removes it (+0x170; the port
+   only dropped the pointer). Map::Free @0x1bf768 completed (decorations then buildings per patch,
+   the farm patch, waypoints, clouds, every entity's OnMapUnload @0x150764, SoldierPool::
+   DeactivateDeadSoldiers, EntityManager::Clean(false), SetBottomType(0), the interaction locks,
+   birds; UNVERIFIED with their milestones: particles 6, spawn points/portals/fog/queued placements
+   4f, TutorialWindow::ResetState 4h). GameState::Update @0x1964ec (only online paths set
+   saveOnline; the Facebook reminder is online) and UpdateTagState @0x185964 (once per second,
+   Tag +0x05 latch; EntityManager::OnTagUpdate 4c and HUDWindow::UpdateTasks 4d are UNVERIFIED),
+   both in the tick. StringTable::GetUndecoratedString @0x22c1e8 with FUN_0022c08c: "%s ... %s[player]
+   [castle]" texts (player, castle, item:<id>, building:<id>; the task fallback is 4c), used by
+   ShowTextHover and ShowTextHoverWithStyle. BuildingHovers::SetArrowAlpha @0x264b94 (PopupWindow
+   Show 0 / OnTweenOut 1) and MoveWindowDown @0x2642dc. Re-placed: GameState::GetBuildingCount
+   dead (its only caller is BuildingMovement's warehouse mode 4, never switched on; the counts are
+   never written), BuildingHovers::Show/HideWorldDialog to 4f with WorldHintHoverWindow (the
+   talking-NPC dialog; only the tutorial, campaign, combat and PvP open it).
+   KNOWN BUG FIXED (Settings gear dead after a building window): HUDWindow::Update's HUD return is
+   ported (the port's Update also no longer returns early when the map-name popup is hidden). The
+   missing piece was in main_Loop_Func (@0x188e68): each frame, before the events, desktop_window
+   is moved back to the bottom of the window queue when it is not the tail. So MoveWindowDown puts
+   BuildingHovers just above it and building taps keep working (in main.cpp at the end of tick).
+   Verified headless: bakery window -> close -> the gear's press and release reach CastleTop and
+   Settings opens (the unchanged build sent the release to BuildingHovers); Settings' X -> the
+   bakery opens again; the shop, Tools move + Cancel and a building tap after it work; the smoke
+   rises from the bakery's chimney (temporary hook, removed); "[player]/[castle]/[item:363]/
+   [building:107]" texts resolve (temporary hook, removed); fresh city save -> reload keeps the
+   hero and soldier; a copy of the real save loads as before. Found, not caused by this step: on
+   the PORT test path (no save) Map::Load prints "SetupPlayerRegenerationState() ... HP has
+   decreased from 10 to 9" (the unchanged build does too; the hero is made before the HP timer).
+   30 LEFT IN 4b.5, all part 5 (start-up and shutdown), listed in docs/port_inventory.md section 0.
+   NEXT: 4b.5 part 5, then 4c.
+   Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
    4a.1 DONE: squads and the army. src/game/Squad.* (BaseSquad/PlayerSquad/EnemySquad in vtable order:

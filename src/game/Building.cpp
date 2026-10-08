@@ -553,8 +553,7 @@ void Building::LaunchContract(unsigned index, int patch) {
     stateTime = t;
     if (GameState::TutorialStep() < 0x61)
         stateTime = t - (uint32_t)(int)((float)(unsigned)GetContractTime(-1) * 0.5f);
-    // UNVERIFIED: AddSmoke (0x11e898: the smoke entity 0x17c over workshops 0x6b 0x3ef 0x86 0x66 0x65
-    // 0x6a 0x3f0) needs the BuildingData smoke positions, not parsed yet.
+    AddSmoke();
     AddDeliveryOrder();
 }
 
@@ -711,8 +710,11 @@ int Building::GetFarmState(int p) {
 void Building::OnContractCompleted(bool silent) {
     // UNVERIFIED (milestone 5): SoundsManager "ui_contract_complete" for class 2 when not silent and
     // the map is not loading.
-    // UNVERIFIED (3c): the trainee entity (+0x170) is removed, class 0xc calls TrainingCompleted.
-    trainee = nullptr;
+    if (trainee) {   // the smoke (or the barracks' trainee)
+        EntityManager::RemoveEntity(trainee, true);
+        trainee = nullptr;
+    }
+    // UNVERIFIED (milestone 5): class 0xc calls TrainingCompleted(workers[0], silent).
     BuildingHovers::Update(0.0, true);
     (void)silent;
 }
@@ -878,7 +880,7 @@ void Building::UndoAction() {
         for (Entity* pile : piles)
             if (pile) Render::SetVisibility(pile->GetSprite(), true);
     }
-    // UNVERIFIED (milestone 5): AddSmoke (0x11e898) (smoke over the workshops).
+    AddSmoke();
 }
 
 void Building::OnMoved() {
@@ -916,7 +918,7 @@ void Building::OnMoved() {
             Render::SetVisibility(pile->GetSprite(), true);
         }
     }
-    // UNVERIFIED (milestone 5): AddSmoke (0x11e898).
+    AddSmoke();
 }
 
 void Building::OnDestroy() {
@@ -1251,14 +1253,36 @@ void Building::RestoreFarm(unsigned p) {
     e->GetAI()->Revive();
 }
 
-// A workshop with a contract still running shows smoke. UNVERIFIED (milestone 5): AddSmoke.
+// A workshop with a contract still running shows smoke.
 void Building::UpdateOfflineStateNoWorker() {
     if (data->buildingClass != 2 || contract == 0) return;
     if (GameState::TutorialStep() == 0x54 && id == 0x6b) {
         if ((float)(Timer::GetGlobalTime() - stateTime) > 90.f) stateTime = Timer::GetGlobalTime() - 0x5a;
     }
     if ((uint32_t)GetContractTime(-1) + stateTime <= Timer::GetGlobalTime()) return;
-    // AddSmoke(this);
+    AddSmoke();
+}
+
+// The smoke entity 0x17c ("smoke_1") over the workshops 0x6b 0x3ef 0x86 0x66 0x65 0x6a 0x3f0 that
+// have particle points: at the point of the current level (x mirrored from the right edge), its
+// bottom half a frame above the point, z just in front of the building (0x86: just behind).
+void Building::AddSmoke() {
+    int kind = data->id;
+    if (kind != 0x6b && kind != 0x3ef && kind != 0x86 && kind != 0x66 && kind != 0x65 && kind != 0x6a &&
+        kind != 0x3f0)
+        return;
+    if (data->particleCount == 0) return;
+    int px = (int)data->particles[level].x;
+    int py = (int)data->particles[level].y;
+    trainee = EntityManager::SpawnEntityAt(0x17c, x, y, false, false);
+    trainee->SetAnimationP("smoke_1", true, false, false);
+    float h = trainee->GetSprite()->h;   // the whole strip until the first frame is set
+    int frameH = (int)(h / (float)(unsigned)trainee->GetAnimationFrameCount());
+    float wx = !mirrored ? (float)px + mainSprite->x : (mainSprite->x + mainSprite->w) - (float)px;
+    wx += trainee->GetSprite()->w * 0.5f;
+    float wy = (mainSprite->y - mainSprite->h) + (float)frameH * -0.5f + 21.f + (float)py;
+    trainee->SetWorldPos(wx, wy);
+    trainee->SetCustomZ(data->id != 0x86 ? mainSprite->z + 0.001f : mainSprite->z - 0.001f);
 }
 
 // Catch-up for the time the game was closed: a tree's or rock's gathering, a finished

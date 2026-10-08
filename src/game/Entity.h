@@ -47,7 +47,9 @@ public:
     void SetAnimationFrame(int f);               // @0x155410
     bool AnimExists(const char* name) const;     // @0x155408
     void AnimationEnded();                       // @0x15293c
+    void OnMapUnload();                          // @0x150764 drops its links into the map
     AnimationController* GetAnimController() const { return anim; }   // @0x14ffcc
+    int GetAnimationFrameCount() const;          // @0x151168 the active animation's frames (0 without one)
     Render::Sprite* GetSprite() const { return sprite; }             // @0x14ffd4
 
     void Update(float dt);                       // @0x15ba40

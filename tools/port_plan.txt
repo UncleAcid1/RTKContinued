@@ -64,6 +64,8 @@ dead  ^(Map::GetUniqueIDCount|ShopWindow::FillPatches)$   # only CheckUniqueIDs 
 5     ^(GameState::UpdateNotifications|Map::UpdateNotifications)$   # the phone's local notifications (Notifications)
 4f    ^EntityManager::RemoveEntitiesByID$   # Map::Update's queued map switch
 dead  ^WindowManager::WindowQueue::HideWindows$   # no caller
+4f    ^BuildingHovers::(Show|Hide)WorldDialog$   # WorldHintHoverWindow (4f), the talking-NPC dialog; only the tutorial, campaign, combat and PvP show it
+dead  ^GameState::GetBuildingCount$   # only BuildingMovement::Click's warehouse mode (4, never switched on in 5.11); the counts are never written (AddBulding dead)
 
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
 4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
