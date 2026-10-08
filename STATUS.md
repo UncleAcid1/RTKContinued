@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-08, 4b.5 part 1 done) — read this first in a new conversation
+## Handoff (last updated 2026-10-08, 4b.5 part 2 done) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -383,8 +383,13 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    (util). Fixed: PlayerTopWindow::Init now wires the portrait's clickArea (no-op OnCharacter, no
    sound), as the original does. Found holes for later pieces: StringTable::GetUndecoratedString
    (the text popups' decoration pass), Map::Free's missing parts, AI::SetWeight in main_Loop_Init.
-   NEXT: 4b.5 part 2 (renderer/Resources verify and mark), then the real gaps (every frame,
-   economy, startup/shutdown, text).
+   4b.5 PART 2 DONE (comments only): the renderer and Resources internals. Render.cpp records the
+   original's context/atlas/layer/shader/sprite-pool/texture-pool functions the SDL3/OpenGL renderer
+   replaces (with what stands in); Init, SetWrapping, RemoveTexture, GetDirectImage marked;
+   Resources.h records the start-up pack registry (RegisterResources/RegisterAnimations and their
+   tables) the port's on-demand probing replaces. UNVERIFIED notes: the colour-mask shader path
+   (ApplyMask, callers in 4g/5), Textfield::SetRotation's minify filter, exploded animation frames.
+   NEXT: 4b.5 part 3, the real gaps (every frame, economy, startup/shutdown, text).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The

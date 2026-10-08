@@ -4,6 +4,13 @@
 #pragma once
 #include <string>
 
+// PORT (checked in the 4b.5 review): the original builds a registry when it starts. main_Loop_Init
+// hands FileManager two callbacks for every file in the packs, RegisterResources @0x2064c8 and
+// RegisterAnimations @0x205220. They fill hash tables keyed case-insensitively: an image's pack
+// and file (@0x203f58 add, @0x20404c find, @0x20412c the pack list's push_back, GetPack @0x204270),
+// and an animation's exploded frames (GetExplodedAnimationImagePath @0x205bdc; @0x205a5c the table
+// growing). The port probes the pack folders on demand (GetDecoratedImageName) and reads the
+// one-file animation registry (Init). UNVERIFIED: the exploded-frame fallback (see Animation.cpp).
 namespace Render { struct Texture; }
 
 namespace Resources {
@@ -21,7 +28,7 @@ int GetFrameCount(const char* name);
 // "images/Decor/%s", "images/Buildings/%s", "images/%s", then the name itself.
 Render::Texture* GetDecoration(const char* name, bool pixelMask = false);
 // A plain resource path (e.g. "images/grass_01.png"), no pack decoration.
-Render::Texture* GetDirectImage(const char* path);
+Render::Texture* GetDirectImage(const char* path);   // @0x205c94 (its atlas lookup: none in the data)
 // @0x205e3c GetUIImage(name, quiet, async): the name as given, then
 // "../resource/kingdom_ui/1Original/<name>", then "../resource/kingdom_ui/2Optimized/<file name>"
 // with ".png" replaced by ".jpg". Cached by name (case-insensitive).
