@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-08, 4b.5 part 3 done) — read this first in a new conversation
+## Handoff (last updated 2026-10-08, 4b.5 part 4c done, 43 functions left in 4b.5) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -398,7 +398,29 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    virtual); the coverage check ignores range starts `@0x..` and unported references are now written
    `(0xADDR)` (AddSmoke, road painting, CreateGradient ... no longer count as ported). The 66 left
    are listed in docs/port_inventory.md section 0 (part 4: in play; part 5: start-up/shutdown).
-   NEXT: 4b.5 part 4 (the in-play gaps).
+   4b.5 PART 4a DONE (70e5b3b): Map::GetTotalStorageLimit @0x1b7224 (the top bar's storage limit;
+   away from the city the last non-zero one) and Map::UpdateStorages @0x1b8b74 (every storage's
+   piles follow resource changes), replacing their 3c stand-ins.
+   4b.5 PART 4b DONE (28f7d2c): the city's ambient birds and clouds (Map::PrepareImages @0x1bb4d4:
+   images/bird/, three looping chains of four), Map::Update's timers and Load's tail,
+   Background::Update @0x10b238 (the mission maps' horizon parallax), Map::UpdateResources @0x1ba5ac,
+   the Allow*VisibilityUpdate flags, GameState's time modifier (Set ignores values above 1) and the
+   map start/visit times. Re-placed: GameState/Map::UpdateNotifications (the phone's local
+   notifications) to 5, EntityManager::RemoveEntitiesByID (the queued map switch) to 4f.
+   UNVERIFIED (their milestones): the queued map switch, fog, Decor::Update (4e), the tutorial task
+   fixes, the map-version update, the "map_timer_ding" sound.
+   4b.5 PART 4c DONE (540847a): patches made from the area list (Map::AddPatches @0x1bee2c for the
+   city, AddOnePatch @0x1c0b90 for other maps, GetAreaByID @0x1bc954), AssignUniqueIDs @0x1b7c0c,
+   CreateRandomDecors @0x1bb7c8; ProcessOfflineContracts @0x1b7434 marked (empty). PORT: a missing
+   patch is skipped (the original goes on with a null patch and crashes). Dead: ShopWindow::
+   FillPatches (no shop tab of type 5 in 5.11) and Map::GetUniqueIDCount.
+   43 LEFT IN 4b.5 (`python3 tools/inventory.py --functions 4b.5`), listed in docs/port_inventory.md
+   section 0: 13 in play (part 4d) and 30 start-up/shutdown (part 5).
+   NEXT: 4b.5 part 4d (the rest in play): Map::Free with Entity::OnMapUnload, Building::AddSmoke
+   with Entity::GetAnimationFrameCount, GameState::Update and GetBuildingCount, UpdateTagState,
+   StringTable::GetUndecoratedString (with FUN_0022c08c), and BuildingHovers' MoveWindowDown /
+   SetArrowAlpha / Show/HideWorldDialog (MoveWindowDown is the KNOWN BUG's HUD return below).
+   Then part 5 (start-up and shutdown), then 4c.
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The

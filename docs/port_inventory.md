@@ -56,19 +56,20 @@ no vtable or GOT entry in 5.11), container helpers (`util`). The review also fix
 check: the start of an address range (`@0x10c3cc..0x110bd0`) no longer counts, and references to
 unported functions are written `(0xADDR)`, so AddSmoke and others no longer count as ported.
 
-The 66 left are real gaps:
-- **Part 4, in play**: `Background::Update` (the horizon strips' parallax), `Map::PrepareImages`,
-  `Map::UpdateNotifications` and the bird helpers (the city's ambient birds), `GameState::Update`,
-  `GameState::UpdateNotifications`, `UpdateTagState` (seasonal tags), the time modifier
-  (`GameState::Set/Get/ResetTimeModifier`), `EntityManager::RemoveEntitiesByID`,
-  `BuildingHovers::MoveWindowDown` (the HUD return of the KNOWN BUG), `SetArrowAlpha` (PopupWindow),
-  `Show/HideWorldDialog`, `Map::GetTotalStorageLimit`, `UpdateStorages`, `UpdateResources`,
-  `GetAreaByID`, `ShopWindow::FillPatches`, `GameState::GetBuildingCount`, Map::Load's
-  `ProcessOfflineContracts`, `CreateRandomDecors`, `Allow*VisibilityUpdate`, `AssignUniqueIDs`,
-  `AddPatches`/`AddOnePatch`, `Map::Free`'s missing parts with `Entity::OnMapUnload`,
-  `Building::AddSmoke` (workshop smoke) with `Entity::GetAnimationFrameCount`, and
-  `StringTable::GetUndecoratedString` (the text popups' decoration pass).
-- **Part 5, start-up and shutdown**: `Game::main_Loop_Init` / `main_Loop_Func` / `main_Loop_BeforeInit`
+Part 4a-4c (2026-10-08) ported the storage limit and UpdateStorages, the birds and clouds
+(PrepareImages and Map::Update's timers), Background::Update, UpdateResources, the
+Allow*VisibilityUpdate flags, the time modifier, AddPatches/AddOnePatch/GetAreaByID,
+AssignUniqueIDs, CreateRandomDecors and ProcessOfflineContracts. Re-placed: ShopWindow::FillPatches
+and Map::GetUniqueIDCount `dead`, GameState/Map::UpdateNotifications 5 (phone notifications),
+EntityManager::RemoveEntitiesByID 4f (the queued map switch).
+
+The 43 left are real gaps:
+- **Part 4d, in play (13)**: `Map::Free`'s missing parts with `Entity::OnMapUnload`,
+  `Building::AddSmoke` (workshop smoke) with `Entity::GetAnimationFrameCount`, `GameState::Update`,
+  `GameState::GetBuildingCount`, `UpdateTagState` (seasonal tags), `StringTable::GetUndecoratedString`
+  with `FUN_0022c08c` (the text popups' decoration pass), and `BuildingHovers::MoveWindowDown` (the
+  HUD return of the KNOWN BUG), `SetArrowAlpha` (PopupWindow), `Show/HideWorldDialog`.
+- **Part 5, start-up and shutdown (30)**: `Game::main_Loop_Init` / `main_Loop_Func` / `main_Loop_BeforeInit`
   / `main_Exit_Func` / `RepeatedMain` (partly in src/main.cpp without markers), `splashLoop`,
   `LoadLanguageTable`, `LoadSystemConfiguration`, `LoadEntityFactoryData`, `EntityManager::Init`,
   `Contracts::InitSpecial` (with `EntityData::GetCost*`, `EntityFactory::GetEntitiesForBuilding`),
