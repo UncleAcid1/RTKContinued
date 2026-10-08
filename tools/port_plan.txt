@@ -13,6 +13,8 @@
 # ---- 4b.4: the item windows ------------------------------------------------------------------
 4b.4  ^ItemHoverWindow::
 4b.4  ^UseItemHoverWindow::
+4c    @2bcffc   # FoundItemsWindow::SetParameters(Tasks::TaskInfo*, ...): with Tasks
+4f    @2bd21c   # FoundItemsWindow::SetParameters(Locations::LocationInfo*, ...): with Locations
 4b.4  ^FoundItemsWindow::
 4b.4  ^NeedItemWindow::
 4b.4  ^Items::GetItemOffsetInHolder

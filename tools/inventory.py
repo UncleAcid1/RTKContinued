@@ -20,7 +20,8 @@ unnamed one, `FUN_xxxxxxxx` is named in a src/ comment: read and handled there).
                    ported without their `// @0x` comment (check each, then add the comment)
 
 The plan is tools/port_plan.txt: `step  regex  # note`, first match wins, matched against
-`Class::Method` or a free function's name (an unnamed function is `Owner::FUN_xxxxxxxx`, with ` (callback)` or ` (static-init)`
+`Class::Method` or a free function's name (a rule `step  @xxxxxxxx` places the one function at that
+address, for an overload that goes elsewhere than its siblings) (an unnamed function is `Owner::FUN_xxxxxxxx`, with ` (callback)` or ` (static-init)`
 appended for those kinds). Used to keep docs/port_inventory.md
 and STATUS.md honest: anything --unplanned prints is a gap to place.
 """
@@ -80,7 +81,10 @@ def load_plan():
             continue
         if len(parts) != 2:
             sys.exit(f"port_plan.txt:{n}: expected `step  regex  [# note]`")
-        rules.append((re.compile(parts[1]), parts[0], note.strip(), n))
+        rx = parts[1]
+        if rx.startswith("@"):   # one function by address (Ghidra address, hex)
+            rx = "^@%08x$" % int(rx[1:], 16)
+        rules.append((re.compile(rx), parts[0], note.strip(), n))
     return rules
 
 
@@ -106,7 +110,11 @@ def game_functions():
     return out, traced
 
 
-def plan_step(rules, key):
+def plan_step(rules, key, addr=None):
+    if addr is not None:
+        for rx, step, note, n in rules:
+            if rx.pattern.startswith("^@") and rx.search("@%08x" % addr):
+                return step, note, n
     prev = None
     while prev != key:   # template arguments out: EventManager<Entity>::X -> EventManager::X
         prev, key = key, re.sub(r"<[^<>]*>", "", key)
@@ -148,7 +156,7 @@ def main():
                         callers.setdefault(u, set()).add(name)
         rules = load_plan()
         for u in sorted(callers):
-            step = plan_step(rules, keyof[u])[0] or "NO PLAN"
+            step = plan_step(rules, keyof[u], u)[0] or "NO PLAN"
             cs = sorted(callers[u])
             print(f"{u:08x}  {step:<8} {keyof[u]}  <- {', '.join(cs[:4])}" +
                   (f" (+{len(cs) - 4})" if len(cs) > 4 else ""))
@@ -173,7 +181,7 @@ def main():
             want = args[i + 1] if i + 1 < len(args) else None
         counts, used = {}, set()
         for a, owner, key, name in funcs:
-            step, note, n = plan_step(rules, key)
+            step, note, n = plan_step(rules, key, a)
             used.add(n)
             if a in ported:
                 continue

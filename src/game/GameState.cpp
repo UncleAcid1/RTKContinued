@@ -1544,4 +1544,43 @@ bool IsArenaCombatActive() {
 // @0x1ad2c4 Items::ItemData::IsBroken
 bool PlayerItem::IsBroken() const { return info && info->durability != 0 && f0c == 0; }
 
+// The loot picked up on each map (0x613134, saved): key map << 16 | item id (ids below 0x10000), or
+// map << 16 | 0x2000 + resource type (no item has id 0x2000).
+// @0x197c98
+void AddMapItemCollectionInfo(uint32_t map, uint32_t id, int amount) {
+    if (id >= 0x10000) return;
+    auto it = g_mapCollectionInfo.find(id + map * 0x10000);
+    if (it == g_mapCollectionInfo.end()) g_mapCollectionInfo[id + map * 0x10000] = (uint32_t)amount;
+    else it->second += (uint32_t)amount;
+}
+
+// @0x197d78
+void AddMapResourceCollectionInfo(uint32_t map, int type, int amount) {
+    uint32_t key = (uint32_t)type + (map << 16) + 0x2000;
+    auto it = g_mapCollectionInfo.find(key);
+    if (it == g_mapCollectionInfo.end()) g_mapCollectionInfo[key] = (uint32_t)amount;
+    else it->second += (uint32_t)amount;
+}
+
+// @0x195934
+int GetMapItemCollectionInfo(uint32_t map, uint32_t id) {
+    if (id >= 0x10000) return 0;
+    auto it = g_mapCollectionInfo.find(id + map * 0x10000);
+    return it == g_mapCollectionInfo.end() ? 0 : (int)it->second;
+}
+
+// @0x195890
+int GetMapResourceCollectionInfo(uint32_t map, int type) {
+    auto it = g_mapCollectionInfo.find((uint32_t)type + (map << 16) + 0x2000);
+    return it == g_mapCollectionInfo.end() ? 0 : (int)it->second;
+}
+
+// @0x195318: every record of the map (the key's upper half).
+void ResetMapCollectionInfo(uint32_t map) {
+    for (auto it = g_mapCollectionInfo.begin(); it != g_mapCollectionInfo.end();) {
+        if ((uint16_t)(it->first >> 16) == map) it = g_mapCollectionInfo.erase(it);
+        else ++it;
+    }
+}
+
 }  // namespace GameState

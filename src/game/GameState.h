@@ -72,6 +72,12 @@ inline bool IsCombatActive() { return GetActiveCombat() != nullptr; }   // @0x19
 inline bool IsBossCombatActive() { return false; }
 // @0x190fd0: an arena combat (type above 4) is running.
 bool IsArenaCombatActive();
+// The loot collected per map (FoundItemsWindow lists it when a map is left or finished).
+void AddMapItemCollectionInfo(uint32_t map, uint32_t id, int amount);
+void AddMapResourceCollectionInfo(uint32_t map, int type, int amount);
+int GetMapItemCollectionInfo(uint32_t map, uint32_t id);
+int GetMapResourceCollectionInfo(uint32_t map, int type);
+void ResetMapCollectionInfo(uint32_t map);
 bool IsTameTutorial();                         // @0x190bb4
 bool IsFirstVirtualTutorial();                 // @0x190b44 second-tutorial steps 0x200..0x205
 // @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.

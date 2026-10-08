@@ -36,7 +36,7 @@ Counts on 2026-10-07 (1,954 ported, 5,892 unported):
 
 | Step | Unported | What |
 |---|---|---|
-| 4b.4 | 141 | the item windows |
+| 4b.4 | 141 | the item windows (done 2026-10-08; FoundItemsWindow's TaskInfo / LocationInfo overloads moved to 4c / 4f) |
 | 4b.5 | 334 | **new**: holes in finished work found by this pass (below) |
 | 4c / 4d / 4e / 4f / 4g / 4h | 152 / 197 / 104 / 335 / 550 / 62 | as planned in section 3 |
 | 5 / 6 / 7 | 1,241 / 114 / 185 | as planned in sections 4-6 |

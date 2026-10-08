@@ -553,6 +553,13 @@ Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, cons
     return g_textures.back().get();
 }
 
+// @0x202820: a 1x1 texture of one colour (components 0..1, times 255, negatives 0).
+Texture* CreateSolidFillTexture(float r, float g, float b, float a) {
+    auto c = [](float v) { v *= 255.f; return (uint8_t)(v > 0.f ? (int)v : 0); };
+    const uint8_t rgba[4] = {c(r), c(g), c(b), c(a)};
+    return CreateTextureRGBA(1, 1, rgba, false, "solid_fill");
+}
+
 void RemoveTexture(Texture* t) {
     for (size_t i = 0; i < g_textures.size(); ++i) {
         if (g_textures[i].get() == t) {

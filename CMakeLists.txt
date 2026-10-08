@@ -69,6 +69,7 @@ add_executable(rtk
   src/windows/CityRenameWindow.cpp
   src/windows/ConfirmPurchaseWindow.cpp
   src/windows/ExchangeWindow.cpp
+  src/windows/FoundItemsWindow.cpp
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp
   src/windows/LevelUpWindow.cpp

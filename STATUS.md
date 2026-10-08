@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-07, 4b.4 part 1 done; next 4b.4 part 2, then 4b.5) — read this first in a new conversation
+## Handoff (last updated 2026-10-08, 4b.4 done; next 4b.5) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -347,7 +347,30 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    save load as before.
    Not yet tested (no owner opens them yet): the popup's hosts (the belt and battle bar slot taps
    are 4g; the character and shop windows 5).
-   NEXT: 4b.4 part 2, FoundItemsWindow (the "items found" reward dialog), then 4b.5.
+   4b.4 PART 2 DONE (step 4b.4 complete): src/windows/FoundItemsWindow.cpp, the "items found"
+   strip that slides up from the bottom over a dark band (Init, Show / Hide with its MovementEffect
+   and the band / gold-line sprites, SetZ's half-sunk placement, the ten cells with item-level frames
+   and the ContentScroller strip with its arrows, OnItem's own ItemHoverWindow, Ok / "tap to
+   continue" (HideOk, the blinking glow text), Go to shop / tavern (arena only), OnBack,
+   AddCollectedItem / AddCollectedResource with their priorities, ClearCollected,
+   GiveCollectedToPlayer (drop in stacks or add; crystals capped at 15), SetParameters from a setting
+   ("GOLD|200;133|4", unused in 5.11) and from a map's collected loot, RunPostAction).
+   Also: GameState::Add/Get/ResetMap*CollectionInfo (the saved per-map loot record, key map << 16 |
+   item, or | 0x2000 + resource), Render::CreateSolidFillTexture.
+   Its owners call it then MoveWindowOnTop themselves, which is what gives it depths (its own
+   MoveWindowOnTop runs before it counts as shown). The first show slides to the screen's bottom
+   edge and the next re-stack lifts it to the band's middle (g_offsetY is computed in SetZ), as on
+   the original.
+   Deferred with their structs (tools/port_plan.txt rules by address, a new `@addr` rule form):
+   SetParameters(Tasks::TaskInfo*) 4c, SetParameters(Locations::LocationInfo*) 4f.
+   Left out: the PvP arena's path (PlayerBattleInOutWindow 4g); the share ticks and wall posts
+   (online). RunPostAction's / OnClose's windows are comments until their milestones.
+   Verified headless (temporary --show hook, removed): six cells (resources and items, amounts),
+   fourteen items scroll with the arrows and by drag, a cell's popup ("White Knight", pointing at
+   it), Ok closes, "Tap to continue" glows and any tap closes, map 7's loot from the collection
+   record, daily_bonus_chest_1 / new_daily_bonus_1 from settings, "No items found", giving: gold
+   0 -> 600, crystals 20 -> 15. City save -> reload and a copy of the real save load as before.
+   NEXT: 4b.5 (the holes list in docs/port_inventory.md section 0).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The

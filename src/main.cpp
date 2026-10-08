@@ -246,6 +246,7 @@ int main(int argc, char** argv) {
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();
     ExchangeWindow::Queue();
+    FoundItemsWindow::Queue();
     HUDWindow::Queue();
     LandExpandedWindow::Queue();
     LandWindow::Queue();

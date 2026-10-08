@@ -85,6 +85,7 @@ void ChangeLayer(Sprite* s, int layer);     // @0x1fc55c
 // Texture from raw RGBA bytes (text). nearest: GL_NEAREST filters (text textures unless ForceLinear).
 Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, const std::string& name);
 void RemoveTexture(Texture* t);
+Texture* CreateSolidFillTexture(float r, float g, float b, float a);   // @0x202820 1x1
 void SortRenderLayer(int layer, int order); // @0x1fc29c  order 1 = SpriteSortZ, 0 = SpriteSortTex
 
 // Camera/world transform (UpdateShaderUniforms @0x1f6e10): the world shaders' instance +0x24 gets

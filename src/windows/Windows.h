@@ -7,6 +7,7 @@
 namespace WindowManager { class FunctionalWindow; }
 namespace Map { struct Building; struct Decor; }
 namespace Render { struct Texture; }
+class Entity;
 
 namespace CityRenameWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CityRenameWindow" (_INIT_ 0x298ffc)
@@ -106,6 +107,33 @@ void Hide();                                // @0x2af198
 bool IsVisible();                           // @0x2abd94
 // @0x2aed8c: tab 0 gold, 1 crystals; text replaces the header (null: the tab's name).
 void OnTab(unsigned tab, const char32_t* text);
+}
+
+// "Items found": the loot strip that slides up from the bottom when a map, task, campaign, raid,
+// boss or chest hands out loot. The owner collects the loot here, shows the window and gives the
+// loot with GiveCollectedToPlayer.
+namespace FoundItemsWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "FoundItemsWindow" (FUN_002b915c)
+void Init();                                // @0x2bb214
+bool IsVisible();                           // @0x2b8dfc
+void Show();                                // @0x2baba8
+void Hide();                                // @0x2b9804
+void OnClose();                             // @0x2b98e4 Hide, and the loot dialogs under it
+void OnShop();                              // @0x2bbf5c
+void SetHeader(const char32_t* text);       // @0x2b8e10
+void SetSharing(bool share);                // @0x2b8e40
+void HideOk();                              // @0x2b8e58 "tap to continue" instead of Ok
+bool HasPostAction();                       // @0x2b8e70
+void RunPostAction();                       // @0x2b9748
+void AddCollectedItem(uint32_t id, int amount);     // @0x2b9df4
+void AddCollectedResource(int type, int amount);    // @0x2bcb10
+void ClearCollected();                      // @0x2bc440
+void UpdateContents();                      // @0x2ba138
+// @0x2bbc40: drop on the ground at `at` (null: the player), else add; crystals capped at 15
+// unless noCrystalCap. The list is emptied.
+void GiveCollectedToPlayer(bool drop, Entity* at, bool noCrystalCap);
+void SetParameters(const char* setting, const char32_t* title);              // @0x2bcd50
+void SetParameters(uint32_t map, uint32_t boss, const char32_t* title);     // @0x2bd11c
 }
 
 // "Land expanded!" after a land (or farm patch) purchase.
