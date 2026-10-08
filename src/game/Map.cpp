@@ -692,6 +692,66 @@ Decor* GetDecorationIgnoringBuildzones(int x, int y) {
     return nullptr;
 }
 
+namespace {
+// The AreaInfo copy at the start of a patch (0xac bytes); the port keeps the parts it reads.
+std::unique_ptr<Patch> PatchFromArea(const GameState::AreaInfo& a) {
+    auto p = std::make_unique<Patch>();
+    p->infoId = a.id;
+    p->x = a.x; p->y = a.y; p->w = a.w; p->h = a.h;
+    p->buyable = a.a;   // UNVERIFIED: "a" mapped to Patch+0xa8 (used by UpdateAreaBorders)
+    return p;
+}
+
+// @0x1bee2c (LoadPlayer, the city): a patch for every area of the settings, ids 1, 2, ... while
+// GetAreaInfo finds one, each with its id at +0xe4.
+void AddPatches() {
+    if (!g_patches.empty()) return;
+    GameState::AreaInfo a;
+    for (uint32_t id = 1; GameState::GetAreaInfo(id, a); ++id) {
+        g_patches.push_back(PatchFromArea(a));
+        g_patches.back()->areaId = id;
+    }
+}
+
+// @0x1c0b90 (LoadPlayer, other maps): one patch covering the grid, area 1 (its AreaInfo zeroed but
+// for id 1 and a = 1).
+void AddOnePatch() {
+    if (!g_patches.empty()) return;
+    GameState::AreaInfo a;
+    a.id = 1;
+    a.w = GetGridWidth();
+    a.h = GetGridHeight();
+    a.a = true;
+    g_patches.push_back(PatchFromArea(a));
+    g_patches.back()->areaId = 1;
+}
+}  // namespace
+
+// @0x1bb7c8: every patch's random decorations.
+void CreateRandomDecors() {
+    for (auto& p : g_patches) AddRandomDecors(p.get());
+}
+
+// @0x1b7c0c: every building without a unique id gets the next one.
+void AssignUniqueIDs() {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings) {
+            if (b->uniqueId != 0) continue;
+            std::printf("Setting new ID: %d\n", (int)GameState::latestUniqueID + 1);
+            b->SetUniqueID(GameState::latestUniqueID + 1);
+        }
+    std::printf("latest unique ID: %d\n", (int)GameState::latestUniqueID);
+}
+
+Patch* GetAreaByID(uint32_t id) {
+    for (auto& p : g_patches)
+        if (p->infoId == id) return p.get();
+    GameState::AreaInfo a;
+    if (!GameState::GetAreaInfo(id, a)) return nullptr;
+    g_patches.push_back(PatchFromArea(a));
+    return g_patches.back().get();
+}
+
 Patch* GetPatchForCoordinates(int x, int y, bool quiet) {
     for (auto& p : g_patches)
         if (p->x <= x && x < p->x + p->w && p->y <= y && y < p->y + p->h) return p.get();
@@ -1259,22 +1319,22 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
 
     Background::CreateLand((unsigned)g_tileset);  // Map::Load calls it after LoadPlayer; layer order is
                                                   // per-layer, so creating it first changes nothing.
+    if (g_mapId == 0) AddPatches();
+    else AddOnePatch();
     for (int i = 0; i < patchCount; ++i) {
         const SaveManager::Chunk* pc = next(SaveManager::kPatch);
         if (!pc) break;
-        auto p = std::make_unique<Patch>();
-        p->areaId = pc->data.size() > 0 ? pc->data[0] : 0;
-        p->owned = pc->data.size() > 1 && pc->data[1] != 0;
-        p->bordered = pc->data.size() > 2 && pc->data[2] != 0;
-        GameState::AreaInfo a;
-        if (GameState::GetAreaInfo(p->areaId, a)) {
-            p->x = a.x; p->y = a.y; p->w = a.w; p->h = a.h;
-            p->buyable = a.a;   // UNVERIFIED: "a" mapped to Patch+0xa8 (used by UpdateAreaBorders)
-        } else if (patchCount == 1) {  // single-patch maps (AddOnePatch): whole grid
-            p->x = 0; p->y = 0; p->w = g_gridW; p->h = g_gridH;
+        uint32_t id = pc->data.size() > 0 ? pc->data[0] : 0;
+        Patch* raw = GetAreaByID(id);
+        if (!raw) {   // PORT: the original goes on with a null patch (and crashes); skip its contents
+            std::fprintf(stderr, "Map::LoadPlayer() no area %u\n", id);
+            continue;
         }
-        Patch* raw = p.get();
-        g_patches.push_back(std::move(p));
+        raw->areaId = id;
+        raw->owned = pc->data.size() > 1 && pc->data[1] != 0;
+        raw->bordered = pc->data.size() > 2 && pc->data[2] != 0;
+        // UNVERIFIED (milestone 4f): a patch with a pending replacement block (0x613800, quest map
+        // fixes) is marked owned and loads from that block instead.
         // Patch::Load: LoadDecors (5 + n*0xb), LoadBuidings (6 + n*0xc), then mask (7)
         if (const SaveManager::Chunk* dc = next(SaveManager::kDecorCount)) {
             int cnt = SaveManager::Reader(*dc).s16();
@@ -1302,15 +1362,16 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     // are not loaded yet; their chunks are kept for SaveMap.
     g_otherChunks.clear();
     while (block->NextChunkID() != SaveManager::kEnd) g_otherChunks.push_back(block->GetChunk());
+    if (g_mapId == 0) AssignUniqueIDs();   // (the end of LoadPlayer)
     // Map::Load: CreateRandomDecors, UpdateAreaBorders (spawns/portals/fog not rendered yet)
-    for (auto& p : g_patches) AddRandomDecors(p.get());
+    CreateRandomDecors();
     UpdateAreaBorders();
     Rand48::srand48((long)time);
     std::printf("Map %u: %dx%d tileset %d, %zu patches, %zu sprites\n", g_mapId, g_gridW, g_gridH, g_tileset,
                 g_patches.size(), Render::SpriteCount());
     CreateRoadAI();
     if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
-    // (ProcessOfflineContracts is empty.) UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins
+    // (ProcessOfflineContracts @0x1b7434 is empty.) UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins
     // (class 0x10 goblins away on a job). Music: milestone 5.
     AssignEntities();
     // UNVERIFIED (milestone 4f): LinkPortals.

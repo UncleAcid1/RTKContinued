@@ -59,6 +59,10 @@ online  ^GameState::(GetCrystalsSpent|GetCrystalsEarned|CleanBeforeLoading)$   #
 4e    ^(Map::Building::RemoveHoldOfEntities|Map::FUN_(00130b58|00130b70)|Entity::SetEndWorkTS)$   # Map::RemoveHoldOfEntities, Decor::GetActionPoint, Decor::WorkStarted
 4c    ^Entity::PrepareForSetup$   # EntityManager::ExecuteStaticMeta
 5     ^(Map::Building::ChangeState|Entity::SetCustomUnderlay)$   # towers shooting (DoAttack, OnCoolDown); the PvP spawn meta
+util  ^Map::FUN_001c2558   # the birds vector's insert (FUN_001c273c's helper)
+dead  ^(Map::GetUniqueIDCount|ShopWindow::FillPatches)$   # only CheckUniqueIDs (dead); FillPatches needs a shop tab of type 5, none in 5.11
+5     ^(GameState::UpdateNotifications|Map::UpdateNotifications)$   # the phone's local notifications (Notifications)
+4f    ^EntityManager::RemoveEntitiesByID$   # Map::Update's queued map switch
 dead  ^WindowManager::WindowQueue::HideWindows$   # no caller
 
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---

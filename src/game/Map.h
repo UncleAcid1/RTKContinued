@@ -60,6 +60,7 @@ struct Decor {
 };
 
 struct Patch {
+    uint32_t infoId = 0;               // +0x00 its AreaInfo's id (the copy's x, y, w, h, a below)
     uint32_t areaId = 0;               // +0xe4
     bool owned = false;                // +0xe8
     bool bordered = false;             // +0xe9 (recomputed in UpdateAreaBorders)
@@ -75,6 +76,10 @@ struct Patch {
 // the header sets the current map id. lrand48 is seeded with time (the random decorations and
 // the dark grass use GameState::playerSeed).
 bool Load(SaveManager::SaveBlock* block, uint32_t time);
+// @0x1bc954: the patch made from area `id` (AreaInfo id), made now if there is none (null when the
+// area does not exist).
+Patch* GetAreaByID(uint32_t id);
+void AssignUniqueIDs();
 void Free();
 // @0x1bbbcc: the game state and the current map into the main save, then the save file (type 1:
 // the online save, not ported). In the city the buildings' offline records are refreshed first.
