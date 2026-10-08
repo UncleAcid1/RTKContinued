@@ -67,7 +67,7 @@ Entity::~Entity() {
     if (squad) {
         delete squad;
         squad = nullptr;
-        // (EntityManager::AssertNoReferencesToSquad is empty)
+        // (EntityManager::AssertNoReferencesToSquad @0x165510 is empty)
     }
     if (player) g_removingPlayer = false;
     // UNVERIFIED (milestone 4g): the projectile (+0x1ac) is deleted here.

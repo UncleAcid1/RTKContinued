@@ -64,7 +64,7 @@ public:
 // The farm view's per-patch progress box over a soil patch while its powder speed-up runs
 // (Compact_progress_holder.xml): the crop's name, the stage text (GROW_PLANT_%02d, harvesting,
 // cleaning, planting) with its percentage, and the bar. Six of them belong to BottomFarmWindow.
-// Port of PatchProgressHoverWindow (0x88 bytes). SetPartialSpeedUpMode @0x38e688 is not ported:
+// Port of PatchProgressHoverWindow (0x88 bytes). SetPartialSpeedUpMode (0x38e688) is not ported:
 // only BottomFarmWindow::OnFarmWater calls it, and nothing calls that in 5.11.
 class PatchProgressHoverWindow : public BuildingHoverWindow {
 public:

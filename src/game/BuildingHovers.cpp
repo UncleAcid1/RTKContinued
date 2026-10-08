@@ -904,7 +904,7 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
         }
     } while (amount != 0);
     // SoundsManager::PlaySound("item_dropped_light", 1, false): sounds are not ported yet.
-    // CheckForSpecialDrops @0x26fafc: ruby finds while the quests 0x4d7/0x4d9 are active
+    // CheckForSpecialDrops (0x26fafc): ruby finds while the quests 0x4d7/0x4d9 are active
     // (Tasks::IsTaskActive). UNVERIFIED (milestone 4): quests are not ported, so it drops nothing.
     // UNVERIFIED (tutorial): steps 0x14 (unlock) and 0x21 (lock on the gold drop).
 }

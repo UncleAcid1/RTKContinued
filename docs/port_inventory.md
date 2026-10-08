@@ -49,36 +49,33 @@ Counts on 2026-10-07 (1,954 ported, 5,892 unported):
 
 ### 4b.5: holes in finished work (closed after 4b.4, before 4c)
 
-Real gaps (behaviour the port lacks or stands in for):
-- **Startup and shutdown**: the splash screens (`Game::splashLoop`, `showBackground`,
-  `hideBackground`, `showKoreanLogo`), `Game::LoadLanguageTable`, `LoadSystemConfiguration`,
-  `LoadEntityFactoryData`, `main_Loop_BeforeInit`, `main_Exit_Func` and `RepeatedMain`;
-  `main_Loop_Init`/`main_Loop_Func` are partly in src/main.cpp with no `@0x` markers.
-  `ReloadSavedGame`, `OnResume`, `MainExitNoSave`, `OnRestartGame`/`OnShowRestartGame`,
-  `OnSystemErrorOK/Cancel`, `LanguageSelect/Decline`, `turnMusic`, `UpdateTagState`,
-  `GameState::InitDefaultSettings`/`Clean`/`CleanBeforeLoading`, `Contracts::InitSpecial`,
-  `Map::BuildingDeinit`/`DecorDeinit`.
-- **Every frame**: `Background::Update` (the horizon strips' parallax, from Map::Update),
-  `Map::PrepareImages` + `Map::UpdateNotifications` (the city's ambient birds, images/bird/),
-  `GameState::Update`, `GameState::UpdateNotifications`, `EntityManager::RemoveEntitiesByID`
-  (Map::Update), `BuildingHovers::MoveWindowDown` (the HUD return of the KNOWN BUG),
-  `BuildingHovers::SetArrowAlpha` (PopupWindow), `BuildingHovers::HideWorldDialog`.
-- **Economy**: `Map::GetTotalStorageLimit` (TopCityWindow's stand-in), `Map::UpdateStorages`
-  (ChangeResourceAmount's stand-in), `Map::GetAreaByID` and `ShopWindow::FillPatches`, GameState's
-  building counts and limits (`AddBulding`, `RemoveBuilding`, `GetBuildingCount`,
-  `ExtendBuildingLimit`), the unique-ID checks (`Map::AssignUniqueIDs`/`CheckUniqueIDs`), the
-  random-decoration entry points (`Map::CreateRandomDecors`, `AddPatches`, `AddOnePatch`,
-  `AddRandomDecorations`; the port reaches Patch::AddRandomDecors its own way), `Map::UpdateResources`.
+Reviewed 2026-10-08 (parts 1-3): of the 334, about 270 were verified and marked (ported inline or
+under a port name), recorded as replaced (the renderer and resource registry internals, see
+Render.cpp / Resources.h), or re-placed: overloads and stubs of later steps, 107 `dead` (no caller,
+no vtable or GOT entry in 5.11), container helpers (`util`). The review also fixed the coverage
+check: the start of an address range (`@0x10c3cc..0x110bd0`) no longer counts, and references to
+unported functions are written `(0xADDR)`, so AddSmoke and others no longer count as ported.
 
-- **GUI**: GUI::RegisterUI's XML-layout branch beyond the root window (added in 4b.4: shapes,
-  buttons, text fields with glow filters of kingdom_icons/*.xml, e.g. Character_item_holder.xml).
-
-Verify and mark (about 200): helpers that ported code calls, ported inline or without a marker:
-renderer internals (layers, shaders, textures, atlases: the SDL3/OpenGL renderer stands in; mark
-what it follows, record the rest as PORT), RegisterBinaryUI's helpers, WindowManager's
-FunctionalWindow virtuals, Resources lookups, SaveChunk/GetData readers, StringTable helpers,
-AnimationController getters, Entity/EntityManager accessors, the `FUN_` helpers of ported classes,
-and the `--unmarked` list (e.g. `GameState::Reset`, `FileManager::LoadFile`, `Render::Init`).
+The 66 left are real gaps:
+- **Part 4, in play**: `Background::Update` (the horizon strips' parallax), `Map::PrepareImages`,
+  `Map::UpdateNotifications` and the bird helpers (the city's ambient birds), `GameState::Update`,
+  `GameState::UpdateNotifications`, `UpdateTagState` (seasonal tags), the time modifier
+  (`GameState::Set/Get/ResetTimeModifier`), `EntityManager::RemoveEntitiesByID`,
+  `BuildingHovers::MoveWindowDown` (the HUD return of the KNOWN BUG), `SetArrowAlpha` (PopupWindow),
+  `Show/HideWorldDialog`, `Map::GetTotalStorageLimit`, `UpdateStorages`, `UpdateResources`,
+  `GetAreaByID`, `ShopWindow::FillPatches`, `GameState::GetBuildingCount`, Map::Load's
+  `ProcessOfflineContracts`, `CreateRandomDecors`, `Allow*VisibilityUpdate`, `AssignUniqueIDs`,
+  `AddPatches`/`AddOnePatch`, `Map::Free`'s missing parts with `Entity::OnMapUnload`,
+  `Building::AddSmoke` (workshop smoke) with `Entity::GetAnimationFrameCount`, and
+  `StringTable::GetUndecoratedString` (the text popups' decoration pass).
+- **Part 5, start-up and shutdown**: `Game::main_Loop_Init` / `main_Loop_Func` / `main_Loop_BeforeInit`
+  / `main_Exit_Func` / `RepeatedMain` (partly in src/main.cpp without markers), `splashLoop`,
+  `LoadLanguageTable`, `LoadSystemConfiguration`, `LoadEntityFactoryData`, `EntityManager::Init`,
+  `Contracts::InitSpecial` (with `EntityData::GetCost*`, `EntityFactory::GetEntitiesForBuilding`),
+  `GameState::InitDefaultSettings` / `Clean` / `ResetGamePauseState`, `AI::SetWeight`,
+  `StringTable::SetEmptyNameReplacement`, `Render::GetScreenViewWidth/Height`,
+  `WindowQueue::ProcessWheel`, `OnResume`, `turnMusic`, `LanguageSelect/Decline`,
+  `OnShowRestartGame`, `MainExitNoSave`, `Map::BuildingDeinit` / `DecorDeinit`.
 
 ## 1. Milestone layout
 

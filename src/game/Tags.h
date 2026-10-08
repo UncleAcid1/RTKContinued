@@ -1,7 +1,7 @@
 // Tags: named switches for seasonal content (items.xml "tags", e.g. "xmas_2012"). Port of Tags
 // (@0x22e354..0x22e6d0). A tag is made the first time a name is asked for; the server turned tags
 // on or set their time window (Tags::ChangeTagAttribute, online only, not ported), so offline every
-// tag stays off.
+// tag stays off. (Tags::Init @0x22e354, called by main_Loop_Init, is empty.)
 #pragma once
 #include <cstdint>
 

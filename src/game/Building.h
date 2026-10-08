@@ -56,7 +56,7 @@ struct Building {
 
     uint32_t stateTime = 0;      // +0x40 when the current timer started (global time)
     double buildLeft = 0.0;      // +0x48 seconds of construction/upgrade work left
-    int level = 0;               // +0x50 upgrade level / growth stage
+    int level = 0;               // +0x50 upgrade level / growth stage (GetUpgradeCount @0x11c6dc)
     uint32_t f54 = 0;            // +0x54
     int contract = 0;            // +0x58 active contract, 1-based
     bool contractDone = false;   // +0x5c
@@ -67,7 +67,7 @@ struct Building {
     uint32_t patchStart[6] = {}; // +0xb4 farm patch start times (chunk 0x2d)
     const GameData::BuildingData* data = nullptr;  // +0xcc (GetData @0x11c444)
     float partZ = 0.f;           // +0xd0 z step per part sprite
-    std::vector<Render::Sprite*> sprites;  // +0xd4 sprite chain (newest first on the original)
+    std::vector<Render::Sprite*> sprites;  // +0xd4 sprite chain (newest first on the original; GetSpriteList @0x11c43c)
     bool fd8 = false;            // +0xd8
     bool flashing = true;        // +0xd9 with flashTime: the just-opened highlight
     float flashTime = 0.f;       // +0xdc

@@ -2,7 +2,7 @@
 // gather, dig, clean up or change, whatever the farm's patches need), Upgrade and the powder Speed
 // Up (or Recover for rotten patches), plus two sign posts on the farm ground to the previous and
 // next farm. Port of BottomFarmWindow (libkingdom.so 5.11), 0x25fb60..0x262490. Statics at
-// 0x6186b0. OnFarmWater @0x260b10 is not ported: nothing calls it in 5.11.
+// 0x6186b0. OnFarmWater (0x260b10) is not ported: nothing calls it in 5.11.
 #include <vector>
 
 #include "engine/IconManager.h"

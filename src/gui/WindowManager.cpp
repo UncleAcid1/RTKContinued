@@ -110,6 +110,15 @@ void FunctionalWindow::RegisterTopWindow(GUI::Window* w) {
     if (GUI::Window* c = w->GetChild("clickArea")) topWindow = c;
 }
 
+void FunctionalWindow::UnRegisterTopWindow(GUI::Window* w) {
+    for (size_t i = 0; i < topWindows.size(); ++i) {
+        if (topWindows[i] != w) continue;
+        topWindows[i] = topWindows.back();
+        topWindows.pop_back();
+        return;
+    }
+}
+
 // @0x36ecc0: a release outside the top window (with a margin) closes it through Back().
 bool FunctionalWindow::OnOuterClick(int x, int y) {
     if (GUI::IsAnyAnimationActive() || !GUI::CanInteractWith(nullptr)) return false;

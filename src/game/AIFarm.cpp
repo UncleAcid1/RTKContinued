@@ -502,7 +502,7 @@ void AIFarmerSmall::StartResting() {
 void AIFarmerSmall::WalkCompleted() {
     if (GameState::tutorial == 0x38) {
         GameState::tutorial = 0x39;
-        // UNVERIFIED (milestone 4, tutorial): OnTutorialFarmerWomanAction @0xebd90 (the farmer's
+        // UNVERIFIED (milestone 4, tutorial): OnTutorialFarmerWomanAction (0xebd90) (the farmer's
         // world dialog DESC1017, the camera and the arrow to the farm site, step 0x3a).
         if (GameState::tutorial == 0x3e) GameState::tutorial = 0x3f;
         return;

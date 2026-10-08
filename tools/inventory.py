@@ -6,8 +6,9 @@ Every game function in out/decomp.c is grouped by its top-level class (nested cl
 fold into their owner; container/pool/callback/JSON templates and library code are left out).
 Unnamed functions (FUN_xxxxxxxx, static initialisers) are traced to their owner by
 tools/funtrace.py (callers, vtables, data tables, init_array, neighbouring code) and counted with
-it. A function counts as ported when its address appears as `@0x...` anywhere in src/ (or, for an
-unnamed one, `FUN_xxxxxxxx` is named in a src/ comment: read and handled there).
+it. A function counts as ported when its address appears as `@0x...` anywhere in src/ (not as the
+start of a range like `@0x10c3cc..0x110bd0`), or, for an unnamed one, when `FUN_xxxxxxxx` is
+named in a src/ comment (read and handled there).
 
   (no flag)        `ported/total  class` per owner (classes, and `free:` for free game functions)
   --missing        only owners with nothing ported
@@ -42,8 +43,10 @@ def ported_addrs():
         for f in files:
             src = open(os.path.join(d, f), errors="ignore").read()
             # `@0x...` marks a port; a `FUN_xxxxxxxx` named in a comment was read and handled there
-            # (ported under a port name, or recorded as having no effect).
-            for m in re.finditer(r"@0x([0-9a-fA-F]+)|FUN_([0-9a-fA-F]{8})", src):
+            # (ported under a port name, or recorded as having no effect). The start of an address
+            # range (`@0x10c3cc..0x110bd0`) marks nothing. A reference to a function that is not
+            # ported is written without the `@` (`AddSmoke (0x11e898)`).
+            for m in re.finditer(r"@0x([0-9a-fA-F]+)\b(?!\.\.)|FUN_([0-9a-fA-F]{8})", src):
                 out.add(int(m.group(1) or m.group(2), 16))
     return out
 

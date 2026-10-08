@@ -116,7 +116,7 @@ int GetEntityIDByName(const std::string& name);   // @0x1605c8 (-1 if none)
 // range picks a random one.
 int GetRandomNameIdx(int female, int farmer);     // @0x1615f4
 int GetRandomSurnameIdx(int female, int farmer);  // @0x16174c
-const char32_t* GetNameByIdx(int female, int farmer, int idx);      // @0x161694
-const char32_t* GetSurnameByIdx(int female, int farmer, int idx);   // @0x1617ec
+const char32_t* GetNameByIdx(int female, int farmer, int idx);      // @0x161694 (EntityManager's @0x1655f8 forwards here)
+const char32_t* GetSurnameByIdx(int female, int farmer, int idx);   // @0x1617ec (EntityManager's @0x1655f0 forwards here)
 
 }  // namespace EntityFactory

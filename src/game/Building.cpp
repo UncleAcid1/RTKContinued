@@ -553,7 +553,7 @@ void Building::LaunchContract(unsigned index, int patch) {
     stateTime = t;
     if (GameState::TutorialStep() < 0x61)
         stateTime = t - (uint32_t)(int)((float)(unsigned)GetContractTime(-1) * 0.5f);
-    // UNVERIFIED: AddSmoke @0x11e898 (the smoke entity 0x17c over workshops 0x6b 0x3ef 0x86 0x66 0x65
+    // UNVERIFIED: AddSmoke (0x11e898: the smoke entity 0x17c over workshops 0x6b 0x3ef 0x86 0x66 0x65
     // 0x6a 0x3f0) needs the BuildingData smoke positions, not parsed yet.
     AddDeliveryOrder();
 }
@@ -878,7 +878,7 @@ void Building::UndoAction() {
         for (Entity* pile : piles)
             if (pile) Render::SetVisibility(pile->GetSprite(), true);
     }
-    // UNVERIFIED (milestone 5): AddSmoke @0x11e898 (smoke over the workshops).
+    // UNVERIFIED (milestone 5): AddSmoke (0x11e898) (smoke over the workshops).
 }
 
 void Building::OnMoved() {
@@ -916,7 +916,7 @@ void Building::OnMoved() {
             Render::SetVisibility(pile->GetSprite(), true);
         }
     }
-    // UNVERIFIED (milestone 5): AddSmoke @0x11e898.
+    // UNVERIFIED (milestone 5): AddSmoke (0x11e898).
 }
 
 void Building::OnDestroy() {

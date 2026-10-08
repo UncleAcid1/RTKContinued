@@ -130,7 +130,7 @@ void Init() {
     g_okIcon->takesZ = true;
     g_ok = GUI::GetWindowTyped<Button>(g_root, "lvl_up_share_holder.share.clickArea");
     g_ok->SetOnClick(OnShare);
-    // ShareButtonsHolder::LoadFrom @0x3423d4 (its tick toggles OnTwitterToggle @0x2e7758). PORT:
+    // ShareButtonsHolder::LoadFrom @0x3423d4 (its tick toggles OnTwitterToggle (0x2e7758)). PORT:
     // only its root, kept hidden.
     g_social = GUI::GetWindowTyped<Window>(g_root, "lvl_up_share_social_01");
     g_queue->hideOnOuterClick = true;

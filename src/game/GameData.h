@@ -133,7 +133,7 @@ DecorData* EnumDecors(unsigned i);
 int GetMaxBuildingCount(const BuildingData& d);  // @0x11f1d8 BuildingData::GetMaxBuildingCount
 Render::Texture* BuildingImage(const BuildingData* d, unsigned part);   // @0x11eea8 BuildingData::GetImage
 
-Render::Texture* DecorImage(const DecorData* d);         // DecorData::LoadImage @0x134bb8
+Render::Texture* DecorImage(const DecorData* d);         // DecorData::GetImage @0x135214 / LoadImage @0x134bb8
 Render::Texture* PartImage(const BuildingPart* p);       // BuildingPart::LoadImage @0x11ee40
 
 }  // namespace GameData

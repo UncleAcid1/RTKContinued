@@ -1,6 +1,7 @@
 // EntityManager: the entities in play, their creation, per-frame update and lookups.
 // Port of EntityManager (libkingdom.so 5.11, @0x1654a8..0x168530). On the original it is an App
-// member (App::GetEntityManager); its +0x18 is the EntityFactory, +0x1c the player.
+// member (App::GetEntityManager); its +0x18 is the EntityFactory (GetEntityFactory @0x165508; the
+// port's EntityFactory is a namespace), +0x1c the player.
 #pragma once
 #include <string>
 #include <vector>
@@ -43,9 +44,11 @@ void OnClick(int x, int y);
 // @0x16716c: the entity whose sprite box (Entity::Contains) holds the world point, the nearest
 // (lowest z) first among living non-NPCs, then living ones, then any active one.
 Entity* GetEntityAtWorldXY(int x, int y);
-// @0x166594: an active worker (class 0, not an NPC) with neither a workplace nor a decoration job.
+// @0x166594 (GameState::GetFreeWorker @0x1938e0 forwards here): an active worker (class 0, not an
+// NPC) with neither a workplace nor a decoration job.
 Entity* GetFreeWorker();
-// @0x16632c: a worker (class 0) working at a building (not a decoration).
+// @0x16632c (GameState::GetFirstBusyWorker @0x1938cc forwards here): a worker (class 0) working at a
+// building (not a decoration).
 Entity* GetFirstBusyWorker();
 int GetEntityCountAtXY(int x, int y);            // @0x1668dc
 unsigned GetEntityCountByID(unsigned id);        // @0x1667c8

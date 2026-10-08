@@ -2,7 +2,8 @@
 // elements with equal keys end up in the same order as on the original. Introsort: median-of-three
 // pivot (first, middle, last - 1), unguarded partition, heap sort past 2 * log2(n) levels, segments
 // of up to 16 left for a final insertion sort. Matches the instances inlined in ShopWindow::Init
-// (FUN_00348d9c / FUN_00348994 / FUN_00348a38).
+// (FUN_00348d9c / FUN_00348994 / FUN_00348a38, and by item level FUN_00348c08 the introsort loop,
+// FUN_00348b20 the heap adjust, FUN_003488f0 the insertion sort).
 #pragma once
 #include <cstddef>
 #include <utility>

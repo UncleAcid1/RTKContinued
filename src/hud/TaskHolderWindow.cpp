@@ -2,7 +2,7 @@
 // scroller, "new task" banners, the quick task description). Port of TaskHolderWindow
 // (libkingdom.so 5.11), 0x354364..0x359d68.
 //
-// Every window here starts hidden and is filled from the quests (UpdateTasks @0x356048), so the
+// Every window here starts hidden and is filled from the quests (UpdateTasks (0x356048)), so the
 // layout (Init @0x355384: New_task_huge_container / New_task_container / Slider_mission_scroll_bg /
 // Scroll_bar_tiny_container, Shared::TaskWindow, Shared::ContentScroller) is ported together with
 // the quest system (milestone 4). Until then the window takes its place in the queue and nothing

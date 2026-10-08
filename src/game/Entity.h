@@ -265,10 +265,10 @@ public:
     const char32_t* firstName = U""; // +0x160
     const char32_t* surname = U"";   // +0x164
     int firstNameIdx = 0, surnameIdx = 0;   // +0x168 +0x16c
-    float customZ = 0.f;             // +0x170 (<= 0: from the position)
+    float customZ = 0.f;             // +0x170 (<= 0: from the position; GetCustomZ @0x15003c)
     int selected = 0, f178 = 0;      // +0x174 +0x178 (ring style 1 while set)
     bool appearing = false, disappearing = false;   // +0x17c +0x17d
-    float alpha = 1.f;               // +0x180
+    float alpha = 1.f;               // +0x180 (GetAlpha @0x1506e8)
     bool greyed = false;             // +0x184 dead player (shader 3)
     float speedScale = 1.f;          // +0x188 animation and fade speed
     float f18c = 0.f, f190 = 0.f;    // +0x18c +0x190

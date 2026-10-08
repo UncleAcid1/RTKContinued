@@ -1517,7 +1517,7 @@ void LoadEntities(SaveManager::SaveBlock* block) {
         SaveManager::PutUnsigned(copy->cur.data, 0);
         copy->EndChunk();
         copy->MergeChunks();
-        g_entityDataCopy = std::move(copy);   // CopyEntityData
+        g_entityDataCopy = std::move(copy);   // CopyEntityData @0x193074 (replaces the previous copy)
     }
 }
 

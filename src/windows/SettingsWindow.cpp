@@ -144,7 +144,7 @@ void Update(float) {
 // @0x33f9c4. UNVERIFIED (milestone 5): SoundsManager::SetVolume_Music(muted ? 0 : 0.35) is not ported.
 void OnMusic() {
     g_musicMuted = Flip(g_musicMuted);
-    // FileManager::OnMusicMute @0x16af80
+    // FileManager::OnMusicMute (0x16af80)
     SystemFuncs::SetSetting_Int("MC_music_mute", 1 - SystemFuncs::GetSetting_Int("MC_music_mute", 0, "MyCountry_mute"),
                                 "MyCountry_mute");
     UpdateContents();
@@ -153,7 +153,7 @@ void OnMusic() {
 // @0x33fa10. UNVERIFIED (milestone 5): SoundsManager::SetVolume_Sounds(muted ? 0 : 1) is not ported.
 void OnSound() {
     g_soundMuted = Flip(g_soundMuted);
-    // FileManager::OnSoundMute @0x16afc0
+    // FileManager::OnSoundMute (0x16afc0)
     SystemFuncs::SetSetting_Int("MC_sound_mute", 1 - SystemFuncs::GetSetting_Int("MC_sound_mute", 0, "MyCountry_mute"),
                                 "MyCountry_mute");
     UpdateContents();

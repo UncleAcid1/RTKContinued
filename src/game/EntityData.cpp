@@ -342,7 +342,8 @@ bool LoadData(const char* file) {
                 a->delay[1] = (w.size() > 1 ? std::atoi(w[1].c_str()) : 0) / 2;
             }
             a->name = field(5);
-            // (ids 0x285/0x286: a shadow glow filter set at +0x30, not ported)
+            // (ids 0x285/0x286 get a shadow glow filter set at +0x30, CreateShadowGlowFilterSet @0x1604a4;
+            // no entity has those ids in the 5.11 data)
             d->anims.push_back(a);
         }
 

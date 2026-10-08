@@ -68,6 +68,10 @@ public:
     bool IsVisible() override { return fn.isVisible ? fn.isVisible() : true; }     // @0x36e77c
     float ZRange() override { return fn.zRange ? fn.zRange() : 0.03f; }          // @0x36e798
     void RegisterTopWindow(GUI::Window* w);              // @0x36eec0
+    // @0x36e598: w leaves the list (the last entry takes its place); topWindow stays as it is.
+    void UnRegisterTopWindow(GUI::Window* w);
+    // (RegisterContentScroller @0x36ee10 / UnregisterContentScroller @0x36e5fc keep a list at +0x58
+    // that nothing in 5.11 reads; the port leaves it out.)
     bool OnOuterClick(int x, int y);                     // @0x36ecc0
 
     Functions fn;

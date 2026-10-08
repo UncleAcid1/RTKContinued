@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-08, 4b.5 part 2 done) — read this first in a new conversation
+## Handoff (last updated 2026-10-08, 4b.5 part 3 done) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -389,7 +389,16 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Resources.h records the start-up pack registry (RegisterResources/RegisterAnimations and their
    tables) the port's on-demand probing replaces. UNVERIFIED notes: the colour-mask shader path
    (ApplyMask, callers in 4g/5), Textfield::SetRotation's minify filter, exploded animation frames.
-   NEXT: 4b.5 part 3, the real gaps (every frame, economy, startup/shutdown, text).
+   4b.5 PART 3 DONE (review of the rest; small fixes): every remaining 4b.5 function sorted by its
+   callers (asm calls plus vtable/GOT entries in the binary). 107 functions are `dead` (no caller in
+   5.11), others moved to their steps (tutorial 4h, decoration jobs 4e, quests 4c, towers/PvP 5,
+   friends online); helpers marked (GameState's worker forwards, name lookups, DecorData::GetImage,
+   entity/building getters, CopyEntityData, CreateShadowGlowFilterSet: no entity uses it in 5.11).
+   Fixed: FunctionalWindow::UnRegisterTopWindow ported (part 1 wrongly called it dead: it is
+   virtual); the coverage check ignores range starts `@0x..` and unported references are now written
+   `(0xADDR)` (AddSmoke, road painting, CreateGradient ... no longer count as ported). The 66 left
+   are listed in docs/port_inventory.md section 0 (part 4: in play; part 5: start-up/shutdown).
+   NEXT: 4b.5 part 4 (the in-play gaps).
    KNOWN BUG (put aside 2026-10-07 at the user's request): after a building's info window opens and
    closes, the right-side buttons (Settings gear) stop working: BuildingHovers' queue stays at the
    head and takes the button's release (press -> CastleTop, release -> BuildingHovers). The
@@ -545,6 +554,8 @@ reworked to work offline later. Rebuilding the server is a separate future proje
 
 ## Accuracy rules (non-negotiable)
 1. Every ported function carries a `// @0xADDR Class::Method` comment pointing at the original.
+   `@0x` means "ported here" to tools/inventory.py: a reference to a function that is not ported is
+   written without the `@` (`AddSmoke (0x11e898)`), and an address range starts without it too.
 2. Formats and formulas come from the decompile or assembly, never from guessing at bytes.
 3. When the decompile shows `extraout_sN`, read the assembly. The library is **softfp** (floats are passed
    in core registers), which the decompiler mishandles. Use `tools/ghidra_scripts/DumpAsm.java` +

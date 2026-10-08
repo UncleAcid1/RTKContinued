@@ -74,7 +74,7 @@ public:
     ~AIBaseState() override = default;                // @0xe9684
     bool HasEntity(Entity* e) override;               // +0x10 @0xe83a0
     virtual void Update(float dt);                    // +0x4c @0xe9010
-    virtual void ClickedEntity(Entity*) {}            // +0x50
+    virtual void ClickedEntity(Entity*) {}            // +0x50 @0xe81ec
     virtual void ClickedTile(int, int, int, int) {}   // +0x54
     virtual void ClickedPortal() {}                   // +0x58
     virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c

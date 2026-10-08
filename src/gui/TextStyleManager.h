@@ -1,6 +1,6 @@
 // TextStyleManager: the popup text styles (damage numbers, collected gold/xp, item names), read from
 // the textfields of Popup_damage_anim.xml. Port of TextStyleManager (libkingdom.so 5.11).
-// (CreateGradient @0x36466c, the gradient surfaces for styled text, is not ported yet.)
+// (CreateGradient (0x36466c), gradient surfaces for styled text, has no caller in 5.11.)
 #pragma once
 
 namespace Render { struct GlowFilter; }
