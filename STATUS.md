@@ -644,12 +644,13 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    - removed: Tasks::SendTasksFootprint (sent with a real-money purchase).
    - 5: the console commands for tasks and tags (admin mode), GlobalMapWindow::OnTaskCompleted,
      BuildingHovers::CheckForSpecialDrops.
-   OPEN QUESTION FOR THE USER (freemium rule; asked 2026-10-11, not answered yet): the Ruby /
-   Diamond Pyramid events (tasks 0x4d7..0x4db; CheckForSpecialDrops drops the pyramid item with
-   the "ruby_find_chance" setting while its task runs; finding it gave 30% / 40% more gold and
-   crystals on real-money packs for 24 h, ExchangeWindow::UpdateCosts' multiplier). Offline idea
-   to propose: the same bonus on the port's gold <-> crystal exchange. Decide before the exchange
-   is revisited (milestone 5). Nothing starts these tasks offline yet.
+   DECIDED by the user (2026-10-11): the Ruby / Diamond Pyramid events stay (tasks 0x4d7..0x4db;
+   BuildingHovers::CheckForSpecialDrops drops the pyramid item with the "ruby_find_chance" setting
+   while its task runs). In 5.11 finding one gave 30% / 40% more gold and crystals on real-money
+   packs for 24 h (ExchangeWindow::UpdateCosts' multiplier); offline the same bonus applies to the
+   port's gold <-> crystal exchange for 24 h. To do with the exchange in milestone 5: port
+   CheckForSpecialDrops, the multiplier, and decide what starts the events offline (nothing does
+   yet; 5.11 started them from the server).
    Verified headless (temporary hook, removed): building 99 upgrade 1 has exchangeLimit 75 after
    the first frame; queued task / step / building overrides apply by kind and with kAll;
    TryToHelpWithTask(1281) shows "Complete quest 'Stonemason's Conditions'"; fresh city, real save
