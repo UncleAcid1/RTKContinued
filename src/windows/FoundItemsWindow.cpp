@@ -10,8 +10,7 @@
 // UNVERIFIED (later milestones):
 //  - the PvP arena path (PlayerBattleInOutWindow, 4g; its buttons "Attack again", "Profile",
 //    "Restock", PlayerWeakWindow, PvPArenaCombat restarts) is left out: that window is never shown;
-//  - SetParameters(Tasks::TaskInfo*, ...) (0x2bcffc) comes with Tasks (4c) and
-//    SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) with Locations (4f);
+//  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with Locations (4f);
 //  - RunPostAction's windows (item shop, hire troops: 5; level info: 4d) and OnClose's owners
 //    (raid / campaign / boss / chest windows) are named in comments only.
 // PORT (online removed): the share ticks (Shared::ShareButtonsHolder, the Facebook / Twitter
@@ -25,6 +24,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Text.h"
+#include "game/Tasks.h"
 #include "game/BuildingHovers.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
@@ -597,6 +597,19 @@ void SetParameters(const char* setting, const char32_t* title) {
     } else {
         for (unsigned i = 0; i < s.GetChildrenCount(); ++i) add(s.GetChild(i));
     }
+    FinishParameters(title);
+}
+
+// @0x2bcffc FoundItemsWindow::SetParameters(Tasks::TaskInfo*, ...)
+void SetParameters(Tasks::TaskInfo* task, const char32_t* title, unsigned crystals) {
+    ClearCollected();
+    if (!task) return;
+    g_task = task;
+    if (crystals != 0) AddCollectedResource(GameState::kCrystal, (int)crystals);
+    static const int kOrder[11] = {9, 10, 8, 0, 1, 2, 3, 4, 5, 6, 7};   // 0x597300
+    for (int type : kOrder)
+        if (task->award[type] != 0) AddCollectedResource(type, (int)task->award[type]);
+    for (unsigned i = 0; i < task->itemCount; ++i) AddCollectedItem(task->items[i].id, (int)task->items[i].count);
     FinishParameters(title);
 }
 

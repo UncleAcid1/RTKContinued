@@ -86,6 +86,7 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     int tab = 0, subtab = 0;     // +0x24, +0x28
     int visid = 0;               // +0x2c
     bool buy = false;            // +0x30
+    bool giveable = false;       // +0x31 (set by ChangeBuildingAttribute; UNVERIFIED: its "giveable" is not read from the file yet)
     int collectTime = 0;         // +0x34 "collecttime"
     int collectMoney = 0;        // +0x38 "collectmoney"
     unsigned gold = 0;           // +0x44
@@ -99,6 +100,7 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     unsigned costPopulation = 0; // +0xa8
     unsigned givePopulation = 0; // +0xac
     int speedupCb = 0;           // +0xb0 "speedupcb"[0]
+    int exchangeLimit = 0;       // +0xb4 never loaded; "r_cb_limit" of ChangeBuildingAttribute
     std::vector<UpgradeInfo> upgrades;  // +0xb8
     const Contracts::Contract* delivery = nullptr;  // +0xc4 Contracts::GetContract("delivery_type")
     struct { float x, y; } parking[10], particles[10];   // +0xd0 / +0x120, counts +0xc8 / +0xcc
@@ -129,6 +131,12 @@ void BuildingDeinit();
 void DecorDeinit();
 const DecorData* GetDecoration(uint32_t id);     // Map::GetDecoration(unsigned) @0x130ebc
 const BuildingData* GetBuilding(uint32_t id);    // Map::GetBuilding @0x11c3cc
+// Map::ChangeBuildingAttribute @0x128e38 (Override): a field of building `id` by name; with level
+// > 0 the "r_*" / people / speed-up fields of that upgrade level (1-based) instead of the base
+// ones. For a decoration id only buy, giveable and the collect_* fields.
+void ChangeBuildingAttribute(uint32_t id, uint32_t level, const char* name, const char* value);
+// Map::GetBuildingDataWithContract @0x11f264: the building type that delivers this contract list.
+const BuildingData* GetBuildingDataWithContract(const Contracts::Contract* contract);
 // Map::EnumBuildings @0x1201a8 / EnumDecors @0x13b75c: in file order (first occurrence of an id),
 // null past the end.
 BuildingData* EnumBuildings(unsigned i);

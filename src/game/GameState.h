@@ -103,6 +103,10 @@ void SetTaskShowTime(unsigned id, uint32_t t); // @0x1986dc
 int GetSubTaskDone(unsigned subtask);          // @0x19963c
 void SetSubTaskDone(unsigned subtask, int n);  // @0x199600
 void AddSubTask(unsigned subtask, int n);      // @0x199774
+// @0x193978: for a task not completed yet a pop-up names it ("HIRE_TROOPS_TASK_LOCK") and true
+// is returned: the caller's action waits for that task.
+bool TryToHelpWithTask(unsigned task);
+inline Entity* AddEntity(Entity* e) { return e; }   // @0x190c14 (empty in 5.11)
 bool SubTaskCompleted(unsigned task, unsigned subtask);   // @0x199670 the task's step reached its amount
 uint32_t GetCustomSubTaskRequrement(unsigned subtask);    // @0x198984 (0: none)
 void SetCustomSubTaskRequrement(unsigned subtask, uint32_t v);   // @0x198948

@@ -3,6 +3,7 @@
 #include <pugixml.hpp>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 
@@ -371,6 +372,65 @@ const DecorData* GetDecoration(uint32_t id) {
 const BuildingData* GetBuilding(uint32_t id) {
     auto it = g_buildings.find(id);
     return it == g_buildings.end() ? nullptr : &it->second;
+}
+
+// @0x11f264 Map::GetBuildingDataWithContract
+const BuildingData* GetBuildingDataWithContract(const Contracts::Contract* contract) {
+    for (const BuildingData* b : g_buildingList)
+        if (b->delivery == contract) return b;
+    return nullptr;
+}
+
+// @0x128e38 Map::ChangeBuildingAttribute
+void ChangeBuildingAttribute(uint32_t id, uint32_t level, const char* name, const char* value) {
+    auto is = [name](const char* n) { return std::strcmp(name, n) == 0; };
+    int v = std::atoi(value);
+    auto bit = g_buildings.find(id);
+    if (bit == g_buildings.end()) {
+        auto dit = g_decors.find(id);
+        if (dit == g_decors.end()) return;
+        DecorData& d = dit->second;
+        if (is("buy")) d.buy = v != 0;
+        else if (is("giveable")) d.giveable = v != 0;
+        else if (is("collect_time")) d.collectTime = (uint32_t)v;
+        else if (is("collect_gold")) d.collectMoney = (uint32_t)v;
+        else if (is("collect_xp")) d.collectExp = (uint32_t)v;
+        else if (is("collect_chest")) d.collectChest = (uint32_t)v;
+        return;
+    }
+    BuildingData& b = bit->second;
+    UpgradeInfo* up = level != 0 && level - 1 < b.upgrades.size() ? &b.upgrades[level - 1] : nullptr;
+    // A field of the base requirements (level 0) or of an upgrade level (one that does not exist
+    // changes nothing).
+    auto set = [&](int* base, int* upgrade) {
+        if (level == 0) *base = v;
+        else if (up) *upgrade = v;
+    };
+    static const char* const kCost[10] = {"r_lumber", "r_rock", "r_food", "r_planks", "r_stones",
+                                          "r_meat", "r_sausage", "r_oil", "r_gold", "r_crystal"};
+    if (is("r_task")) set(&b.requiresQuest, up ? &up->quest : nullptr);
+    else if (is("r_build")) {
+        if (v == 0 || v == 99) set(&b.requiredId, up ? &up->requiredId : nullptr);
+    } else if (is("r_buildlvl")) set(&b.requiredCount, up ? &up->requiredCount : nullptr);
+    else if (is("r_time")) set((int*)&b.constructionTime, up ? &up->time : nullptr);
+    else if (is("r_lvl")) set((int*)&b.level, up ? &up->level : nullptr);
+    else if (is("r_people")) set((int*)&b.costPopulation, up ? &up->population : nullptr);
+    else if (is("give_people")) set((int*)&b.givePopulation, up ? &up->givePopulation : nullptr);
+    else if (is("speedup_cb")) set(&b.speedupCb, up ? &up->speedupCb : nullptr);
+    else if (is("r_cb_limit")) set(&b.exchangeLimit, up ? &up->exchangeLimit : nullptr);
+    else if (is("collect_time")) b.collectTime = v;
+    else if (is("collect_gold")) b.collectMoney = v;
+    else if (is("tab")) b.tab = v;
+    else if (is("cant_sell_last")) b.cantSellLast = v != 0;
+    else if (is("buy")) b.buy = v != 0;
+    else if (is("giveable")) b.giveable = v != 0;
+    else
+        for (int i = 0; i < 10; ++i) {
+            if (!is(kCost[i])) continue;
+            // (the base gold and crystal prices are their own fields, +0x44 and +0x48)
+            int* base = i == 8 ? (int*)&b.gold : i == 9 ? (int*)&b.cb : &b.cost[i];
+            set(base, up ? &up->cost[i] : nullptr);
+        }
 }
 
 

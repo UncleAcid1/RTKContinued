@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c parts 1-3 done (quest data, saved state, the quest engine, the world's reactions; balance plan confirmed)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); next 4d) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -620,10 +620,41 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    (ruins: REPLACE_AFTER_QUEST=<building>:<task>, REPLACE_OBJ, REQ_UNLOCK_QUEST ...); completing
    task 1281 turned decoration 1493 at 14,17 into the finished building 101 and the ruin was
    gone; fresh city and the real save copy load, save and reload as before.
-   LEFT IN 4c (48; `python3 tools/inventory.py --functions 4c`): part 4 help (TaskSubtask::OnHelp,
-   HelpWith*, the Map lookups it uses), Bonus, Override, gem messages, console commands,
-   BuildingHovers::CheckForSpecialDrops, FoundItemsWindow::SetParameters(TaskInfo*).
-   NEXT: 4c part 4.
+   4c PART 4 DONE - 4c IS CLOSED (`inventory.py --functions 4c` prints nothing). Ported:
+   src/game/Override.* (AddParameter @0x1da7ac, Apply @0x1daad4: a queue of named data changes;
+   the game queues one itself at start-up - building 99, the castle, upgrade 1 "r_cb_limit" = 75 -
+   and main_Loop_Func applies everything each frame; the kinds only the server sends are listed in
+   Apply as dormant; the original's fall-through that drops the entry after a skipped location
+   parameter is kept), GameData::ChangeBuildingAttribute (Map:: @0x128e38; BuildingData gained
+   +0xb4 exchangeLimit and +0x31 giveable), Map::ChangeObjectAttribute @0x1bca94 (the table only:
+   Map::LoadPlayer's use of it is online), Map::GetBuildingWithContract / GetUpgradeableBuilding /
+   GetFarmWithPatchToBuy, GameData::GetBuildingDataWithContract, GameState::TryToHelpWithTask
+   @0x193978 (the "Complete quest '<name>'" pop-up) and AddEntity (empty in 5.11),
+   FoundItemsWindow::SetParameters(TaskInfo*, title, crystals) @0x2bcffc (order table 0x597300:
+   crystals, XP, gold, resources 0..7, then the items).
+   RE-FILED in port_plan.txt, with the reasons:
+   - 4d: Tasks::TaskSubtask::OnHelp (1244 lines: the task window's "Go" button, a switch over the
+     67 step types into shop / item shop / hire / craft / world map / character windows and the
+     arrows), HelpWithLocation, HelpWithMapSwitchTo(+Continuation), RunLastSubTaskHelp,
+     ShowWarriorSlotUnlock. Every caller is quest UI (TaskInfoWindow::OnHelpActual, TaskListWindow)
+     or later, most of its targets are 4d / 5 windows, and it can only be tried by pressing the
+     button: it is the first thing to port in 4d. Its jump table must be checked against the asm.
+   - online (dormant): Bonus::* (gifts from the server / Java / console), the gem step message
+     (ServerFlags' blocking ToS / exit message in Update).
+   - removed: Tasks::SendTasksFootprint (sent with a real-money purchase).
+   - 5: the console commands for tasks and tags (admin mode), GlobalMapWindow::OnTaskCompleted,
+     BuildingHovers::CheckForSpecialDrops.
+   OPEN QUESTION FOR THE USER (freemium rule; asked 2026-10-11, not answered yet): the Ruby /
+   Diamond Pyramid events (tasks 0x4d7..0x4db; CheckForSpecialDrops drops the pyramid item with
+   the "ruby_find_chance" setting while its task runs; finding it gave 30% / 40% more gold and
+   crystals on real-money packs for 24 h, ExchangeWindow::UpdateCosts' multiplier). Offline idea
+   to propose: the same bonus on the port's gold <-> crystal exchange. Decide before the exchange
+   is revisited (milestone 5). Nothing starts these tasks offline yet.
+   Verified headless (temporary hook, removed): building 99 upgrade 1 has exchangeLimit 75 after
+   the first frame; queued task / step / building overrides apply by kind and with kAll;
+   TryToHelpWithTask(1281) shows "Complete quest 'Stonemason's Conditions'"; fresh city, real save
+   copy and the building shop as before.
+   NEXT: 4d (quest UI), starting with TaskSubtask::OnHelp and its helpers.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
@@ -943,7 +974,7 @@ Milestones:
               and factory boosts. 4b.4: the item windows (ItemHoverWindow, UseItemHoverWindow,
               FoundItemsWindow, NeedItemWindow, Items::GetItemOffsetInHolder). 4b.5: holes in finished
               work from the coverage pass (docs/port_inventory.md section 0).
-       4c [ ] quests core: MetaExpression's quest/map parts, tasks.xml (Tasks, TaskInfo, TaskSubtask),
+       4c [x] quests core: MetaExpression's quest/map parts, tasks.xml (Tasks, TaskInfo, TaskSubtask),
               task state in the save (chunks already kept), progress events (the OnTaskStarted/
               OnSubTaskCompleted/OnTaskCompleted/OnTagUpdate hooks in Entity/EntityManager/Map),
               rewards. Freemium rule: propose the crystal rewards to the user before coding them.

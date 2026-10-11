@@ -61,6 +61,7 @@
 #include "game/Game.h"
 #include "game/GameData.h"
 #include "game/Map.h"
+#include "game/Override.h"
 #include "game/MapMovement.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
@@ -444,6 +445,7 @@ int RunHeadless() {
         AfterEvents(dt);
         Tick(dt);
     };
+    Override::Apply(Override::kAll);   // PORT: main_Loop_Func's, which the headless frames do not run
     for (int i = 0; i < 60; ++i) frame();   // let the HUD slide in and count up
     if (opt.show == "city_rename") {
         CityRenameWindow::Show();
@@ -634,8 +636,9 @@ int main_Loop_Init() {
     GameState::SetSetting("port_level_factor_div", 14.f);
     GameState::SetSetting("port_levelup_crystals_div", 4.f);
     SystemFuncs::SetSetting_Int("show_starting_win", 0, "MyCountry_flags");
-    // UNVERIFIED: Override::AddParameter(0xb, 99, 1, "r_cb_limit", "75") and Override::Apply(4)
-    // (the server's override table, not ported).
+    // (Building 99's first upgrade gets an exchange limit of 75 once the frame loop applies it.)
+    Override::AddParameter(Override::kBuilding, 99, 1, "r_cb_limit", "75");
+    Override::Apply(Override::kSetting);
 
     // The data files, in the original's order; the ones of later milestones are named in place.
     // (Resources::RegisterResources "files_in_packs_list.xml", 4/46: the port finds a file's pack
@@ -776,11 +779,12 @@ void main_Loop_BeforeInit() {
 
 // @0x188a40 Game::main_Loop_Func: one frame. False ends the loop.
 // Left out: everything online at its start (scheduled bonuses, restart and server update, the
-// heartbeat, the save sent and pinged to the server), Override::Apply(0x12), the render
+// heartbeat, the save sent and pinged to the server), the render
 // suspend / restore events (Android loses its GL context in the background), the crystals
 // bought or taken back by Java (mCallBackCB, mDecCB) and the billing results.
 bool main_Loop_Func() {
     SDL_Delay((Uint32)GameState::GetServerSetting(0xae));   // "TSS_DELAY": 0
+    Override::Apply(Override::kAll);
     // (Android's audio focus event: turnMusic(allowSoundEvent) once canPlayMusic)
     if (paused) {
         // In the background the loop only sleeps and counts the time (0.5 s a turn).

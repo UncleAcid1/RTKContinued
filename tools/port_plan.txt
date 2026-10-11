@@ -39,7 +39,7 @@ util  ^(EntityFactory::FUN_(0015fb4c|00160374|0016134c)|SoldierSlots::FUN_(0021e
 implicit  ^CastleTopWindow::FUN_00277144   # a callback object factory (Update's three callbacks)
 4b.5  ^Map::Building::AddSmoke$   # a hole the review found behind an `@0x` reference (workshop smoke)
 4h    ^(OnTutorialFarmerWomanAction|EntityManager::GetEntityByClass)$   # tutorial paths (BottomCityWindow::Update, Building::WorkEnded)
-4c    ^BuildingHovers::CheckForSpecialDrops$   # ruby finds during quests 0x4d7/0x4d9
+5     ^BuildingHovers::CheckForSpecialDrops$   # the Ruby / Diamond Pyramid finds (tasks 0x4d7 / 0x4d9): a real-money sale promotion in 5.11 (30% more gold and crystals for 24 h); ask the user how it works offline, with the exchange
 6     ^FileManager::(OnMusicMute|OnSoundMute)$
 online  ^(LandExpandedWindow|LevelUpWindow)::OnTwitterToggle$
 dead  ^(BottomFarmWindow::OnFarmWater|PatchProgressHoverWindow::SetPartialSpeedUpMode|BuildingMovement::(ToggleRoadType|ToggleWarehouse))$   # no caller in 5.11
@@ -114,15 +114,20 @@ util  ^SaveManager::SaveChunk::(SaveBytes|SaveChar|SaveShort|SaveUnsigned|LoadCh
 util  ^SystemFuncs::(IntToStr|ReplaceString|TrimSpaces|utf8ToWChar|wcharToUtf8)$
 
 # ---- 4c: quest engine ---------------------------------------------------------------------------
-4c  ^(Tasks|Override|Bonus)::
+online  ^Bonus::   # gifts from the server / Java (ServerFlags, mcSetBonus) and the console; nothing gives one offline
+online  ^GameState::(ShowGemBonusMessage|GetGemStepMessage|SetGemStepMessage)$   # ServerFlags' blocking message (ToS / exit) in Update
+removed  ^Tasks::SendTasksFootprint$   # sent with a real-money purchase (ExchangeWindow::OnPayFor*)
+4d  ^Tasks::(TaskSubtask::OnHelp|HelpWithLocation|HelpWithMapSwitchTo|HelpWithMapSwitchToContinuation|RunLastSubTaskHelp|ShowWarriorSlotUnlock)$   # the task window's "Go" button (TaskInfoWindow::OnHelpActual) and what it navigates with; moved from 4c part 4
+util  ^Tasks::FUN_(0023583c|00235eac)$   # a name hash map's insert and clear
+4c  ^(Tasks|Override)::
 4c  ^MetaExpression::
 4c  ^MetaData::
 4c  ^GameState::(AddAutocompleteTask|AddAutoresetTask|AddSubTask|CompleteTask|ResetTask|StartTask|SubTaskCompleted|GetSubTaskDone|SetSubTaskDone|GetTaskEndTime|SetTaskEndTime|GetTaskShowTime|SetTaskShowTime|SetTaskBeginTime|GetCustomSubTaskRequrement|SetCustomSubTaskRequrement|TryToHelpWithTask|GetGemStepMessage|SetGemStepMessage|ShowGemBonusMessage)$
+5   ^GlobalMapWindow::OnTaskCompleted$   # with the world map window
 4c  ::(OnTaskStarted|OnSubTaskCompleted|OnTaskCompleted|OnTagUpdate|OnInteract|ExecuteStaticMeta)$
 4c  ^Map::Decor::(GetStartQuestID|GetEndQuestID|OnSetup)$
 4c  ^Map::(PrepareDecorationsForSetup|GetEndQuestTileLocation)$
 4c  ^Entity::(GetMetaExpression|SetForeignMetaExpression|ExecutePvPSpawnMeta)$
-4c  ^(CmdAddSubtask|CmdCompleteTask|CmdResetTask|CmdShowTask|CmdStartTask|ContextTask|CmdTagActivate|CmdTagDeactivate|CmdTagsPrint|ContextTag)$   # EditorConsole commands: admin mode (5), they need Tasks/Tags
 
 # ---- 4d: quest UI -------------------------------------------------------------------------------
 4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::

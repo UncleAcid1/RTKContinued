@@ -395,6 +395,16 @@ void CompleteTask(unsigned id, bool setBegin) {
 }
 
 // @0x19cd64 GameState::StartTask
+// @0x193978 GameState::TryToHelpWithTask
+bool TryToHelpWithTask(unsigned task) {
+    if (TaskCompleted(task)) return false;
+    if (const Tasks::TaskInfo* t = Tasks::GetTask(task)) {
+        std::u32string text = SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name});
+        PopupWindow::Show(text.c_str(), PopupWindow::Hide, nullptr, nullptr);
+    }
+    return true;
+}
+
 void StartTask(unsigned id) {
     g_startedTasks.insert(id);
     EntityManager::OnTaskStarted(id);

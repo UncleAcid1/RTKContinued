@@ -36,6 +36,8 @@ void SetFirstGreen();                       // @0x32c7b0
 void SetSecondGreen();                      // @0x32c774
 }
 
+namespace Tasks { struct TaskInfo; }
+
 namespace PopupWindow {
 using Callback = void (*)();
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PopupWindow" (_INIT_ 0x32d02c)
@@ -134,6 +136,9 @@ void UpdateContents();                      // @0x2ba138
 void GiveCollectedToPlayer(bool drop, Entity* at, bool noCrystalCap);
 void SetParameters(const char* setting, const char32_t* title);              // @0x2bcd50
 void SetParameters(uint32_t map, uint32_t boss, const char32_t* title);     // @0x2bd11c
+// @0x2bcffc: a task's reward: `crystals` (when not 0), then its crystals, XP, gold and resources,
+// then its items.
+void SetParameters(Tasks::TaskInfo* task, const char32_t* title, unsigned crystals);
 }
 
 // "Land expanded!" after a land (or farm patch) purchase.

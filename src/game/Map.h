@@ -15,6 +15,7 @@ namespace GameData { struct DecorData; }
 namespace SaveManager { struct SaveBlock; }
 
 class MetaExpression;
+namespace Contracts { struct Contract; }
 
 namespace Map {
 
@@ -112,6 +113,17 @@ void EnqueueBuildingPlacement(int x, int y, uint32_t id);
 Decor* GetDecorationToInteract(uint32_t key);
 // @0x1b6f60: of the decorations the last such search collected, the nearest to the tile.
 Decor* GetNearestFilteredDecoration(unsigned x, unsigned y);
+// @0x1bca94 (Override): a named value for object `id` (with sub-id) is kept in a table; a value
+// already there for the same name is replaced too, and the entry is always added.
+// UNVERIFIED (online, dormant): Map::LoadPlayer (0x1c0cd8) applies the table to the map's objects.
+void ChangeObjectAttribute(uint32_t id, uint32_t sub, const char* name, const char* value);
+// @0x1b6cb4: a workshop or farm (class 2 / 0xd) whose type delivers the contract list; with
+// `done` one whose order is ready is preferred.
+Building* GetBuildingWithContract(const Contracts::Contract* contract, bool done);
+// @0x1bacd0: the first open building that can still be upgraded.
+Building* GetUpgradeableBuilding();
+// @0x1bf540: an open farm (of type id, 0: any) that still has a soil patch to buy.
+Building* GetFarmWithPatchToBuy(uint32_t id);
 // Every decoration's quest reactions. (Buildings have none: MapObject::OnTaskCompleted @0x1c7748,
 // OnSubTaskCompleted @0x1c774c and OnInteract @0x1c7750 are empty.)
 void PrepareDecorationsForSetup();          // @0x131268

@@ -1078,6 +1078,76 @@ Patch* GetAreaByID(uint32_t id) {
     return g_patches.back().get();
 }
 
+namespace {
+struct ObjectAttribute {         // 0x88 bytes
+    uint32_t id = 0, sub = 0;    // +0x00 +0x04
+    char name[64] = {};          // +0x08
+    char value[64] = {};         // +0x48
+};
+std::vector<ObjectAttribute> g_objectAttributes;   // 0x61380c
+}  // namespace
+
+// @0x1bca94 Map::ChangeObjectAttribute
+void ChangeObjectAttribute(uint32_t id, uint32_t sub, const char* name, const char* value) {
+    for (ObjectAttribute& a : g_objectAttributes)
+        if (a.id == id && a.sub == sub && !std::strcmp(a.name, name)) std::strcpy(a.value, value);
+    ObjectAttribute a;
+    a.id = id;
+    a.sub = sub;
+    std::strcpy(a.name, name);
+    std::strcpy(a.value, value);
+    g_objectAttributes.push_back(a);
+}
+
+// @0x1b6cb4 Map::GetBuildingWithContract
+Building* GetBuildingWithContract(const Contracts::Contract* contract, bool done) {
+    auto delivers = [contract](const Building* b) {
+        return (b->data->buildingClass == 2 || b->data->buildingClass == 0xd) && b->data->delivery == contract;
+    };
+    if (done)
+        for (auto& p : g_patches)
+            for (auto& b : p->buildings)
+                if (delivers(b.get()) && b->contractDone) return b.get();
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (delivers(b.get())) return b.get();
+    return nullptr;
+}
+
+// @0x1bacd0 Map::GetUpgradeableBuilding
+Building* GetUpgradeableBuilding() {
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->IsOpened() && (unsigned)b->level != b->data->GetMaxUpgradeCount()) return b.get();
+    return nullptr;
+}
+
+// @0x1bf540 Map::GetFarmWithPatchToBuy
+Building* GetFarmWithPatchToBuy(uint32_t id) {
+    // (resourceLeft +0x100 counts a farm's bought patches from 0; +0x150 has one entry per patch)
+    auto hasPatch = [](const Building* b) {
+        return b->IsOpened() && b->data->buildingClass == 0xd && (size_t)b->resourceLeft + 1 != b->patchEntities.size();
+    };
+    for (auto& p : g_patches) {
+        size_t n = p->buildings.size();
+        if (n == 0) continue;
+        if (id != 0) {
+            // The farms of that type; when the patch's last building is one of them the search
+            // moves on to the next patch, else any farm of this patch will do (as the original).
+            bool lastWasOne = false;
+            for (size_t i = 0; i < n; ++i) {
+                Building* b = p->buildings[i].get();
+                lastWasOne = b->id == id;
+                if (lastWasOne && hasPatch(b)) return b;
+            }
+            if (lastWasOne) continue;
+        }
+        for (size_t i = 0; i < n; ++i)
+            if (hasPatch(p->buildings[i].get())) return p->buildings[i].get();
+    }
+    return nullptr;
+}
+
 // @0x1b7264 Map::GetNextAreaID
 uint32_t GetNextAreaID() {
     const Patch* best = nullptr;

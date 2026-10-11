@@ -57,6 +57,7 @@ add_executable(rtk
   src/game/Items.cpp
   src/game/Tasks.cpp
   src/game/EntityMeta.cpp
+  src/game/Override.cpp
   src/game/Setting.cpp
   src/engine/Text.cpp
   src/engine/IconManager.cpp
