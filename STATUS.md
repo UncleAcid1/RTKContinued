@@ -528,7 +528,10 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    extras (TaskSubtask::OnHelp, HelpWith*, Bonus, Override, the gem messages, the admin console
    commands). ASKED THE USER (freemium rule) before part 2: the crystal rewards of quests; only 4
    tasks give crystals in 5.11 (224: 1, 245: 5, 1183: 2, 1234: 1).
-   NEXT: 4c part 2 once the crystal rewards are decided.
+   BALANCE PLAN (2026-10-11): docs/balance_plan.md, a PROPOSAL awaiting the user's answer (their
+   direction: high crystal prices -55%, rewards scaled by level, gear late, units -60% crystals plus
+   food). Check its status line before coding rewards or prices.
+   NEXT: 4c part 2 once the plan is confirmed.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
