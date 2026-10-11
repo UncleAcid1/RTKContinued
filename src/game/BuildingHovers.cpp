@@ -742,8 +742,10 @@ void ItemDrop::Animate(float dt) {
 }
 
 void ItemDrop::Collect(bool automatic, bool) {
-    // UNVERIFIED (milestone 4, Tasks): each non-zero subtask completes Tasks::CompleteSubtask(0xd, n).
-    for (int& s : subtasks) s = 0;
+    for (int& s : subtasks) {
+        if (s != 0) Tasks::CompleteSubtask(Tasks::kDeliveryMissionEnd, (uint32_t)s, 1);
+        s = 0;
+    }
     if (kind == 0) {
         if (type == GameState::kCrystal) GameState::AddCrystals((int)amount);
         else GameState::ChangeResourceAmount(type, (int)amount);

@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c parts 1-2a done (quest data, saved state, the quest engine; balance plan confirmed)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c parts 1-2b done (quest data, saved state, the quest engine with self-completing steps; balance plan confirmed)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -556,13 +556,40 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    its lock tasks, the step reported, Update completed it and its gold, XP and one crystal dropped
    at the hero; the fresh city and the real save copy complete only the step-less task 1182; shop
    and settings work as before.
-   LEFT IN 4c: part 2b Tasks::CheckOverlimit @0x236f28 (steps already satisfied are completed: a
-   switch over the step types, jump table to read from the asm), TaskSubtask::GetDescription,
-   SetAttribute / Change*Attribute, the remaining CompleteSubtask call sites (Building.cpp order
-   start, LandWindow area / patch, ItemDrop::Collect, items: get_item / equip / collect_set);
-   part 3 the world's reactions (Entity / Decor / Map On* and ExecuteStaticMeta); part 4 help
-   (OnHelp, HelpWith*), Bonus, Override, gem messages, console commands.
-   NEXT: 4c part 2b.
+   4c PART 2b DONE: Tasks::CheckOverlimit @0x236f28 (each Update: open steps whose goal is already
+   met are completed, then the task - an area owned, no area left to buy, enough storage goblins,
+   an item of type 1 / 8 owned, what the hero wears reported as equipped; with withMobs the "kill"
+   and "get item" steps whose listed monsters are all dead, which waits for spawn points, 4f),
+   Map::GetNextAreaID @0x1b7264 (Patch::price = AreaInfo "c"), TaskSubtask / TaskInfo::SetAttribute
+   and ChangeSubTaskAttribute / ChangeTaskAttribute (Override::Apply's setters, part 4; they name
+   two fields: +0xf8 "active", +0x10a "no_complete"). TaskSubtask::GetDescription @0x231ac4 is
+   DEAD: no caller, no address taken, and its texts (TASK_BUILDHOUSE ...) are not in the 5.11
+   string tables (decompiled whole with DecompRange to be sure; port_plan.txt). More actions report
+   their steps: order started (0xc), drops collected (0xd), item gained (0x20), area bought (6 and
+   0x3b), farm patch bought (0x2b), hero healed by regeneration (0x27), the wolf-quest fix (step
+   0x323); leaving the farm runs Tasks::Update(true). Building::OnUpgraded reports Building::id as
+   the original (+0x18), not data->id.
+   UNVERIFIED left in CheckOverlimit, each with its step: kInteractBuildingAny needs
+   Map::GetDecorationToClick (4e), kMasteryLevel Locations::GetMissionStarCount (4f), kImproveItem
+   and the "or better" / equip chains Collections (milestone 5).
+   The original's other CompleteSubtask callers are in code not ported yet and come with it:
+   Map::Update / Map::Load enter-map (0x1e; 4f / 4h), BuildingMovement::Accept decorations (2; 4e),
+   Decor::Update and AIPlayer::ProcessAction (0x22 / 0x23; 4e), Entity::OnDeath / OnHit / OnTalkTo
+   and Map::UpdateSpawns (4f / 4g), hiring, crafting, repair, item shop, arena, raids (milestone 5).
+   The whole list: awk over out/decomp.c for "Tasks::CompleteSubtask(".
+   Task texts in windows still waiting (all task UI, 4d): the shop's and the hire hover's "needs
+   quest" texts (ShopWindow.cpp, InfoHoverWindows.cpp), LevelUpWindow's "new tasks" cell, the
+   exchange's discount tasks, NeedItemWindow's task mode, GetUndecoratedString's task counts.
+   Verified headless (temporary hook, removed): task 1281 (own area 3 + get 3 of item 121): after
+   Map::BuyArea(3) without a report the next Update counted the area step; the three AddItem calls
+   counted the item step; the task completed and opened 236 and 1505. An item of type 9 owned
+   before its task opened does not complete a "get item" step (as the original: types 1 and 8
+   only). Fresh city and the real save copy: as before (only the step-less task 1182 completes).
+   LEFT IN 4c (82; `python3 tools/inventory.py --functions 4c`): part 3 the world's reactions
+   (Entity / Decor / Map OnTaskStarted / OnSubTaskCompleted / OnTaskCompleted / OnSetup /
+   OnInteract / OnTagUpdate and ExecuteStaticMeta); part 4 help (OnHelp, HelpWith*), Bonus,
+   Override, gem messages, console commands.
+   NEXT: 4c part 3.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

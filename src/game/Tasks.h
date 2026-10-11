@@ -51,6 +51,7 @@ struct TaskSubtask {             // 0x48 bytes, three per task (TaskInfo+0x18)
     MetaData* mobs = nullptr;    // +0x44 "mob_id" a,b,...
     Render::Texture* GetIcon();             // @0x22fbb4
     bool HasValue(uint32_t v) const;        // @0x230828 v is `value` or in `values`
+    void SetAttribute(const char* name, const char* value);   // @0x22fd44
 };
 
 struct TaskInfo {                // 500 bytes
@@ -64,7 +65,7 @@ struct TaskInfo {                // 500 bytes
     // The conditions (<XCondition type= vmin=>):
     uint32_t level = 0;          // +0xf0 "level"
     MetaData* lockTasks = nullptr;   // +0xf4 "task" a,b,...: the tasks to complete first
-    bool f_f8 = true;            // +0xf8 set by Init
+    bool active = true;          // +0xf8 set by Init ("active" of SetAttribute)
     bool showInBattle = false;   // +0xf9 "show_in_battle"
     bool tutorialType = false;   // +0xfa "tutorial_type"
     bool isFarm = false;         // +0xfb "is_farm"
@@ -82,7 +83,7 @@ struct TaskInfo {                // 500 bytes
     bool doNotShowReward = false;   // +0x107 "do_not_show_reward"
     bool anySubquest = false;    // +0x108 "any_subquest"
     bool repeatTask = false;     // +0x109 "repeat_task"
-    bool f_10a = false;          // +0x10a
+    bool noComplete = false;     // +0x10a ("no_complete" of SetAttribute)
     bool doNotCount = false;     // +0x10b "do_not_count"
     bool showEverywhere = false; // +0x10c "show_everywhere"
     bool daily = false;          // +0x10d "daily"
@@ -119,6 +120,7 @@ struct TaskInfo {                // 500 bytes
     Tags::Tag* tag = nullptr;    // +0x1f0 "tags": the event the task belongs to
 
     bool IsFeaturedTask() const;            // @0x22e6f8
+    void SetAttribute(const char* name, const char* value);   // @0x22ffbc
     Render::Texture* GetIcon();             // @0x22fae0
     bool HasTimeout() const;                // @0x22f960
     int GetRemainingTime() const;           // @0x230890
@@ -175,6 +177,13 @@ void CompleteTask(uint32_t task, bool drop, bool takeItems, bool setBegin);
 // balance / item / level steps' counters, finished tasks, repeats and the daily tasks.
 void Update(bool force);
 void TaskTimeout(TaskInfo* task);                              // @0x2381b8
+// @0x236f28: steps of these tasks whose goal is already met (an area owned, an item in the bag, no
+// area left to buy ...) are completed, and then the task when its steps are done. withMobs: also
+// the "kill" and "get item" steps whose listed monsters are all dead.
+void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs);
+// @0x22ff7c / @0x230524: a task's or a step's field changed by name (Override::Apply).
+void ChangeSubTaskAttribute(uint32_t task, unsigned step, const char* name, const char* value);
+void ChangeTaskAttribute(uint32_t task, const char* name, const char* value);
 // @0x230a44: unless one of the groups' tasks is running, one of them that is open is started at
 // random (the groups are settings listing task ids). True when one was started.
 bool LaunchDailyTaskFromGroup(const char* const* groups, unsigned count, TaskInfo** current, unsigned currentCount);

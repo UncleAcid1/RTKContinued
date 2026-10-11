@@ -549,7 +549,7 @@ void Building::LaunchContract(unsigned index, int patch) {
         if (GameState::TutorialStep() < 0x61)   // the tutorial's orders start half done
             patchStart[patch] = t - (uint32_t)(int)((float)(unsigned)GetContractTime(0) * 0.5f);
     }
-    // UNVERIFIED (milestone 4, Tasks): Tasks::CompleteSubtask(0xc, index + delivery id * 10, 1).
+    Tasks::CompleteSubtask(Tasks::kDeliveryMissionStart, (uint32_t)index + data->delivery->id * 10, 1);
     uint32_t t = Timer::GetGlobalTime();
     stateTime = t;
     if (GameState::TutorialStep() < 0x61)
@@ -1060,7 +1060,7 @@ void Building::OnUpgraded() {
         if (!livers.empty() && livers[0]) livers[0]->Appear(false, true);
         if (farmEntity && farmEntity->GetSprite()) Render::SetVisibility(farmEntity->GetSprite(), true);
     }
-    Tasks::CompleteSubtask(Tasks::kUpgradeHouse, data->id, 1);
+    Tasks::CompleteSubtask(Tasks::kUpgradeHouse, id, 1);
     // UNVERIFIED (milestone 5): SoundsManager "building_upgrade_end".
 }
 

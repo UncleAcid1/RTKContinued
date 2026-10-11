@@ -731,7 +731,7 @@ unsigned GetCurrentTasks(TaskInfo** out, unsigned max, bool forHud, bool all) {
             }
         }
         if (t->tag && !t->tag->IsActive()) take = false;
-        if (!t->f_f8 || !take || max <= count) continue;
+        if (!t->active || !take || max <= count) continue;
         t->priority = t->sidequest ? 1 : 2;
         if (t->id == 0x3d3) t->priority = 10;
         if (t->id == 0x2f9) t->priority = 9;
@@ -917,6 +917,217 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     EnqueueUpdate();
 }
 
+namespace {
+
+// The player's item `id`, or a better one of its improvement chain: worn, else in the bag.
+// UNVERIFIED (milestone 5): SetInfoWindow::GetPlayerItemOrBetter (0x33b3d4) also follows the
+// chain of improved items (Collections::GetCollectionWithSource, 0x12d778); here the item itself.
+bool PlayerHasItemOrBetter(uint32_t id) {
+    for (unsigned i = 0; i < 10; ++i) {
+        GameState::PlayerItem* it = GameState::GetItemAt(i);
+        if (it && it->id == id) return true;
+    }
+    return GameState::GetItemAmount(id, false) != 0;
+}
+
+// CheckOverlimit's monster lists ("mob_id" spawn points): true when all `amount` of them are dead.
+// kind: "kill_mob" or "get_item" (the original's messages).
+bool AllMobsDead(const TaskInfo* t, const TaskSubtask& s, const char* kind) {
+    unsigned found = 0, dead = 0;
+    for (unsigned i = 0; i < (unsigned)s.amount; ++i) {
+        const MetaData* m = s.mobs->GetChild(i);
+        if (m->type != MetaData::kNumber) {
+            std::fprintf(stderr, "ERROR: Tasks::CheckOverLimit() Task %d: %s subtask %d mob ID list is invalid\n",
+                         t->id, kind, s.id);
+            continue;
+        }
+        Entity* e = EntityBySpawnPoint((uint32_t)m->GetInt());
+        if (!e) continue;
+        ++found;
+        if (e->IsDead()) ++dead;
+    }
+    if (found != (unsigned)s.amount)
+        std::fprintf(stderr,
+                     "ERROR: Tasks::CheckOverLimit() Task %d: %s subtask %d failed to find all spawn points on the map\n",
+                     t->id, kind, s.id);
+    return dead == (unsigned)s.amount;
+}
+
+}  // namespace
+
+// @0x236f28 Tasks::CheckOverlimit
+void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
+    for (unsigned n = 0; n < count; ++n) {
+        TaskInfo* t = tasks[n];
+        if (t->tutorialType) continue;
+        bool any = false;
+        for (TaskSubtask& s : t->subtasks) {
+            int done = GameState::GetSubTaskDone(s.id);
+            if (s.amount <= done) continue;
+            bool met = false;      // counted as done, announced to the world
+            bool direct = false;   // completed by CompleteSubtaskDirect
+            switch (s.type) {
+            case kBuildHouse:
+                met = s.id == 0xd9 && s.value == 0x3ef && Map::GetBuildingCount(0x3ef, true) != 0;
+                break;
+            case kIncreaseLand: {
+                Map::Patch* p = Map::GetAreaByID(s.value);
+                met = p && GameState::GetCurrentMapID() == 0 && p->owned;
+                break;
+            }
+            case kKillMob:
+                if (!withMobs || !s.mobs || s.mobs->type != MetaData::kList) break;
+                if ((int)s.mobs->GetChildrenCount() != s.amount) {
+                    std::fprintf(stderr,
+                                 "ERROR: Tasks::CheckOverLimit() Task %d: kill_mob subtask %d tells player to kill %d "
+                                 "enemies, but mob ID list contains only %d\n",
+                                 t->id, s.id, s.amount, s.mobs->GetChildrenCount());
+                    break;
+                }
+                met = AllMobsDead(t, s, "kill_mob");
+                break;
+            case kGetItem: {
+                if (s.id == 0x4b0 && s.value == 0x15c && GameState::GetItemAmount(0x15c, false) != 0) {
+                    direct = true;
+                    break;
+                }
+                if (any) break;
+                if (Items::ItemInfo* item = Items::GetItemInfo(s.value)) {
+                    if (item->type == 8 && s.amount == 1 && PlayerHasItemOrBetter(s.value)) direct = true;
+                    else if (item->type == 1 && (unsigned)s.amount <= (unsigned)GameState::GetItemAmount(s.value, false))
+                        direct = true;
+                    if (direct) break;
+                }
+                // Not owned: the monsters that drop it are all dead and none of it lies around.
+                if (!withMobs || !s.mobs || s.mobs->type != MetaData::kList) break;
+                if (s.assistMap != 0 && GameState::GetCurrentMapID() != s.assistMap) break;
+                if ((int)s.mobs->GetChildrenCount() != s.amount) {
+                    std::fprintf(stderr,
+                                 "ERROR: Tasks::CheckOverLimit() Task %d: get_item subtask %d tells player to get %d "
+                                 "items, but mob ID list contains only %d monsters\n",
+                                 t->id, s.id, s.amount, s.mobs->GetChildrenCount());
+                    break;
+                }
+                float x = 0.f, y = 0.f;
+                if (!BuildingHovers::HasDroppedItem(s.value, x, y)) direct = AllMobsDead(t, s, "get_item");
+                break;
+            }
+            case kInteractBuildingAny:
+                // UNVERIFIED (milestone 4e): step 0x515 with value 0x7315c in the city is met when
+                // Map::GetDecorationToClick(value) (0x1bf1ec) finds no decoration left to click.
+                break;
+            case kTrainWorkerInBuilding:
+                if (s.value == 0x12 && GameState::GetCurrentMapID() == 0)
+                    direct = Setting("goblin_cost").GetChildrenCount() + 1 <= (unsigned)GameState::GetGoblinCount();
+                break;
+            case kEquip:
+                // What the hero wears is reported as equipped.
+                // UNVERIFIED (milestone 5): CharacterInfoWindow::CompleteEquipTaskFor (0x27bdec) also
+                // reports the items it was improved from and to (Collections).
+                for (unsigned i = 0; i < 10; ++i)
+                    if (GameState::PlayerItem* it = GameState::GetItemAt(i)) CompleteSubtask(kEquip, it->id, 1);
+                break;
+            case kMasteryLevel:
+                // UNVERIFIED (milestone 4f): met when Locations::GetMissionStarCount(value / 10, 0)
+                // is at least value % 10.
+                break;
+            case kImproveItem:
+                // UNVERIFIED (milestone 5): met when the player has an item (type 8, with an item
+                // level) improved from `value` (Collections::GetCollectionWithResult, 0x12d7d8).
+                break;
+            case kIncreaseLandAny:
+                if (GameState::GetCurrentMapID() == 0) {
+                    GameState::AreaInfo info;
+                    met = !GameState::GetAreaInfo(Map::GetNextAreaID(), info);   // nothing left to buy
+                }
+                break;
+            default:
+                break;
+            }
+            if (met) {
+                GameState::AddSubTask(s.id, s.amount - done);
+                // UNVERIFIED (4c part 3): EntityManager::OnSubTaskCompleted / Map::OnSubTaskCompleted(s.id).
+                any = true;
+            } else if (direct) {
+                CompleteSubtaskDirect(s.id, s.amount - done);
+                any = true;
+            }
+        }
+        if (!any) continue;
+        if (!t->anySubquest) {
+            bool all = true;
+            for (const TaskSubtask& s : t->subtasks)
+                if (GameState::GetSubTaskDone(s.id) < s.amount) all = false;
+            if (!all) continue;
+        }
+        CompleteTask(t->id, true, true, false);
+    }
+}
+
+// @0x22fd44 Tasks::TaskSubtask::SetAttribute
+void TaskSubtask::SetAttribute(const char* name, const char* text) {
+    if (!std::strcmp(name, "type")) type = std::atoi(text);
+    else if (!std::strcmp(name, "value")) {
+        delete values;
+        values = nullptr;   // PORT: the original leaves the freed list's pointer when there is no comma
+        value = (uint32_t)std::atoi(text);
+        if (std::strchr(text, ',')) values = ParseList(text);
+    } else if (!std::strcmp(name, "amount")) amount = std::atoi(text);
+    else if (!std::strcmp(name, "costCB")) skipPrice = (uint32_t)std::atoi(text);
+    else if (!std::strcmp(name, "reqST")) {
+        delete required;
+        required = ParseList(text);
+    } else if (!std::strcmp(name, "x")) assistX = (uint32_t)std::atoi(text);
+    else if (!std::strcmp(name, "y")) assistY = (uint32_t)std::atoi(text);
+    else if (!std::strcmp(name, "map")) assistMap = (uint32_t)std::atoi(text);
+}
+
+// @0x22ffbc Tasks::TaskInfo::SetAttribute
+void TaskInfo::SetAttribute(const char* name, const char* text) {
+    auto is = [name](const char* n) { return std::strcmp(name, n) == 0; };
+    int v = std::atoi(text);
+    if (is("level")) level = (uint32_t)v;
+    else if (is("task")) LockByTasks(text);
+    else if (is("battle")) showInBattle = v != 0;
+    else if (is("dialog")) tutorialType = v != 0;
+    else if (is("farm")) isFarm = v != 0;
+    else if (is("city")) isCity = v != 0;
+    else if (is("hint")) isHint = v != 0;
+    else if (is("sidequest")) sidequest = v != 0;
+    else if (is("duplicate_talk")) isDublicateTalk = v != 0;
+    else if (is("chapter")) chapter = v != 0;
+    else if (is("emperor")) showOnImperor = v != 0;
+    else if (is("no_assist")) dnAssist = v != 0;
+    else if (is("no_show")) dnShow = v != 0;
+    else if (is("no_button")) showButton = v != 0;
+    else if (is("no_reward")) doNotShowReward = v != 0;
+    else if (is("complete_any")) anySubquest = v != 0;
+    else if (is("repeat_dialog")) repeatTask = v != 0;
+    else if (is("no_complete")) noComplete = v != 0;
+    else if (is("map")) mapId = (uint32_t)v;
+    else if (is("reset_map")) debugMap = (uint32_t)v;
+    else if (is("dialog_giver")) dialogGiver = (uint32_t)v;
+    else if (is("next")) postQuest = (uint32_t)v;
+    else if (is("disabled_by")) disableTask = (uint32_t)v;
+    else if (is("repeat_time")) repeatTimeout = (uint32_t)v;
+    else if (is("timeout")) timeout = (uint32_t)v;
+    else if (is("end_ts")) endTime = (uint32_t)v;
+    else if (is("tags")) tag = Tags::GetTag(text);
+    else if (is("active")) active = v != 0;
+}
+
+// @0x22ff7c Tasks::ChangeSubTaskAttribute
+void ChangeSubTaskAttribute(uint32_t task, unsigned step, const char* name, const char* value) {
+    TaskInfo* t = GetTask(task);
+    if (!t || step > 2) return;
+    t->subtasks[step].SetAttribute(name, value);
+}
+
+// @0x230524 Tasks::ChangeTaskAttribute
+void ChangeTaskAttribute(uint32_t task, const char* name, const char* value) {
+    if (TaskInfo* t = GetTask(task)) t->SetAttribute(name, value);
+}
+
 // @0x2381b8 Tasks::TaskTimeout
 void TaskTimeout(TaskInfo* task) {
     (void)task;   // UNVERIFIED (milestone 4d): TaskInfoWindow::TaskTimeout(task->id).
@@ -1042,7 +1253,7 @@ void Update(bool force) {
                 return;
             }
             if (!t->hasReward || t->doNotShowReward) {
-                if (!t->f_10a) {
+                if (!t->noComplete) {
                     CompleteTask(t->id, true, true, false);
                     return;
                 }
@@ -1063,8 +1274,7 @@ void Update(bool force) {
         // UNVERIFIED (milestone 4f): a pop-up to show (f_1df): PlayerTopWindow::SetParameters or the
         // giver's BuildingHovers::ShowWorldDialog with the pre-quest text.
     }
-    // UNVERIFIED (4c part 2b): CheckOverlimit(cur, count, false) (0x236f28): steps whose goal is
-    // already met (a building that stands, an item owned, an area bought ...) are completed.
+    CheckOverlimit(cur, count, false);
     // A completed repeating task comes back once its timeout has passed, with the tasks under it.
     for (TaskInfo* t : g_repeatTasks) {
         uint32_t end = GameState::GetTaskEndTime(t->id);

@@ -691,7 +691,6 @@ bool IsItemBinded(const PlayerItem* item) {
     return false;
 }
 
-// UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x20, id, 1) (the "get item" quest steps).
 // UNVERIFIED (milestone 5): an item of a set counts the set's parts (Sets::GetSetForItem,
 // FindInventorySetState, Tasks::CompleteSubtask(0x28, ...)). Not ported (online): the OG / OG2
 // sharing requests (a complete set, a new gem or orb, new equipment unless noShare).
@@ -700,6 +699,7 @@ PlayerItem* AddItem(uint32_t id, int count, bool flag14, bool timesOnly, bool no
         std::fprintf(stderr, "ERROR: GameState::AddItem() Item %d count is %d\n", id, count);
         return nullptr;
     }
+    Tasks::CompleteSubtask(Tasks::kGetItem, id, 1);
     Items::ItemInfo* info = Items::GetItemInfo(id);
     if (!info) return nullptr;
     PlayerItem* last = nullptr;
@@ -771,7 +771,7 @@ void SetupPlayerRegenerationState() {
     player->SetHP(hp);
     if (player->GetHP() != player->GetHpMax()) return;
     if (IsTaskStarted(0x2f9)) {
-        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
+        Tasks::CompleteSubtask(Tasks::kHealHero, 1, 1);
     }
 }
 
@@ -1533,7 +1533,7 @@ void Load(SaveManager::SaveBlock* block) {
     for (uint32_t i = GetBeltSlotCount(); i < 3; ++i) g_belt[i] = g_beltActivation[i] = g_beltOld[i] = 0;
     if (wolfQuestFix && GetTaskBeginTime(0x1b8) && !TaskCompleted(0x1b8) && GetItemAmount(0x16e, false) == 3) {
         AddItem(0x16e, 1, false, false, false);
-        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtaskDirect(0x323, 1).
+        Tasks::CompleteSubtaskDirect(0x323, 1);
     }
 }
 

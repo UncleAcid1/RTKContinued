@@ -7,6 +7,7 @@
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "game/Tasks.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
 #include "game/EntityManager.h"
@@ -250,7 +251,8 @@ void ShowMapName(const char32_t* name) {
 void ExitFarm() {
     if (!Map::GetCurrentFarm()) return;
     if (GameState::GetCurrentLocation() == 1) GameState::SetCurrentLocation(0);
-    // UNVERIFIED (milestone 4, Tasks): Tasks::Update(true) and UpdateTasks.
+    Tasks::Update(true);
+    // UNVERIFIED (milestone 4d): UpdateTasks.
     SetBottomType(0);
     Map::ShowFarm(false, nullptr);
     BuildingHovers::Hide();

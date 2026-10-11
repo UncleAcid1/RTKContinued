@@ -65,6 +65,7 @@ struct Patch {
     bool owned = false;                // +0xe8
     bool bordered = false;             // +0xe9 (recomputed in UpdateAreaBorders)
     int x = 0, y = 0, w = 0, h = 0;    // +0x8c..+0x98 (from AreaInfo)
+    int price = 0;                     // +0x9c (AreaInfo "c")
     bool buyable = false;              // +0xa8
     Render::Sprite* sign = nullptr;    // +0xec the for-sale sign (UpdateAreaBorders), tapped to buy
     std::vector<std::unique_ptr<Decor>> decors;      // +0xac
@@ -79,6 +80,9 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time);
 // @0x1bc954: the patch made from area `id` (AreaInfo id), made now if there is none (null when the
 // area does not exist).
 Patch* GetAreaByID(uint32_t id);
+// @0x1b7264: the area to buy next: of the areas for sale (not owned, bordering the player's land,
+// buyable) the cheapest; its area id, 0 when there is none.
+uint32_t GetNextAreaID();
 void AssignUniqueIDs();
 void Free();
 // @0x1bbbcc: the game state and the current map into the main save, then the save file (type 1:

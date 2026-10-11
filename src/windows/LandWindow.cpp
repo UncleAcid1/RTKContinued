@@ -7,6 +7,7 @@
 #include <string>
 
 #include "engine/IconManager.h"
+#include "game/Tasks.h"
 #include "game/Building.h"
 #include "game/GameData.h"
 #include "game/MetaData.h"
@@ -97,17 +98,20 @@ void OnBuyArea(unsigned withCrystals) {
         return;
     }
     // FileManager::OnItemBought("land_expansion", ...): online statistics, not ported.
-    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(6, area, 1) and (0x3b, 0, 1).
     if (withCrystals == 0) {
         // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_gold").
         GameState::ChangeResourceAmount(GameState::kGold, -g_gold);
         Map::BuyArea(g_area.id);
+        Tasks::CompleteSubtask(Tasks::kIncreaseLand, g_area.id, 1);
+        Tasks::CompleteSubtask(Tasks::kIncreaseLandAny, 0, 1);
         Hide();
     } else {
         // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
         GameState::ChangeResourceAmount(GameState::kCrystal, -crystals);
         // Billing::LogCBPurchase(8, area, price): online logging, not ported.
         Map::BuyArea(g_area.id);
+        Tasks::CompleteSubtask(Tasks::kIncreaseLand, g_area.id, 1);
+        Tasks::CompleteSubtask(Tasks::kIncreaseLandAny, 0, 1);
         Hide();
         Map::Save(0);
     }
@@ -131,16 +135,17 @@ void OnBuyPatch(unsigned withCrystals) {
         return;
     }
     // FileManager::OnItemBought("farm_patch", ...) and Billing::LogCBPurchase: online, not ported.
-    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(0x2b, farm id, 1).
     if (withCrystals == 0) {
         // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_gold").
         GameState::ChangeResourceAmount(GameState::kGold, -g_gold);
         farm->OnSoilPatchBuy();
+        Tasks::CompleteSubtask(Tasks::kBuyFarmPatch, farm->id, 1);
         Hide();
     } else {
         // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
         GameState::ChangeResourceAmount(GameState::kCrystal, -g_crystals);
         farm->OnSoilPatchBuy();
+        Tasks::CompleteSubtask(Tasks::kBuyFarmPatch, farm->id, 1);
         Hide();
         Map::Save(0);
     }

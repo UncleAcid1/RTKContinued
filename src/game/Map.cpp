@@ -700,6 +700,7 @@ std::unique_ptr<Patch> PatchFromArea(const GameState::AreaInfo& a) {
     auto p = std::make_unique<Patch>();
     p->infoId = a.id;
     p->x = a.x; p->y = a.y; p->w = a.w; p->h = a.h;
+    p->price = a.c;
     p->buyable = a.a;   // UNVERIFIED: "a" mapped to Patch+0xa8 (used by UpdateAreaBorders)
     return p;
 }
@@ -752,6 +753,14 @@ Patch* GetAreaByID(uint32_t id) {
     if (!GameState::GetAreaInfo(id, a)) return nullptr;
     g_patches.push_back(PatchFromArea(a));
     return g_patches.back().get();
+}
+
+// @0x1b7264 Map::GetNextAreaID
+uint32_t GetNextAreaID() {
+    const Patch* best = nullptr;
+    for (auto& p : g_patches)
+        if (!p->owned && p->bordered && p->buyable && (!best || p->price < best->price)) best = p.get();
+    return best ? best->areaId : 0;
 }
 
 Patch* GetPatchForCoordinates(int x, int y, bool quiet) {
