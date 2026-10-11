@@ -21,7 +21,11 @@ struct Entry {
 
 // Registration
 bool RegisterAndroidData(const std::string& dataDir);          // res_desc.bin + <chunk>.jet
-bool RegisterBlobFile(const std::string& kbfPath);              // @0x16e7b8
+// @0x16e7b8: a content pack (main.<version>.kbf: mainPack, or patch.<version>.kbf) on top of what
+// is registered. The original leaves out the files of two old main packs that the game's own
+// newer data replaced: version 27's tasks.xml, LocalizedStrings.xml, config/fbwall_mob.xml and
+// maps/map_11.bin; version 28's loading images.
+bool RegisterBlobFile(const std::string& kbfPath, bool mainPack, unsigned version);
 bool RegisterWin8Fallback(const std::string& assetsDir);        // PORT: fallback source
 
 // Queries (original API)

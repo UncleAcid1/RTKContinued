@@ -22,6 +22,7 @@
 #include "game/SaveManager.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "windows/Windows.h"
 
 namespace GameState {
@@ -177,7 +178,7 @@ void Reset() {
     for (ItemBinding& b : g_itemBindings) b = ItemBinding();
     for (ItemBinding& b : g_customBindings) b = ItemBinding();
     for (int i = 0; i < 3; ++i) g_belt[i] = g_beltActivation[i] = g_beltOld[i] = 0;
-    // UNVERIFIED (milestone 4): Tasks::Reset.
+    Tasks::Reset();
     g_offlineBuildings.clear();
     tutorial = 0;
     secondTutorial = 0x81;
@@ -337,6 +338,96 @@ bool IsFirstVirtualTutorial() { return (unsigned)(secondTutorial - 0x200) < 6; }
 
 bool TaskCompleted(unsigned id) { return g_completedTasks.count(id) != 0; }
 bool IsTaskStarted(unsigned id) { return g_startedTasks.count(id) != 0; }
+
+namespace {
+std::vector<uint32_t> g_autocompleteTasks;   // 0x6133c0
+std::vector<int> g_autoresetTasks;           // 0x6133cc
+uint32_t MapGet(const U32Map& m, uint32_t key) {
+    auto it = m.find(key);
+    return it == m.end() ? 0 : it->second;
+}
+}  // namespace
+
+// @0x1985e8 GameState::SetTaskBeginTime
+void SetTaskBeginTime(unsigned id, uint32_t t) { g_taskBeginTime[id] = t; }
+// @0x198530 GameState::GetTaskEndTime
+uint32_t GetTaskEndTime(unsigned id) { return MapGet(g_taskEndTime, id); }
+// @0x1984f4 GameState::SetTaskEndTime
+void SetTaskEndTime(unsigned id, uint32_t t) { g_taskEndTime[id] = t; }
+// @0x198718 GameState::GetTaskShowTime
+uint32_t GetTaskShowTime(unsigned id) { return MapGet(g_taskShowTime, id); }
+// @0x1986dc GameState::SetTaskShowTime
+void SetTaskShowTime(unsigned id, uint32_t t) { g_taskShowTime[id] = t; }
+// @0x19963c GameState::GetSubTaskDone
+int GetSubTaskDone(unsigned subtask) { return (int)g_subTasks[subtask]; }
+// @0x199600 GameState::SetSubTaskDone
+void SetSubTaskDone(unsigned subtask, int n) { g_subTasks[subtask] = (uint32_t)n; }
+
+// @0x199774 GameState::AddSubTask
+void AddSubTask(unsigned subtask, int n) {
+    g_subTasks[subtask] += (uint32_t)n;
+    if ((int)g_subTasks[subtask] < 0)
+        std::printf("GameState::AddSubTask() Subtask %d amount is not less than zero: %d\n", subtask,
+                    (int)g_subTasks[subtask]);
+}
+
+// @0x199670 GameState::SubTaskCompleted
+bool SubTaskCompleted(unsigned task, unsigned subtask) {
+    const Tasks::TaskInfo* t = Tasks::GetTask(task);
+    if (!t) return false;
+    for (const Tasks::TaskSubtask& s : t->subtasks)
+        if (s.id == subtask && s.amount <= GetSubTaskDone(subtask)) return true;
+    return false;
+}
+
+// @0x198984 GameState::GetCustomSubTaskRequrement
+uint32_t GetCustomSubTaskRequrement(unsigned subtask) { return MapGet(g_customSubtaskRequirement, subtask); }
+// @0x198948 GameState::SetCustomSubTaskRequrement
+void SetCustomSubTaskRequrement(unsigned subtask, uint32_t v) { g_customSubtaskRequirement[subtask] = v; }
+
+// @0x19c6fc GameState::CompleteTask
+void CompleteTask(unsigned id, bool setBegin) {
+    g_completedTasks.insert(id);
+    const Tasks::TaskInfo* t = Tasks::GetTask(id);
+    if (t && t->timeout != 0 && setBegin)
+        SetTaskBeginTime(id, (uint32_t)(-0xe10 - (int)t->timeout + (int)Timer::GetGlobalTime()));
+    SetTaskEndTime(id, (uint32_t)Timer::GetGlobalTime());
+}
+
+// @0x19cd64 GameState::StartTask
+void StartTask(unsigned id) {
+    g_startedTasks.insert(id);
+    // UNVERIFIED (4c part 3): EntityManager::OnTaskStarted(id) (0x166698).
+}
+
+// @0x19ce58 GameState::ResetTask
+void ResetTask(unsigned id) {
+    g_completedTasks.erase(id);
+    g_startedTasks.erase(id);
+    g_taskShowTime.erase(id);
+    g_taskBeginTime.erase(id);
+    g_taskEndTime.erase(id);
+    g_featuredTaskClickTime.erase(id);
+    const Tasks::TaskInfo* t = Tasks::GetTask(id);
+    if (!t) return;
+    for (const Tasks::TaskSubtask& s : t->subtasks) {
+        if (s.id == 0) continue;
+        g_subTasks.erase(s.id);
+        g_customSubtaskRequirement.erase(s.id);
+    }
+}
+
+// @0x1963bc GameState::AddAutocompleteTask
+void AddAutocompleteTask(unsigned id) {
+    if (id == 0) g_autocompleteTasks.clear();
+    else g_autocompleteTasks.push_back(id);
+}
+
+// @0x1a9548 GameState::AddAutoresetTask
+void AddAutoresetTask(int id) {
+    if (id == 0) g_autoresetTasks.clear();
+    else g_autoresetTasks.push_back(id);
+}
 uint32_t GetTaskBeginTime(unsigned id) {
     auto it = g_taskBeginTime.find(id);
     return it == g_taskBeginTime.end() ? 0 : it->second;

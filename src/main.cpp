@@ -64,6 +64,7 @@
 #include "game/MapMovement.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
+#include "game/Tasks.h"
 #include "game/Squad.h"
 
 namespace {
@@ -168,8 +169,8 @@ bool RegisterSources(const std::string& root) {
         std::fprintf(stderr, "Cannot read the 5.11 APK data under %s\n", root.c_str());
         return false;
     }
-    FileManager::RegisterBlobFile(root + "/files/main.27.kbf");   // expansion packs, later wins
-    FileManager::RegisterBlobFile(root + "/files/patch.33.kbf");
+    FileManager::RegisterBlobFile(root + "/files/main.27.kbf", true, 27);   // expansion packs, later wins
+    FileManager::RegisterBlobFile(root + "/files/patch.33.kbf", false, 33);
     FileManager::RegisterWin8Fallback(root + "/_extract/win5/Assets");  // PORT: fallback only
     std::printf("FileManager: %zu files registered\n", FileManager::EntryCount());
     return true;
@@ -654,8 +655,9 @@ int main_Loop_Init() {
                                  15.0 / 46.0, 0x12, 0x12))
         return 1;
     // UNVERIFIED (their milestones): PresentsContainer::LoadPresentPacks "shop_packs.xml" (16/46),
-    // Collections::Init "collections.xml" (17/46), Tasks::Init "tasks.xml" (18/46, milestone 4c),
-    // Professions::Init "professions.xml" (19/46), Chests::Init "chests.xml" (20/46),
+    // Collections::Init "collections.xml" (17/46).
+    if (!LoadSystemConfiguration(Tasks::Init, "tasks.xml", "L", "Tasks::Init", 18.0 / 46.0, 0x15, 0x15)) return 1;
+    // UNVERIFIED (their milestones): Professions::Init "professions.xml" (19/46), Chests::Init "chests.xml" (20/46),
     // ProjectileData::Init "projectiles.xml" (21/46), Tavern::Init "tavern.xml" (22/46) and
     // Tavern::InitSpecial.
     Render::zoom = Render::GetDefaultZoom();

@@ -115,8 +115,7 @@ bool RegisterAndroidData(const std::string& dataDir) {
 
 // @0x16e7b8 FileManager::RegisterBlobFile. Header: u32 magic 0x75B4A351, u32 index_size, 3 x u32,
 // then the index; payloads at 0x14 + index_size + offset (LoadFile seeks blob+0x14+offset).
-// UNVERIFIED: the original skips a few names for certain blob types/versions (param_4 0x1b/0x1c).
-bool RegisterBlobFile(const std::string& kbfPath) {
+bool RegisterBlobFile(const std::string& kbfPath, bool mainPack, unsigned version) {
     auto blob = ReadWhole(kbfPath);
     if (blob.size() < 20) return false;
     uint32_t magic, indexSize;
@@ -126,6 +125,14 @@ bool RegisterBlobFile(const std::string& kbfPath) {
     int id = (int)g_sources.size();
     g_sources.push_back({SourceKind::Blob, kbfPath, 20 + indexSize});
     return ParseIndex(blob.data() + 20, indexSize, [&](Entry e) {
+        if (mainPack && version == 0x1b)
+            for (const char* skip : {"../resource/res_files/1Original/tasks.xml",
+                                     "../resource/res_files/1Original/LocalizedStrings.xml",
+                                     "config/fbwall_mob.xml", "maps/map_11.bin"})
+                if (e.name == skip) return;
+        if (mainPack && version == 0x1c)
+            for (const char* skip : {"images/loading_image_mobile.jpg", "images/loading_image_mobile_small.jpg"})
+                if (e.name == skip) return;
         e.source = id;
         g_files[Lower(e.name.c_str())] = std::move(e);  // newest registration wins
     });

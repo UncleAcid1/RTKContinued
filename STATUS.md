@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4b.5 done (part 5: start-up and shutdown); next is 4c) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c part 1 done (quest data and saved quest state); 99 functions left in 4c) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -495,7 +495,40 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Headless test aids added: `--quit` (run main_Exit_Func after the shot: saves into --storage),
    `--system-lang N` (the system's language id 0..8). A headless frame is now AfterEvents + Tick
    (edge scroll, long tap, the language question, as in the game).
-   NEXT: 4c (quests core).
+   4c PART 1 DONE (51 of 150 functions): the quest data and its saved state. src/game/Tasks.*:
+   Tasks::Init @0x23aa70 (tasks.xml: 1371 tasks, 1021 steps; every <XCondition> flag, the 67 step
+   types by name, "androidVal" over "val", amount ranges, button text / icon, the reward's
+   resources / gold / "cb" crystals / XP, reward and give items, name / description / pre-quest
+   strings, post_quest -> previousTask, the repeat lists), TaskInfo / TaskSubtask (layouts in the
+   header), the lookups (GetTask, GetSubtask, GetTaskWithSubtask, EnumTask,
+   GetCampaignCompletionTask), the map queries (GetMapTasks / Count / Completed /
+   LatestUnfinishedTask, CompleteMapTasks, ResetMap), progress (GetTaskProgress / SubProgress),
+   IsTaskActive, TaskInfo's GetIcon / HasTimeout / GetRemainingTime / CanBeCompleted / LockByTask(s)
+   / IsLockedByTask / GetFirstLockedTaskInChain / IsFeaturedTask / RefreshCampaignInfo (Locations:
+   4f, UNVERIFIED), Reset, SetBlocked, EnqueueUpdate, the last-step-help setters. GameState: Set/Get
+   task show / begin / end times, the step counters (GetSubTaskDone creates the counter, as the
+   original), AddSubTask, SubTaskCompleted, the custom step requirement, CompleteTask, StartTask
+   (EntityManager::OnTaskStarted: part 3), ResetTask, AddAutocomplete/AutoresetTask. tasks.xml is
+   loaded at start-up in its original place; GameState::Reset calls Tasks::Reset.
+   FOUND AND FIXED (asset layering): FileManager::RegisterBlobFile @0x16e7b8 leaves out four files
+   of main pack version 27 (the user's files/main.27.kbf): tasks.xml, LocalizedStrings.xml,
+   config/fbwall_mob.xml and maps/map_11.bin (and version 28's two loading images). The port
+   loaded all four from the old pack: an older tasks.xml (998 tasks, no task 0x771), the older
+   Russian table and an older map 11. Now 5.11's own are used, as on the original.
+   Verified headless (temporary dump, removed): 1371 tasks, the lists, sample tasks with their
+   steps, locks and chains; city, real save copy and Russian start as before.
+   Note on "byte-identical" saves: three time stamps (map start time chunk 0x1d, chunk 0x1f, map
+   visit time chunk 0x55) are set at each load, so two saves only match when the runs fall in the
+   same second; everything else is identical.
+   LEFT IN 4c (99; `python3 tools/inventory.py --functions 4c`): part 2 the quest engine
+   (Tasks::CompleteSubtask / CompleteTask with the rewards / Update / GetCurrentTasks /
+   CheckOverlimit / LaunchDailyTaskFromGroup / TaskTimeout, descriptions, SetAttribute), part 3
+   the world's reactions (Entity / Decor / Map OnTaskStarted / OnSubTaskCompleted /
+   OnTaskCompleted / OnSetup / OnInteract / OnTagUpdate, ExecuteStaticMeta), part 4 help and
+   extras (TaskSubtask::OnHelp, HelpWith*, Bonus, Override, the gem messages, the admin console
+   commands). ASKED THE USER (freemium rule) before part 2: the crystal rewards of quests; only 4
+   tasks give crystals in 5.11 (224: 1, 245: 5, 1183: 2, 1234: 1).
+   NEXT: 4c part 2 once the crystal rewards are decided.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

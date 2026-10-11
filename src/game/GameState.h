@@ -93,6 +93,27 @@ bool IsPvPTutorial();
 bool TaskCompleted(unsigned id);               // @0x1908ac (the 0x1000-entry lookup cache is not ported)
 bool IsTaskStarted(unsigned id);               // @0x190988
 uint32_t GetTaskBeginTime(unsigned id);        // @0x198624 (0 when not begun)
+void SetTaskBeginTime(unsigned id, uint32_t t);   // @0x1985e8
+uint32_t GetTaskEndTime(unsigned id);          // @0x198530 (0 when not ended)
+void SetTaskEndTime(unsigned id, uint32_t t);  // @0x1984f4
+uint32_t GetTaskShowTime(unsigned id);         // @0x198718 when the task was first shown (0: never)
+void SetTaskShowTime(unsigned id, uint32_t t); // @0x1986dc
+// A step's counter (how often its action was done). GetSubTaskDone creates the counter, as the
+// original's map lookup does.
+int GetSubTaskDone(unsigned subtask);          // @0x19963c
+void SetSubTaskDone(unsigned subtask, int n);  // @0x199600
+void AddSubTask(unsigned subtask, int n);      // @0x199774
+bool SubTaskCompleted(unsigned task, unsigned subtask);   // @0x199670 the task's step reached its amount
+uint32_t GetCustomSubTaskRequrement(unsigned subtask);    // @0x198984 (0: none)
+void SetCustomSubTaskRequrement(unsigned subtask, uint32_t v);   // @0x198948
+// @0x19c6fc: the task joins the completed ones and gets its end time. With setBegin a task with a
+// timeout also gets a begin time an hour before the timeout ran out.
+void CompleteTask(unsigned id, bool setBegin);
+void StartTask(unsigned id);                   // @0x19cd64 started; the entities are told
+void ResetTask(unsigned id);                   // @0x19ce58 every record of the task and its steps goes
+// @0x1963bc / @0x1a9548: the tasks to complete / reset automatically (0 empties the list).
+void AddAutocompleteTask(unsigned id);
+void AddAutoresetTask(int id);
 uint32_t GetGameStartTime();                   // @0x19130c
 
 const char* GetResourceIconName(int type);      // @0x190cfc the 16 px icons (table 0x601594)
