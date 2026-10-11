@@ -111,7 +111,9 @@ struct TaskInfo {                // 500 bytes
     bool hasReward = false;      // +0x1dc any award or item
     bool showQuest = false;      // +0x1dd "show_quest"
     bool f_1de = false;          // +0x1de (Tasks::Reset clears it)
-    bool f_1df = false;          // +0x1df
+    bool f_1df = false;          // +0x1df a hint / tutorial pop-up whose previous task is done: to be shown
+    int priority = 0;            // +0x1e0 GetCurrentTasks' order key (2 main, 1 side, 10 featured, 0x32 campaign)
+    bool f_1e4 = false;          // +0x1e4 came from the world map's campaign list
     bool campaignInfoKnown = false;   // +0x1e5 RefreshCampaignInfo ran
     uint32_t campaign = 0, mission = 0;   // +0x1e8 +0x1ec
     Tags::Tag* tag = nullptr;    // +0x1f0 "tags": the event the task belongs to
@@ -154,6 +156,31 @@ int GetTaskSubProgress(uint32_t task, unsigned* total);        // @0x22f87c coun
 int GetTaskProgress(uint32_t task, unsigned* total);           // @0x22f8f0 finished steps
 TaskInfo* GetRepeatableParentTask(TaskInfo* task);             // @0x22f994
 bool IsTaskActive(uint32_t task, bool started);                // @0x23096c
+
+// ---- the quest engine
+// @0x230dec: the tasks open right now (level reached, not completed, not locked, right place).
+// forHud: the list the HUD shows (hidden tasks and plain "talk to" steps left out); all: no place
+// or visibility rules at all. Returns the count (at most max).
+unsigned GetCurrentTasks(TaskInfo** out, unsigned max, bool forHud, bool all);
+// @0x2318a0: the player did something: every open step of that type and value counts n more;
+// a step that reaches its amount is announced to the entities and the map.
+void CompleteSubtask(int type, uint32_t value, int n);
+void ResetSubtask(int type, uint32_t value);                   // @0x2317c0 such steps back to 0
+void CompleteSubtaskDirect(uint32_t subtask, int n);           // @0x22fa5c by step id
+// @0x236350: the task is completed: the next task's dialog, the world's reactions, the reward
+// (dropped at the quest giver, the "talk to" person or the hero when `drop`, else added), the
+// items it takes (takeItems).
+void CompleteTask(uint32_t task, bool drop, bool takeItems, bool setBegin);
+// @0x2377b0, once a second in the player's city (or at once when forced): begin times, the
+// balance / item / level steps' counters, finished tasks, repeats and the daily tasks.
+void Update(bool force);
+void TaskTimeout(TaskInfo* task);                              // @0x2381b8
+// @0x230a44: unless one of the groups' tasks is running, one of them that is open is started at
+// random (the groups are settings listing task ids). True when one was started.
+bool LaunchDailyTaskFromGroup(const char* const* groups, unsigned count, TaskInfo** current, unsigned currentCount);
+// PORT (docs/balance_plan.md): the crystals a completed task pays offline, by its kind and the
+// player's level; 0 for hints and tutorial pop-ups.
+int PortQuestCrystals(const TaskInfo* task);
 
 // The lists Init builds: the tasks with a repeat timeout (0x616984) and the tasks under one
 // (0x616994).

@@ -23,6 +23,7 @@
 #include "gui/GUI.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
+#include "game/Tasks.h"
 
 // ---- BuildingHoverWindow ----
 
@@ -1069,7 +1070,7 @@ void BuildProgressHoverWindow::OnSpeedUpFinished() {
         Map::Building* b = building;
         if (b->upgrading == 0 && b->needsBuilder == 0 && b->data->buildingClass == 2 && b->HasActiveContract()) {
             // Billing::LogCBPurchase: online logging, not ported.
-            // UNVERIFIED (Tasks): Tasks::CompleteSubtask(0xf, contract - 1 + delivery id * 10, 1).
+            Tasks::CompleteSubtask(Tasks::kDeliveryMissionIncSpeed, b->contract - 1 + b->data->delivery->id * 10, 1);
             b->contractDone = true;
             b->OnContractCompleted(false);
         } else {

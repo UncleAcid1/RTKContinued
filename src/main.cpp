@@ -220,6 +220,7 @@ void Tick(float dt) {
     BuildingPlacement::Update(dt);
     MapMovement::Update(dt);
     BuildingHovers::Update(dt, false);
+    if (!GameState::IsPaused()) Tasks::Update(false);   // (and TaskInfoWindow::Update, 4d)
     if (!GameState::IsPaused()) {
         Entity::SetCurrentTime((uint32_t)Timer::GetGlobalTime());
         EntityManager::Update(dt);
@@ -624,6 +625,14 @@ int main_Loop_Init() {
     // PORT (freemium removal): the exchange's rates (ExchangeWindow), placeholders to tune.
     GameState::SetSetting("port_exchange_gold_per_crystal", 200.f);
     GameState::SetSetting("port_exchange_gold_per_bought_crystal", 400.f);
+    // PORT (docs/balance_plan.md): crystals from play. A quest pays its kind's base times the
+    // level factor 1 + (level - 1) / div; a level-up pays level_up_cb + level / div.
+    GameState::SetSetting("port_quest_crystals_main", 1.f);
+    GameState::SetSetting("port_quest_crystals_side", 1.f);
+    GameState::SetSetting("port_quest_crystals_campaign", 5.f);
+    GameState::SetSetting("port_quest_crystals_daily", 1.f);
+    GameState::SetSetting("port_level_factor_div", 14.f);
+    GameState::SetSetting("port_levelup_crystals_div", 4.f);
     SystemFuncs::SetSetting_Int("show_starting_win", 0, "MyCountry_flags");
     // UNVERIFIED: Override::AddParameter(0xb, 99, 1, "r_cb_limit", "75") and Override::Apply(4)
     // (the server's override table, not ported).

@@ -106,6 +106,7 @@ float GetTopWindowRange();                    // @0x36e8f4
 // @0x36eb30: show `fn` once nothing is in the way (no window shown, no placement, ...), after
 // `delay` seconds; a function already waiting is not added twice.
 void EnqueueWindow(void (*fn)(), float delay);
+int GetEnqueuedWindowCount();                 // @0x36e81c
 // @0x36ea6c: the first waiting window, when nothing is in the way: its delay counts down, then it
 // is removed and shown.
 void Update(float dt);

@@ -20,6 +20,7 @@
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/Squad.h"
+#include "game/Tasks.h"
 
 namespace {
 uint32_t g_entityTime = 0;     // 0x6119b0 Entity::SetCurrentTime
@@ -673,7 +674,7 @@ void Entity::AddHP(int v) {
     }
     if (!player) return;
     if (hp == GetHpMax() && GameState::IsTaskStarted(0x2f9)) {
-        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
+        Tasks::CompleteSubtask(Tasks::kHealHero, 1, 1);
     }
     if (v != 0 || hp == GetHpMax()) GameState::UpdatePlayerRegenerationState();
     if (greyed) {

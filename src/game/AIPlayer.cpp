@@ -25,6 +25,7 @@
 #include "gui/WindowManager.h"
 #include "engine/Timer.h"
 #include "windows/Windows.h"
+#include "game/Tasks.h"
 
 namespace {
 
@@ -100,7 +101,8 @@ void AIWarrior::WalkCompleted() {
     if (GameState::tutorial == 5) {
         GameState::tutorial = 6;
     } else if (GameState::tutorial == 100) {
-        // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x24, 0x8e, 1) and (0x30, 1, 1).
+        Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, 0x8e, 1);
+        Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
         GameState::tutorial = 0x65;
     }
     // UNVERIFIED (milestone 4g): in an arena combat (types 5, 6) the waypoint under it gets weight 1000.

@@ -111,6 +111,10 @@ void SetCustomSubTaskRequrement(unsigned subtask, uint32_t v);   // @0x198948
 void CompleteTask(unsigned id, bool setBegin);
 void StartTask(unsigned id);                   // @0x19cd64 started; the entities are told
 void ResetTask(unsigned id);                   // @0x19ce58 every record of the task and its steps goes
+bool IsFeaturedTaskClicked(unsigned id);       // @0x1987d0
+uint32_t GetEventStartTime(unsigned event);    // @0x198054 (0: never)
+void SetEventStartTime(unsigned event, uint32_t t);   // @0x198018
+uint32_t GetEventDifficulty(unsigned event);   // @0x197f74
 // @0x1963bc / @0x1a9548: the tasks to complete / reset automatically (0 empties the list).
 void AddAutocompleteTask(unsigned id);
 void AddAutoresetTask(int id);

@@ -19,6 +19,7 @@
 #include "game/MetaData.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 
 namespace Map {
 namespace {
@@ -1007,7 +1008,7 @@ Entity* SpawnLiver(Building* b, int id) {
 }  // namespace
 
 void Building::OnBuilded() {
-    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(1, id, 1).
+    Tasks::CompleteSubtask(Tasks::kBuildHouse, data->id, 1);
     int cls = data->buildingClass;
     if (cls == 0) {
         for (unsigned i = 0; i < data->givePopulation; ++i) {
@@ -1059,7 +1060,7 @@ void Building::OnUpgraded() {
         if (!livers.empty() && livers[0]) livers[0]->Appear(false, true);
         if (farmEntity && farmEntity->GetSprite()) Render::SetVisibility(farmEntity->GetSprite(), true);
     }
-    // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(3, id, 1).
+    Tasks::CompleteSubtask(Tasks::kUpgradeHouse, data->id, 1);
     // UNVERIFIED (milestone 5): SoundsManager "building_upgrade_end".
 }
 

@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c part 1 done (quest data and saved quest state); 99 functions left in 4c) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c parts 1-2a done (quest data, saved state, the quest engine; balance plan confirmed)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -533,7 +533,36 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    food, at most 20,000) instead of crystals; crystal income from quests / level-ups / dailies /
    chests / arena scaled by a 1x-3x level factor; the gold-for-crystals exchange limited to
    10 + level a day. Every number goes in a setting. Follow it when coding rewards and prices.
-   NEXT: 4c part 2 (quest engine, with the quest and level-up crystals of the plan).
+   4c PART 2a DONE: the quest engine. Tasks::GetCurrentTasks @0x230dec (which tasks are open:
+   level, locks, the place rules by GameState::GetCurrentLocation, hints / tutorial pop-ups after
+   their previous task, the HUD's filters, priorities; the campaign parts wait for Locations, 4f),
+   CompleteSubtask @0x2318a0 / ResetSubtask / CompleteSubtaskDirect, CompleteTask @0x236350 (the
+   reward dropped at the hero - or, 4f, at the quest giver - else added; reward items; items taken;
+   the original pays a task's "cb" crystals only up to 5), Update @0x2377b0 (once a second in the
+   city, in the tick after BuildingHovers: begin times, the balance / item / level steps, finished
+   tasks, disable_task, repeating tasks coming back, the daily launch every 24 h),
+   LaunchDailyTaskFromGroup (daily_tasks + daily_herb + daily_min, and daily_pvp), TaskTimeout,
+   WindowManager::GetEnqueuedWindowCount, GameState event start time / difficulty and
+   IsFeaturedTaskClicked. Actions already in the game now report their steps: building built /
+   upgraded / placed, order collected or sped up, level reached, hero healed, first training.
+   PORT (balance plan): a completed quest also pays PortQuestCrystals (settings
+   port_quest_crystals_main / _side / _campaign / _daily, port_level_factor_div); a level-up pays
+   level_up_cb + level / port_levelup_crystals_div. tools/balance_sim.py prints the plan's
+   prices and income from the data files (its first run: about 760 one-time crystals over the
+   campaign, 17 a day afterwards before chests / hunts / arena: below the plan's estimate, to tune).
+   PORT until 4d: a finished task with a reward is completed at once (the original opens
+   TaskCompleteWindow, which completes it when closed); chapter tasks wait for ChapterWindow.
+   Verified headless (temporary hook, removed): task 232 (build house 1006) opened by completing
+   its lock tasks, the step reported, Update completed it and its gold, XP and one crystal dropped
+   at the hero; the fresh city and the real save copy complete only the step-less task 1182; shop
+   and settings work as before.
+   LEFT IN 4c: part 2b Tasks::CheckOverlimit @0x236f28 (steps already satisfied are completed: a
+   switch over the step types, jump table to read from the asm), TaskSubtask::GetDescription,
+   SetAttribute / Change*Attribute, the remaining CompleteSubtask call sites (Building.cpp order
+   start, LandWindow area / patch, ItemDrop::Collect, items: get_item / equip / collect_set);
+   part 3 the world's reactions (Entity / Decor / Map On* and ExecuteStaticMeta); part 4 help
+   (OnHelp, HelpWith*), Bonus, Override, gem messages, console commands.
+   NEXT: 4c part 2b.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

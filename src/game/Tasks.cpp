@@ -28,7 +28,7 @@ std::vector<std::unique_ptr<TaskInfo>> g_tasks;       // 0x616964 (count 0x61697
 std::vector<TaskInfo*> g_repeatTasks;                 // 0x616984 (count 0x616990)
 std::vector<TaskInfo*> g_repeatChildren;              // 0x616994 (count 0x6169a0)
 bool g_blocked = false;                               // 0x616974
-float g_updateTimer = 0.f;                            // 0x616978 (EnqueueUpdate zeroes it)
+uint32_t g_lastUpdate = 0;                            // 0x616978 the second of the last Update (0: run now)
 uint32_t g_lastSubTaskHelp = 0;                       // SetLastSubTaskHelp
 bool g_lastSubTaskHelpEnabled = false;                // 0x616980
 
@@ -303,7 +303,7 @@ TaskSubtask* GetSubtask(uint32_t subtask) {
 void SetBlocked(bool blocked) { g_blocked = blocked; }
 
 // @0x22e998 Tasks::EnqueueUpdate
-void EnqueueUpdate() { g_updateTimer = 0.f; }
+void EnqueueUpdate() { g_lastUpdate = 0; }
 
 // @0x22e9b0 Tasks::Reset
 void Reset() {
@@ -593,6 +593,502 @@ uint32_t TaskInfo::GetFirstLockedTaskInChain(bool skipHidden) const {
         t = GetTask(next);
         cur = next;
     }
+}
+
+}  // namespace Tasks
+
+// =========================================================================== the quest engine
+#include "game/BuildingHovers.h"
+#include "game/BuildingMovement.h"
+#include "game/BuildingPlacement.h"
+#include "game/Entity.h"
+#include "game/EntityManager.h"
+#include "game/Map.h"
+#include "game/Rand48.h"
+#include "game/Setting.h"
+#include "game/SoldierSlots.h"
+#include "gui/WindowManager.h"
+#include "hud/HUD.h"
+
+namespace Tasks {
+namespace {
+
+// UNVERIFIED (milestone 4f): EntityManager::GetEntityBySpawnPoint (0x16606c): quest givers and
+// "talk to" persons are entities of spawn points, which the campaign maps bring.
+Entity* EntityBySpawnPoint(uint32_t) { return nullptr; }
+
+// Every non-zero numeric entry of a step's "req_stId" list must be a completed step of the task.
+bool RequiredStepsDone(const TaskInfo* t, const TaskSubtask& s) {
+    if (!s.required) return true;
+    for (unsigned i = 0; i < s.required->GetChildrenCount(); ++i) {
+        const MetaData* m = s.required->GetChild(i);
+        if (m->type == MetaData::kNumber && m->GetInt() != 0 &&
+            !GameState::SubTaskCompleted(t->id, (unsigned)m->GetInt()))
+            return false;
+    }
+    return true;
+}
+
+}  // namespace
+
+// @0x230dec Tasks::GetCurrentTasks
+unsigned GetCurrentTasks(TaskInfo** out, unsigned max, bool forHud, bool all) {
+    unsigned count = 0;
+    const int location = GameState::GetCurrentLocation();
+    // UNVERIFIED (milestone 5): with forHud outside the campaign and the farm, the world map's
+    // campaign tasks come first (GlobalMapWindow::GetCampaignTasks; priority 5, f_1e4).
+    const uint32_t curMap = GameState::GetCurrentMapID();
+    // UNVERIFIED (milestone 4f): Locations::GetCampaignForMap / GetMissionForMap(curMap).
+    const uint32_t campaign = 0, mission = 0;
+    const uint32_t level = (uint32_t)GameState::GetLevel();
+    for (auto& up : g_tasks) {
+        TaskInfo* t = up.get();
+        if (!(t->level <= level) || GameState::TaskCompleted(t->id)) continue;
+        bool ok = !(t->id == 0x3d3 && !GameState::IsTaskStarted(0x3d3));
+        if (t->IsLockedByTask()) ok = false;
+        bool special = false;
+        if (!all) {
+            if (!forHud) {
+                // a task of nothing but "mastery level" steps (or none) is open everywhere
+                for (const TaskSubtask& s : t->subtasks) {
+                    special = s.type == kMasteryLevel || s.type == 0;
+                    if (!special) break;
+                }
+            }
+            if (t->showEverywhere && location != 1) special = true;
+            uint32_t map = curMap;
+            bool placeOk = ok;
+            bool keepSpecial = false;
+            if (ok && !special) {
+                placeOk = false;
+                if (!t->isFarm && !t->isCity) {
+                    placeOk = !t->showInBattle;
+                } else {
+                    if (t->isFarm && (location == 1 || location == 0)) placeOk = true;
+                    if (t->isCity && (location == 0 || (!forHud && location == 1 && t->chapterNumber == 0)))
+                        placeOk = true;
+                }
+                if (t->showInBattle && (location == 2 || location == 3)) placeOk = true;
+                // (the emperor's map shows such a task whatever its place)
+                keepSpecial = t->showOnImperor && curMap == 0xb;
+            }
+            if (keepSpecial) {
+                special = true;
+            } else {
+                ok = placeOk;
+                if (curMap == 0) map = 0x2f;
+                special = false;
+            }
+            if (t->mapId != 0 && map != t->mapId && (t->mapX == 0 || map != (uint16_t)t->mapX)) {
+                if (t->mapY == 0 || map != (uint16_t)t->mapY) ok = false;
+            }
+        }
+        // A tutorial pop-up or a hint shows once its previous task is done (never in the lists).
+        if (t->tutorialType && t->subtasks[0].type == 0) {
+            if (forHud || all || t->previousTask == 0 || !GameState::TaskCompleted(t->previousTask)) ok = false;
+            else t->f_1df = true;
+        }
+        bool filters = true;
+        if (t->isHint) {
+            if (forHud || all || t->previousTask == 0 || !GameState::TaskCompleted(t->previousTask)) {
+                ok = false;
+            } else {
+                t->f_1df = true;
+                filters = false;
+            }
+        }
+        if (filters) {
+            if (forHud && t->dnShow) ok = false;
+            if (forHud || all) {
+                if (t->chapter) ok = false;
+                if (forHud && !t->isDublicateTalk)
+                    for (const TaskSubtask& s : t->subtasks)
+                        if (s.type == kTalkToPerson) ok = false;
+            }
+        }
+        // Already in the list? (the original does not compare with the last entry)
+        bool take = false, evaluate = true;
+        if (count != 0) {
+            if (!ok) evaluate = false;
+            for (unsigned k = 0; ok && k + 1 < count; ++k)
+                if (out[k]->id == t->id) { evaluate = false; break; }
+        }
+        if (evaluate && ok) {
+            if (!t->campaignInfoKnown) t->RefreshCampaignInfo();
+            bool checkTime = true;
+            if (forHud && !all && location == 2 && !t->showEverywhere) {
+                bool here = ok;
+                if (campaign != 0 && campaign != t->campaign) here = false;
+                if (mission != 0 && mission != t->mission) here = false;
+                if (mission == 0 && campaign == 0 && (t->campaign != 0 || t->mission != 0) && !special) here = false;
+                if (1 < t->id - 0x4d7u) ok = here;
+                // (the discount tasks 0x4d9..0x4db are taken even when not here)
+                if (1 < t->id - 0x4d9u && t->id != 0x4db && !ok) checkTime = false;
+            }
+            if (checkTime) {
+                if ((!t->daily || !t->dnShow) && t->HasTimeout() && t->GetRemainingTime() == 0) take = false;
+                else take = !forHud || all || !t->IsFeaturedTask() || !GameState::IsFeaturedTaskClicked(t->id);
+            }
+        }
+        if (t->tag && !t->tag->IsActive()) take = false;
+        if (!t->f_f8 || !take || max <= count) continue;
+        t->priority = t->sidequest ? 1 : 2;
+        if (t->id == 0x3d3) t->priority = 10;
+        if (t->id == 0x2f9) t->priority = 9;
+        if (t->id == 0x4d7 || t->id == 0x4d9) t->priority = 10;
+        if (t->IsFeaturedTask()) t->priority = 10;
+        out[count++] = t;
+        t->f_1e4 = false;
+    }
+    if (forHud) {
+        if (location == 0 && count != 0) {
+            // In the city the newest campaign (else mission) battle task leads; the other battle
+            // tasks fall behind.
+            unsigned bestCampaign = ~0u, bestMission = ~0u;
+            for (unsigned i = 0; i < count; ++i) {
+                TaskInfo* t = out[i];
+                if (!t->showInBattle || t->sidequest) continue;
+                if (t->campaign != 0 && (bestCampaign == ~0u || GameState::GetTaskBeginTime(t->id) >
+                                                                    GameState::GetTaskBeginTime(out[bestCampaign]->id)))
+                    bestCampaign = i;
+                if (t->mission != 0 && (bestMission == ~0u || GameState::GetTaskBeginTime(t->id) >
+                                                                  GameState::GetTaskBeginTime(out[bestMission]->id)))
+                    bestMission = i;
+            }
+            unsigned lead = bestCampaign != ~0u ? bestCampaign : bestMission;
+            if (lead != ~0u) out[lead]->priority = 0x32;
+            for (unsigned i = 0; i < count; ++i) {
+                TaskInfo* t = out[i];
+                if (i == lead || !t->showInBattle) continue;
+                if (!t->isCity || t->sidequest) t->priority = t->campaign == 0 ? 1 : 0;
+                else t->priority += 1;
+            }
+        }
+        // UNVERIFIED (milestone 4f): in a finished campaign (Locations::GetCampaignLocation,
+        // GameState::GetCampaignCompletionStatus) its "complete the campaign" task is added with
+        // priority 0x32.
+    }
+    return count;
+}
+
+// @0x2318a0 Tasks::CompleteSubtask
+void CompleteSubtask(int type, uint32_t value, int n) {
+    TaskInfo* current[0x80] = {};
+    unsigned count = GetCurrentTasks(current, 0x80, false, false);
+    bool changed = false;
+    for (unsigned i = 0; i < count; ++i) {
+        TaskInfo* t = current[i];
+        for (TaskSubtask& s : t->subtasks) {
+            if (s.type != type || !s.HasValue(value)) continue;
+            if (t->dnShow) {
+                if (t->daily) continue;
+                if (!RequiredStepsDone(t, s)) continue;
+            }
+            if (s.type == kKillEnemyClass && s.assistMap == 0x74) {
+                // UNVERIFIED (milestone 5): only during a PvP fight (GameState::IsPvPCombatActive).
+                continue;
+            }
+            if (GameState::GetSubTaskDone(s.id) < s.amount) {
+                GameState::AddSubTask(s.id, n);
+                if (s.amount <= GameState::GetSubTaskDone(s.id)) {
+                    changed = true;
+                    // UNVERIFIED (4c part 3): EntityManager::OnSubTaskCompleted(s.id) (0x166730)
+                    // and Map::OnSubTaskCompleted(s.id) (0x1b6650).
+                    continue;
+                }
+            }
+            changed = true;
+        }
+    }
+    if (changed) {
+        EnqueueUpdate();
+        // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks (0x2c7ba8).
+    }
+}
+
+// @0x2317c0 Tasks::ResetSubtask
+void ResetSubtask(int type, uint32_t value) {
+    TaskInfo* current[0x80] = {};
+    unsigned count = GetCurrentTasks(current, 0x80, false, false);
+    bool changed = false;
+    for (unsigned i = 0; i < count; ++i)
+        for (TaskSubtask& s : current[i]->subtasks)
+            if (s.type == type && s.HasValue(value)) {
+                changed = true;
+                GameState::SetSubTaskDone(s.id, 0);
+            }
+    if (changed) EnqueueUpdate();   // (and HUDWindow::UpdateTasks, 4d)
+}
+
+// @0x22fa5c Tasks::CompleteSubtaskDirect
+void CompleteSubtaskDirect(uint32_t subtask, int n) {
+    GameState::AddSubTask(subtask, n);
+    // UNVERIFIED (4c part 3): EntityManager::OnSubTaskCompleted / Map::OnSubTaskCompleted(subtask).
+    EnqueueUpdate();
+    // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks.
+}
+
+int PortQuestCrystals(const TaskInfo* t) {
+    if (t->isHint || t->tutorialType) return 0;
+    const char* kind;
+    if (t->subtasks[0].type == kCompleteCompaign) kind = "port_quest_crystals_campaign";
+    else if (t->daily) kind = "port_quest_crystals_daily";
+    else if (!t->hasReward) return 0;
+    else kind = t->sidequest ? "port_quest_crystals_side" : "port_quest_crystals_main";
+    float base = GameState::GetSetting(kind);
+    float div = GameState::GetSetting("port_level_factor_div");
+    float factor = div > 0.f ? 1.f + (float)(GameState::GetLevel() - 1) / div : 1.f;
+    int n = (int)(base * factor + 0.5f);
+    return base > 0.f && n < 1 ? 1 : n;
+}
+
+// @0x236350 Tasks::CompleteTask. Not ported (online): the OG / OG2 requests and the "invite
+// friends" wall post of the fb_invite_task.
+void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
+    TaskInfo* t = GetTask(id);
+    if (!t) return;
+    std::printf("Done task %d. Is battle: %d Is city: %d Is farm: %d Is hint: %d Dialog giver: %d Next task: %d\n",
+                t->id, t->showInBattle, t->isCity, t->isFarm, t->isHint, t->dialogGiver, t->postQuest);
+    // The next task's opening words, said by its giver (or the hero's own panel).
+    if (t->postQuest != 0) {
+        if (TaskInfo* next = GetTask(t->postQuest)) {
+            if (GameState::TaskCompleted(next->id)) {
+                std::printf("Tasks::CompleteTask() Cannot show next dialog %d - it was already completed\n", t->postQuest);
+            } else {
+                // UNVERIFIED (milestone 4f): without a giver PlayerTopWindow::SetParameters(next's
+                // pre-quest text, its id, !showButton, showButton); with one that is on the map and
+                // active BuildingHovers::ShowWorldDialog(giver, text, next id, false, !showButton,
+                // false, this task's id when it repeats without a timeout else 0, false, false).
+            }
+        }
+    }
+    GameState::CompleteTask(id, setBegin);
+    // UNVERIFIED (4c part 3): Map::OnTaskCompleted(id), EntityManager::OnTaskCompleted(id).
+    // UNVERIFIED (milestone 5 / 4f): GlobalMapWindow::OnTaskCompleted(id),
+    // BuildingHovers::HideWorldDialogByTask(id).
+    if ((int)id == Setting("squad_slot_02_quest_unlock").GetInt() ||
+        (int)id == Setting("squad_slot_03_quest_unlock").GetInt()) {
+        // UNVERIFIED (milestone 4d): WindowManager::EnqueueWindow(Tasks::ShowWarriorSlotUnlock, 0.2).
+    }
+    // (task 0x402: CraftSuccessWindow for unit 0x195, milestone 5)
+
+    // Where the reward drops: at the first "talk to" person of the task, else its giver, else
+    // (once the city tutorial is over) the hero.
+    Entity* at = nullptr;
+    if (drop) {
+        for (const TaskSubtask& s : t->subtasks)
+            if (!at && s.type == kTalkToPerson) at = EntityBySpawnPoint(s.value);
+        if (!at && t->dialogGiver != 0) at = EntityBySpawnPoint(t->dialogGiver);
+        if (!at && GameState::secondTutorial == 0x100) at = EntityManager::GetPlayer();
+    }
+    for (int type = 0; type < 11; ++type) {
+        uint32_t amount = t->award[type];
+        if (amount == 0) continue;
+        if (type != GameState::kCrystal) {
+            if (at) BuildingHovers::DropResource(at->worldX, at->worldY, type, amount, false, false);
+            else GameState::ChangeResourceAmount(type, (int)amount);
+        } else if ((int)amount <= 5) {
+            // (the original never pays more than 5 crystals for a task)
+            GameState::AddCrystals((int)amount);
+        }
+    }
+    // PORT (docs/balance_plan.md): the offline crystals of a quest.
+    if (int crystals = PortQuestCrystals(t)) {
+        if (at) BuildingHovers::DropResource(at->worldX, at->worldY, GameState::kCrystal, (unsigned)crystals, false, false);
+        else GameState::AddCrystals(crystals);
+    }
+    for (uint32_t i = 0; i < t->itemCount; ++i) {
+        const TaskInfo::ItemCount& it = t->items[i];
+        if (!at) {
+            // UNVERIFIED (milestone 5): a profession's point item goes to
+            // Professions::AddProfessionPoint instead (GetProfessionForPointItem).
+            GameState::AddItem(it.id, (int)it.count, false, false, false);
+            BeltBarWindow::AutoBind(it.id);
+        } else {
+            for (uint32_t k = 0; k < it.count; ++k)
+                BuildingHovers::DropItem(at->worldX, at->worldY, const_cast<Items::ItemInfo*>(Items::GetItemInfo(it.id)), 0, 1);
+        }
+    }
+    if (t->giveItemCount != 0 && takeItems)
+        for (uint32_t i = 0; i < t->giveItemCount; ++i) GameState::RemoveItem(t->giveItems[i].id, (int)t->giveItems[i].count);
+    SoldierSlots::SetFreeSlotsCount(GameState::GetSoldierSlotCount());
+    // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks; task 0x5b2 opens TaskInfoWindow on 0x5b3.
+    BuildingHovers::Update(0.f, true);
+    EnqueueUpdate();
+}
+
+// @0x2381b8 Tasks::TaskTimeout
+void TaskTimeout(TaskInfo* task) {
+    (void)task;   // UNVERIFIED (milestone 4d): TaskInfoWindow::TaskTimeout(task->id).
+    Update(true);
+    Map::Save(0);
+}
+
+// @0x230a44 Tasks::LaunchDailyTaskFromGroup
+bool LaunchDailyTaskFromGroup(const char* const* groups, unsigned groupCount, TaskInfo** current,
+                              unsigned currentCount) {
+    std::vector<uint32_t> ids;   // 0x6169d0
+    for (unsigned g = 0; g < groupCount; ++g) {
+        Setting list(groups[g]);
+        for (unsigned i = 0; i < list.GetChildrenCount(); ++i) ids.push_back((uint32_t)list.GetChild(i).GetInt());
+    }
+    if (ids.empty()) return false;
+    // A finished or stuck one goes back to "not shown"; while one is running nothing starts.
+    for (uint32_t id : ids) {
+        TaskInfo* t = GetTask(id);
+        const bool started = GameState::IsTaskStarted(id);
+        if (t && !(!GameState::TaskCompleted(id) && (!started || t->CanBeCompleted()) &&
+                   (!started || IsTaskActive(id, true)))) {
+            GameState::ResetTask(id);
+            t->dnShow = true;
+            if (t->postQuest != 0) GameState::ResetTask(t->postQuest);
+        }
+        if (IsTaskActive(id, true)) return false;
+    }
+    TaskInfo* candidates[0x40];
+    unsigned n = 0;
+    for (uint32_t id : ids) {
+        if (n >= 0x40) continue;
+        for (unsigned i = 0; i < currentCount; ++i)
+            if (current[i]->id == id && current[i]->CanBeCompleted()) {
+                candidates[n++] = current[i];
+                break;
+            }
+    }
+    if (n == 0) return false;
+    TaskInfo* t = candidates[(unsigned long)Rand48::lrand48() % n];
+    GameState::StartTask(t->id);
+    GameState::SetTaskBeginTime(t->id, (uint32_t)Timer::GetGlobalTime());
+    for (TaskSubtask& s : t->subtasks) {
+        if (s.amountMin == s.amountMax) continue;
+        s.amount = (int)((unsigned long)Rand48::lrand48() % (unsigned)(s.amountMax - s.amountMin)) + s.amountMin;
+        GameState::SetCustomSubTaskRequrement(s.id, (uint32_t)s.amount);
+    }
+    return true;
+}
+
+// @0x2377b0 Tasks::Update
+void Update(bool force) {
+    if (!GameState::IsPlayerCity()) return;
+    uint32_t now = (uint32_t)Timer::GetGlobalTime();
+    if (now == g_lastUpdate && !force) return;
+    g_lastUpdate = now;
+    if (!(3 < (unsigned)(GameState::tutorial - 0x3c))) return;   // not during tutorial steps 0x3c..0x3f
+    // (event 1 running: task 0x5b1's first step asks for 5 on difficulty 1, else 150)
+    if (GameState::GetEventStartTime(1) != 0)
+        if (TaskInfo* e = GetTask(0x5b1)) {
+            if (GameState::GetEventDifficulty(1) == 1) e->subtasks[0].amount = 5;
+            else if (e->subtasks[0].amount == 5) e->subtasks[0].amount = 0x96;
+        }
+    if (!((!g_blocked && WindowManager::GetShownWindowCount() == 0 && !Map::IsCameraMoving() &&
+           !GameState::IsCombatActive()) || force))
+        return;
+    TaskInfo* cur[0x80] = {};
+    unsigned count = GetCurrentTasks(cur, 0x80, false, false);
+    bool changed = false;
+    for (unsigned i = 0; i < count; ++i) {
+        TaskInfo* t = cur[i];
+        if (GameState::GetTaskBeginTime(t->id) == 0) GameState::SetTaskBeginTime(t->id, now);
+        if (GameState::IsTaskStarted(t->id) && t->dnShow) {
+            t->dnShow = false;
+            changed = true;
+        }
+    }
+    // A daily task's random amount, kept in the save.
+    for (unsigned i = 0; i < count; ++i)
+        for (TaskSubtask& s : cur[i]->subtasks)
+            if (s.amountMin != s.amountMax && s.amountMin == s.amount)
+                if (uint32_t custom = GameState::GetCustomSubTaskRequrement(s.id)) s.amount = (int)custom;
+    // UNVERIFIED (milestone 4f): each shown task's open "talk to" step (its required steps done)
+    // gives its person the talk task (Entity::AssignTalkTask) and resets a completed post-quest.
+    for (unsigned i = 0; i < count; ++i)
+        for (TaskSubtask& s : cur[i]->subtasks) {
+            if (GameState::GetSubTaskDone(s.id) == 0x2000) continue;
+            int before = GameState::GetSubTaskDone(s.id);
+            if (s.type == kBallance) {
+                // value 0: resource 0; 1: crystals; n: resource n - 2
+                int res = s.value == 0 ? 0 : s.value == 1 ? GameState::kCrystal : (int)s.value - 2;
+                GameState::SetSubTaskDone(s.id, (int)GameState::GetResourceAmount(res));
+            } else if (s.type == kBallanceItem) {
+                GameState::SetSubTaskDone(s.id, GameState::GetItemAmount(s.value, false));
+            } else if (s.type == kCompleteCompaign) {
+                // UNVERIFIED (milestone 4f): the location's completed tasks in percent
+                // ((int)(0.5 + done / count * 100), Locations::GetLocationInfo(value)).
+            } else if (s.type == kGetReputation) {
+                // UNVERIFIED (milestone 5): Professions::GetPlayerProfessionLevel(value) >= amount.
+            } else if (s.type == kBalanceLevel) {
+                if ((uint32_t)s.amount <= (uint32_t)GameState::GetLevel()) GameState::SetSubTaskDone(s.id, s.amount);
+            }
+            if (before != GameState::GetSubTaskDone(s.id)) changed = true;
+        }
+    // (changed: HUDWindow::UpdateTasks, 4d)
+    for (unsigned i = 0; i < count; ++i) {
+        TaskInfo* t = cur[i];
+        bool done;
+        if (!t->anySubquest) {
+            done = true;
+            for (const TaskSubtask& s : t->subtasks)
+                if (GameState::GetSubTaskDone(s.id) < s.amount) done = false;
+        } else {
+            done = false;
+            for (const TaskSubtask& s : t->subtasks)
+                if (s.amount != 0 && s.amount <= GameState::GetSubTaskDone(s.id)) done = true;
+        }
+        if (done && !t->tutorialType && !t->isHint) {
+            if (t->chapter) {
+                // UNVERIFIED (milestone 4d): unless the world map or an edit mode is up,
+                // ChapterWindow::SetParameters(id) and Show, FileManager::SetChapterNow.
+                if (BuildingPlacement::Activated() || BuildingMovement::Activated()) return;
+                return;
+            }
+            if (!t->hasReward || t->doNotShowReward) {
+                if (!t->f_10a) {
+                    CompleteTask(t->id, true, true, false);
+                    return;
+                }
+            } else if (WindowManager::GetEnqueuedWindowCount() == 0) {
+                // UNVERIFIED (milestone 4d): TaskCompleteWindow::Complete(id) and Show, which
+                // completes the task when closed (not during a PvP fight, a queued map load or a
+                // pending FoundItemsWindow action). PORT until then: completed at once.
+                CompleteTask(t->id, true, true, false);
+                return;
+            }
+            continue;
+        }
+        if (t->disableTask != 0 && GameState::TaskCompleted(t->disableTask)) {
+            if (t->postQuest != 0) CompleteTask(t->postQuest, false, true, false);
+            CompleteTask(t->id, false, true, false);
+            return;
+        }
+        // UNVERIFIED (milestone 4f): a pop-up to show (f_1df): PlayerTopWindow::SetParameters or the
+        // giver's BuildingHovers::ShowWorldDialog with the pre-quest text.
+    }
+    // UNVERIFIED (4c part 2b): CheckOverlimit(cur, count, false) (0x236f28): steps whose goal is
+    // already met (a building that stands, an item owned, an area bought ...) are completed.
+    // A completed repeating task comes back once its timeout has passed, with the tasks under it.
+    for (TaskInfo* t : g_repeatTasks) {
+        uint32_t end = GameState::GetTaskEndTime(t->id);
+        if (end == 0 || !(end + t->repeatTimeout < now) || !GameState::TaskCompleted(t->id)) continue;
+        if (t->disableTask != 0 && GameState::TaskCompleted(t->disableTask)) continue;
+        GameState::ResetTask(t->id);
+        if (t->postQuest != 0) GameState::ResetTask(t->postQuest);
+        for (TaskInfo* c : g_repeatChildren)
+            if (GetRepeatableParentTask(c) == t) {
+                GameState::ResetTask(c->id);
+                c->dnShowDefault = c->dnShow;
+            }
+        // (HUDWindow::UpdateTasks, 4d)
+    }
+    // Once a day a daily task is launched from each group.
+    if (0x15180 < now - GameState::GetEventStartTime(3000)) {
+        static const char* const kDaily[3] = {"daily_tasks", "daily_herb", "daily_min"};   // 0x60f074
+        static const char* const kDailyPvp[1] = {"daily_pvp"};                              // 0x60f080
+        GameState::SetEventStartTime(3000, now);
+        bool a = LaunchDailyTaskFromGroup(kDaily, 3, cur, count);
+        bool b = LaunchDailyTaskFromGroup(kDailyPvp, 1, cur, count);
+        changed = a || b || changed;
+    }
+    (void)changed;   // (HUDWindow::UpdateTasks, 4d)
 }
 
 }  // namespace Tasks

@@ -224,6 +224,9 @@ void EnqueueWindow(void (*fn)(), float delay) {
     g_windowQueue.push_back({fn, delay});
 }
 
+// @0x36e81c WindowManager::GetEnqueuedWindowCount
+int GetEnqueuedWindowCount() { return (int)g_windowQueue.size(); }
+
 void Update(float dt) {
     // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible and Entity::IsDeathAnimationRunning
     // (milestone 4) are not ported; they would also hold the queue.

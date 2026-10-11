@@ -244,7 +244,7 @@ void ChangeResourceAmount(int type, int amount) {
             SetResourceAmountValidated(kLevel, GetResourceAmount(kLevel) + 1);
         if ((int)GetResourceAmount(kLevel) > maxLevel) SetResourceAmountValidated(kLevel, maxLevel);
         if (before != (int)GetResourceAmount(kLevel)) {
-            // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(7, 0, 1).
+            Tasks::CompleteSubtask(Tasks::kGetLevel, 0, 1);
             LevelUpWindow::Show();
         }
         return;
@@ -416,6 +416,15 @@ void ResetTask(unsigned id) {
         g_customSubtaskRequirement.erase(s.id);
     }
 }
+
+// @0x1987d0 GameState::IsFeaturedTaskClicked
+bool IsFeaturedTaskClicked(unsigned id) { return MapGet(g_featuredTaskClickTime, id) != 0; }
+// @0x198054 GameState::GetEventStartTime
+uint32_t GetEventStartTime(unsigned event) { return MapGet(g_eventStartTime, event); }
+// @0x198018 GameState::SetEventStartTime
+void SetEventStartTime(unsigned event, uint32_t t) { g_eventStartTime[event] = t; }
+// @0x197f74 GameState::GetEventDifficulty
+uint32_t GetEventDifficulty(unsigned event) { return MapGet(g_eventDifficulty, event); }
 
 // @0x1963bc GameState::AddAutocompleteTask
 void AddAutocompleteTask(unsigned id) {

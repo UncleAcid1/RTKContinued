@@ -26,6 +26,17 @@
 #include "windows/Windows.h"
 
 namespace LevelUpWindow {
+
+// The crystals of a level-up: "level_up_cb", at most 5 (0 when negative). PORT
+// (docs/balance_plan.md): plus level / "port_levelup_crystals_div".
+static int LevelUpCrystals() {
+    int cb = Setting("level_up_cb").GetInt();
+    if (cb < 0) cb = 0;
+    else if (cb > 4) cb = 5;
+    float div = GameState::GetSetting("port_levelup_crystals_div");
+    if (div > 0.f) cb += (int)((float)GameState::GetLevel() / div);
+    return cb;
+}
 namespace {
 
 using GUI::Button;
@@ -131,9 +142,7 @@ void OnTweenOut() {
     if (GameState::secondTutorial == 0x211) GameState::secondTutorial = 0x212;
     else if (GameState::secondTutorial == 0x218) GameState::secondTutorial = 0x219;
     GameState::DropGamePauseState();
-    int cb = Setting("level_up_cb").GetInt();
-    if (cb < 0) cb = 0;
-    else if (cb > 4) cb = 5;
+    int cb = LevelUpCrystals();
     if (GameState::tutorial != 0x35) {
         if (Entity* player = EntityManager::GetPlayer()) {   // UNVERIFIED (milestone 4): no hero yet
             for (int i = 0; i < cb; ++i)
@@ -278,8 +287,7 @@ void UpdateContents() {
     g_digit2->SetText(digits.c_str());
 
     g_unlocks.clear();
-    int cb = Setting("level_up_cb").GetInt();
-    if (cb > 4) cb = 5;
+    int cb = LevelUpCrystals();
     g_unlocks.push_back({nullptr, false, false, cb});
     for (unsigned i = 0; const GameData::BuildingData* d = GameData::EnumBuildings(i); ++i)
         if ((unsigned)d->tab <= 9 && d->buy && (int)d->level == GameState::GetLevel()) g_unlocks.push_back({d});

@@ -30,6 +30,7 @@
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
 #include "hud/HoverWindows.h"
+#include "game/Tasks.h"
 
 namespace BuildingHovers {
 
@@ -825,7 +826,7 @@ void ItemDrop::Collect(bool automatic, bool) {
 void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* tex, unsigned dropId) {
     if (!tex) {
         std::puts("BuildingHovers::DropFarmFood() Cannot drop item - no image");
-        // UNVERIFIED (milestone 4, Tasks): Tasks::CompleteSubtask(0xd, dropId, 1).
+        Tasks::CompleteSubtask(Tasks::kDeliveryMissionEnd, dropId, 1);
         return;
     }
     g_itemDrops.emplace_back();
@@ -987,7 +988,7 @@ void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigne
         std::puts("BuildingHovers::DropItem() Cannot drop item - no image");
         GameState::AddItem(info->id, 1, false, false, false);
     }
-    // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0xd, subtask, 1) when subtask != 0.
+    if (subtask != 0) Tasks::CompleteSubtask(Tasks::kDeliveryMissionEnd, subtask, 1);
 }
 
 bool HasDroppedItem(unsigned id, float& x, float& y) {
@@ -1636,7 +1637,7 @@ void OnBuildingFinishedClick(Map::Building* b) {
     // An order making an item drops it, its subtask contract - 1 + delivery id * 10.
     unsigned subtask = b->contract - 1 + b->data->delivery->id * 10;
     if (m.item) DropItem(b->baseX, b->minY, m.item, subtask, 1);
-    // UNVERIFIED (milestone 4c): else Tasks::CompleteSubtask(0xd, subtask, 1).
+    else Tasks::CompleteSubtask(Tasks::kDeliveryMissionEnd, subtask, 1);
     int step = GameState::TutorialStep();
     if (step != 0x58 && step != 0x56) {
         DropResource(b->baseX, b->minY, m.rewardResource, m.rewardResourceCount, false, false);

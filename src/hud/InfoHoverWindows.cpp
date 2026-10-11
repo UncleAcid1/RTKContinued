@@ -24,6 +24,7 @@
 #include "hud/HUD.h"
 #include "hud/HoverWindows.h"
 #include "windows/Windows.h"
+#include "game/Tasks.h"
 
 // ---- the upgrade dialog ----
 
@@ -280,8 +281,8 @@ void FactoryHoverWindow::OnSpeedUpFinished() {
         if (!itemBoosts) GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
         else GameState::RemoveItem(boostItem, boostAmount);
         if (b->data->buildingClass == 2 && b->contract != 0) {
-            // PORT (online removed): Billing::LogCBPurchase. UNVERIFIED (milestone 4, Tasks):
-            // Tasks::CompleteSubtask(0xf, delivery id * 10 - 1 + contract).
+            // PORT (online removed): Billing::LogCBPurchase.
+            Tasks::CompleteSubtask(Tasks::kDeliveryMissionIncSpeed, b->data->delivery->id * 10 - 1 + b->contract, 1);
             b->SpeedupBuilding();
             b->contractDone = true;
             b->OnContractCompleted(false);

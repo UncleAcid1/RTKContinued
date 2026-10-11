@@ -11,6 +11,7 @@
 #include "game/StringTable.h"
 #include "game/Items.h"
 #include "game/Squad.h"
+#include "game/Tasks.h"
 
 namespace {
 
@@ -400,7 +401,7 @@ void MetaExpression::OnApplyItemEffect(Entity* e) {
             if (!player || !player->GetSquad()) break;
             player->GetSquad()->HealSquad();
             if (GameState::IsTaskStarted(0x2f9)) {
-                // UNVERIFIED (milestone 4c): Tasks::CompleteSubtask(0x27, 1, 1).
+                Tasks::CompleteSubtask(Tasks::kHealHero, 1, 1);
             }
             GameState::UpdatePlayerRegenerationState();
             break;

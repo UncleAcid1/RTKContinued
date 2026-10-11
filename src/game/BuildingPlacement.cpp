@@ -19,6 +19,7 @@
 #include "hud/HUD.h"
 #include "hud/HoverWindows.h"
 #include "windows/Windows.h"
+#include "game/Tasks.h"
 
 namespace BuildingPlacement {
 namespace {
@@ -532,7 +533,7 @@ void Accept() {
         b->UpdateImage();
         // (A present can set its own build time and skip the task.)
         b->f54 = Timer::GetGlobalTime() + b->data->constructionTime;
-        // UNVERIFIED (milestone 4): Tasks::CompleteSubtask(0x16, id, 1).
+        Tasks::CompleteSubtask(Tasks::kStartBuildingObject, b->data->id, 1);
         BuildingHovers::RegisterBuilding(b);
         b->isCopy = false;
         b->SetUniqueID(GameState::latestUniqueID + 1);
