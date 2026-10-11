@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c parts 1-2b done (quest data, saved state, the quest engine with self-completing steps; balance plan confirmed)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c parts 1-3 done (quest data, saved state, the quest engine, the world's reactions; balance plan confirmed)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -585,11 +585,45 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    counted the item step; the task completed and opened 236 and 1505. An item of type 9 owned
    before its task opened does not complete a "get item" step (as the original: types 1 and 8
    only). Fresh city and the real save copy: as before (only the step-less task 1182 completes).
-   LEFT IN 4c (82; `python3 tools/inventory.py --functions 4c`): part 3 the world's reactions
-   (Entity / Decor / Map OnTaskStarted / OnSubTaskCompleted / OnTaskCompleted / OnSetup /
-   OnInteract / OnTagUpdate and ExecuteStaticMeta); part 4 help (OnHelp, HelpWith*), Bonus,
-   Override, gem messages, console commands.
-   NEXT: 4c part 3.
+   4c PART 3 DONE: the world's quest reactions. A decoration's MetaExpression is now parsed when
+   the map loads (Decor::meta +0x20, Decor::SetMeta; metaText stays for the save; a building
+   record replaced by a decoration hands its expression over, as the original) and Decor has
+   +0x41 `disabled`. Decor::OnSetup @0x139190 / OnTaskCompleted @0x138ae4 / OnSubTaskCompleted
+   @0x138430 / OnInteract @0x1341d4 (HIDE_ / UNHIDE_ / UNHIDE_AFTER_ / REPLACE_ / DISABLE_AFTER_
+   for QUEST, SUB_QUEST and INTERACT, REPLACE_OBJ, RANDOM, TRAP_DAMAGE), SetBlockedTiles /
+   RemoveBlockedTiles (the BT list), Get{Start,End}QuestID, Map::GetDecorationToInteract /
+   GetNearestFilteredDecoration, Map::ExecuteStaticMeta / OnTaskCompleted / OnSubTaskCompleted /
+   OnInteract, Map::EnqueueBuildingPlacement @0x1b8724 with its half of Map::Update (one queued,
+   finished building is placed each update: in the city a REPLACE_* naming a building turns the
+   ruin into that building). src/game/EntityMeta.cpp: Entity::OnSetup @0x15a938 / OnTaskStarted /
+   OnTaskCompleted / OnSubTaskCompleted / OnInteract / OnTagUpdate (DIRECTION, ANIM_IDLE, PATROL,
+   HIDE / UNHIDE parts, ANIM_AFTER_*, ANIM_FINISH_QUEST, GOTO_AFTER_* with hide / unhide / dialog,
+   RANDOM, STATS_REPLACE_AFTER_QUEST, ARENA_SPAWN, MOB_SPAWN, UNHIDE_TAG), GetMetaExpression,
+   SetForeignMetaExpression, IsEnemy, Get/SetGUID, AddPatrolPoint @0x15854c (Entity::patrol; nothing
+   walks the points until 4f); EntityManager::On* and ExecuteStaticMeta. src/game/SpawnPoint.h:
+   only the fields these use (4f loads spawn points, so until then no entity has an expression).
+   Wired: Tasks::CompleteSubtask / CompleteSubtaskDirect / CheckOverlimit / CompleteTask,
+   GameState::StartTask, the tag update in Game.cpp, Map::Load (the player's OnSetup,
+   EntityManager::ExecuteStaticMeta, Map::ExecuteStaticMeta with AI::allowWaypointLink off).
+   The hidden arguments (softfp-free but dropped by Ghidra) were read from the asm: switching on
+   is SetActive(true, false), off SetActive(false, true), computed SetActive(x, true); fading in
+   Appear(true, true), in OnTagUpdate Appear(false, true).
+   UNVERIFIED inside these, each marked with its step: particles (Decor::CreateParticles /
+   RemoveParticles, 4e), camera paths and shakes (AddCameraCinematic / AddCameraPoint /
+   AddCameraShake, 4f), spell effects (ParticlePresets::OnSpell, 6), CRAFT nodes (Professions, 5),
+   ARENA_SPAWN's entity switch (GetEntityForArena, 5), PVP_SPAWN (Entity::ExecutePvPSpawnMeta, 5),
+   RestoreDecorationInfo (4e), the tutorial-0x3a callback of a placed building (4h).
+   Moved in port_plan.txt: ExecutePvPSpawnMeta, MetaExpression::OnApplyItemSquadEffect and
+   GetSummaryEffectsValue to 5 (crafting / set windows, GameState::GetBIS); dead:
+   Map::GetEndQuestTileLocation.
+   Verified headless (temporary hook, removed): the city has 9 decorations with an expression
+   (ruins: REPLACE_AFTER_QUEST=<building>:<task>, REPLACE_OBJ, REQ_UNLOCK_QUEST ...); completing
+   task 1281 turned decoration 1493 at 14,17 into the finished building 101 and the ruin was
+   gone; fresh city and the real save copy load, save and reload as before.
+   LEFT IN 4c (48; `python3 tools/inventory.py --functions 4c`): part 4 help (TaskSubtask::OnHelp,
+   HelpWith*, the Map lookups it uses), Bonus, Override, gem messages, console commands,
+   BuildingHovers::CheckForSpecialDrops, FoundItemsWindow::SetParameters(TaskInfo*).
+   NEXT: 4c part 4.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

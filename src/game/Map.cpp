@@ -1,3 +1,5 @@
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/Map.h"
 
 #include <cmath>
@@ -43,6 +45,8 @@ uint32_t g_mapId = 0;
 int g_gridW = 0, g_gridH = 0, g_tileset = 0;
 std::vector<Cell> g_grid;
 std::vector<std::unique_ptr<Patch>> g_patches;
+struct QueuedPlacement { int x, y; uint32_t id; };       // 0xc bytes
+std::vector<QueuedPlacement> g_placements;       // 0x61376c (count 0x613780) EnqueueBuildingPlacement
 std::vector<Render::Sprite*> g_borderSprites;  // dark grass, posts, signs
 uint32_t g_currentTime = 0;                     // 0x6118c4
 bool g_loaded = false;                          // 0x613798 (set at the end of Map::Load)
@@ -153,7 +157,7 @@ void LoadDecors(Patch* p, const SaveManager::Chunk& c) {  // @0x1e271c, one chun
     d->f50 = r.u32();
     d->f54 = r.u32();
     d->resourceText = r.str16();   // UNVERIFIED: not parsed into the per-resource amounts (+0x5c) yet
-    d->metaText = r.str16();       // UNVERIFIED (milestone 4): MetaExpression not ported; kept as text
+    d->SetMeta(r.str16());
     if (!d->metaText.empty() && city) d->hidden = false;
     d->UpdateImage();
     d->UpdateMapLink();
@@ -222,8 +226,9 @@ void LoadBuilding(Patch* p, SaveManager::SaveBlock* block) {
             return;
         }
         std::printf("Map::LoadBuidings() Replacing building (ID: %d) with a decoration\n", b->id);
-        // UNVERIFIED: the decoration also takes the building's timer, resources and meta expression.
+        // UNVERIFIED: the decoration also takes the building's timer and resources.
         auto dec = std::make_unique<Decor>();
+        dec->SetMeta(b->metaText);   // (the building's expression moves to it)
         dec->patch = p;
         dec->x = b->x;
         dec->y = b->y;
@@ -502,11 +507,329 @@ bool Decor::CanBePlaced(bool ignoreFake) const {
     return ok;
 }
 
+Decor::~Decor() { delete meta; }
+
+void Decor::SetMeta(const std::string& text) {
+    delete meta;
+    meta = nullptr;
+    metaText = text;
+    if (!metaText.empty()) meta = new MetaExpression(metaText.c_str(), false);
+}
+
+// @0x1316b8 Map::Decor::GetStartQuestID
+uint32_t Decor::GetStartQuestID() const {
+    const MetaData* d = meta ? meta->FindChildData(kExpStartQuest) : nullptr;
+    return d ? (uint32_t)d->GetInt() : 0;
+}
+
+// @0x131688 Map::Decor::GetEndQuestID
+uint32_t Decor::GetEndQuestID() const {
+    const MetaData* d = meta ? meta->FindChildData(kExpEndQuest) : nullptr;
+    return d ? (uint32_t)d->GetInt() : 0;
+}
+
+namespace {
+
+// A BT entry is "x:y" or "name:x:y": the index of its x.
+unsigned BlockedTileX(const MetaData* e) { return e->GetChild(0)->type == MetaData::kString ? 1u : 0u; }
+
+int Int(const MetaData* list, unsigned i) { return list->GetChild(i)->GetInt(); }
+const char* Str(const MetaData* list, unsigned i) { return list->GetChild(i)->GetString(); }
+
+}  // namespace
+
+// @0x134100 Map::Decor::SetBlockedTiles
+void Decor::SetBlockedTiles() {
+    const MetaData* bt = meta ? meta->FindChildData(kExpBt) : nullptr;
+    if (!bt) return;
+    for (unsigned i = 0; i < bt->GetChildrenCount(); ++i) {
+        const MetaData* e = bt->GetChild(i);
+        unsigned k = BlockedTileX(e);
+        SetBlock(Int(e, k), Int(e, k + 1), true);
+        AI::RemoveMapWaypoint(Int(e, k), Int(e, k + 1));
+    }
+    AI::LinkAdjacentWaypoints();
+}
+
+// @0x133fec Map::Decor::RemoveBlockedTiles
+void Decor::RemoveBlockedTiles() {
+    const MetaData* bt = meta ? meta->FindChildData(kExpBt) : nullptr;
+    if (!bt) return;
+    for (unsigned i = 0; i < bt->GetChildrenCount(); ++i) {
+        const MetaData* e = bt->GetChild(i);
+        unsigned k = BlockedTileX(e);
+        if (AI::GetWaypoint(Int(e, k), Int(e, k + 1), false)) continue;
+        SetBlock(Int(e, k), Int(e, k + 1), false);
+        AI::CreateMapWaypoint(Int(e, k), Int(e, k + 1));
+    }
+    AI::LinkAdjacentWaypoints();
+}
+
+// ---- the quest reactions of a decoration's expression ------------------------------------------
+// Not ported yet, marked where they happen: the particles (Decor::CreateParticles 0x135260 /
+// RemoveParticles 0x133c44, milestone 4e), the camera paths (Map::AddCameraCinematic 0x1b81a8 /
+// AddCameraPoint 0x1c08cc / AddCameraShake 0x1b7438, milestone 4f) and the spell effects
+// (ParticlePresets::OnSpell 0x1db8f8, milestone 6).
+
+namespace {
+
+uint32_t g_setupSeed = 0;   // 0x6118fc PrepareDecorationsForSetup: the RANDOM places' generator
+
+// REPLACE_*: the decoration becomes object `id` and its blocked tiles are freed.
+void ReplaceObject(Decor* d, uint32_t id) {
+    d->ReplaceWith(id);
+    d->RemoveBlockedTiles();
+}
+
+void Disable(Decor* d) {
+    d->disabled = true;
+    d->f4c = 0;
+    d->RemoveBlockedTiles();
+    // UNVERIFIED (milestone 4e): RemoveParticles.
+}
+
+// The decorations GetDecorationToInteract collected (0x613694, count 0x6136a0).
+std::vector<Decor*> g_filtered;
+
+}  // namespace
+
+// @0x1341d4 Map::Decor::OnInteract
+void Decor::OnInteract(uint32_t object) {
+    for (MetaExpression* e = meta; e; e = e->GetNext()) {
+        const MetaData* d;
+        if ((d = e->GetDataWithType(kExpHideInteract)) && d->type == MetaData::kNumber && (uint32_t)d->GetInt() == object) {
+            visible = false;
+            RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideInteract)) && d->type == MetaData::kNumber && (uint32_t)d->GetInt() == object) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideAfterInteract)) && d->type == MetaData::kNumber &&
+            (uint32_t)d->GetInt() == object) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(0x5d)) && d->type == MetaData::kNumber && (uint32_t)d->GetInt() == object)
+            Disable(this);
+        // UNVERIFIED (milestone 6): SPELL_AFTER_INTERACT (object:x:y:spell[:arg]) plays
+        // ParticlePresets::OnSpell at the tile.
+        if ((d = meta->FindChildData(kExpReplaceAfterInteract)) && (uint32_t)Int(d, 0) == object)
+            ReplaceObject(this, (uint32_t)Int(d, 1));
+    }
+}
+
+// @0x138430 Map::Decor::OnSubTaskCompleted
+void Decor::OnSubTaskCompleted(uint32_t subtask) {
+    for (MetaExpression* e = meta; e; e = e->GetNext()) {
+        const MetaData* d;
+        if ((d = e->GetDataWithType(kExpReplaceAfterSubQuest)) && (uint32_t)Int(d, 1) == subtask)
+            ReplaceObject(this, (uint32_t)Int(d, 2));
+        if ((d = e->GetDataWithType(kExpHideSubQuest)) && (uint32_t)Int(d, 1) == subtask) {
+            visible = false;
+            RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideSubQuest)) && (uint32_t)Int(d, 1) == subtask) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideAfterSubQuest)) && (uint32_t)Int(d, 1) == subtask) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpDisableAfterSubQuest)) && (uint32_t)Int(d, 1) == subtask) Disable(this);
+        // UNVERIFIED (milestone 4e): PARTICLE_AFTER_SUB_QUEST (name:task:subtask[:arg[:once]]):
+        // RemoveParticles, then CreateParticles(name, arg, !once) unless the name is "none" (only
+        // for a decoration type with DecorData +0x74).
+        // UNVERIFIED (milestone 4f): CAM_AFTER_SUB_QUEST (a camera path) and
+        // SHAKE_AFTER_SUB_QUEST (task:subtask:strength:time).
+        // UNVERIFIED (milestone 6): SPELL_AFTER_SUB_QUEST (task:subtask:x:y:spell[:arg]).
+    }
+}
+
+// @0x138ae4 Map::Decor::OnTaskCompleted
+void Decor::OnTaskCompleted(uint32_t task) {
+    for (MetaExpression* e = meta; e; e = e->GetNext()) {
+        const MetaData* d;
+        if ((d = e->GetDataWithType(kExpHideQuest)) && d->type == MetaData::kNumber && (uint32_t)d->GetInt() == task) {
+            visible = false;
+            RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideQuest)) && d->type == MetaData::kNumber && (uint32_t)d->GetInt() == task) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideAfterQuest)) && d->type == MetaData::kNumber &&
+            (uint32_t)d->GetInt() == task) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpReplaceAfterQuest)) && (uint32_t)Int(d, 1) == task)
+            ReplaceObject(this, (uint32_t)Int(d, 0));
+        if ((d = e->GetDataWithType(kExpDisableAfterQuest)) && d->type == MetaData::kNumber &&
+            (uint32_t)d->GetInt() == task)
+            Disable(this);
+        // UNVERIFIED (milestone 4e): PARTICLE_AFTER_QUEST (name:task[:arg[:once]]), as in
+        // OnSubTaskCompleted.
+        // UNVERIFIED (milestone 4f): CAM_AFTER_QUEST and SHAKE_AFTER_QUEST (task:strength:time).
+        // UNVERIFIED (milestone 6): SPELL_AFTER_QUEST (task:x:y:spell[:arg]).
+    }
+}
+
+// @0x139190 Map::Decor::OnSetup: the state its expression asks for, from the quests' state now.
+void Decor::OnSetup() {
+    if (!meta) return;
+    if (f4c != 0 || !meta->FindChildData(kExpProgressMsg)) SetBlockedTiles();
+    auto interacted = [](const MetaData* key) {   // that object has been used up
+        Decor* o = GetDecorationToInteract((uint32_t)key->GetInt());
+        return o && o->f4c == 0;
+    };
+    for (MetaExpression* e = meta; e; e = e->GetNext()) {
+        const MetaData* d;
+        if ((d = e->GetDataWithType(kExpReplaceObj)) && f4c == 0) ReplaceObject(this, (uint32_t)d->GetInt());
+        if ((d = e->GetDataWithType(kExpHideQuest)) && d->type == MetaData::kNumber &&
+            GameState::TaskCompleted((unsigned)d->GetInt())) {
+            visible = false;
+            RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideQuest))) {
+            visible = GameState::TaskCompleted((unsigned)d->GetInt());
+            if (visible) SetBlockedTiles();
+            else RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideAfterQuest)) && d->type == MetaData::kNumber &&
+            GameState::TaskCompleted((unsigned)d->GetInt())) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpReplaceAfterQuest)) && GameState::TaskCompleted((unsigned)Int(d, 1)))
+            ReplaceObject(this, (uint32_t)Int(d, 0));
+        if ((d = e->GetDataWithType(kExpReplaceAfterSubQuest)) &&
+            GameState::SubTaskCompleted((unsigned)Int(d, 0), (unsigned)Int(d, 1)))
+            ReplaceObject(this, (uint32_t)Int(d, 2));
+        if ((d = e->GetDataWithType(kExpReplaceAfterInteract)) && interacted(d->GetChild(0)))
+            ReplaceObject(this, (uint32_t)Int(d, 1));
+        if ((d = e->GetDataWithType(kExpHideSubQuest)) &&
+            GameState::SubTaskCompleted((unsigned)Int(d, 0), (unsigned)Int(d, 1))) {
+            visible = false;
+            RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideSubQuest))) {
+            visible = GameState::SubTaskCompleted((unsigned)Int(d, 0), (unsigned)Int(d, 1));
+            if (visible) SetBlockedTiles();
+            else RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideAfterSubQuest)) &&
+            GameState::SubTaskCompleted((unsigned)Int(d, 0), (unsigned)Int(d, 1))) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpHideInteract)) && interacted(d)) {
+            visible = false;
+            RemoveBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpUnhideInteract))) {
+            if (Decor* o = GetDecorationToInteract((uint32_t)d->GetInt())) {
+                visible = o->f4c == 0;
+                if (visible) SetBlockedTiles();
+                else RemoveBlockedTiles();
+            }
+        }
+        if ((d = e->GetDataWithType(kExpUnhideAfterInteract)) && interacted(d)) {
+            visible = true;
+            SetBlockedTiles();
+        }
+        if ((d = e->GetDataWithType(kExpDisableAfterQuest)) && d->type == MetaData::kNumber &&
+            GameState::TaskCompleted((unsigned)d->GetInt()))
+            Disable(this);
+        if ((d = e->GetDataWithType(kExpDisableAfterSubQuest)) &&
+            GameState::SubTaskCompleted((unsigned)Int(d, 0), (unsigned)Int(d, 1)))
+            Disable(this);
+        if ((d = e->GetDataWithType(0x5d)) && interacted(d)) Disable(this);
+        // UNVERIFIED (milestone 4e): the particles: PARTICLE_IDLE (name), PARTICLE_AFTER_INTERACT
+        // (name[:arg[:once]], while f4c is 0), PARTICLE_AFTER_QUEST and PARTICLE_AFTER_SUB_QUEST
+        // once their quest / step is completed: RemoveParticles, then CreateParticles unless the
+        // name is "none" (the last three only without an arg or with arg 0).
+        // RANDOM (x:y|x:y|...): the first time on this map the decoration moves to one of the places.
+        if ((d = meta->GetDataWithType(kExpRandom)) && GameState::GetMapStartTime(GameState::GetCurrentMapID()) == 0) {
+            g_setupSeed = g_setupSeed * 0x343fd + 0x269ec3;
+            const MetaData* place = d->GetChild(((g_setupSeed & 0x7fffffff) >> 0x10) % d->GetChildrenCount());
+            RemoveDecoration(x, y, true);
+            x = (uint8_t)Int(place, 0);
+            y = (uint8_t)Int(place, 1);
+            UpdateImage();
+            UpdateMapLink();
+        }
+        // UNVERIFIED (milestone 4f): CAM (a camera path) the first time on this map.
+        // UNVERIFIED (milestone 5): CRAFT (a profession's resource node: after its regrow time
+        // Professions::GenerateProfessionObject gives it a new object, its tile is blocked and it
+        // gets the "bless" particles; Professions::IsProfessionObject 0x1e8268).
+        if (meta->FindChildData(kExpTrapDamage)) collectStart = 0;
+    }
+}
+
+// @0x1b6f60 Map::GetNearestFilteredDecoration
+Decor* GetNearestFilteredDecoration(unsigned px, unsigned py) {
+    Decor* best = nullptr;
+    auto dist = [px, py](const Decor* d) {
+        int dx = (int)d->x - (int)px, dy = (int)d->y - (int)py;
+        return (unsigned)(dx * dx + dy * dy);
+    };
+    for (Decor* d : g_filtered)
+        if (!best || dist(d) < dist(best)) best = d;
+    return best;
+}
+
+// @0x1bebc8 Map::GetDecorationToInteract
+Decor* GetDecorationToInteract(uint32_t key) {
+    g_filtered.clear();
+    uint32_t map = GameState::GetCurrentMapID();
+    for (auto& p : g_patches)
+        for (auto& d : p->decors) {
+            uint32_t place = (uint32_t)d->y + (uint32_t)d->x * 0x100;
+            if (place + map * 0x10000 == key) g_filtered.push_back(d.get());
+            if (map == 0 && place + 0x2f0000 == key) g_filtered.push_back(d.get());
+        }
+    Entity* player = EntityManager::GetPlayer();
+    return player ? GetNearestFilteredDecoration((unsigned)player->tileX, (unsigned)player->tileY) : nullptr;
+}
+
+// @0x131268 Map::PrepareDecorationsForSetup
+void PrepareDecorationsForSetup() { g_setupSeed = Timer::GetGlobalTime(); }
+
+// @0x1baf70 Map::ExecuteStaticMeta
+void ExecuteStaticMeta() {
+    PrepareDecorationsForSetup();
+    for (auto& p : g_patches)
+        for (size_t i = 0, n = p->decors.size(); i < n; ++i) p->decors[i]->OnSetup();
+}
+
+// @0x1b65d4 Map::OnTaskCompleted
+void OnTaskCompleted(uint32_t task) {
+    for (auto& p : g_patches)
+        for (size_t i = 0, n = p->decors.size(); i < n; ++i) p->decors[i]->OnTaskCompleted(task);
+}
+
+// @0x1b6650 Map::OnSubTaskCompleted
+void OnSubTaskCompleted(uint32_t subtask) {
+    for (auto& p : g_patches)
+        for (size_t i = 0, n = p->decors.size(); i < n; ++i) p->decors[i]->OnSubTaskCompleted(subtask);
+}
+
+// @0x1b66cc Map::OnInteract
+void OnInteract(uint32_t object) {
+    for (auto& p : g_patches)
+        for (size_t i = 0, n = p->decors.size(); i < n; ++i) p->decors[i]->OnInteract(object);
+}
+
 void Decor::SpeedupDecoration() { collectStart = Timer::GetGlobalTime() + ~f50; }
+
+// @0x1b8724 Map::EnqueueBuildingPlacement
+void EnqueueBuildingPlacement(int x, int y, uint32_t id) { g_placements.push_back({x, y, id}); }
 
 void Decor::ReplaceWith(uint32_t newId) {
     if (GameState::GetCurrentMapID() == 0 && GameData::GetBuilding(newId)) {
-        // UNVERIFIED (milestone 4): Map::EnqueueBuildingPlacement(x, y, id) turns it into a building.
+        EnqueueBuildingPlacement(x, y, newId);   // (in the city it becomes a real building)
         return;
     }
     id = newId;
@@ -1216,9 +1539,37 @@ void Update(double dt) {
     AllowBuildingVisibilityUpdate(false);
     AllowDecorationVisibilityUpdate(false);
     UpdateClouds(dt);
-    // UNVERIFIED (milestones 4c/4f/4g): the queued building placements (EnqueueBuildingPlacement,
-    // tutorial 0x3a), the camera points (AddCameraPoint: reveal, arrows, tasks), the camera shake
-    // (AddCameraShake) and the cinematic bars (AddCameraCinematic).
+    // One queued building (EnqueueBuildingPlacement) is placed, finished, each update.
+    if (!g_placements.empty()) {
+        const QueuedPlacement q = g_placements.front();
+        Building* b = new Building();
+        b->id = q.id;
+        b->data = GameData::GetBuilding(q.id);
+        b->x = (uint8_t)q.x;
+        b->y = (uint8_t)q.y;
+        b->SetOpened();
+        Patch* p = GetPatchForCoordinates(b->x, b->y, false);
+        p->buildings.emplace_back(b);
+        SetBuilding(b->x, b->y, b);
+        b->patch = p;
+        b->index = (int)p->buildings.size() - 1;
+        if (b->data->parkingCount != 0) b->workers.assign(b->data->parkingCount, nullptr);
+        b->FindBaseCoordinates();
+        b->LinkBaseToBuilding();
+        b->UpdateImage();
+        b->f54 = 0;
+        BuildingHovers::RegisterBuilding(b);
+        for (unsigned i = 1; i < b->data->farmPatchDefault; ++i) b->OnSoilPatchBuy();
+        b->built = 1;
+        b->needsBuilder = 0;
+        b->OnBuilded();
+        b->stateTime = Timer::GetGlobalTime() - (uint32_t)b->data->collectTime;   // (its taxes are ready)
+        g_placements.front() = g_placements.back();
+        g_placements.pop_back();
+        // UNVERIFIED (milestone 4h): in tutorial step 0x3a a callback on this building is queued.
+    }
+    // UNVERIFIED (milestones 4f/4g): the camera points (AddCameraPoint: reveal, arrows, tasks), the
+    // camera shake (AddCameraShake) and the cinematic bars (AddCameraCinematic).
     g_resortTimer += fdt;
     if (g_resortTimer >= 0.757f) {
         Render::SortRenderLayer(Render::kLayerObjects, 1);
@@ -1297,7 +1648,7 @@ void Free() {
     g_borderSprites.clear();
     g_grid.clear();
     g_farmPatch.reset();
-    // UNVERIFIED (milestones 4c/4f): the queued building placements (0x613780) are dropped.
+    g_placements.clear();
     AI::FreeWaypoints();
     for (Render::Sprite*& s : g_clouds) {
         if (s) Render::RemoveSprite(s);
@@ -1427,9 +1778,12 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     }
     // UNVERIFIED (milestones 4c/4e): the "auto_fix_map_reset" decoration fixes (quest maps 0x52..0x59).
     g_loaded = true;
-    // UNVERIFIED (milestones 4c/4e): the player's Entity::OnSetup, EntityManager::ExecuteStaticMeta,
-    // RestoreDecorationInfo and Map::ExecuteStaticMeta (run with AI::allowWaypointLink off; then every
-    // link is redone).
+    if (Entity* player = EntityManager::GetPlayer()) player->OnSetup();
+    EntityManager::ExecuteStaticMeta();
+    // UNVERIFIED (milestone 4e): RestoreDecorationInfo.
+    AI::allowWaypointLink = false;   // (the decorations block and free tiles; the links are redone once)
+    ExecuteStaticMeta();
+    AI::allowWaypointLink = true;
     AI::LinkAdjacentWaypoints();
     SpawnEntities();
     // UNVERIFIED (milestone 4f): EntityManager::UpdateAggroZone.

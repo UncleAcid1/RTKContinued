@@ -158,6 +158,33 @@ void UpdateGraphics() {
 
 Entity* EnumEntities(unsigned i) { return i < g_entities.size() ? g_entities[i] : nullptr; }
 
+// The list is read again each time round, as the original does: a reaction may add entities.
+// @0x16664c EntityManager::OnTagUpdate
+void OnTagUpdate(Tags::Tag* tag) {
+    for (size_t i = 0; i < g_entities.size(); ++i) g_entities[i]->OnTagUpdate(tag);
+}
+// @0x166698 EntityManager::OnTaskStarted
+void OnTaskStarted(uint32_t task) {
+    for (size_t i = 0; i < g_entities.size(); ++i) g_entities[i]->OnTaskStarted(task);
+}
+// @0x1666e4 EntityManager::OnInteract
+void OnInteract(uint32_t object) {
+    for (size_t i = 0; i < g_entities.size(); ++i) g_entities[i]->OnInteract(object);
+}
+// @0x166730 EntityManager::OnSubTaskCompleted
+void OnSubTaskCompleted(uint32_t subtask) {
+    for (size_t i = 0; i < g_entities.size(); ++i) g_entities[i]->OnSubTaskCompleted(subtask);
+}
+// @0x16677c EntityManager::OnTaskCompleted
+void OnTaskCompleted(uint32_t task) {
+    for (size_t i = 0; i < g_entities.size(); ++i) g_entities[i]->OnTaskCompleted(task);
+}
+// @0x166820 EntityManager::ExecuteStaticMeta
+void ExecuteStaticMeta() {
+    Entity::PrepareForSetup();
+    for (size_t i = 0; i < g_entities.size(); ++i) g_entities[i]->OnSetup();
+}
+
 int GetEntityCount(bool permanentOnly) {
     if (!permanentOnly) return (int)g_entities.size();
     int n = 0;

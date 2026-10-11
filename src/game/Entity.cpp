@@ -36,6 +36,7 @@ const char* const kRingImages[8] = {   // 0x6012a4
 }  // namespace
 
 void Entity::SetCurrentTime(uint32_t t) { g_entityTime = t; }
+uint32_t Entity::GetCurrentTime() { return g_entityTime; }
 
 Entity::Entity(EntityData* d, int x, int y) : data(d) {
     hp = d->GetHpForLevel(GameState::GetLevel());

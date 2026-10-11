@@ -11,6 +11,7 @@
 #include "game/BuildingPlacement.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
+#include "game/EntityManager.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/SaveManager.h"
@@ -200,8 +201,7 @@ void UpdateTagState() {
         if (!t) break;
         if (t->f05 == t->IsActive()) continue;
         changed = true;
-        // UNVERIFIED (milestone 4c): EntityManager::OnTagUpdate (0x16664c): entities whose meta
-        // expression (type 0x99) names the tag appear or are set up again.
+        EntityManager::OnTagUpdate(t);   // (its entities appear or are set up again)
         t->f05 = t->IsActive();
     }
     if (!changed) return;

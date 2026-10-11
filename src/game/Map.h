@@ -14,6 +14,8 @@ namespace Render { struct Sprite; }
 namespace GameData { struct DecorData; }
 namespace SaveManager { struct SaveBlock; }
 
+class MetaExpression;
+
 namespace Map {
 
 struct Patch;
@@ -24,7 +26,9 @@ struct Decor {
     uint32_t id = 0;                   // +0x18
     bool mirrored = false;             // +0x1c (map flag bit 0)
     bool visible = true;               // +0x1d
-    std::string metaText;              // +0x20 MetaExpression (quests)  UNVERIFIED: kept as text
+    std::string metaText;              // the text of its MetaExpression (kept for the save)
+    MetaExpression* meta = nullptr;    // +0x20 its quest behaviour (see OnSetup), null without one
+    bool disabled = false;             // +0x41 DISABLE_AFTER_* happened: no longer interactive
     mutable const GameData::DecorData* data = nullptr;  // +0x3c (GetData fills it on first use)
     bool fake = false;                 // +0x43 random decoration (Patch::AddRandomDecors)
     // +0x44 (map flag bit 1; also set on unowned city patches and in the tame tutorial). Decor::IsFake
@@ -37,7 +41,24 @@ struct Decor {
     Render::Sprite* sprite = nullptr;  // +0x88
     bool removed = false;
 
+    Decor() = default;
+    Decor(const Decor&) = delete;
+    Decor& operator=(const Decor&) = delete;
+    ~Decor();
+    // PORT: sets metaText and parses it into meta (the original parses where it loads the text).
+    void SetMeta(const std::string& text);
     bool IsFake() const { return fake || hidden; }   // @0x130e20
+    uint32_t GetStartQuestID() const;                // @0x1316b8 START_QUEST
+    uint32_t GetEndQuestID() const;                  // @0x131688 END_QUEST
+    // @0x134100 / @0x133fec: the tiles its BT list names are blocked and lose their waypoints, or
+    // are freed and get them back.
+    void SetBlockedTiles();
+    void RemoveBlockedTiles();
+    // The quest reactions of its expression (Map::OnTaskCompleted ... call them for every decoration).
+    void OnSetup();                                  // +0x34 @0x139190 after the map is loaded
+    void OnTaskCompleted(uint32_t task);             // +0x38 @0x138ae4
+    void OnSubTaskCompleted(uint32_t subtask);       // +0x3c @0x138430
+    void OnInteract(uint32_t object);                // +0x40 @0x1341d4
     // @0x131234: the data of `id`, looked up on first use. UNVERIFIED: an id that is a building's
     // (the original then looks it up and drops it) gives null.
     const GameData::DecorData* GetData() const;
@@ -83,6 +104,21 @@ Patch* GetAreaByID(uint32_t id);
 // @0x1b7264: the area to buy next: of the areas for sale (not owned, bordering the player's land,
 // buyable) the cheapest; its area id, 0 when there is none.
 uint32_t GetNextAreaID();
+// @0x1b8724: a finished building of type id is to stand at the tile; Map::Update places one of
+// the queued buildings each time it runs.
+void EnqueueBuildingPlacement(int x, int y, uint32_t id);
+// @0x1bebc8: the decoration at the place `key` names (y + x * 0x100 + map * 0x10000; in the city
+// also with map 0x2f), the nearest to the hero when several match; null without one or the hero.
+Decor* GetDecorationToInteract(uint32_t key);
+// @0x1b6f60: of the decorations the last such search collected, the nearest to the tile.
+Decor* GetNearestFilteredDecoration(unsigned x, unsigned y);
+// Every decoration's quest reactions. (Buildings have none: MapObject::OnTaskCompleted @0x1c7748,
+// OnSubTaskCompleted @0x1c774c and OnInteract @0x1c7750 are empty.)
+void PrepareDecorationsForSetup();          // @0x131268
+void ExecuteStaticMeta();                   // @0x1baf70 OnSetup of each (Map::Load)
+void OnTaskCompleted(uint32_t task);        // @0x1b65d4
+void OnSubTaskCompleted(uint32_t subtask);  // @0x1b6650
+void OnInteract(uint32_t object);           // @0x1b66cc
 void AssignUniqueIDs();
 void Free();
 // @0x1bbbcc: the game state and the current map into the main save, then the save file (type 1:

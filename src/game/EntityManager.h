@@ -10,6 +10,8 @@ class Entity;
 namespace Map { struct Building; }
 struct SpawnPoint;
 
+namespace Tags { struct Tag; }
+
 namespace EntityManager {
 
 // @0x167cac: a new entity of type id (0x135 if there is none, after an error). Workers (class 0)
@@ -31,6 +33,13 @@ void Update(float dt);                           // @0x1676b4
 void UpdateGraphics();                           // @0x166868
 
 Entity* EnumEntities(unsigned i);                // @0x167c38
+// The quest reactions of every entity (Entity::On*).
+void OnTagUpdate(Tags::Tag* tag);                // @0x16664c
+void OnTaskStarted(uint32_t task);               // @0x166698
+void OnInteract(uint32_t object);                // @0x1666e4
+void OnSubTaskCompleted(uint32_t subtask);       // @0x166730
+void OnTaskCompleted(uint32_t task);             // @0x16677c
+void ExecuteStaticMeta();                        // @0x166820 OnSetup of each (Map::Load)
 int GetEntityCount(bool permanentOnly);          // @0x167c54
 Entity* GetPlayer();                             // @0x165500
 // @0x166c18: the soldiers (class 10) with +0x3b join the player's squad and SoldierSlots, the others

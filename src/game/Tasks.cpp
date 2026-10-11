@@ -792,8 +792,8 @@ void CompleteSubtask(int type, uint32_t value, int n) {
                 GameState::AddSubTask(s.id, n);
                 if (s.amount <= GameState::GetSubTaskDone(s.id)) {
                     changed = true;
-                    // UNVERIFIED (4c part 3): EntityManager::OnSubTaskCompleted(s.id) (0x166730)
-                    // and Map::OnSubTaskCompleted(s.id) (0x1b6650).
+                    EntityManager::OnSubTaskCompleted(s.id);
+                    Map::OnSubTaskCompleted(s.id);
                     continue;
                 }
             }
@@ -823,7 +823,8 @@ void ResetSubtask(int type, uint32_t value) {
 // @0x22fa5c Tasks::CompleteSubtaskDirect
 void CompleteSubtaskDirect(uint32_t subtask, int n) {
     GameState::AddSubTask(subtask, n);
-    // UNVERIFIED (4c part 3): EntityManager::OnSubTaskCompleted / Map::OnSubTaskCompleted(subtask).
+    EntityManager::OnSubTaskCompleted(subtask);
+    Map::OnSubTaskCompleted(subtask);
     EnqueueUpdate();
     // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks.
 }
@@ -863,7 +864,8 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
         }
     }
     GameState::CompleteTask(id, setBegin);
-    // UNVERIFIED (4c part 3): Map::OnTaskCompleted(id), EntityManager::OnTaskCompleted(id).
+    Map::OnTaskCompleted(id);
+    EntityManager::OnTaskCompleted(id);
     // UNVERIFIED (milestone 5 / 4f): GlobalMapWindow::OnTaskCompleted(id),
     // BuildingHovers::HideWorldDialogByTask(id).
     if ((int)id == Setting("squad_slot_02_quest_unlock").GetInt() ||
@@ -1046,7 +1048,8 @@ void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
             }
             if (met) {
                 GameState::AddSubTask(s.id, s.amount - done);
-                // UNVERIFIED (4c part 3): EntityManager::OnSubTaskCompleted / Map::OnSubTaskCompleted(s.id).
+                EntityManager::OnSubTaskCompleted(s.id);
+                Map::OnSubTaskCompleted(s.id);
                 any = true;
             } else if (direct) {
                 CompleteSubtaskDirect(s.id, s.amount - done);

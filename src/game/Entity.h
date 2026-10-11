@@ -19,6 +19,8 @@ struct AnimationController;
 class AIBaseState;
 class BaseSquad;
 struct SpawnPoint;
+class MetaExpression;
+namespace Tags { struct Tag; }
 
 class Entity {
 public:
@@ -104,12 +106,31 @@ public:
     void SetCurrentMap(int id) { currentMap = id; }  // @0x150470
     int GetCurrentMap() const { return currentMap; } // @0x150468
     static void SetCurrentTime(uint32_t t);      // @0x1508e8 (0x6119b0)
+    static uint32_t GetCurrentTime();            // PORT: reads it
 
     EntityData* GetEntityData() const { return data; }   // @0x150034
     bool IsPlayer() const { return player; }     // @0x1505b0
     // @0x15058c: spawned by a spawn point flagged NPC (+0x10). UNVERIFIED (milestone 4): spawn
     // points are not ported, so no entity is an NPC yet.
     bool IsNPC() const { return false; }
+    bool IsEnemy() const;                        // @0x150534 class 9, not of an NPC spawn point
+    uint32_t GetGUID() const { return guid; }    // @0x1508bc
+    void SetGUID(uint32_t g) { guid = g; }       // @0x1508b4
+
+    // ---- quest behaviour (EntityMeta.cpp): the entity's MetaExpression is its spawn point's,
+    // unless a foreign one is set (the boss combat).
+    MetaExpression* GetMetaExpression() const;                        // @0x15014c
+    void SetForeignMetaExpression(MetaExpression* m) { foreignMeta = m; }   // @0x150170
+    static void PrepareForSetup();               // @0x151230 seeds the RANDOM places' generator
+    void OnSetup();                              // @0x15a938 its state from the quests' state now
+    void OnTaskStarted(uint32_t task);           // @0x159518
+    void OnTaskCompleted(uint32_t task);         // @0x15a12c
+    void OnSubTaskCompleted(uint32_t subtask);   // @0x159a4c
+    void OnInteract(uint32_t object);            // @0x152fd0
+    void OnTagUpdate(Tags::Tag* tag);            // @0x15b988
+    // @0x15854c: one more patrol point (the walk starts over).
+    void AddPatrolPoint(const std::string& name, int x, int y, int wait, int direction, const std::string& animation,
+                        int times, int pause);
     bool IsMale() const;                         // @0x152b08
     bool IsFat() const;                          // @0x152c50
     bool IsSpeedRunning() const { return speedRunning; }   // @0x150890
@@ -244,7 +265,19 @@ public:
     BaseSquad* squad = nullptr;            // +0xcc
     SpawnPoint* spawnPoint = nullptr;      // +0xd0
     std::vector<QueuedAnim> animQueue;     // +0xd4
-    // +0xe0 patrol points (0x50 bytes each), +0xec index, +0xf0 step  UNVERIFIED: not ported
+    struct PatrolPoint {             // 0x50 bytes
+        std::string name;            // +0x00
+        int x = 0, y = 0;            // +0x18 +0x1c tile
+        int wait = 0;                // +0x20
+        int direction = 0;           // +0x24 (-1: none)
+        std::string animation;       // +0x28
+        int times = 0, pause = 0;    // +0x40 +0x44
+        float waitLeft = 0.f, pauseLeft = 0.f;   // +0x48 +0x4c (wait and pause as floats)
+    };
+    std::vector<PatrolPoint> patrol; // +0xe0  UNVERIFIED (milestone 4f): nothing walks them yet
+    int patrolIndex = 0, patrolStep = 0;   // +0xec +0xf0
+    MetaExpression* foreignMeta = nullptr; // +0x1a4
+    uint32_t guid = 0;               // +0x1b8
     int hp = 0;                      // +0xf4
     int hpMax = 0;                   // +0xf8
     int ffc = 0, f100 = 0;           // +0xfc +0x100

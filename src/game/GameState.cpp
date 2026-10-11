@@ -397,7 +397,7 @@ void CompleteTask(unsigned id, bool setBegin) {
 // @0x19cd64 GameState::StartTask
 void StartTask(unsigned id) {
     g_startedTasks.insert(id);
-    // UNVERIFIED (4c part 3): EntityManager::OnTaskStarted(id) (0x166698).
+    EntityManager::OnTaskStarted(id);
 }
 
 // @0x19ce58 GameState::ResetTask
