@@ -15,7 +15,7 @@ namespace Render { struct Texture; }
 
 namespace Resources {
 
-bool Init();  // loads the one-file animation registry (res_files/1Original/AllAnimsFrames.xml)
+bool Init(const char* file);  // loads the one-file animation registry (AllAnimsFrames.xml; stands in for RegisterAnimations)
 
 // "<pack>/2Optimized/<name>.png|.jpg", then "1Original"; returns the resource path or "".
 std::string GetDecoratedImageName(const char* pack, const char* name);

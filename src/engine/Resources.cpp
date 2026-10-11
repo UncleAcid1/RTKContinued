@@ -54,9 +54,9 @@ Render::Texture* LoadTexture(const std::string& path, bool pixelMask = false, in
 
 }  // namespace
 
-bool Init() {
+bool Init(const char* file) {
     uint32_t n = 0;
-    uint8_t* xml = FileManager::LoadFile("../resource/res_files/1Original/AllAnimsFrames.xml", n);
+    uint8_t* xml = FileManager::LoadFile(file, n);
     if (!xml) return false;
     pugi::xml_document doc;
     bool ok = doc.load_buffer(xml, n);

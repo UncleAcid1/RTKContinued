@@ -6,15 +6,32 @@
 
 namespace SystemFuncs {
 
+// @0x3d9e8c: clears the platform layer's state (the temporary settings and the pending text
+// results). PORT: also reads the stored settings back (see below).
+void Init();
+
 // Settings stored per file (Android SharedPreferences "MyCountry_mute", ...; a null file is the
 // default one): Int @0x3d7fac / @0x3d7ea0, Bool @0x3d81c4 / @0x3d7d94, String @0x3d9148 / @0x3d82dc
-// (get / set). UNVERIFIED (milestone 6): the port keeps them in memory; persistence is not ported yet.
+// (get / set). PORT: Android keeps them in the app's preferences; the port keeps them in
+// "settings.txt" in the storage folder (FileManager::GetStoragePath), read by Init and written on
+// every change.
 int GetSetting_Int(const char* key, int def, const char* file = nullptr);
 void SetSetting_Int(const char* key, int value, const char* file = nullptr);
 bool GetSetting_Bool(const char* key, bool def, const char* file = nullptr);
 void SetSetting_Bool(const char* key, bool value, const char* file = nullptr);
 std::string GetSetting_String(const char* key, const char* def, const char* file = nullptr);
 void SetSetting_String(const char* key, const char* value, const char* file = nullptr);
+
+// @0x3da2f0: the language the app runs in, as a language id (0 EN, 1 RU, 2 DE, 3 LV, 4 ES, 5 IT,
+// 6 FR, 7 KO, 8 JA), from Java's jni_getCurrentLocale. PORT (UNVERIFIED: the Java side is not
+// decompiled): the language chosen earlier ("selected_language" in "MyCountry_flags", which
+// FileManager::SetPreferredLanguade writes), English when none was chosen yet.
+int getCurrentLanguage();
+// PORT: what Java reports through SDLMain.mcSetLanguage / mcSetAvailableLanguage (UNVERIFIED, as
+// above): whether a language was chosen, and the system's language as a language id (English when
+// the game does not have it).
+bool HasSelectedLanguage();
+int GetSystemLanguage();
 
 // @0x3d7664: the device id shown in the settings window. UNVERIFIED (offline port): empty.
 std::string getGUID();

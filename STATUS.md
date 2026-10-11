@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-08, 4b.5 part 4d done, 30 functions left in 4b.5 (part 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4b.5 done (part 5: start-up and shutdown); next is 4c) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -447,8 +447,55 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    hero and soldier; a copy of the real save loads as before. Found, not caused by this step: on
    the PORT test path (no save) Map::Load prints "SetupPlayerRegenerationState() ... HP has
    decreased from 10 to 9" (the unchanged build does too; the hero is made before the HP timer).
-   30 LEFT IN 4b.5, all part 5 (start-up and shutdown), listed in docs/port_inventory.md section 0.
-   NEXT: 4b.5 part 5, then 4c.
+   4b.5 PART 5 DONE (step 4b.5 complete; 30 functions): start-up and shutdown. src/main.cpp is now
+   the original's functions: Game::main_Loop_Init @0x18d850 (every call of the original in its
+   order; the unported ones named in place with their milestone), main_Loop_BeforeInit,
+   main_Loop_Func @0x188a40 (one frame), main_Exit_Func @0x185200, RepeatedMain, and main as
+   SDL_main. In src/game/Game.cpp: Game::LoadLanguageTable / LoadSystemConfiguration (a file from
+   res_files/1Original, then each active content pack's copy: online, dormant) / LoadEntityFactoryData,
+   OnResume (feature holders 4d and the daily bonus 5 are UNVERIFIED notes), turnMusic (sound: 6),
+   MainExitNoSave, FileManager::RestartGame / SetPreferredLanguade, LanguageSelect / LanguageDecline
+   and the question itself (AskLanguageQuestion, a part of main_Loop_Func).
+   Findings: Game::splashLoop, OnShowRestartGame and GameState::Clean are empty in 5.11 (there are no
+   splash screens; the loading screen is Render::UpdateProgress, milestone 7).
+   Languages: English is always loaded, then the language's own table on top (RU DE LV ES IT FR KO
+   JA; all eight load). A new player (no save) gets the system's language; a player with a save and
+   no choice yet is asked once ("Languages Available": Okay saves, stores the choice and restarts
+   the game; Cancel keeps the current one). `--lang=xx_XX` and `--empty_strings` are the
+   original's own switches (SDL_baseInit). PORT: Android's Java side supplied the system language
+   and the stored choice (not decompiled: UNVERIFIED); the port reads SDL's preferred locale and the
+   "selected_language" setting. PORT: Korean and Japanese are not offered automatically, because
+   their font is Android's /system/fonts/DroidSansFallback.ttf (boxes without it; milestone 7).
+   PORT: a restart (FileManager::RestartGame) starts the program again instead of looping in-process.
+   PORT: SystemFuncs settings are now kept in <storage>/settings.txt (read by SystemFuncs::Init,
+   written on every change), so the language choice and the settings window's mute switches
+   survive a restart (Android: SharedPreferences).
+   Also ported: GameState::InitDefaultSettings @0x1aa0e4 with the server switches (Is/Get/
+   SetServerSetting, the "TSS_..." names; TSS_MAX_LEVEL 29 sets maxLevel, TSS_DELAY 0 is the frame's
+   SDL_Delay), ResetGamePauseState; Contracts::InitSpecial @0x12eed8 (the training order lists
+   0x800..0x802 of buildings 0x8e, 0x69, 0x93, three units each, from EntityFactory::
+   GetEntitiesForBuilding and EntityData::GetCostGold / GetCostCrystals; their windows are
+   milestone 5); Map::BuildingDeinit / DecorDeinit (GameData); AI::SetWeight (1.41: no required
+   content packs); StringTable::SetEmptyNameReplacement; Render::GetScreenViewWidth/Height;
+   WindowQueue::ProcessWheel; EntityManager::Init.
+   main_Loop_Func changes from reading it whole: the wheel does nothing on a farm and goes to the
+   windows when one is shown (ProcessWheel); a press held over 0.2 s is a long tap (GUI::
+   OnLongTapStart / OnLongTapAbort); the background save also closes the Tools mode; the frame is
+   skipped once an exit without save is set; coming back to the foreground runs
+   SetupPlayerRegenerationState and OnResume. main_Exit_Func: the save, Map::Free,
+   EntityManager::Clean(true), the desktop window, the data lists; the other systems' Deinit are
+   left to the program's end (port_plan "implicit").
+   Verified headless: fresh city, save -> reload -> save byte-identical from the second reload,
+   through the exit path (`--quit`); a copy of the real save loads and saves on exit; with a save
+   and `--system-lang 2` the question appears, Cancel stores language 0 and it is not asked again,
+   Okay stores 2, saves and ends, and the next start is in German; every language's table loads;
+   Settings, the shop, the back key's exit question and walking work as before.
+   Not testable headless (please try in the real game): the window's close button and Esc now go
+   through main_Exit_Func; the restart after choosing a language.
+   Headless test aids added: `--quit` (run main_Exit_Func after the shot: saves into --storage),
+   `--system-lang N` (the system's language id 0..8). A headless frame is now AfterEvents + Tick
+   (edge scroll, long tap, the language question, as in the game).
+   NEXT: 4c (quests core).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
@@ -663,7 +710,8 @@ Milestones:
        camera on the player entity (stand-in position), touch/pinch zoom, WindowQueue::ProcessWheel,
        the world click (EntityManager/buildings/ClickToBuyArea), Map::GetCurrentFarm (ProcessBack),
        texture frame-chain animation (IconManager sand clock / exclamation), HP-restore and hint hover
-       windows, SystemFuncs settings persistence (milestone 6), GameState::secondTutorial (stand-in 0x81).
+       windows, GameState::secondTutorial (stand-in 0x81). (SystemFuncs settings persistence: done in
+       4b.5 part 5.)
        Headless testing: `./build/rtk --screenshot f.png [--show city_rename] [--click X Y]...
        [--press X Y] [--drag X1 Y1 X2 Y2]... [--type TEXT]... [--key SCANCODE]...` runs 60 frames,
        then each input in order: a mouse input is press, 3 frames, [10 moves, one per frame,]

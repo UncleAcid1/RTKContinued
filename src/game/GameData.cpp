@@ -45,9 +45,9 @@ bool LoadXml(const char* path, pugi::xml_document& doc) {
 
 }  // namespace
 
-bool LoadDecorations() {
+bool LoadDecorations(const char* file) {
     pugi::xml_document doc;
-    if (!LoadXml("../resource/res_files/1Original/decors.xml", doc)) return false;
+    if (!LoadXml(file, doc)) return false;
     for (auto n : doc.child("DecorOptions").children("Decor")) {
         DecorData d;
         d.id = n.attribute("id").as_uint();
@@ -104,9 +104,9 @@ MetaData* ParseOptional(pugi::xml_node n, const char* name) {
 
 }  // namespace
 
-bool LoadBuildings() {
+bool LoadBuildings(const char* file) {
     pugi::xml_document doc;
-    if (!LoadXml("../resource/res_files/1Original/buildings.xml", doc)) return false;
+    if (!LoadXml(file, doc)) return false;
     for (auto n : doc.child("BuildingsOptionsDefault").children("Building")) {
         uint32_t id = n.attribute("id").as_uint();
         if (g_buildings.find(id) == g_buildings.end()) g_buildingList.push_back(&g_buildings[id]);
@@ -312,6 +312,28 @@ bool LoadBuildings() {
 }
 
 
+
+// @0x12071c Map::BuildingDeinit: every building type's farm-patch and unlock lists are deleted,
+// then the type itself (its respawn and upgrade vectors), and the list, the id lookup and the
+// shop category counts (0x611804, 0x611830) are emptied. (Its images belong to Resources.) The
+// "list is empty" byte 0x60ef20 is set; the port's LoadBuildings does not read it.
+void BuildingDeinit() {
+    for (BuildingData* b : g_buildingList) {
+        delete b->farmPatchCost;
+        delete b->farmPatchCost2;
+        delete b->farmPatchLevels;
+        delete b->unlockLevel;
+    }
+    g_buildingList.clear();
+    g_buildings.clear();
+}
+
+// @0x13a4e4 Map::DecorDeinit: every decoration type's expression (+0x74, milestone 4e) is deleted
+// and the type goes back to its pool; the list, the id lookup and the road styles' list are emptied.
+void DecorDeinit() {
+    g_decorList.clear();
+    g_decors.clear();
+}
 
 BuildingData* EnumBuildings(unsigned i) { return i < g_buildingList.size() ? g_buildingList[i] : nullptr; }
 DecorData* EnumDecors(unsigned i) { return i < g_decorList.size() ? g_decorList[i] : nullptr; }

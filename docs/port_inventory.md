@@ -69,15 +69,15 @@ SetArrowAlpha and MoveWindowDown (the HUD return, which fixed the KNOWN BUG). Re
 GameState::GetBuildingCount `dead` (warehouse mode only), BuildingHovers::Show/HideWorldDialog 4f
 (with WorldHintHoverWindow).
 
-The 30 left are real gaps:
-- **Part 5, start-up and shutdown (30)**: `Game::main_Loop_Init` / `main_Loop_Func` / `main_Loop_BeforeInit`
-  / `main_Exit_Func` / `RepeatedMain` (partly in src/main.cpp without markers), `splashLoop`,
-  `LoadLanguageTable`, `LoadSystemConfiguration`, `LoadEntityFactoryData`, `EntityManager::Init`,
-  `Contracts::InitSpecial` (with `EntityData::GetCost*`, `EntityFactory::GetEntitiesForBuilding`),
-  `GameState::InitDefaultSettings` / `Clean` / `ResetGamePauseState`, `AI::SetWeight`,
-  `StringTable::SetEmptyNameReplacement`, `Render::GetScreenViewWidth/Height`,
-  `WindowQueue::ProcessWheel`, `OnResume`, `turnMusic`, `LanguageSelect/Decline`,
-  `OnShowRestartGame`, `MainExitNoSave`, `Map::BuildingDeinit` / `DecorDeinit`.
+Part 5 (2026-10-11) closed the step: start-up and shutdown. `Game::main_Loop_Init` / `main_Loop_Func`
+/ `main_Loop_BeforeInit` / `main_Exit_Func` / `RepeatedMain` (src/main.cpp, in the original's order),
+`LoadLanguageTable`, `LoadSystemConfiguration`, `LoadEntityFactoryData`, `OnResume`, `turnMusic`,
+`LanguageSelect/Decline`, `MainExitNoSave` (src/game/Game.cpp), `GameState::InitDefaultSettings` /
+`ResetGamePauseState`, `Contracts::InitSpecial` with `EntityData::GetCost*` and
+`EntityFactory::GetEntitiesForBuilding`, `Map::BuildingDeinit` / `DecorDeinit`, `AI::SetWeight`,
+`StringTable::SetEmptyNameReplacement`, `Render::GetScreenViewWidth/Height`,
+`WindowQueue::ProcessWheel`, `EntityManager::Init`. Empty in 5.11: `Game::splashLoop`,
+`OnShowRestartGame`, `GameState::Clean`. `python3 tools/inventory.py --functions 4b.5` prints nothing.
 
 ## 1. Milestone layout
 
@@ -86,7 +86,7 @@ The 30 left are real gaps:
 | 1 | Map rendering | done |
 | 2 | GUI, input, dialogs | done |
 | 3 | City economy (buildings, workers, shop, farms, saves) | done |
-| 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial (4a-4h) | in progress (4a, 4b.1-4b.3 done; 4b.5 added) |
+| 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial (4a-4h) | in progress (4a, 4b done; next 4c) |
 | 5 | The rest of the game: spells, boss/siege fights, global map, hire/heal army, item shop, chests, crafting, collections, sets, tavern, daily bonus, events, arena and the offline replacements of the online features | planned |
 | 6 | Sound and effects (music, SFX, particles, screen effects) | planned |
 | 7 | Mac release and polish (settings persistence, .app, Retina, playthrough check) | planned |

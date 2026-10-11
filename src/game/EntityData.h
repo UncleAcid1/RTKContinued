@@ -14,6 +14,8 @@
 namespace Render { struct Texture; }
 class MetaData;
 
+namespace Tavern { struct TavernInfo; }   // milestone 5
+
 struct EntityData {              // 0x160 bytes
     // Per-level values (ParseLevelScaleInfo), 40 levels per row.
     struct LevelTable { int16_t row[7][40] = {}; };   // 0x230 bytes
@@ -103,6 +105,15 @@ struct EntityData {              // 0x160 bytes
     int GetDefenseMeleeForLevel(int level) const;      // @0x15eb9c
     int GetDefenseRangedForLevel(int level) const;     // @0x15ebb8
     int GetDefenseMagicForLevel(int level) const;      // @0x15ebd4 (row 6 is never filled)
+    // @0x15ec34: 100, or 100 - the sale's percentage (+0x140) while the server's transaction time
+    // is inside the sale (+0x144..+0x148). Online only (dormant): no sale is ever set offline.
+    int GetDiscountSize() const { return 100; }
+    // @0x15ecfc / @0x15ec74: the hiring price in gold ("warrior_cost") / crystals
+    // ("warrior_cost2"); unless `full`, with the sale taken off (price * discount / 100).
+    // UNVERIFIED (milestone 5): a tavern offer's own prices (TavernInfo +0x24 / +0x28, when not 0)
+    // replace the unit's; every ported caller passes none.
+    unsigned GetCostGold(bool full, const Tavern::TavernInfo* tavern) const;
+    unsigned GetCostCrystals(bool full, const Tavern::TavernInfo* tavern) const;
 };
 
 namespace EntityFactory {
@@ -110,6 +121,7 @@ namespace EntityFactory {
 bool LoadData(const char* file);                  // @0x162828
 void Init();                                      // @0x161a1c InitNames: the worker/farmer name lists (Init @0x162820 only branches to it)
 EntityData* GetEntityByID(int id);                // @0x15f7b4
+void GetEntitiesForBuilding(unsigned building, unsigned* out, unsigned count);   // @0x160680
 EntityData* EnumEntity(unsigned i);               // @0x1608a8 (file order)
 int GetEntityIDByName(const std::string& name);   // @0x1605c8 (-1 if none)
 // The worker/farmer name lists (female: EntityData::female, farmer: 1 for farmers). An index out of

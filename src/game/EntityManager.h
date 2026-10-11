@@ -24,6 +24,8 @@ void AddEntity(Entity* e);                       // @0x168488
 void RemoveEntity(Entity* e, bool any);          // @0x165794 (without any: temporary ones only)
 void DestroyEntity(Entity* e);                   // @0x1656f8
 void Clean(bool keepPlayer);                     // @0x167890
+// @0x16583c: takes the App's EntityFactory (+0x18) once; the port's factory is a namespace.
+inline void Init() {}
 
 void Update(float dt);                           // @0x1676b4
 void UpdateGraphics();                           // @0x166868

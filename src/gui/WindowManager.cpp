@@ -182,6 +182,11 @@ void ProcessMove(int x, int y) {
     for (WindowQueue* w = g_tail; w; w = w->prev) w->Move(x, y);
 }
 
+// @0x36e264 WindowQueue::ProcessWheel: the mouse wheel to every window, bottom first.
+void ProcessWheel(bool up) {
+    for (WindowQueue* w = g_tail; w; w = w->prev) w->Wheel(up);
+}
+
 void DestroyPendingWindows() {
     for (WindowQueue* w = g_head; w;) {
         WindowQueue* n = w->next;

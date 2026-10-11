@@ -14,6 +14,9 @@ namespace StringTable {
 // renameToCurrentLanguage the first two characters of every key become the current language code.
 bool Init(const char* file, bool dryRun, bool renameToCurrentLanguage);
 void Deinit();                                   // @0x228c98
+// @0x2277cc (the "--empty_strings" switch, a debug aid): Init then gives a text that is empty in
+// the file its own key as the text.
+void SetEmptyNameReplacement();
 
 void SetLanguage(const char* code, int langId);  // @0x228b7c  e.g. ("EN", 0)
 int GetLangID();                                 // @0x2277bc

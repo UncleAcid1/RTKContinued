@@ -309,6 +309,11 @@ bool Init(int screenW, int screenH) {
     return ok;
 }
 
+// @0x1f6028 Render::GetScreenViewWidth
+float GetScreenViewWidth() { return 2.f / zoom; }
+// @0x1f604c Render::GetScreenViewHeight
+float GetScreenViewHeight() { return 2.f / zoom / aspect; }
+
 void Shutdown() {
     for (auto& l : g_layers) {
         for (Sprite* s : l.sprites) delete s;

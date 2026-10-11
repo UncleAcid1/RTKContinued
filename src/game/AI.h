@@ -35,6 +35,7 @@ struct Waypoint {                // 0x4c bytes
 
 extern bool allowWaypointLink;   // 0x60ef0c (1)
 extern float weightCost;         // AI::mWeigthCost 0x60ef10 (1.41): factor for the left/down/right/up steps
+void SetWeight(float w);          // @0xe1c20
 
 Waypoint* GetWaypoint(int x, int y, bool farm);   // @0xe169c
 void CreateMapWaypoint(int x, int y);             // @0xe7c78

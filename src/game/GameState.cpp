@@ -480,6 +480,65 @@ void DropGamePauseState() {
     if (--g_pause < 0) g_pause = 0;
 }
 bool IsPaused() { return g_pause > 0; }
+// @0x1910a8 GameState::ResetGamePauseState
+void ResetGamePauseState() { g_pause = 0; }
+
+namespace {
+int g_serverSet[0x2e] = {};     // 0x612da8
+int g_serverValue[0x2e] = {};   // 0x612e60
+std::map<std::string, int> g_serverNames;   // GameState::mServerSettingsMap
+}  // namespace
+
+// @0x19133c GameState::IsServerSettingSet (an id outside the table counts as set)
+bool IsServerSettingSet(int id) {
+    if ((unsigned)(id - 0x89) < 0x2e) return g_serverSet[id - 0x89] != 0;
+    return true;
+}
+
+// @0x19136c GameState::GetServerSetting
+int GetServerSetting(int id) {
+    if ((unsigned)(id - 0x89) < 0x2e && g_serverSet[id - 0x89]) return g_serverValue[id - 0x89];
+    return 0;
+}
+
+// @0x1913a0 GameState::SetServerSetting(ServerSettings, int)
+void SetServerSetting(int id, int value) {
+    if ((unsigned)(id - 0x89) >= 0x2e) return;
+    g_serverValue[id - 0x89] = value;
+    g_serverSet[id - 0x89] = 1;
+    if (id == 0x9d) maxLevel = value;
+}
+
+int GetServerSettingID(const std::string& name) {
+    auto it = g_serverNames.find(name);
+    return it == g_serverNames.end() ? 0 : it->second;
+}
+
+// @0x1aa0e4 GameState::InitDefaultSettings
+void InitDefaultSettings() {
+    for (int i = 0; i < 0x2e; ++i)
+        if (!g_serverSet[i]) g_serverValue[i] = -1;
+    if (!IsServerSettingSet(0x8f)) SetServerSetting(0x8f, 0);
+    if (!IsServerSettingSet(0x97)) SetServerSetting(0x97, 1);
+    if (!IsServerSettingSet(0x9d)) SetServerSetting(0x9d, 0x1d);
+    if (!IsServerSettingSet(0xad)) SetServerSetting(0xad, 0);
+    if (!IsServerSettingSet(0xae)) SetServerSetting(0xae, 0);
+    if (!IsServerSettingSet(0xaf)) SetServerSetting(0xaf, 0);
+    if (!IsServerSettingSet(0xb1)) SetServerSetting(0xb1, 0);
+    if (!IsServerSettingSet(0xb3)) SetServerSetting(0xb3, 0);
+    g_serverNames["TSS_START"] = 0x89;
+    g_serverNames["TSS_PAYMENT_CHESTS"] = 0x8f;
+    g_serverNames["TSS_MORE_GAMES_ENABLED"] = 0x97;
+    g_serverNames["TSS_MAX_LEVEL"] = 0x9d;
+    g_serverNames["TSS_RUBY_X3"] = 0xad;
+    g_serverNames["TSS_DELAY"] = 0xae;
+    g_serverNames["TSS_ACTIVE_3RD_GEM"] = 0xaf;
+    g_serverNames["TSS_ASK_FOR_UPDATE"] = 0xb1;
+    g_serverNames["TSS_AB_BAKERY"] = 0xb3;
+    g_serverNames["TSS_AB_TUTORIAL"] = 0xb4;
+    g_serverNames["TSS_C_TUTORIAL"] = 0xb5;
+    g_serverNames["TSS_AB_PAYMENT"] = 0xb6;
+}
 
 int saveOnline = 0;
 

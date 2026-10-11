@@ -130,6 +130,17 @@ void CancelWork(int type);                     // @0x191c8c goblins on `type` or
 void RaiseGamePauseState();                    // @0x191064
 void DropGamePauseState();                     // @0x191080 (never below 0)
 bool IsPaused();                               // @0x191104
+void ResetGamePauseState();                    // @0x1910a8
+inline void Clean() {}                         // @0x190c10 (empty in 5.11)
+
+// The server's switches (GameState::ServerSettings 0x89..0xb6, 0x612da8 set flags / 0x612e60
+// values): the server names them "TSS_..." (mServerSettingsMap). Offline only the defaults exist.
+bool IsServerSettingSet(int id);               // @0x19133c
+int GetServerSetting(int id);                  // @0x19136c (0 when not set)
+void SetServerSetting(int id, int value);      // @0x1913a0 (0x9d also sets maxLevel)
+int GetServerSettingID(const std::string& name);   // the "TSS_..." name's id in mServerSettingsMap (0: none)
+// @0x1aa0e4 (main_Loop_Init, first): unset switches read -1, the defaults, the names.
+void InitDefaultSettings();
 
 // @0x1964ec (the game's Update, each frame): a save the platform asked for goes to the server.
 // Only the online paths set saveOnline (the Java/iOS mcAskToSaveOnline, CMyServer::

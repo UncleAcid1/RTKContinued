@@ -23,6 +23,7 @@ namespace {
 // the head of their chain, so for duplicate keys the last one loaded wins. A map keyed by the
 // lower-cased key with overwrite-on-insert has the same lookup behaviour.
 std::unordered_map<std::string, std::u32string> g_table;
+bool g_emptyNameReplacement = false;   // 0x615700
 char g_lang[16] = "EN";   // @0x228f40 (strcpy'd by SetLanguage)
 int g_langId = 0;
 
@@ -91,8 +92,11 @@ bool Init(const char* file, bool dryRun, bool renameToCurrentLanguage) {
             key[1] = g_lang[1];
         }
         const char* text = t.child_value();
-        // Empty texts stay empty (the key itself is used only in the SetEmptyNameReplacement debug mode).
+        // Empty texts stay empty, or become their key in the SetEmptyNameReplacement debug mode (one
+        // character per byte of the key).
         std::u32string value = *text ? DecodeUtf8(text) : std::u32string();
+        if (!*text && g_emptyNameReplacement)
+            for (const char* k = t.attribute("i").value(); *k; ++k) value += (char32_t)(unsigned char)*k;
         if (!dryRun) g_table[Lower(key.c_str())] = std::move(value);
     }
     FileManager::FreeFile(data);
@@ -100,6 +104,9 @@ bool Init(const char* file, bool dryRun, bool renameToCurrentLanguage) {
 }
 
 void Deinit() { g_table.clear(); }
+
+// @0x2277cc StringTable::SetEmptyNameReplacement
+void SetEmptyNameReplacement() { g_emptyNameReplacement = true; }
 
 void SetLanguage(const char* code, int langId) {
     std::snprintf(g_lang, sizeof g_lang, "%s", code);

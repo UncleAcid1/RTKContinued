@@ -8,8 +8,10 @@
 #include <memory>
 
 #include "engine/FileManager.h"
+#include "engine/Render.h"
 #include "engine/Splitter.h"
 #include "engine/Timer.h"
+#include "game/EntityData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Setting.h"
@@ -88,6 +90,50 @@ bool Init(const char* file) {
     double t1 = Timer::GetTime();
     std::printf("Contracts::Init() Loaded contract list in %.3fms\n", (t1 - t0) * 1000.0);
     return true;
+}
+
+unsigned trainingUnits[9] = {};
+
+// @0x12eed8 Contracts::InitSpecial. Each training building gets an order list of its three units
+// (EntityFactory::GetEntitiesForBuilding): the order is named and drawn after the unit, costs its
+// hiring price in gold and (as the "resource" 9, crystals) in crystals, takes its training time
+// and can be sped up for its speed-up cost.
+void InitSpecial() {
+    static const unsigned kBuildings[3] = {0x8e, 0x69, 0x93};   // 0x57b50c
+    for (unsigned i = 0; i < 3; ++i) {
+        const uint32_t id = 0x800 + i;
+        Contract* c = const_cast<Contract*>(GetContract(id));
+        if (!c) {
+            g_contracts.push_back(std::make_unique<Contract>());
+            c = g_contracts.back().get();
+            g_byId[id] = c;
+        }
+        c->id = id;
+        c->type = 0;
+        c->count = 0;
+        c->title = U"";
+        c->missions.clear();
+        EntityFactory::GetEntitiesForBuilding(kBuildings[i], &trainingUnits[i * 3], 3);
+        for (unsigned k = 0; k < 3; ++k) {
+            const unsigned unit = trainingUnits[i * 3 + k];
+            // (the original does not check: every list has its three units in 5.11's persons.xml)
+            const EntityData* d = EntityFactory::GetEntityByID((int)unit);
+            ContractMission m;
+            m.title = d->title;
+            m.icon = d->side0 ? d->side0->name : std::string();
+            m.price = d->GetCostGold(false, nullptr);
+            m.priceResourceCount = d->GetCostCrystals(false, nullptr);
+            m.priceResource = 9;
+            m.rewardResource = 8;
+            m.timePlant = d->trainTime;
+            m.timeRot = 0;
+            m.speedupCost2 = (unsigned)d->speedupCost;
+            m.trainTime = d->trainTime;
+            m.entityId = unit;
+            c->missions.push_back(m);
+            ++c->count;
+        }
+    }
 }
 
 const Contract* GetContract(uint32_t id) {

@@ -29,6 +29,8 @@ struct ContractMission {         // 0x5c bytes
     unsigned timeClean = 0;      // +0x3c "time_clean"
     unsigned speedupCost2 = 0;   // +0x40 "speedup_cost2"
     unsigned rewardResourceCount = 0;  // +0x44 "reward_resource_count"
+    int trainTime = 0;           // +0x48 a training order's "char_traintime" (InitSpecial)
+    unsigned entityId = 0;       // +0x4c a training order's unit (InitSpecial)
     std::vector<int> growTimes;  // +0x50 "time_grow" a:b:c..., each (int)(n * farm_coeff)
 };
 
@@ -41,6 +43,11 @@ struct Contract {                // 0x1c bytes
 };
 
 bool Init(const char* file);                 // @0x12f6e0
+// @0x12eed8: the three training order lists 0x800..0x802 (the buildings 0x8e, 0x69 and 0x93),
+// made from the units each one trains.
+void InitSpecial();
+// The units of the training lists, three per building (0x61188c), filled by InitSpecial.
+extern unsigned trainingUnits[9];
 const Contract* GetContract(uint32_t id);    // @0x12e760
 const Contract* EnumContract(unsigned i);    // @0x12eb40
 

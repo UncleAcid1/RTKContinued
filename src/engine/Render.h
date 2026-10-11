@@ -51,6 +51,9 @@ struct Sprite {                  // 0x68 bytes on the original
 
 bool Init(int screenW, int screenH);        // after a GL context exists
 void Shutdown();
+// @0x1f6028 / @0x1f604c: the size of the view in world units.
+float GetScreenViewWidth();
+float GetScreenViewHeight();
 
 // @0x202014 (no atlas): frames is the one-file animation's frame count. A sheet taller than 2048
 // with 2+ frames is uploaded as two columns (the first (frames + 1) / 2 frames on the left), as

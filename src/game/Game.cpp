@@ -3,22 +3,157 @@
 #include <cstdio>
 
 #include "engine/FileManager.h"
+#include "engine/IconManager.h"
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
+#include "game/EntityData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
+#include "game/MetaData.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
+#include "game/StringTable.h"
 #include "game/Tags.h"
+#include "gui/WindowManager.h"
+#include "windows/Windows.h"
 
 bool done = false;
+bool gameLoaded = false;
+bool forceExitNoSave = false, restartGameAfterExit = false;
+bool canPlayMusic = false;
+std::string gMusicName;
+unsigned languageID = 0, availableLanguageID = 0;
+bool languageHasBeenSelected = false;
 bool paused = false;
 float pauseTime = 0.f;
 
 void MainExit() { done = true; }
+
+// @0x184f04 MainExitNoSave
+void MainExitNoSave() {
+    forceExitNoSave = true;
+    done = true;
+    restartGameAfterExit = true;
+}
+
+// @0x16aeb0 FileManager::SetPreferredLanguade
+void FileManager::SetPreferredLanguade(unsigned id) {
+    SystemFuncs::SetSetting_Int("selected_language", (int)id, "MyCountry_flags");
+}
+
+// @0x16b0a4 FileManager::RestartGame
+void FileManager::RestartGame() {
+    forceExitNoSave = true;
+    done = true;
+    restartGameAfterExit = true;
+}
+
+// @0x185668 OnResume
+void OnResume() {
+    // (PlayerProfileManager::ResetNoConnectionWarning: online. PlayerWeakWindow::ResetSession:
+    // milestone 5.)
+    // UNVERIFIED (milestone 4d): CastleTopWindow::ActivateFeatureHolders (0x28a53c).
+    // UNVERIFIED (milestone 5, the daily bonus): with no bonus received yet today
+    // (GameState::GetReceivedDailyBonusCount), task 0x35c completed, the connection not being
+    // checked (temporary setting 2), no window, combat, hover, world dialog or pause:
+    // DailyBonusWindow::ForceBonus and Show.
+}
+
+// @0x187674 turnMusic
+void turnMusic(bool on) {
+    // UNVERIFIED (milestone 6): SoundsManager::PauseAudio(!on) and, when on,
+    // SoundsManager::PlayMusic(gMusicName, true).
+    (void)on;
+}
+
+// @0x186fe0 LanguageDecline
+void LanguageDecline() {
+    PopupSelectionWindow::Hide();
+    FileManager::SetPreferredLanguade(languageID);
+    languageHasBeenSelected = true;
+}
+
+// @0x187060 LanguageSelect
+void LanguageSelect() {
+    PopupSelectionWindow::Hide();
+    FileManager::SetPreferredLanguade(availableLanguageID);
+    languageHasBeenSelected = true;
+    Map::SafeSave();
+    forceExitNoSave = true;
+    FileManager::RestartGame();
+    // (then SDL_Delay(1000): time for Android to act on it)
+}
+
+void AskLanguageQuestion() {
+    if (languageHasBeenSelected) return;
+    if (availableLanguageID == languageID || WindowManager::GetShownWindowCount() != 0 ||
+        GameState::secondTutorial != 0x100 || GameState::IsCombatActive() || BuildingHovers::IsWorldDialogVisible())
+        return;
+    // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible (the talking-hero dialog, 4f) also holds it back.
+    std::u32string text = SWPrintf(0x100, StringTable::GetString("LANGUAGE_AVAILABLE"),
+                                   {StringTable::GetStringF("LANGUAGE_%d", availableLanguageID)});
+    PopupSelectionWindow::Show(StringTable::GetString("LANGUAGE_AVAILABLE_HEADER"), text.c_str(),
+                               StringTable::GetString("HUD_OK"), IconManager::GetIcon("gold_confirm", false),
+                               LanguageSelect, StringTable::GetString("CANCEL"),
+                               IconManager::GetIcon("gold_cancel", false), LanguageDecline, nullptr);
+    PopupSelectionWindow::SetMentorIcon();
+}
+
+namespace {
+// The folder of the data files: res_files, or the sandbox server's res_files_sandbox
+// (sandboxModeEnabled 0x6124a5, the "--sandbox" switch; online, never set by the port).
+const char* const kDataFolder = "../resource/res_files/1Original/";
+
+// The content packs' copies of a file ("active_packs": "name:number,..." in the settings, set by
+// the expansion downloads): each pack whose expansion file exists (FileManager::
+// DoesExpansionFileExist 0x16b4a8; online, dormant: none does) and which has the file gets it
+// loaded on top.
+template <typename F>
+void LoadFromActivePacks(const char* file, F load) {
+    std::string packs = SystemFuncs::GetSetting_String("active_packs", "");
+    const char* p = packs.c_str();
+    MetaData* list = ParseCustomStyleData(p, ",:", "111");
+    if (!list) return;
+    for (unsigned i = 0; i < list->GetChildrenCount(); ++i) {
+        const MetaData* pack = list->GetChild(i);
+        const bool expansionFileExists = false;   // (DoesExpansionFileExist(pack->GetChild(1)->GetInt()))
+        if (!expansionFileExists) continue;
+        std::string path = std::string(kDataFolder) + pack->GetChild(0)->GetString() + "/" + file;
+        if (FileManager::FileExists(path.c_str())) load(path.c_str());
+    }
+    delete list;
+}
+}  // namespace
+
+// @0x18c080 Game::LoadLanguageTable
+bool Game::LoadLanguageTable(const char* file, const char* letter, double progress) {
+    // (Render::CreateText(loadFont, letter) and Render::UpdateProgress(progress): the loading
+    // screen, milestone 7)
+    (void)letter;
+    (void)progress;
+    if (!StringTable::Init((std::string(kDataFolder) + file).c_str(), false, false)) return false;
+    LoadFromActivePacks(file, [](const char* path) { StringTable::Init(path, false, false); });
+    return true;
+}
+
+// @0x18cc4c Game::LoadSystemConfiguration
+bool Game::LoadSystemConfiguration(bool (*loader)(const char*), const char* file, const char* letter,
+                                   const char* name, double progress, unsigned failStep, unsigned okStep) {
+    (void)letter;
+    (void)name;
+    (void)progress;
+    (void)failStep;   // (LoadSampling::LoadStep, when not 0)
+    (void)okStep;
+    if (!loader((std::string(kDataFolder) + file).c_str())) return false;
+    LoadFromActivePacks(file, loader);
+    return true;
+}
+
+// @0x18564c Game::LoadEntityFactoryData
+bool Game::LoadEntityFactoryData(const char* file) { return EntityFactory::LoadData(file); }
 
 void ExitWithSendSave() { MainExit(); }
 
@@ -52,18 +187,6 @@ void SetSaveNames() {
     last = SystemFuncs::GetSetting_String("last_played_save", "offline");
     SaveManager::SetCurrentSaveName("save_" + last + ".bin");
     SaveManager::SetBackupSaveName("save_" + last + ".binprev");
-}
-
-void SaveOnExit() {
-    BuildingHovers::CollectAll();
-    BuildingMovement::Decline();
-    BuildingPlacement::Decline();
-    // UNVERIFIED (milestone 4): SpellMovement::Decline.
-    BuildingMovement::Deinit();
-    BuildingPlacement::Deinit();
-    // UNVERIFIED (milestone 4): SpellMovement::Deinit, MapMovement::Deinit.
-    if (GameState::IsCityTutorial()) return;
-    Map::Save(0);
 }
 
 void UpdateTagState() {

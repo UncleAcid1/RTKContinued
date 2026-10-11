@@ -120,7 +120,28 @@ int EntityData::GetDefenseMeleeForLevel(int lvl) const { return levelScale ? lev
 int EntityData::GetDefenseRangedForLevel(int lvl) const { return levelScale ? levelScale->row[5][lvl] : defenseRanged; }
 int EntityData::GetDefenseMagicForLevel(int lvl) const { return levelScale ? levelScale->row[6][lvl] : defenseMagic; }
 
+// @0x15ecfc EntityData::GetCostGold
+unsigned EntityData::GetCostGold(bool full, const Tavern::TavernInfo* tavern) const {
+    (void)tavern;
+    if (full) return (unsigned)warriorCost;
+    return (unsigned)(warriorCost * GetDiscountSize()) / 100;
+}
+
+// @0x15ec74 EntityData::GetCostCrystals
+unsigned EntityData::GetCostCrystals(bool full, const Tavern::TavernInfo* tavern) const {
+    (void)tavern;
+    if (full) return (unsigned)warriorCost2;
+    return (unsigned)(warriorCost2 * GetDiscountSize()) / 100;
+}
+
 namespace EntityFactory {
+
+// @0x160680 EntityFactory::GetEntitiesForBuilding: the units a building trains, by rank: out[level
+// - 1] is the id of the unit of that "level" (1..count) whose "training_obj_type" is the building.
+void GetEntitiesForBuilding(unsigned building, unsigned* out, unsigned count) {
+    for (auto& [id, d] : g_byId)
+        if (d->level <= (int)count && (unsigned)d->trainingObjType == building) out[d->level - 1] = d->id;
+}
 
 EntityData* GetEntityByID(int id) {
     auto it = g_byId.find(id);

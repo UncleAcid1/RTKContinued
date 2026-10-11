@@ -19,6 +19,9 @@ namespace AI {
 bool allowWaypointLink = true;
 float weightCost = 1.41f;
 
+// @0xe1c20 AI::SetWeight
+void SetWeight(float w) { weightCost = w; }
+
 namespace {
 
 std::vector<Waypoint*> g_list;        // 0x610af8 (count 0x610b04)

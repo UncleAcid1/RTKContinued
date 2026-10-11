@@ -94,6 +94,7 @@ void InitWindows();                           // @0x36f408: Init() of every queu
 WindowQueue* ProcessClick(int x, int y, bool pressed);   // @0x36ed98 (top first)
 void ProcessUpdate(float dt);                 // @0x36e2a8
 void ProcessMove(int x, int y);               // @0x36e218
+void ProcessWheel(bool up);                   // @0x36e264
 void DestroyPendingWindows();                 // @0x36e85c deletes the windows marked pendingDestroy
 void SetMousePosition(int x, int y);          // @0x36e8a4
 void GetMousePosition(int& x, int& y);        // @0x36e8c8
