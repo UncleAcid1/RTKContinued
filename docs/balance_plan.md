@@ -1,6 +1,6 @@
 # Offline balance plan: crystals, prices, units
 
-Status: CONFIRMED by the user on 2026-10-11 (taper, units paid in food, the exchange's daily
+Status: CONFIRMED by the user on 2026-10-11 (taper, units for 40% of their crystals plus food, the exchange's daily
 limit, about a week per top-tier item after the campaign). Not coded yet except where noted. It follows the user's direction of 2026-10-11:
 cut the "ridiculous" crystal prices by 55%, scale rewards by level but not too much, gear should
 come in the late game and not the early game, units cost 60% fewer crystals plus a large amount of
@@ -53,23 +53,23 @@ One of everything: 33,500 -> about 18,300. Houses (3 / 5 / 10) are unchanged.
 
 ## 3. Units (hiring and training)
 
-Units are hired with food, not crystals (user, 2026-10-11): the crystal price is cut by 60% and
-what is left is paid in food at 100 food a crystal.
+Units cost both (user, 2026-10-11, restated): the crystal price is cut by 60%, and a large amount
+of food is needed as well.
 
-    crystals = 0
-    food     = original x 0.40 x 100, at most 20,000
+    crystals = original x 0.40, rounded
+    food     = original x 40, at most 20,000
 
 The food cap is what a level-20 city can store (4 Stockpiles: 24,000), so the two giants need a
 fully built storage. The food must be in storage when hiring, as any other cost.
 
-| Unit | Original crystals | Food | Roughly, with one 12-patch farm |
-|---|---|---|---|
-| Berserk (level 1) | 25 | 1,000 | 1.5 hours |
-| Sniper | 45 | 1,800 | 2.5 hours |
-| Storm Conjurer (level 4) | 79 | 3,160 | 4.5 hours |
-| Tanker | 129 | 5,160 | 7 hours |
-| Siege Troll | 299 | 11,960 | 17 hours |
-| Scarab Queen / Troll King | 2,000 | 20,000 | 28 hours (3 nights of corn) |
+| Unit | Original crystals | New crystals | Food | Roughly, with one 12-patch farm |
+|---|---|---|---|---|
+| Berserk (level 1) | 25 | 10 | 1,000 | 1.5 hours |
+| Sniper | 45 | 18 | 1,800 | 2.5 hours |
+| Storm Conjurer (level 4) | 79 | 32 | 3,160 | 4.5 hours |
+| Tanker | 129 | 52 | 5,160 | 7 hours |
+| Siege Troll | 299 | 120 | 11,960 | 17 hours |
+| Scarab Queen / Troll King | 2,000 | 800 | 20,000 | 28 hours (3 nights of corn) |
 
 With several farms the time divides accordingly, which is the reward for building up the city.
 Units that cost only gold keep their gold price.
@@ -131,7 +131,7 @@ only grows), gold prices of everything, quest gold and XP rewards, drop tables.
 1. `tools/balance_sim.py` (to write first): reads the data files, applies sections 2-4 and prints
    every new price, the income by level and how many days each tier takes. The tables above are
    replaced by its output.
-2. The rules go in as settings (`port_price_keep`, `port_price_cut`, `port_unit_price_mult`,
+2. The rules go in as settings (`port_price_keep`, `port_price_cut`, `port_unit_crystal_mult`,
    `port_unit_food_per_crystal`, `port_unit_food_max`, `port_quest_crystals_*`,
    `port_level_factor_div`, `port_exchange_daily_base`), each marked PORT in the code.
 3. Where each part lands: quest and level-up crystals in 4c part 2 (now); unit prices with the

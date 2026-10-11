@@ -10,7 +10,7 @@ import os, re, sys
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../out/assets/android511/res_files/1Original/")
 # the plan's settings
 PRICE_KEEP, PRICE_CUT = 20, 0.55
-UNIT_PRICE_MULT, UNIT_FOOD_PER_CRYSTAL, UNIT_FOOD_MAX = 0.40, 100, 20000
+UNIT_CRYSTAL_MULT, UNIT_FOOD_PER_CRYSTAL, UNIT_FOOD_MAX = 0.40, 40, 20000
 LEVEL_FACTOR_DIV, MAX_LEVEL = 14, 29
 QUEST_MAIN, QUEST_SIDE, QUEST_CAMPAIGN, QUEST_DAILY = 1, 1, 5, 1
 
@@ -36,11 +36,11 @@ if "--items" in sys.argv:
         print(f"  {num(i['cost2']):>5} -> {price(num(i['cost2'])):>4}  {nm(i.get('name'))}")
 
 units = [a for a in (attrs(m.group(0)) for m in re.finditer(r"<\w+ id=[^>]*>", read("persons.xml"))) if num(a.get("warrior_cost2")) > 0]
-print(f"UNITS with a crystal price: {len(units)} (hired with food)")
+print(f"UNITS with a crystal price: {len(units)} (hired with fewer crystals plus food)")
 rows = sorted({(num(u["warrior_cost2"]), nm(u.get("name"))) for u in units})
 for c, n in rows if "--units" in sys.argv else rows[:3] + rows[-4:]:
-    food = min(UNIT_FOOD_MAX, round(c * UNIT_PRICE_MULT * UNIT_FOOD_PER_CRYSTAL))
-    print(f"  {c:>5} crystals -> {food:>6} food ({food / 720:.1f} h of one 12-patch farm)  {n}")
+    food = min(UNIT_FOOD_MAX, round(c * UNIT_FOOD_PER_CRYSTAL))
+    print(f"  {c:>5} crystals -> {round(c * UNIT_CRYSTAL_MULT):>4} crystals + {food:>6} food ({food / 720:.1f} h of one 12-patch farm)  {n}")
 
 kinds = {"main": 0, "side": 0, "campaign": 0, "daily": 0}
 for head, body in re.findall(r"<XTask (.*?)>(.*?)</XTask>", read("tasks.xml"), re.S):
