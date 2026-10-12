@@ -82,6 +82,7 @@ add_executable(rtk
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
   src/windows/NeedItemWindow.cpp
+  src/windows/TaskCompleteWindow.cpp
   src/windows/TaskInfoWindow.cpp
   src/windows/NotEnoughWindow.cpp
   src/windows/CharacterInfoWindow.cpp

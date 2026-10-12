@@ -41,7 +41,7 @@ implicit  ^CastleTopWindow::FUN_00277144   # a callback object factory (Update's
 4h    ^(OnTutorialFarmerWomanAction|EntityManager::GetEntityByClass)$   # tutorial paths (BottomCityWindow::Update, Building::WorkEnded)
 5     ^BuildingHovers::CheckForSpecialDrops$   # the Ruby / Diamond Pyramid finds (tasks 0x4d7 / 0x4d9): a real-money sale promotion in 5.11 (30% more gold and crystals for 24 h); ask the user how it works offline, with the exchange
 6     ^FileManager::(OnMusicMute|OnSoundMute)$
-online  ^(LandExpandedWindow|LevelUpWindow)::OnTwitterToggle$
+online  ^(LandExpandedWindow|LevelUpWindow|TaskCompleteWindow)::OnTwitterToggle$
 dead  ^(BottomFarmWindow::OnFarmWater|PatchProgressHoverWindow::SetPartialSpeedUpMode|BuildingMovement::(ToggleRoadType|ToggleWarehouse))$   # no caller in 5.11
 util  ^Map::FUN_(0011f0a8|00127328|00131528|00135240|0013a144|0013a870)   # Load*List's strdup / vector helpers, Building's vector insert
 util  ^GameState::FUN_(00194908|00195fb8|00196924|00199a5c|0019aa78|0019bc8c|0019c5c4|0019f1c4)   # the settings / resources / tavern std::map and vector helpers
@@ -90,7 +90,7 @@ online  ^SaveManager::(ApplyBlockDiff|ApplySaveDiff|DuplicateBlock|GetDifference
 online  ^SystemFuncs::(FB|GetFBToken|IsConnectedTo|LikeGame|Log|LoginTo|LogoutFromFB|OpenFAQ|OpenMarketURL|OpenSupport|RateGame|SendPaymentDataToServer|SetProcessPayments|ShowConnectionError|ShowToSPP|callExternalBrowser|geUniqFBID|getDeviceToken|getEmails|getGCID|getGID|getPushID|getReferral|getSID|getSecret|getUniqueIDs|launchApp|showGPGS|signInGPGS|signOutGPGS|IsAppInstalled|SetGUID|getPlatformForServer|getPlatformJailbreak|getDeviceExtendedInfo)
 online  ^FileManager::(Billing|Blog|Coupon|Facebook|FlowGameCurrency|GetChestContents|GetFriendMap|GetServerUpdate|LogAndroid|LogCBPurchase|MakeFBRequest|MoreGamesRequest|NotifyTutorialStep|OnAmazonAchievements|OnFacebookToggle|OnItemBought|OnKoreanMoreGames|OnLevelUpEvent|OnTwitterToggle|PayForItem|PostImage|PushNotification|Send|SetChapterNow|SetFlagStage|ShowOffers|ToggleStatEvent|UpdateFriend|CheckDailyBonusAvailability|JNI_|RegisterExpansionFile|RemoveExpansionFile|ValidateExpansionFile|DoesExpansionFileExist|EnumExpansionFileInfo|GetExpansionCount|GetExpansionFileInfo|SetGameState|SetLastLoadedCity|AddResetCount|GameLoaded|ResaveVersion|DebugUpdate|BlobFileDescriptor|RegisterBlob|DataHash|FileDataHash)
 online  ^SettingsWindow::(GetFacebook|SetFacebook|ToggleFacebook|GetTwitter|SetTwitter|ToggleTwitter|OnGameCenter|OnGames|OnInvite)
-online  ^(LevelUpWindow|LandExpandedWindow)::OnFacebookToggle   # the share toggle is not offered (PORT)
+online  ^(LevelUpWindow|LandExpandedWindow|TaskCompleteWindow)::OnFacebookToggle   # the share toggle is not offered (PORT)
 online  ^Shared::ShareButtonsHolder::
 online  ^CastleTopWindow::(OnFriends|OnFindPlayer|UpdateGICounter)
 online  ^HUDWindow::(ToggleInternet|UpdateInternet)

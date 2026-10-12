@@ -702,6 +702,7 @@ int main_Loop_Init() {
     PopupWindow::Queue();
     SettingsWindow::Queue();
     ShopWindow::Queue();
+    TaskCompleteWindow::Queue();
     TaskHolderWindow::Queue();
     TaskInfoWindow::Queue();
     TopCityWindow::Queue();
@@ -821,9 +822,10 @@ bool main_Loop_Func() {
             case SDL_EVENT_WILL_ENTER_BACKGROUND:
                 // The app's pause (Java sets createAutosave and paused; desktop systems do not send
                 // this event, the exit saves): outside the city tutorial the drops are collected,
-                // the edit modes closed and the game saved. UNVERIFIED: TaskCompleteWindow::Hide
-                // (4d), SpellMovement::Decline (5); the phone notifications are milestone 5.
+                // the edit modes closed and the game saved. UNVERIFIED: SpellMovement::Decline (5);
+                // the phone notifications are milestone 5.
                 if (!forceExitNoSave && !GameState::IsCityTutorial()) {
+                    TaskCompleteWindow::Hide();
                     BuildingHovers::CollectAll();
                     BuildingMovement::Decline();
                     BuildingPlacement::Decline();
@@ -895,8 +897,8 @@ int main_Exit_Func() {
     // (EditorConsole::Deinit: milestone 5. ErrorReporter::Deinit: online.)
     gameLoaded = false;
     // UNVERIFIED (their milestones): GameState::EndActiveCombat(true) (4g), RaidCompleteWindow and
-    // CampaignPerfectedWindow ForceHide (5), TaskCompleteWindow::Hide (4d), SpellMovement's
-    // Decline and Deinit (5).
+    // CampaignPerfectedWindow ForceHide (5), SpellMovement's Decline and Deinit (5).
+    TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();
     BuildingPlacement::Decline();

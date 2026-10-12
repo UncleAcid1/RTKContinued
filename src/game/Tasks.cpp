@@ -1265,11 +1265,11 @@ void Update(bool force) {
                     CompleteTask(t->id, true, true, false);
                     return;
                 }
-            } else if (WindowManager::GetEnqueuedWindowCount() == 0) {
-                // UNVERIFIED (milestone 4d): TaskCompleteWindow::Complete(id) and Show, which
-                // completes the task when closed (not during a PvP fight, a queued map load or a
-                // pending FoundItemsWindow action). PORT until then: completed at once.
-                CompleteTask(t->id, true, true, false);
+            } else if (WindowManager::GetEnqueuedWindowCount() == 0 && !FoundItemsWindow::HasPostAction()) {
+                // UNVERIFIED: not during a PvP fight (GameState::IsPvPCombatActive, milestone 5)
+                // or with a map load queued (Map::IsMapLoadQueued, milestone 4f).
+                TaskCompleteWindow::Complete(t->id);
+                TaskCompleteWindow::Show();
                 return;
             }
             continue;

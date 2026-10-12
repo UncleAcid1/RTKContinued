@@ -195,7 +195,10 @@ void OnContinue() {
     g_onContinue = nullptr;
     if (cb) cb();
     // UNVERIFIED (milestone 4g): with a boss set (not task 0x5b7) the hero's AI is told (vfunc +0xe8).
-    // UNVERIFIED (4d part 3): task 0x49f completes here (TaskCompleteWindow::Complete and Show).
+    if (g_task == 0x49f) {
+        TaskCompleteWindow::Complete(0x49f);
+        TaskCompleteWindow::Show();
+    }
     HideWindow();
 }
 

@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-2 done (HUD quest list, quest window, the Go button)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-3 done (HUD quest list, quest window, the Go button, the quest-complete window)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -743,11 +743,25 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified headless (temporary hook, removed): "Order" of task 1281 (get 3 toolkits) opens the
    shop on the Smithy with the arrow on its cell; "Expand" moves the camera and places the arrow
    at (1240, 183) for area 3; HelpWithLocation at the hero shows the arrow and centres on him.
-   LEFT IN 4d (146): part 3 TaskCompleteWindow; part 4 TaskListWindow, LevelInfoWindow,
+   4d part 3 DONE: windows/TaskCompleteWindow.cpp ("Quest complete!", Completed_win.xml): Tasks::Update
+   now opens it for a finished quest with a reward (Complete(id) + Show) instead of completing
+   at once; closing it (Ok / Back / outer tap) runs Tasks::CompleteTask(id, true, true, false),
+   which drops the reward. The quest checks are blocked (Tasks::SetBlocked) while it is up.
+   Reward strip order: crystals, XP, gold, resources 0..7, then items; item cells open the
+   ItemHoverWindow. Also wired: TaskCompleteWindow::Hide in Map::SafeSave, main_Exit_Func and
+   the background event; task 0x49f in TaskInfoWindow::OnContinue. PORT: no share ticks / wall
+   post. UNVERIFIED left: the PvP-fight / queued-map-load / death-animation deferrals, the
+   unlocked-spell CraftSuccessWindow and SetInfoWindow follow-ups (5), sounds, Map::Load's
+   prologue (4f), a finished chapter quest still only returns (ChapterWindow is 4f).
+   Test note: Tasks::Update runs once per real second - a headless hook must call
+   Tasks::Update(true) after changing step counts. Verified headless (hook removed): task 1281
+   finished -> window with XP 100 / Gold 300 -> Ok -> "Done task 1281", drops on the map, next
+   quest appears; task 1758 (6 rewards, 2 items): arrows scroll, item popup opens.
+   LEFT IN 4d (127): part 4 TaskListWindow, LevelInfoWindow,
    HelpWindow, locators (HUDWindow), BattleBarWindow's quest lines, the ExecuteFirstHelp chain
    (autoplay bot), CastleTopWindow's featured quest, arrows' callbacks; part 5
    TaskQuickCompleteWindow (ASK FIRST).
-   NEXT: 4d part 3 (TaskCompleteWindow; then remove the "completed at once" PORT in Tasks::Update).
+   NEXT: 4d part 4 (TaskListWindow first).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

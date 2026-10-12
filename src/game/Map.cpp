@@ -1748,6 +1748,9 @@ void Free() {
 }
 
 bool Load(SaveManager::SaveBlock* block, uint32_t time) {
+    // UNVERIFIED (milestone 4f, leaving a running map): the camera points are cleared, the
+    // castle tools, locators and world dialog hidden, TaskCompleteWindow::Hide, the drops
+    // collected, the edit modes declined and the loading screen shown.
     Free();
     Rand48::srand48((long)time);
     g_loaded = false;
@@ -2507,10 +2510,9 @@ void Save(int type) {
     }
 }
 
-// UNVERIFIED (milestone 3e/4): the world dialog, TaskCompleteWindow and the building placement
-// and movement modes are not ported; their closing is skipped.
 void SafeSave() {
-    // UNVERIFIED (milestone 4): BuildingHovers::HideWorldDialog and TaskCompleteWindow::Hide first.
+    // UNVERIFIED (milestone 4): BuildingHovers::HideWorldDialog first.
+    TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();
     BuildingPlacement::Decline();

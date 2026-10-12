@@ -212,6 +212,18 @@ void RunLastHelpItem();                     // @0x2f8790
 void FindResourceHelp(int type, unsigned line, bool fromLine);
 }
 
+// "Quest complete!": the quest's reward; closing it completes the quest.
+namespace TaskCompleteWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "TaskCompleteWindow"
+void Init();                                // @0x353c20
+void Deinit();                              // @0x353224
+bool IsVisible();                           // @0x352730
+void Complete(uint32_t task);               // @0x35327c fills the window for the task; Show opens it
+void UpdateContents();                      // @0x353bf4
+void Show();                                // @0x352d4c
+void Hide();                                // @0x352f54 completes the task
+}
+
 // "Item needed": craft the item in its building or buy it; also the quest/map-object item questions.
 namespace TaskInfoWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "TaskInfoWindow"
