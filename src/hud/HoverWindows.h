@@ -142,6 +142,36 @@ public:
     int baseY = 0;                     // +0x40
 };
 
+// The bobbing round button over somebody with something to say (blue; green for a side quest; still
+// for a repeated task), showing the quest's icon. A tap sends the hero to talk. Port of
+// TalkHoverWindow (0x58 bytes).
+class TalkHoverWindow : public BuildingHoverWindow {
+public:
+    TalkHoverWindow() { name = "TalkHoverWindow"; }
+    ~TalkHoverWindow() override;
+    void Init() override;                        // +0x08 @0x3991c8
+    void SetZ(float z) override;                 // +0x10 @0x398a30
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x3990c4
+    void Show() override;                        // +0x1c @0x3991b8
+    void Hide() override;                        // +0x20 @0x399168
+    void Update(float dt) override;              // +0x24 @0x398b18
+    void SetPosition(int x, int y) override;     // +0x3c @0x398e18
+    void SetEntity(Entity* e) override;          // +0x44 @0x398c34
+    void Activate(bool on) override;             // +0x4c @0x398b00
+    void OnTalkTo();                             // @0x398ac4
+
+    bool side = false;                 // +0x34 a side quest's (the green button)
+    bool still = false;                // +0x35 a repeated task's (no bobbing)
+    GUI::Window* root = nullptr;       // +0x38 Button_small_round_blue.xml
+    GUI::Window* icon = nullptr;       // +0x3c
+    GUI::Button* button = nullptr;     // +0x40
+    GUI::Window* rootSide = nullptr;   // +0x44 Button_small_round_simple_green.xml
+    GUI::Window* iconSide = nullptr;   // +0x48
+    GUI::Button* buttonSide = nullptr; // +0x4c
+    int arrowCallback = 0;             // +0x50 the id of its arrow callback (tutorial 0x51)
+    float t = 0.f;                     // +0x54 bob time
+};
+
 // The round tax button over houses and decorations with collectable gold.
 class TaxesHoverWindow : public BuildingHoverWindow {
 public:

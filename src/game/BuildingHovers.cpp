@@ -193,9 +193,11 @@ void HoverInfo::SetHoverType(int t) {
         w = new ResourceRestoreHoverWindow();
     else if (t == kTaxes)
         w = new TaxesHoverWindow();
-    // UNVERIFIED (not ported yet): TalkHoverWindow (0xc), HealthbarHoverWindow (0xd),
-    // HealthbarTinyHoverWindow (0xe) and BossTimeHoverWindow (0x10) come before the sleeping window;
-    // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13) after it.
+    else if (t == kTalk)
+        w = new TalkHoverWindow();
+    // UNVERIFIED (milestones 4g/5): HealthbarHoverWindow (0xd), HealthbarTinyHoverWindow (0xe) and
+    // BossTimeHoverWindow (0x10) come before the sleeping window; PlayerNameHoverWindow (0x11),
+    // FriendInfoHoverWindow (0x13) after it.
     else if (t == kUseItem)
         w = new UseItemHoverWindow();
     else if (t == kFarmSleeping || t == kDelivery)
@@ -691,9 +693,18 @@ void UpdateHovers() {
             }
         } else if (GameState::IsPlayerCity()) {
             if (d) {
-                // UNVERIFIED (milestone 4f): the battle health bar, decorations being searched by a
-                // worker (2) and the use-item hover (0xf, Map::Decor::ShowUseItemHover: its window is
-                // ported) need the decorations' expressions and jobs.
+                // UNVERIFIED (milestone 4g): in a city battle (g_Combat) a damaged decoration shows the
+                // health bar (0xe) instead.
+                // A decoration being searched by a worker shows the progress; one that wants an item
+                // the cogs.
+                if (d->meta && d->WorkerIsWorking() && !d->GetPlayerSearchAnimation(nullptr)) {
+                    h->SetHoverType(kBuildProgress);
+                    goto checked;
+                }
+                if (d->ShowUseItemHover() && d->sprite && d->sprite->visible) {
+                    h->SetHoverType(kUseItem);
+                    goto checked;
+                }
                 const GameData::DecorData* dd = d->data;
                 if (dd && dd->collectTime != 0 && GameState::GetCurrentMapID() == 0 && d->patch->owned &&
                     Timer::GetGlobalTime() > dd->collectTime + d->collectStart) {
@@ -702,9 +713,31 @@ void UpdateHovers() {
                 }
             }
             if (e && !e->IsDisappearing() && e->IsAppeared()) {
-                // UNVERIFIED (milestone 4): talk tasks (0xc), the 0x1d7 special talk, battle health
-                // bars (0xe), boss timers (0x10) and player names (0x11) need quests, combat and
-                // other players; they are checked first on the original.
+                // Somebody with a talk task (not done yet) or a special talk shows the talk button.
+                if (e->GetTalkTask() != 0) {
+                    if (GameState::TaskCompleted(e->GetTalkTask())) {
+                        e->AssignTalkTask(0);
+                    } else {
+                        Map::Patch* p = GameState::GetCurrentMapID() == 0
+                                            ? Map::GetPatchForCoordinates(e->tileX, e->tileY, false)
+                                            : nullptr;
+                        h->SetHoverType(p && !p->owned ? kNone : kTalk);
+                        e->AssignSpecialTalk(0);
+                    }
+                    goto checked;
+                }
+                if (e->GetSpecialTalk() != 0) {
+                    h->SetHoverType(kTalk);
+                    goto checked;
+                }
+                // The guide (spawn point 0x1d7) offers the travel choice once task 0x43f has begun.
+                if (e->GetSpawnPointID() == 0x1d7 && !IsWorldDialogVisible()) {
+                    e->AssignSpecialTalk(e->GetTalkTask() == 0 && GameState::GetTaskBeginTime(0x43f) != 0 ? 0x1d7 : 0);
+                    goto checked;
+                }
+                // UNVERIFIED (milestones 4g/5): battle health bars (0xe: PvP fights, g_Combat, a
+                // wounded or fighting enemy in view), boss timers (0x10) and player names (0x11) come
+                // before the farm's.
                 // A ripe soil patch on the farm view shows its crop.
                 if (e->GetAI() && e->GetAI()->GetState() == 0x19 && Map::GetCurrentFarm()) {
                     h->SetHoverType(kFarmReady);

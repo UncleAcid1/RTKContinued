@@ -19,7 +19,11 @@
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "game/AIState.h"
+#include "game/Animation.h"
 #include "game/Entity.h"
+#include "game/EntityData.h"
+#include "game/EntityManager.h"
+#include "game/Fog.h"
 #include "gui/GUI.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
@@ -1355,6 +1359,132 @@ void PlaceBuildingHoverWindow::OnAccept() {
 // ---- UseItemHoverWindow ----
 
 UseItemHoverWindow::~UseItemHoverWindow() { delete root; }
+
+// ---- TalkHoverWindow ---------------------------------------------------------------------------
+
+TalkHoverWindow::~TalkHoverWindow() {
+    delete root;
+    delete rootSide;
+}
+
+// @0x3991c8
+void TalkHoverWindow::Init() {
+    auto load = [this](const char* xml, const char* png, GUI::Window*& rootOut, GUI::Window*& iconOut,
+                       GUI::Button*& buttonOut) {
+        rootOut = GUI::RegisterUI(xml, png, 1.f, 0, 0, 0, 0, false, 1.f);
+        rootOut->SetVisibility(false);
+        rootOut->SetScreenSpace(false);
+        for (const char* n : {"rage_bar_button_bronze", "rage_bar_button_red", "rage_bar_button_green"})
+            GUI::GetWindowTyped<GUI::Window>(rootOut, n)->SetVisibility(false);
+        iconOut = GUI::GetWindowTyped<GUI::Window>(rootOut, "button_round_icon_holder");
+        iconOut->takesZ = true;
+        iconOut->MoveWindow(-1, 0);
+        buttonOut = GUI::GetWindowTyped<GUI::Button>(rootOut, "clickArea");
+        buttonOut->SetOnClick([this] { OnTalkTo(); });
+    };
+    load("../resource/kingdom_ui/1Original/Button_small_round_blue.xml", "Button_small_round_blue.png", root, icon,
+         button);
+    load("../resource/kingdom_ui/1Original/Button_small_round_simple_green.xml",
+         "Button_small_round_simple_green.png", rootSide, iconSide, buttonSide);
+}
+
+// @0x398a30
+void TalkHoverWindow::SetZ(float z) {
+    root->SetZ(z);
+    rootSide->SetZ(z);
+}
+
+// @0x3991b8
+void TalkHoverWindow::Show() {
+    if (shownHover) return;
+    BuildingHoverWindow::Show();
+}
+
+// @0x399168
+void TalkHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    rootSide->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+// @0x398ac4: the hero goes to talk.
+void TalkHoverWindow::OnTalkTo() {
+    if (!GameState::IsCityTutorial()) BuildingHovers::HideArrow();
+    EntityManager::GetPlayer()->GetAI()->ClickedEntity(entity);
+}
+
+// @0x398b00
+void TalkHoverWindow::Activate(bool on) {
+    if (on && shownHover) OnTalkTo();
+}
+
+// @0x398b18: the button of its kind shows while its entity is not under the fog.
+void TalkHoverWindow::Update(float dt) {
+    t += dt;
+    if (!entity) return;
+    Render::Sprite* s = entity->GetSprite();
+    if (!s) return;
+    auto seen = [s] { return Fog::IsVisible((int)s->x, (int)(s->y - s->h), (int)(s->x + s->w), (int)s->y); };
+    root->SetVisibility(!side && seen());
+    rootSide->SetVisibility(side && seen());
+}
+
+// @0x398c34
+void TalkHoverWindow::SetEntity(Entity* e) {
+    BuildingHoverWindow::SetEntity(e);
+    if (!e || !shownHover) return;
+    Render::Texture* tex = IconManager::GetIcon("gold_quest", false);
+    still = false;
+    side = false;
+    if (uint32_t task = e->GetTalkTask()) {
+        if (Tasks::TaskInfo* info = Tasks::GetTask(task)) {
+            if (info->character2) tex = info->character2;
+            if (info->sidequest) side = true;
+            if (info->repeatTask) still = true;
+        }
+    }
+    uint32_t special = e->GetSpecialTalk();
+    if (special == 0x4b6 || special == 0x4b4 || special == 0x695) tex = IconManager::GetIcon("arena", true);
+    if (special == 0x1d7) tex = IconManager::GetIcon("gold_map", true);
+    icon->SetTexture(tex);
+    iconSide->SetTexture(tex);
+    if ((unsigned)(GameState::tutorial - 0x38) < 2) icon->SetTexture(IconManager::GetIcon("gold_quest", false));
+}
+
+// @0x398e18
+void TalkHoverWindow::SetPosition(int x, int y) {
+    y -= 10;
+    if (entity) {
+        y += entity->GetEntityData()->iconY;
+        // (the lying entity 0x16f)
+        if (entity->GetEntityData()->id == 0x16f && entity->GetCurrentAnimation() &&
+            entity->GetCurrentAnimation()->name == "death")
+            y += 0x3c;
+    }
+    BuildingHoverWindow::SetPosition(x, y);
+    int bob = still ? 0 : (int)(std::cos(t * 8.f) * 4.f);
+    root->SetPosition(x - root->w / 2, (y - root->h) + bob);
+    rootSide->SetPosition(x - rootSide->w / 2, (y - rootSide->h) + bob);
+    if (GameState::tutorial != 0x51) return;
+    // The tutorial's arrow points at the button and its tap talks.
+    GUI::SetInteractionObjectLock(button, entity);
+    if (arrowCallback != BuildingHovers::GetArrowClickCallbackID())
+        arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnTalkTo(); }));
+    if (WindowManager::GetShownWindowCount() == 0 && !BuildingPlacement::Activated() && !BuildingMovement::Activated())
+        BuildingHovers::ArrowAt((float)(root->x + root->w / 2), (float)root->y, false, false, false, false, false, false,
+                                false);
+}
+
+// @0x3990c4
+bool TalkHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    int wx = x, wy = y;
+    Map::MouseCoordinatesToWorld(wx, wy);
+    if (root->Click(wx, wy, pressed, false)) return !pressed;
+    if (rootSide->Click(wx, wy, pressed, false)) return !pressed;
+    return false;
+}
 
 void UseItemHoverWindow::Init() {
     root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Button_work_here_holder.xml",
