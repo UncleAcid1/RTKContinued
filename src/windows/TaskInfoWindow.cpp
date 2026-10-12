@@ -4,10 +4,9 @@
 // (libkingdom.so 5.11), 0x359dc8..0x35e9xx. Statics at 0x62f9e4.
 //
 // Not ported, marked where they happen: the boss form of the window (a boss's portrait, fight /
-// shop buttons, OnFight: milestone 4g), TaskSubtask::OnHelp and the map switch behind the action
-// button (4d part 2b), the task locator icon (4d part 4), ExecuteFirstHelp @0x35d3dc (the autoplay
-// bot, 4d part 4), the windows Show opens for a few special tasks (chests, PvP, item shop:
-// milestone 5), Locations::GetMapName (4f), sounds (6).
+// shop buttons, OnFight: milestone 4g), the task locator icon (4d part 4), ExecuteFirstHelp
+// (0x35d3dc, the autoplay bot: 4d part 4), the windows Show opens for a few special tasks (chests,
+// PvP, item shop: milestone 5), Locations::GetMapName (4f), sounds (6).
 #include <cstdio>
 #include <vector>
 
@@ -158,16 +157,23 @@ void OnHelpActual(unsigned step) {
     }
     Tasks::SetLastSubTaskHelp(s.id);
     // UNVERIFIED (4d part 4): HUDWindow::SetTaskLocaterIcon(s.GetIcon(), showInBattle, sidequest, quickTask).
-    // UNVERIFIED (4d part 2b / milestone 5): unless the step is "enter map" or the task 0x5c9, the
-    // world map closes (GlobalMapWindow::Hide; a city task met outside the city also refreshes
-    // the quest list) or, for a task of another map, Tasks::HelpWithMapSwitchTo(its map).
-    // UNVERIFIED (milestone 4g): with a boss set, a "kill" step for it starts the fight (OnFight).
-    if (GameState::GetSubTaskDone(s.id) < s.amount) {
-        // UNVERIFIED (4d part 2b): Tasks::TaskSubtask::OnHelp(!dnAssist); when it helped, the
-        // arrows may show above one window (BuildingHovers::SetArrowVisibleWindowLimit(1)).
-        std::printf("TaskInfoWindow::OnHelpActual() Help with subtask %d\n", s.id);
+    if (s.type != Tasks::kEnterMap && t->id != 0x5c9) {
+        // (GlobalMapWindow::Hide here: milestone 5; a city task met outside the city also
+        // refreshes the quest list)
+        if (t->isCity && GameState::GetCurrentMapID() == 0) TaskHolderWindow::UpdateTasks();
+        else if (t->mapId != 0 && GameState::GetCurrentMapID() != Tasks::NormalizeMapID(t->mapId)) {
+            Tasks::HelpWithMapSwitchTo(Tasks::NormalizeMapID(t->mapId), true, false, 0);
+            return;
+        }
     }
-    // UNVERIFIED (4d part 2b): else a task of another map (debugMap) switches there.
+    // UNVERIFIED (milestone 4g): with a boss set, a "kill" step for it starts the fight (OnFight).
+    if (GameState::GetSubTaskDone(s.id) < s.amount && s.OnHelp(!t->dnAssist)) {
+        if (g_resetArrowLimit) BuildingHovers::SetArrowVisibleWindowLimit(1);
+        return;
+    }
+    if (s.type == Tasks::kEnterMap || t->debugMap == 0) return;
+    if (GameState::GetCurrentMapID() == Tasks::NormalizeMapID(t->debugMap)) return;
+    Tasks::HelpWithMapSwitchTo(Tasks::NormalizeMapID(t->debugMap), true, false, 0);
 }
 
 // @0x35a490 TaskInfoWindow::Hide
@@ -390,8 +396,8 @@ void Init() {
     g_shopIcon = GUI::GetWindowTypedF<Window>(g_root, "button_boss_boss_%02d.button_boss_task_button.icon_60_boss", 2);
     g_shopIcon->takesZ = true;
     g_shopText = GUI::GetWindowTypedF<Textfield>(g_root, "button_boss_boss_%02d.button_boss_task_button.text_upgrade", 2);
-    g_fight->SetOnClick([] {});   // UNVERIFIED (milestone 4g): OnFight @0x35a548
-    g_shop->SetOnClick([] {});    // UNVERIFIED (milestone 5): OnShop @0x35a4f8 (the item shop's tab 3)
+    g_fight->SetOnClick([] {});   // UNVERIFIED (milestone 4g): OnFight (0x35a548)
+    g_shop->SetOnClick([] {});    // UNVERIFIED (milestone 5): OnShop (0x35a4f8) (the item shop's tab 3)
     g_fight->MoveWindow(0, (int)(g_scale * 20.f));
     g_shop->MoveWindow(0, (int)(g_scale * 20.f));
     g_rewardHolder = GUI::GetWindowTyped<Window>(g_root, "task_reward_holder");

@@ -52,6 +52,7 @@ struct TaskSubtask {             // 0x48 bytes, three per task (TaskInfo+0x18)
     Render::Texture* GetIcon();             // @0x22fbb4
     bool HasValue(uint32_t v) const;        // @0x230828 v is `value` or in `values`
     void SetAttribute(const char* name, const char* value);   // @0x22fd44
+    bool OnHelp(bool arrow);                // @0x2381d8 the action button (TasksHelp.cpp)
 };
 
 struct TaskInfo {                // 500 bytes
@@ -187,6 +188,11 @@ void ChangeTaskAttribute(uint32_t task, const char* name, const char* value);
 // @0x230a44: unless one of the groups' tasks is running, one of them that is open is started at
 // random (the groups are settings listing task ids). True when one was started.
 bool LaunchDailyTaskFromGroup(const char* const* groups, unsigned count, TaskInfo** current, unsigned currentCount);
+// The quest help (TasksHelp.cpp).
+void HelpWithLocation(int x, int y, int tileX, int tileY);                        // @0x22f53c
+void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item);    // @0x235964
+void HelpWithMapSwitchToContinuation();                                           // @0x235e24
+void RunLastSubTaskHelp();                                                        // @0x23a968
 // PORT (docs/balance_plan.md): the crystals a completed task pays offline, by its kind and the
 // player's level; 0 for hints and tutorial pop-ups.
 int PortQuestCrystals(const TaskInfo* task);

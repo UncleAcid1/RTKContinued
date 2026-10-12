@@ -56,6 +56,7 @@ add_executable(rtk
   src/game/Tags.cpp
   src/game/Items.cpp
   src/game/Tasks.cpp
+  src/game/TasksHelp.cpp
   src/game/EntityMeta.cpp
   src/game/Override.cpp
   src/game/Setting.cpp

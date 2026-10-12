@@ -1309,4 +1309,23 @@ void Update(bool force) {
     if (changed) HUDWindow::UpdateTasks();
 }
 
+// @0x23a968 Tasks::RunLastSubTaskHelp: after travelling for a step, its help runs again on arrival.
+void RunLastSubTaskHelp() {
+    if (g_lastSubTaskHelpEnabled && g_lastSubTaskHelp != 0) {
+        TaskInfo* cur[0x80] = {};
+        unsigned n = GetCurrentTasks(cur, 0x80, false, false);
+        for (unsigned i = 0; i < n; ++i) {
+            int step = -1;
+            for (int k = 0; k < 3; ++k)
+                if (cur[i]->subtasks[k].id == g_lastSubTaskHelp) step = k;
+            if (step < 0) continue;
+            BuildingHovers::SetArrowVisibleWindowLimit(2);
+            cur[i]->subtasks[step].OnHelp(true);
+            break;
+        }
+    }
+    g_lastSubTaskHelp = 0;
+    g_lastSubTaskHelpEnabled = false;
+}
+
 }  // namespace Tasks

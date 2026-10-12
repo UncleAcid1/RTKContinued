@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-2a done (HUD quest list, quest window)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-2 done (HUD quest list, quest window, the Go button)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -713,8 +713,41 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified headless (temporary hook, removed): tapping a quest button opens the window for
    task 1281 (two steps, XP + gold) and 389 (one step, five rewards), sized and centred right;
    the action button closes it and reaches OnHelpActual with the right step.
-   NEXT: 4d part 2b (Tasks::TaskSubtask::OnHelp @0x2381d8 with HelpWithLocation,
-   HelpWithMapSwitchTo, RunLastSubTaskHelp, ShowWarriorSlotUnlock; check its jump table in the asm).
+   4d PART 2b DONE: the quest help. src/game/TasksHelp.cpp: TaskSubtask::OnHelp @0x2381d8 (its
+   switch written from the real jump table at 0x238238: 0x44 entries, read with elfread),
+   HelpWithLocation @0x22f53c, HelpWithMapSwitchTo @0x235964 (+ Continuation); Tasks.cpp:
+   RunLastSubTaskHelp @0x23a968. TaskInfoWindow::OnHelpActual now runs them. Fully ported step
+   types (all of the city's): build house (the unfinished building's arrow, else the shop on it
+   with its arrow), build decoration (edit mode), upgrade house (speed-up arrow / the building's
+   window with the upgrade arrow / the shop / the farm's upgrade button), increase land (camera
+   to the area's middle x = 30 + (x + w/2) * 84, y = (y + h/2) * 21 - 90; the arrow's tap is
+   Map::ClickToBuyArea) and any land (Map::GetNextAreaID), balance (NotEnoughWindow), order start /
+   end / speed-up (the workshop's window with the arrow on the order, the shop when it is not
+   built, the farm hover in the farm), build / upgrade any, start building, build and not finish,
+   train in building (a non-barracks building's arrow), buy farm patch, get item / balance item
+   for an item made in a building (NeedItemWindow::OnProduce) or lying on the ground, the
+   pyramids' "HELP_FIND_RUBY", cast spell in the city, travel home ("TRAVEL_HOME" pop-up), "cannot
+   travel" in combat. PORT: buy_real_money opens the exchange.
+   IMPORTANT LESSON (2026-10-11): the scratch `raw` listing filter dropped standalone `goto x;` /
+   `return x;` lines (they look like declarations). scratch raw.sh now keeps them. Parts 1 and 2a
+   were re-read with it: two fixes (TaskInfoWindow::Click when hidden; the arena list's begin
+   times). When writing a new filter, test it on a function with a switch first.
+   UNVERIFIED in OnHelp, one comment per case: 4e decorations to use / click and FollowDecor; 4f
+   persons, spawn points, portals, fog (ShowTaskLocaterTo); 4g enemies and spells; 5 the world
+   map (every switch to another map only prints "the world map is not ported yet"), item shop,
+   hire / craft / character / set / heal / level windows; 3f details of the farm view (the arrow
+   on a growing patch, "WORK_RES_NO_SPACE"). Render::CenterOn is the instant one (the animated,
+   zooming form is not ported). OBSERVED, to compare with the original if the user remembers:
+   for an area at the map's edge the camera stops at the land's limit and the arrow (at the
+   area's middle) can be just off screen.
+   Verified headless (temporary hook, removed): "Order" of task 1281 (get 3 toolkits) opens the
+   shop on the Smithy with the arrow on its cell; "Expand" moves the camera and places the arrow
+   at (1240, 183) for area 3; HelpWithLocation at the hero shows the arrow and centres on him.
+   LEFT IN 4d (146): part 3 TaskCompleteWindow; part 4 TaskListWindow, LevelInfoWindow,
+   HelpWindow, locators (HUDWindow), BattleBarWindow's quest lines, the ExecuteFirstHelp chain
+   (autoplay bot), CastleTopWindow's featured quest, arrows' callbacks; part 5
+   TaskQuickCompleteWindow (ASK FIRST).
+   NEXT: 4d part 3 (TaskCompleteWindow; then remove the "completed at once" PORT in Tasks::Update).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
