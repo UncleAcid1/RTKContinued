@@ -61,7 +61,7 @@ void LoadSpawnPoints(SaveManager::SaveBlock* block) {
         s->npc = r.u8() != 0;
         s->clas = r.u8();
         s->f18 = r.u8();
-        s->f1c = r.u8();
+        s->aggroRange = r.u8();
         s->f20 = r.u8() != 0;
         s->f24 = r.u8();
         s->initiative = r.u8();
@@ -136,7 +136,7 @@ void SaveSpawnPoints() {
         SaveChar(s->npc);
         SaveChar((uint8_t)s->clas);
         SaveChar((uint8_t)s->f18);
-        SaveChar((uint8_t)s->f1c);
+        SaveChar((uint8_t)s->aggroRange);
         SaveChar(s->f20);
         SaveChar((uint8_t)s->f24);
         SaveChar((uint8_t)s->initiative);

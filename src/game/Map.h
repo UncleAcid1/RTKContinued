@@ -423,9 +423,21 @@ void OfflineUpdate(double dt);
 float GetSpriteZ(float a, float b, int c);             // @0x1b6814
 // Extent (tiles) of the unowned patches that border owned land; the whole grid if there are none.
 void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b6a20
-// Camera paths (tutorial and quest camera moves, Map::AddCameraPoint) are not ported yet, so the
-// list is always empty: InterruptCamera does nothing and IsCameraMoving is false.
-void InterruptCamera();                                // @0x1bf6d4
+// ---- the scripted camera (MapCamera.cpp)
+// @0x1c08cc: one more point for the view to visit: tile, seconds to stay and to travel, whether the
+// hero may go on walking, a world point for the help arrow (0, 0: none), zoom on the way, whether
+// the view returns to the hero after the last point, extra fog radius, a task to complete on leaving.
+void AddCameraPoint(int x, int y, int wait, int travel, int keepHero, int arrowX, int arrowY, int f1c, float zoom,
+                    bool returnToPlayer, float fogRadius, uint32_t task);
+// PORT helper: the points of a CAM... expression (x:y:wait[:travel[:keepHero[:f1c[:zoom %[:fog
+// radius[:task]]]]]]) from entry `first`, with the cinematic bars.
+void AddCameraPath(const MetaData* list, unsigned first);
+void ClearCameraPoints();                              // @0x1bf69c
+void AddCameraShake(float time, float strength);       // @0x1b7438
+void AddCameraCinematic();                             // @0x1b81a8
+void UpdateCamera(float dt);                           // PORT: Map::Update's camera part
+// @0x1bf6d4: a path that lets the hero walk is dropped (the hero was told to go somewhere).
+void InterruptCamera();
 bool IsCameraMoving();                                 // @0x1b82c4
 
 }  // namespace Map

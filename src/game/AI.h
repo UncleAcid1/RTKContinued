@@ -34,6 +34,7 @@ struct Waypoint {                // 0x4c bytes
 };
 
 extern bool allowWaypointLink;   // 0x60ef0c (1)
+extern bool showDebug;           // AI::showDebug: the debug overlays (never switched on in the port)
 extern float weightCost;         // AI::mWeigthCost 0x60ef10 (1.41): factor for the left/down/right/up steps
 void SetWeight(float w);          // @0xe1c20
 

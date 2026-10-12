@@ -17,6 +17,7 @@
 namespace AI {
 
 bool allowWaypointLink = true;
+bool showDebug = false;
 float weightCost = 1.41f;
 
 // @0xe1c20 AI::SetWeight

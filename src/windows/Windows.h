@@ -232,6 +232,8 @@ void UpdateContents();                      // @0x360908
 void Show();                                // @0x361fcc
 void Hide();                                // @0x35eb20
 void RunLastHelpItem();                     // @0x35ecb0
+void FindGoblin();                          // @0x361df4
+void BuyGoblin();                           // @0x35eaf0
 }
 
 // "Item needed": craft the item in its building or buy it; also the quest/map-object item questions.

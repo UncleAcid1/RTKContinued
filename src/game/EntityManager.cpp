@@ -74,6 +74,11 @@ Entity* SpawnEntityAt(SpawnPoint* sp, bool appear, bool glow) {
     return e;
 }
 
+void UpdateAggroZone() {
+    for (Entity* e : g_entities)
+        if (e->GetAI()) e->GetAI()->UpdateAggroZone();
+}
+
 Entity* GetEntityBySpawnPoint(uint32_t id) {
     for (Entity* e : g_entities)
         if (e->GetSpawnPointID() == id) return e;

@@ -76,6 +76,13 @@ dead  ^GameState::GetBuildingCount$   # only BuildingMovement::Click's warehouse
 dead  ^Locations::ReportLocationTaskState$   # a debug print with no caller
 online  ^GameState::GiveAllChaptersTillCompleted$   # tells Android which downloadable chapter packs to fetch (FileManager::SetChapterNow, JNI)
 
+4g  ^AIEnemy::CheckAggro$   # starts the AggroCombat (GameState::SetCombat, Entity::OnAggro, the boss task window)
+4g  ^EventManager::   # timed combat events (Entity::DoMeleeAttack / DoRangedAttack, Building::ProjectileLanded)
+util  ^Locations::FUN_001b2494$   # the location vector's reallocation helper (std::vector in the port)
+dead  ^Map::(Person::|PersonData::|LoadPersonList|GetPersonData|GetRandomPersonData|PersonsDeinit)   # the map's own person list (persons.xml read a second time): Map::Person is never constructed in 5.11, nothing reads the list
+online  ^GameState::LoadEntitiesFromCopy$   # only VisitFriendCity
+5  ^CmdOpenMap$   # an EditorConsole command (the admin mode), through GlobalMapWindow::SwitchMap
+4g  ^Entity::GetClosestWPTo$   # only EasyAI::DoMeleeAttackIfReady (needs AI::GetNearestReachableWPZeroWeight)
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
 4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
 
@@ -144,7 +151,7 @@ dead  ^TaskQuickCompleteWindow::   # an unused second quest-complete window ("cl
 5   ^LevelInfoWindow::   # the levels-and-professions window: UpdateContents / OnTab are built on Professions (5), Collections, PvP statistics, ItemShopWindow; moved from 4d on 2026-10-11
 online  ^HelpWindow::   # the platform web view of the help pages (FileManager::BlogProcess); callers: OnHelp, CastleTopWindow::OnPvP, UpdateServerFlags
 util  ^TaskListWindow::FUN_(0035ef14|0035f000|0035f194|0035f210|0035fef8|0035ffe4|00360138|00360224|00360854)   # std::sort / std::stable_sort instances and the slot list's growth
-4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins (GameState::GetOfflineGoblin); BuyGoblin's hire window is 5
+4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins
 4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::
 4d  ^Shared::TaskWindow::
 5   ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)   # the featured-quest button: every featured quest opens a milestone-5 window (pyramid exchange, chests, item shop sale, PvP); ASK the user which promotions stay

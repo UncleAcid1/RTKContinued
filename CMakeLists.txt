@@ -32,6 +32,7 @@ add_executable(rtk
   src/game/Map.cpp
   src/game/Fog.cpp
     src/game/Locations.cpp
+    src/game/MapCamera.cpp
     src/game/MapDecor.cpp
     src/game/MapSpawn.cpp
   src/game/Game.cpp
@@ -48,7 +49,8 @@ add_executable(rtk
   src/game/Animation.cpp
   src/game/AI.cpp
   src/game/AIState.cpp
-  src/game/AIFarm.cpp
+    src/game/AIEnemy.cpp
+    src/game/AIFarm.cpp
   src/game/AIPlayer.cpp
   src/game/Entity.cpp
   src/game/EntityManager.cpp

@@ -267,8 +267,25 @@ void AIPlayer::ClickedEntity(Entity* e) {
     // UNVERIFIED (milestones 4f/4g): the PvP-tutorial steps on an enemy tap (secondTutorial 0x203 ->
     // 0x204, 0x206 -> 0x207, 0x20e -> 0x20f; 0x21a on a boss -> 0x9f) need Entity::IsEnemy/IsBoss;
     // (4c) an entity with a meta expression of type 0x98 (a PvP shadow) starts action 8; (4g) in
-    // combat a monster tap selects the target; (4c/4f) a talk task or special talk walks to it for
-    // action 2; (4b/4g) a corpse with an item is searched (action 6).
+    // combat a monster tap selects the target; (4b/4g) a corpse with an item is searched (action 6).
+    // Somebody with something to say: the hero walks up to it (action 2 on arrival).
+    if (!entity->f36 && (e->GetTalkTask() != 0 || e->GetSpecialTalk() != 0) && !GameState::IsCombatActive()) {
+        if (GameState::GetCurrentMapID() == 0) {
+            Map::Patch* p = Map::GetPatchForCoordinates(e->tileX, e->tileY, false);
+            if (p && !p->owned) return;
+        }
+        AI::Waypoint* near = AI::GetNearestWP(e->tileX, e->tileY, entity->worldX, entity->worldY, arrivalDir);
+        if (!near) return;
+        actionWP = near;
+        action = 2;
+        actionTarget = e;
+        if (GameState::tutorial == 0x51) near = AI::GetWaypoint(0x1b, 0x15, false);
+        GotoMarkerAt(e->tileX, e->tileY);
+        // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)". (4f, hovers):
+        // BuildingHovers::HideWorldDialog(nullptr).
+        entity->GetSquad()->MoveTo(near);
+        return;
+    }
     AI::Waypoint* wp = AI::GetWaypoint(e->tileX, e->tileY, false);
     if (!e->IsDead() && !GameState::IsCombatActive() && wp && SetTarget(wp, true)) {
         e->OnClick();
@@ -474,13 +491,18 @@ unsigned AIPlayer::GetBestDecorationActionPoint(Map::Decor* d) {
 void AIPlayer::SendGoblinToWork(Map::Decor* d) {
     Entity* goblin = GameState::GetGoblin();
     if (!goblin || goblin->GetWorkplaceDecoration()) {
-        // UNVERIFIED (milestones 4f / 5): "find" (FUN_000ee920) and "buy" (FUN_000ee97c) lead to
-        // the goblins' window; the buttons only close the popup until then.
+        // "Find" (FUN_000eeb70) leads to the goblin, "buy" (FUN_000eeb60) home to the hire window.
         PopupSelectionWindow::Show(StringTable::GetString("MESSAGE_GOBLIN_NOT_AVAILABLE"),
                                    StringTable::GetString("GOBLIN_NOT_AVAILABLE_DESC"),
                                    StringTable::GetString("PERFORM_FIND"), IconManager::GetIcon("gold_find", false),
-                                   [] { PopupSelectionWindow::Hide(); }, StringTable::GetString("PERFORM_BUY"),
-                                   IconManager::GetIcon("gold_add", false), [] { PopupSelectionWindow::Hide(); });
+                                   [] {
+                                       PopupSelectionWindow::Hide();
+                                       TaskListWindow::FindGoblin();
+                                   },
+                                   StringTable::GetString("PERFORM_BUY"), IconManager::GetIcon("gold_add", false), [] {
+                                       PopupSelectionWindow::Hide();
+                                       TaskListWindow::BuyGoblin();
+                                   });
         PopupSelectionWindow::SetGoblinIcon();
         return;
     }
@@ -648,10 +670,17 @@ void AIPlayer::ProcessAction() {
         }
         break;
     }
-    case 2:
-        // UNVERIFIED (milestones 4c/4f): talking: NeedItemWindow for a task wanting items, else
-        // Entity::OnTalkTo.
+    case 2: {   // talking: a task that takes items asks first
+        Entity* e = static_cast<Entity*>(actionTarget);
+        Tasks::TaskInfo* t = Tasks::GetTask(e->GetTalkTask());
+        if (!t || t->giveItemCount == 0) {
+            e->OnTalkTo();
+        } else {
+            NeedItemWindow::SetItemsToBeRemoved(t->id, new std::function<void()>([e] { e->OnTalkTo(); }));
+            NeedItemWindow::Show();
+        }
         break;
+    }
     case 3: {   // the job on the hero's decoration: its price or item is confirmed first
         Map::Decor* d = entity->GetWorkplaceDecoration();
         auto ask = [this, d](uint32_t item, int resource, unsigned amount) {

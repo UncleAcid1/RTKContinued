@@ -877,6 +877,41 @@ uint32_t InternalItemBindingToExternal(uint32_t slot) {
 
 void AddOfflineBuilding(const OfflineBuilding& b) { g_offlineBuildings.push_back(b); }
 void ClearOfflineBuildings() { g_offlineBuildings.clear(); }
+OfflineBuilding* GetOfflineBuilding(unsigned i) { return &g_offlineBuildings[i]; }
+unsigned GetOfflineBuildingCount() { return (unsigned)g_offlineBuildings.size(); }
+OfflineBuilding* GetOfflineBuildingWithID(uint32_t id) {
+    for (OfflineBuilding& b : g_offlineBuildings)
+        if (b.id == id) return &b;
+    return nullptr;
+}
+
+namespace { std::vector<OfflineGoblin> g_offlineGoblins; }   // 0x612d9c
+OfflineGoblin* GetOfflineGoblin(unsigned i) { return &g_offlineGoblins[i]; }
+unsigned GetOfflineGoblinCount() { return (unsigned)g_offlineGoblins.size(); }
+void RemoveOfflineGoblin(Entity* e) {
+    for (size_t i = 0; i < g_offlineGoblins.size(); ++i)
+        if (g_offlineGoblins[i].entity == e) {
+            g_offlineGoblins.erase(g_offlineGoblins.begin() + (long)i);
+            return;
+        }
+}
+void UpdateOfflineGoblins(float) {
+    for (OfflineGoblin& g : g_offlineGoblins) {
+        int left = g.entity->f78 - Timer::GetGlobalTime();
+        g.timeLeft = (uint32_t)(left < 0 ? 0 : left);
+    }
+}
+void ClearOfflineGoblins() { g_offlineGoblins.clear(); }
+void RefreshOfflineGoblins() {
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i) {
+        if (e->workType <= 0 || e->GetEntityData()->clas != 0x10) continue;
+        bool listed = false;
+        for (const OfflineGoblin& g : g_offlineGoblins) listed |= g.entity == e;
+        if (listed) continue;
+        int left = e->f78 - Timer::GetGlobalTime();
+        g_offlineGoblins.push_back({e, (uint32_t)(left < 0 ? 0 : left)});
+    }
+}
 
 // ---------------------------------------------------------------------------------- saving
 namespace {

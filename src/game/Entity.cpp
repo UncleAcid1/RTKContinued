@@ -6,6 +6,7 @@
 
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "engine/Timer.h"
 #include "game/AI.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
@@ -14,6 +15,7 @@
 #include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Map.h"
@@ -23,6 +25,7 @@
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
+#include "windows/Windows.h"
 
 namespace {
 uint32_t g_entityTime = 0;     // 0x6119b0 Entity::SetCurrentTime
@@ -760,6 +763,43 @@ void Entity::SetSpawnPoint(SpawnPoint* sp) {
     initiative = sp->initiative;
     if (sp->hasHp) hp = sp->hp;
     if (sp->hasHpMax) hpMax = sp->hpMax;
+}
+
+// @0x1577c0 Entity::OnTalkTo
+void Entity::OnTalkTo() {
+    if (talkTask == 0) {
+        switch (specialTalk) {
+        case 0x1d7:
+            // UNVERIFIED (milestone 4f, windows): ChoosePathWindow::Show.
+            break;
+        case 0x578:
+            TaskInfoWindow::SetTask(0x5b7, false);
+            TaskInfoWindow::Show();
+            break;
+        default:
+            // UNVERIFIED (milestone 5): 0x4b6 / 0x4b4 ArenaEventWindow (parameter 0 / 1), 0x695
+            // PlayerCompetitionWindow's view 1, tab 4.
+            break;
+        }
+        return;
+    }
+    // Task 0x5a3 lets location 0x43's map be entered again at once.
+    if (talkTask == 0x5a3) {
+        Locations::LocationInfo* loc = Locations::GetLocationInfo(0x43);
+        if (loc && GameState::GetMapEndTime(loc->startMap) != 0 &&
+            (uint32_t)Timer::GetGlobalTime() < GameState::GetMapEndTime(loc->startMap) + loc->timeout)
+            GameState::SetMapEndTime(loc->startMap, (uint32_t)Timer::GetGlobalTime() - loc->timeout);
+    }
+    if (spawnPoint) Tasks::CompleteSubtask(Tasks::kTalkToPerson, spawnPoint->id, 1);
+    talkTask = 0;
+    if (GameState::secondTutorial == 0x201) GameState::secondTutorial = 0x202;
+    else if (GameState::secondTutorial == 0x20b) GameState::secondTutorial = 0x20c;
+    else if (GameState::secondTutorial == 0x219 || GameState::secondTutorial == 0x217) GameState::secondTutorial = 0x21a;
+    Tasks::Update(true);
+    BuildingHovers::Update(0.0, true);
+    // UNVERIFIED (milestone 6): unless a world dialog shows, its voice: "troll_attack" for a troll
+    // ("type" 2), else "interact_entity_" + (the emperor: "emperor_", else M/F and N (fat) / S) +
+    // "1talks" / "2talks" / "3talks" by the level and GameState::dialogueTimer.
 }
 
 // @0x14ffa4

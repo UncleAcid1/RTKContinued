@@ -51,6 +51,7 @@ void OnInteract(uint32_t object);                // @0x1666e4
 void OnSubTaskCompleted(uint32_t subtask);       // @0x166730
 void OnTaskCompleted(uint32_t task);             // @0x16677c
 void ExecuteStaticMeta();                        // @0x166820 OnSetup of each (Map::Load)
+void UpdateAggroZone();                          // @0x166978 every AI's (Map::Load)
 int GetEntityCount(bool permanentOnly);          // @0x167c54
 Entity* GetPlayer();                             // @0x165500
 // @0x166c18: the soldiers (class 10) with +0x3b join the player's squad and SoldierSlots, the others

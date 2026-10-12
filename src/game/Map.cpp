@@ -617,9 +617,8 @@ void Decor::RemoveBlockedTiles() {
 }
 
 // ---- the quest reactions of a decoration's expression ------------------------------------------
-// Not ported yet, marked where they happen: the camera paths (Map::AddCameraCinematic 0x1b81a8 /
-// AddCameraPoint 0x1c08cc / AddCameraShake 0x1b7438, milestone 4f) and the spell effects
-// (ParticlePresets::OnSpell 0x1db8f8, milestone 6).
+// Not ported yet, marked where they happen: the spell effects (ParticlePresets::OnSpell 0x1db8f8,
+// milestone 6).
 
 namespace {
 
@@ -705,8 +704,12 @@ void Decor::OnSubTaskCompleted(uint32_t subtask) {
         // PARTICLE_AFTER_SUB_QUEST (name:task:subtask[:count[:fixed start]]).
         if ((d = e->GetDataWithType(kExpParticleAfterSubQuest)) && (uint32_t)Int(d, 2) == subtask)
             SetParticles(this, d, 3, false);
-        // UNVERIFIED (milestone 4f): CAM_AFTER_SUB_QUEST (a camera path) and
-        // SHAKE_AFTER_SUB_QUEST (task:subtask:strength:time).
+        // CAM_AFTER_SUB_QUEST (task:subtask, then the path) and SHAKE_AFTER_SUB_QUEST
+        // (task:subtask:milliseconds:strength).
+        if ((d = e->GetDataWithType(kExpCamAfterSubQuest)) && (uint32_t)Int(d->GetChild(0), 1) == subtask)
+            AddCameraPath(d, 1);
+        if ((d = e->GetDataWithType(kExpShakeAfterSubQuest)) && (uint32_t)Int(d, 1) == subtask)
+            AddCameraShake((float)Int(d, 2) / 1000.f, (float)Int(d, 3));
         // UNVERIFIED (milestone 6): SPELL_AFTER_SUB_QUEST (task:subtask:x:y:spell[:arg]).
     }
 }
@@ -736,7 +739,10 @@ void Decor::OnTaskCompleted(uint32_t task) {
         // PARTICLE_AFTER_QUEST (name:task[:count[:fixed start]]).
         if ((d = e->GetDataWithType(kExpParticleAfterQuest)) && (uint32_t)Int(d, 1) == task)
             SetParticles(this, d, 2, false);
-        // UNVERIFIED (milestone 4f): CAM_AFTER_QUEST and SHAKE_AFTER_QUEST (task:strength:time).
+        // CAM_AFTER_QUEST (task, then the path) and SHAKE_AFTER_QUEST (task:milliseconds:strength).
+        if ((d = e->GetDataWithType(kExpCamAfterQuest)) && (uint32_t)Int(d, 0) == task) AddCameraPath(d, 1);
+        if ((d = e->GetDataWithType(kExpShakeAfterQuest)) && (uint32_t)Int(d, 0) == task)
+            AddCameraShake((float)Int(d, 1) / 1000.f, (float)Int(d, 2));
         // UNVERIFIED (milestone 6): SPELL_AFTER_QUEST (task:x:y:spell[:arg]).
     }
 }
@@ -834,7 +840,9 @@ void Decor::OnSetup() {
             UpdateImage();
             UpdateMapLink();
         }
-        // UNVERIFIED (milestone 4f): CAM (a camera path) the first time on this map.
+        // CAM: a camera path the first time on this map.
+        if ((d = meta->FindChildData(kExpCam2)) && GameState::GetMapStartTime(GameState::GetCurrentMapID()) == 0)
+            AddCameraPath(d, 0);
         // UNVERIFIED (milestone 5): CRAFT (a profession's resource node: after its regrow time
         // Professions::GenerateProfessionObject gives it a new object, its tile is blocked and it
         // gets the "bless" particles; Professions::IsProfessionObject 0x1e8268).
@@ -1879,8 +1887,7 @@ void Update(double dt) {
         g_placements.pop_back();
         // UNVERIFIED (milestone 4h): in tutorial step 0x3a a callback on this building is queued.
     }
-    // UNVERIFIED (milestones 4f/4g): the camera points (AddCameraPoint: reveal, arrows, tasks), the
-    // camera shake (AddCameraShake) and the cinematic bars (AddCameraCinematic).
+    UpdateCamera(fdt);
     g_resortTimer += fdt;
     if (g_resortTimer >= 0.757f) {
         Render::SortRenderLayer(Render::kLayerObjects, 1);
@@ -1929,8 +1936,6 @@ void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY) {
     maxY = GetGridHeight();
 }
 
-void InterruptCamera() {}
-bool IsCameraMoving() { return false; }   // UNVERIFIED: GameState::IsPaused path (unlocks the GUI)
 
 float GetSpriteZ(float a, float b, int c) {
     float v = (a + b * -0.25f) / 15.f / 1000.f;
@@ -1991,15 +1996,16 @@ void Free() {
 bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromCache) {
     g_loading = true;
     // What is left of the map being left.
-    // UNVERIFIED (milestone 4f, cameras and hovers): ClearCameraPoints (twice) and
-    // BuildingHovers::HideWorldDialog. (milestone 5): the loading screen (LoadingScreenWindow, with
+    // UNVERIFIED (milestone 4f, hovers): BuildingHovers::HideWorldDialog. (milestone 5): the loading screen (LoadingScreenWindow, with
     // Render::minLayer 0xe) only shows when the switch starts from the open global map.
+    ClearCameraPoints();
     CastleTopWindow::HideTools();
     HUDWindow::HideLocators();
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();
     BuildingPlacement::Decline();
+    ClearCameraPoints();
     Free();
     Rand48::srand48((long)time);
     g_loaded = false;
@@ -2140,8 +2146,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
                 g_patches.size(), Render::SpriteCount());
     CreateRoadAI();
     if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
-    // (ProcessOfflineContracts @0x1b7434 is empty.) UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins
-    // (class 0x10 goblins away on a job). Music: milestone 5.
+    // (ProcessOfflineContracts @0x1b7434 is empty.) Music: milestone 6.
+    GameState::RefreshOfflineGoblins();
     AssignEntities();
     LinkPortals();
     UpdateSpawns();
@@ -2180,7 +2186,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     AI::allowWaypointLink = true;
     AI::LinkAdjacentWaypoints();
     SpawnEntities();
-    // UNVERIFIED (milestone 4f): EntityManager::UpdateAggroZone.
+    EntityManager::UpdateAggroZone();
     PrepareImages();
     if (GameState::GetCurrentMapID() == 0) {
         int x = 0x1e, y = 0xc;

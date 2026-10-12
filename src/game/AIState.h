@@ -80,7 +80,7 @@ public:
     virtual void ClickedPortal(Portal*) {}            // +0x58 @0xe81f4
     virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c @0xe81f8
     virtual void SearchDecoration(Map::Decor*) {}     // +0x60 @0xe81fc
-    virtual void UpdateAggroZone() {}                 // +0x64
+    virtual void UpdateAggroZone() {}                 // +0x64 @0xe8200
     virtual void UpdateLastTarget();                  // +0x68 @0xe8880
     virtual void WalkTo(int x, int y);                // +0x6c @0xe90f4
     virtual void WalkTo(AI::Waypoint* wp);            // +0x70 @0xe8954
@@ -123,7 +123,7 @@ public:
     virtual void StopMovement() {}                    // +0x140
     virtual void AutoInteraction() {}                 // +0x144 @0xe82c4
     virtual void CheckAggro() {}                      // +0x148
-    virtual void OnMapUnload() {}                     // +0x150
+    virtual void OnMapUnload() {}                     // +0x150 @0xe82d4
     virtual void UpdateWalking(float dt, int depth);  // +0x154 @0xe8a24
 
     void SetCustomWalkAnimation(const char* name) { walkAnim = name; }   // @0xe9b88
@@ -316,6 +316,25 @@ public:
     bool f78 = true, f79 = false; // +0x78 +0x79
     int f7c = 0;                  // +0x7c
     float f8c = 0.f, f90 = 0.f, f94 = 0.f;   // +0x8c +0x90 +0x94 (combat timers with +0x80..+0x98)
+};
+
+// A monster or a guard of a campaign map (AI state 9; AIEnemy @0xea184..0xea860). It keeps the
+// waypoints within its spawn point's aggro range; the hero stopping on one of them starts the fight
+// (CheckAggro: milestone 4g, with AggroCombat).
+class AIEnemy : public AIWarrior {
+public:
+    explicit AIEnemy(Entity* e) : AIWarrior(e) {}     // @0xea810
+    ~AIEnemy() override;                              // @0xea714
+    void OnWaypointRemove(AI::Waypoint* wp) override; // +0x08 @0xea198
+    void Update(float dt) override;                   // +0x4c @0xea694
+    void UpdateAggroZone() override;                  // +0x64 @0xea370
+    void PositionChanged() override { UpdateAggroZone(); }   // +0xdc @0xea184
+    // +0x14c @0xea204: the zone waypoint the hero has stopped on, if any.
+    AI::Waypoint* IsPlayerInAggroRange();
+    void DebugZone(AI::Waypoint* wp);                 // @0xea2ac a red mark on a zone waypoint
+
+    std::vector<AI::Waypoint*> zone;      // +0xe0
+    Render::Sprite* debugSprites = nullptr;   // +0xf0 chained by Sprite::next
 };
 
 // The hero (class 5). Taps on the map make the squad walk there (a "goto" marker shows the target,

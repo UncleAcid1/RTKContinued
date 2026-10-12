@@ -231,6 +231,9 @@ public:
     uint32_t GetTalkTask() const { return talkTask; }            // @0x1504cc
     void AssignSpecialTalk(uint32_t id) { specialTalk = id; }    // @0x1504d4
     uint32_t GetSpecialTalk() const { return specialTalk; }      // @0x1504dc
+    // @0x1577c0: the hero has reached it. Its talk task's step is done; without one its special talk
+    // opens a window (0x1d7 the travel choice, 0x578 task 0x5b7's window, the arena's: milestone 5).
+    void OnTalkTo();
     AI::Waypoint* GetCurentWP() const { return waypoint; }       // @0x150a08
     bool HasFixedLocation() const;               // @0x1518c8
     bool HasRandomLocation() const;              // @0x151914

@@ -214,6 +214,8 @@ const char* QueueName(WindowManager::WindowQueue* q) {
 // its drawing is Render::Frame.
 void Tick(float dt) {
     GameState::Update(dt);
+    GameState::UpdateOfflineBuildings(dt);
+    GameState::UpdateOfflineGoblins(dt);
     WindowManager::Update(dt);
     WindowManager::ProcessUpdate(dt);
     HUDWindow::Update(dt);
@@ -653,7 +655,8 @@ int main_Loop_Init() {
         !LoadSystemConfiguration(GameData::LoadDecorations, "decors.xml", "L", "Map::LoadDecorationList",
                                  6.0 / 46.0, 9, 9))
         return 1;
-    // UNVERIFIED (milestone 4f): Map::LoadPersonList "persons.xml" (7/46), the map's own person list.
+    // (Map::LoadPersonList "persons.xml", 7/46: the map's own person list is dead data in 5.11, no
+    // Map::Person is ever created.)
     EntityFactory::Init();
     EntityManager::Init();
     if (!LoadSystemConfiguration(LoadEntityFactoryData, "persons.xml", "I", "GetEntityFactory::Init",

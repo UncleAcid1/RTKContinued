@@ -13,7 +13,7 @@ struct SpawnPoint {
     bool npc = false;                // +0x10 (Entity::IsNPC)
     int clas = 0;                    // +0x14 the entity's class (5 or 10 with entity 0xc: the hero's own)
     int f18 = 0;                     // +0x18
-    int f1c = 0;                     // +0x1c
+    int aggroRange = 0;              // +0x1c how far (in steps) its enemy notices the hero (0: never)
     bool f20 = false;                // +0x20
     int f24 = 0;                     // +0x24 (0 for a wandering player shadow)
     int initiative = 0;              // +0x28 (Entity +0x130)

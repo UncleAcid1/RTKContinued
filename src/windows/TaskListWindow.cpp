@@ -3,11 +3,9 @@
 // opens the quest's window (a completed one only says so).
 // Port of TaskListWindow (libkingdom.so 5.11), 0x35e4e4..0x361fcc. Statics at 0x62fe24.
 //
-// UNVERIFIED (milestone 4f): the offline goblins (GameState::GetOfflineGoblin, workers sent to
-// another map). The original lists each of them before the quests in the All and Battle tabs
-// (goblin picture, the map's name, a countdown that Update refreshes) and a tap leads to it;
-// FindGoblin (0x361df4) and BuyGoblin (0x35eaf0, the hire window: milestone 5) belong to them.
-// The list of goblins is empty here, so those slots never appear.
+// The goblins away on a job (GameState::GetOfflineGoblin) are listed before the quests in the All
+// and Battle tabs (goblin picture, the map's name, a countdown that Update refreshes); a tap leads
+// to the goblin. BuyGoblin's hire window is milestone 5.
 // The original's sort helpers (0x35ef14, 0x35f000, 0x35f210: std::sort; 0x35fef8, 0x35ffe4,
 // 0x360138, 0x360224, 0x360854: std::stable_sort; 0x35f194: the slot list's growth) are the
 // standard library's here.
@@ -381,8 +379,15 @@ void UpdateContents() {
     }
     std::sort(cur, cur + n, TaskListOrdering);
     g_list.clear();
-    // UNVERIFIED (milestone 4f): in the All and Battle tabs the offline goblins that are on a map
-    // come first: {nullptr, goblin, goblin->GetCurrentMap(), now + its remaining time}.
+    // In the All and Battle tabs the goblins that are away on a map come first.
+    if (g_tab != kCity && g_tab != kCompleted) {
+        for (unsigned i = 0; (int)i < (int)GameState::GetOfflineGoblinCount(); ++i) {
+            GameState::OfflineGoblin* g = GameState::GetOfflineGoblin(i);
+            if (!g->entity || g->entity->GetCurrentMap() == 0) continue;
+            g_list.push_back({nullptr, g->entity, (uint32_t)g->entity->GetCurrentMap(),
+                              (uint32_t)Timer::GetGlobalTime() + g->timeLeft});
+        }
+    }
     for (unsigned i = 0; i < n; ++i) {
         if (g_tab == kBattle && !cur[i]->showInBattle) continue;
         if (g_tab == kCity && !cur[i]->isCity) continue;
@@ -450,17 +455,62 @@ void Hide() {
     if (g_root->visibleSelf) g_tween->AnimateOut();
 }
 
-// @0x35ecb0 TaskListWindow::RunLastHelpItem (Map::Load): after travelling for a slot, its tap runs again.
-// UNVERIFIED (milestone 4f): then the arrow on the goblin FindGoblin travelled to
-// (SetArrowVisibleWindowLimit(2), HelpWithLocation at it) and (milestone 5) BuyGoblin's
-// HireTroopsWindow::ShowForBuilding(0x12) + ShowSlot(GameState::GetGoblinCount()).
+// @0x35ecb0 TaskListWindow::RunLastHelpItem (Map::Load): after travelling for a slot, its tap runs
+// again; after travelling to a goblin the arrow points at it; BuyGoblin's trip home ends in the
+// hire window.
 void RunLastHelpItem() {
     if (g_lastHelpItem != 0xffffffff) {
         OnTask(g_lastHelpItem);
         g_lastHelpItem = 0xffffffff;
     }
-    g_goblin = nullptr;
+    if (g_goblin) {
+        for (unsigned i = 0; (int)i < (int)GameState::GetOfflineGoblinCount(); ++i) {
+            Entity* e = GameState::GetOfflineGoblin(i)->entity;
+            if (e != g_goblin || e->GetCurrentMap() != (int)GameState::GetCurrentMapID()) continue;
+            BuildingHovers::SetArrowVisibleWindowLimit(2);
+            Tasks::HelpWithLocation((int)e->worldX, (int)(e->worldY - 50.f), e->tileX, e->tileY);
+            break;
+        }
+        g_goblin = nullptr;
+    }
+    if (!g_buyGoblin) return;
+    // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(0x12, false) and
+    // ShowSlot(GameState::GetGoblinCount()).
     g_buyGoblin = false;
+}
+
+// @0x361df4 TaskListWindow::FindGoblin: the way to every goblin that has finished its job, then to
+// the one with the least time left (on another map: the trip there first).
+void FindGoblin() {
+    OnTab(0);
+    auto leadTo = [](Entity* e) {
+        if ((int)GameState::GetCurrentMapID() == e->GetCurrentMap()) {
+            Tasks::HelpWithLocation((int)e->worldX, (int)(e->worldY - 50.f), e->tileX, e->tileY);
+        } else {
+            g_goblin = e;
+            Tasks::HelpWithMapSwitchTo((uint32_t)e->GetCurrentMap(), true, false, 0);
+        }
+    };
+    for (unsigned i = 0; (int)i < (int)GameState::GetOfflineGoblinCount(); ++i) {
+        GameState::OfflineGoblin* g = GameState::GetOfflineGoblin(i);
+        if (g->entity && g->entity->GetCurrentMap() != 0 && g->timeLeft == 0) leadTo(g->entity);
+    }
+    unsigned best = 0xffffffff;
+    int bestTime = 0;
+    for (unsigned i = 0; (int)i < (int)GameState::GetOfflineGoblinCount(); ++i) {
+        GameState::OfflineGoblin* g = GameState::GetOfflineGoblin(i);
+        if (g->entity && g->entity->GetCurrentMap() != 0 && (best == 0xffffffff || (int)g->timeLeft < bestTime)) {
+            best = i;
+            bestTime = (int)g->timeLeft;
+        }
+    }
+    if (best != 0xffffffff) leadTo(GameState::GetOfflineGoblin(best)->entity);
+}
+
+// @0x35eaf0 TaskListWindow::BuyGoblin: home, where RunLastHelpItem opens the hire window.
+void BuyGoblin() {
+    g_buyGoblin = true;
+    Tasks::HelpWithMapSwitchTo(0, true, true, 0);
 }
 
 }  // namespace TaskListWindow

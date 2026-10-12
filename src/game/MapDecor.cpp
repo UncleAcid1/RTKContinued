@@ -318,8 +318,8 @@ void Decor::RemoveWorker() {
     if (worker == EntityManager::GetPlayer()) f50 = 0;
     worker->GetAI()->RemoveFromJob();
     worker->SetWorkplaceDecoration(nullptr);
-    // UNVERIFIED (milestone 4f): a goblin (not the hero) on the current map also leaves the
-    // offline goblins (GameState::RemoveOfflineGoblin 0x194bd4).
+    if (!worker->player && worker->GetCurrentMap() == (int)GameState::GetCurrentMapID())
+        GameState::RemoveOfflineGoblin(worker);
     worker = nullptr;
 }
 
@@ -630,7 +630,7 @@ void Decor::WorkStarted() {
     collectStart = now;
     if (worker && !worker->IsPlayer()) {
         worker->SetEndWorkTS((int)(now + f50));
-        // UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins (0x19c874).
+        GameState::RefreshOfflineGoblins();
     }
     // UNVERIFIED (milestone 6): the hero's start sound: SOUND, else the type's sound (DecorData
     // +0x60), else "gather_grass" / "gather_ore" for a herb / ore node and
@@ -792,8 +792,10 @@ void Decor::Finish() {
         }
         if ((d = meta->FindChildData(kExpInteractMessage)) && d->type == MetaData::kString && !shown)
             MessageHover(this, StringTable::GetString(d->GetString()));
-        // UNVERIFIED (milestone 4f): CAM_AFTER_INTERACT (Map::AddCameraCinematic 0x1b81a8 and an
-        // AddCameraPoint 0x1c08cc per entry) and SHAKE_AFTER_INTERACT (AddCameraShake 0x1b7438).
+        // CAM_AFTER_INTERACT (a camera path) and SHAKE_AFTER_INTERACT (milliseconds:strength).
+        if ((d = meta->FindChildData(kExpCamAfterInteract))) AddCameraPath(d, 0);
+        if ((d = meta->FindChildData(kExpShakeAfterInteract)))
+            AddCameraShake((float)d->GetChild(0)->GetInt() / 1000.f, (float)d->GetChild(1)->GetInt());
         // UNVERIFIED (milestone 5): CRAFT: the profession's item drops (Professions::GenerateItem)
         // or "SEARCH_NOTHING", a profession point, the tool's wear ("DURABILITY_PENALTY").
     }

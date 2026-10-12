@@ -244,6 +244,21 @@ void SetSoldierReserveSlots(unsigned n);  // @0x191d90 SoldierPool::SetFreeSlots
 unsigned GetSoldierReserveSlots();        // @0x191d94 SoldierPool::GetTotalSlotsFree
 void AddOfflineBuilding(const OfflineBuilding& b);   // @0x194928
 void ClearOfflineBuildings();                  // @0x19bda8
+OfflineBuilding* GetOfflineBuilding(unsigned i);       // @0x190f5c (unchecked)
+unsigned GetOfflineBuildingCount();            // @0x1959e4
+OfflineBuilding* GetOfflineBuildingWithID(uint32_t id);   // @0x194fec the first of that kind
+inline void UpdateOfflineBuildings(float) {}   // @0x191320 (empty in 5.11)
+// The goblins away on a decoration job (class 0x10, Entity::workType set), with the seconds left.
+struct OfflineGoblin {          // 8 bytes (vector 0x612d9c)
+    Entity* entity = nullptr;
+    uint32_t timeLeft = 0;
+};
+OfflineGoblin* GetOfflineGoblin(unsigned i);   // @0x191324 (unchecked)
+unsigned GetOfflineGoblinCount();              // @0x1952f8
+void RemoveOfflineGoblin(Entity* e);           // @0x194bd4
+void UpdateOfflineGoblins(float dt);           // @0x194c78 their times left, from Entity::SetEndWorkTS's
+void ClearOfflineGoblins();                    // @0x19bd88
+void RefreshOfflineGoblins();                  // @0x19c874 the working goblins not listed yet join
 uint32_t GetBeltSlotCount();                   // @0x190788
 void SetBeltSlotCount(uint32_t n);             // @0x190768 (at most 3)
 void SetBeltSize(uint32_t n);                  // @0x190798
