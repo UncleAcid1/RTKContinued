@@ -153,6 +153,17 @@ void Hide();                                // @0x2e77f8
 bool IsVisible();                           // @0x2e73b4
 }
 
+// The chapter banner: a chapter task opens it, closing it completes the task.
+namespace ChapterWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChapterWindow"
+void Init();                                // @0x27ab64
+void SetParameters(uint32_t task);          // @0x27a068
+void Show();                                // @0x27a8f4
+void Hide();                                // @0x27a9f0
+void ForceHide();                           // @0x27a890
+bool IsVisible();                           // @0x27a054
+}
+
 // Buying a piece of land (tapping its for-sale sign).
 namespace LandWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LandWindow" (_INIT_ 0x2e7da0)

@@ -14,7 +14,7 @@
 4b.4  ^ItemHoverWindow::
 4b.4  ^UseItemHoverWindow::
 4c    @2bcffc   # FoundItemsWindow::SetParameters(Tasks::TaskInfo*, ...): with Tasks
-4f    @2bd21c   # FoundItemsWindow::SetParameters(Locations::LocationInfo*, ...): with Locations
+5    @2bd21c   # FoundItemsWindow::SetParameters(Locations::LocationInfo*, ...): only CampaignComplete / CampaignPerfected / RaidComplete (the global map's windows) call it
 4b.4  ^FoundItemsWindow::
 4b.4  ^NeedItemWindow::
 4b.4  ^Items::GetItemOffsetInHolder
@@ -86,6 +86,8 @@ online  ^GameState::LoadEntitiesFromCopy$   # only VisitFriendCity
 dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever shows it (only UnregisterEntity and Deinit touch personWindow)
 4g  ^PlayerHintHoverWindow::   # the hero panel's own dialog: created, placed and shown by PlayerTopWindow (SetParameters / HideDialog / ShowArrowAndLock, 4g)
 4g  ^TapHoverWindow::   # the belt's tap hint, created by BeltBarWindow::Init (4g)
+5  ^(CampaignCompleteWindow|CampaignPerfectedWindow)::   # only the global map shows them (GlobalMapWindow::*::ShowCompletionWindow / OnTaskCompleted)
+5  ^LoadingScreenWindow::   # Map::Load shows it only when the switch starts from the open global map; the other users are online (friends' cities)
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
 4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
 

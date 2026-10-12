@@ -1237,8 +1237,28 @@ void Update(bool force) {
         for (TaskSubtask& s : cur[i]->subtasks)
             if (s.amountMin != s.amountMax && s.amountMin == s.amount)
                 if (uint32_t custom = GameState::GetCustomSubTaskRequrement(s.id)) s.amount = (int)custom;
-    // UNVERIFIED (milestone 4f): each shown task's open "talk to" step (its required steps done)
-    // gives its person the talk task (Entity::AssignTalkTask) and resets a completed post-quest.
+    // Each shown task's open "talk to" step (its required steps done) gives its person the talk task;
+    // a post-quest that was already completed starts over.
+    for (unsigned i = 0; i < count; ++i) {
+        TaskInfo* t = cur[i];
+        if (t->dnShow) continue;
+        for (const TaskSubtask& s : t->subtasks) {
+            if (s.type != kTalkToPerson) continue;
+            bool blocked = false;
+            if (s.required)
+                for (unsigned k = 0; k < s.required->GetChildrenCount() && !blocked; ++k) {
+                    const MetaData* r = s.required->GetChild(k);
+                    if (r->type == MetaData::kNumber && r->GetInt() != 0)
+                        blocked = !GameState::SubTaskCompleted(t->id, (unsigned)r->GetInt());
+                }
+            if (blocked) continue;
+            Entity* e = EntityManager::GetEntityBySpawnPoint(s.value);
+            if (e && e->IsActive() && GameState::GetSubTaskDone(s.id) < s.amount) {
+                e->AssignTalkTask(t->id);
+                if (GameState::TaskCompleted(t->postQuest)) GameState::ResetTask(t->postQuest);
+            }
+        }
+    }
     for (unsigned i = 0; i < count; ++i)
         for (TaskSubtask& s : cur[i]->subtasks) {
             if (GameState::GetSubTaskDone(s.id) == 0x2000) continue;
@@ -1279,9 +1299,11 @@ void Update(bool force) {
         }
         if (done && !t->tutorialType && !t->isHint) {
             if (t->chapter) {
-                // UNVERIFIED (milestone 4f): unless the world map or an edit mode is up,
-                // ChapterWindow::SetParameters(id) and Show, FileManager::SetChapterNow.
+                // The chapter banner, unless an edit mode is up (or the world map: milestone 5).
                 if (BuildingPlacement::Activated() || BuildingMovement::Activated()) return;
+                ChapterWindow::SetParameters(t->id);
+                ChapterWindow::Show();
+                // (FileManager::SetChapterNow tells Android which content pack to fetch: online.)
                 return;
             }
             if (!t->hasReward || t->doNotShowReward) {

@@ -80,6 +80,7 @@ add_executable(rtk
   src/windows/ConfirmPurchaseWindow.cpp
   src/windows/ExchangeWindow.cpp
   src/windows/FoundItemsWindow.cpp
+  src/windows/ChapterWindow.cpp
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp
   src/windows/LevelUpWindow.cpp

@@ -523,9 +523,9 @@ void UpdateScreenDarkening(float dt) {
             Render::SetAlpha(g_black, a > 0.6f ? 0.6f : a);
         }
     }
-    // UNVERIFIED (milestones 4g/5): GlobalMapWindow, RaidCompleteWindow, BossOutroWindow,
-    // BossIntroWindow's black, ChestOpenedWindow and PlayerBattleInOutWindow count like the hover.
-    // (4f, campaign windows: CampaignPerfectedWindow and CampaignCompleteWindow too.)
+    // UNVERIFIED (milestones 4g/5): GlobalMapWindow, RaidCompleteWindow, CampaignPerfectedWindow,
+    // CampaignCompleteWindow, BossOutroWindow, BossIntroWindow's black, ChestOpenedWindow and
+    // PlayerBattleInOutWindow count like the hover.
     const unsigned free = (BuildingHovers::IsHoverVisible() || ShopWindow::IsVisible()) ? 1 : 0;
     const unsigned shown = WindowManager::GetShownWindowCount();
     if (free < shown) {

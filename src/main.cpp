@@ -698,6 +698,7 @@ int main_Loop_Init() {
     BottomFarmWindow::Queue();
     BuildingHovers::Queue();
     CastleTopWindow::Queue();
+    ChapterWindow::Queue();
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();
     ExchangeWindow::Queue();
