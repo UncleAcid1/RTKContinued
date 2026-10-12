@@ -25,6 +25,7 @@
 #include "game/GameData.h"
 #include "game/Setting.h"
 #include "game/GameState.h"
+#include "game/Locations.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
@@ -2062,7 +2063,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     BuildingHovers::Update(0.0, true);
     BeltBarWindow::Show();
     // From tileset 2 on, or off mission maps, the clouds.
-    if ((unsigned)g_tileset >= 2 || !Locations::IsMissionMap(GameState::GetCurrentMapID())) CreateClouds();
+    const bool missionMap = Locations::IsMissionMap(GameState::GetCurrentMapID());
+    if ((unsigned)g_tileset >= 2 || !missionMap) CreateClouds();
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerFlat3, 1);
     Render::SortRenderLayer(4, 0);
