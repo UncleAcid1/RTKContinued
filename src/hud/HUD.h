@@ -44,6 +44,13 @@ RTK_HUD_PANEL(BottomCityWindow)
 RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
 
+namespace BattleBarWindow {
+// The "all quests" button above the army bar: shown from tutorial step 0x66 on, outside the
+// farm, the shop and a boss fight.
+void ShowAllTasks();   // @0x24b660
+void HideAllTasks();   // @0x249b90
+}
+
 namespace BeltBarWindow {
 // @0x24c738: the screen point of belt slot `slot`'s holder.
 void GetBeltItemLocation(int& x, int& y, int slot);

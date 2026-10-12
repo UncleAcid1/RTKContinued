@@ -135,6 +135,8 @@ util  ^Tasks::FUN_(0023583c|00235eac)$   # a name hash map's insert and clear
 4c  ^Entity::(GetMetaExpression|SetForeignMetaExpression|ExecutePvPSpawnMeta)$
 
 # ---- 4d: quest UI -------------------------------------------------------------------------------
+util  ^TaskListWindow::FUN_(0035ef14|0035f000|0035f194|0035f210|0035fef8|0035ffe4|00360138|00360224|00360854)   # std::sort / std::stable_sort instances and the slot list's growth
+4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins (GameState::GetOfflineGoblin); BuyGoblin's hire window is 5
 4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::
 4d  ^Shared::TaskWindow::
 4d  ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)

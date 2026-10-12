@@ -224,6 +224,16 @@ void Show();                                // @0x352d4c
 void Hide();                                // @0x352f54 completes the task
 }
 
+// The full quest list (tabs All / Battle / City / Completed), opened from the bottom bar.
+namespace TaskListWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "TaskListWindow" (_INIT_ 0x35e7e4)
+void Init();                                // @0x35f4ac
+void UpdateContents();                      // @0x360908
+void Show();                                // @0x361fcc
+void Hide();                                // @0x35eb20
+void RunLastHelpItem();                     // @0x35ecb0
+}
+
 // "Item needed": craft the item in its building or buy it; also the quest/map-object item questions.
 namespace TaskInfoWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "TaskInfoWindow"

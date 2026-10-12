@@ -84,6 +84,7 @@ add_executable(rtk
   src/windows/NeedItemWindow.cpp
   src/windows/TaskCompleteWindow.cpp
   src/windows/TaskInfoWindow.cpp
+  src/windows/TaskListWindow.cpp
   src/windows/NotEnoughWindow.cpp
   src/windows/CharacterInfoWindow.cpp
   src/hud/PlayerTopWindow.cpp

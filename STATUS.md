@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-3 done (HUD quest list, quest window, the Go button, the quest-complete window)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-4a done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -757,11 +757,30 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Tasks::Update(true) after changing step counts. Verified headless (hook removed): task 1281
    finished -> window with XP 100 / Gold 300 -> Ok -> "Done task 1281", drops on the map, next
    quest appears; task 1758 (6 rewards, 2 items): arrows scroll, item popup opens.
-   LEFT IN 4d (127): part 4 TaskListWindow, LevelInfoWindow,
-   HelpWindow, locators (HUDWindow), BattleBarWindow's quest lines, the ExecuteFirstHelp chain
-   (autoplay bot), CastleTopWindow's featured quest, arrows' callbacks; part 5
-   TaskQuickCompleteWindow (ASK FIRST).
-   NEXT: 4d part 4 (TaskListWindow first).
+   4d part 4a DONE: windows/TaskListWindow.cpp, the full quest list (Task_holder.xml): tabs All /
+   Battle (show_in_battle) / City (is_city) / Completed (the ten completed last, stable-sorted by
+   end time; no hints, chapters, dn_show, step type 0x25 quests unless is_dublicate_talk), eight
+   slots in two columns on a ContentScroller (perLine 2), a slot opens TaskInfoWindow (a completed
+   quick task only pops "TASK_COMPLETE_TEXT"). Opened by the bottom bar's "all quests" button:
+   BattleBarWindow::ShowAllTasks @0x24b660 / HideAllTasks @0x249b90 are ported and called from
+   TaskHolderWindow::UpdateTasks, ShopWindow Show / OnTweenOutInfo, BattleBarWindow Show / Hide;
+   OnAllTasks @0x24a048 is the same code as TaskListWindow::Show. The button's text
+   ("main_menu_button_tasks") is set in BattleBarWindow::Show (original: UpdateContents, 4g).
+   The flag 0x617b90 that would show the quest line (g_slider) instead of the button is never set
+   in 5.11. Read from the asm: slot looks (generic / blue / green / orange quick backgrounds),
+   tab 5 hidden, the 4th icon's mask "quick_task_quest_holder_mask.png", Queue fields (update,
+   back, show, hideOnOuterClick), the scroller's +0x78 is only the bar's holder.
+   UNVERIFIED / left: the offline goblins' slots (GameState::GetOfflineGoblin: 4f; FindGoblin and
+   BuyGoblin moved to 4f in port_plan), Locations::GetMapName (4f: another map's name is empty),
+   RunLastHelpItem is ported but Map::Load does not call it yet (4f prologue, like
+   Tasks::RunLastSubTaskHelp). The sort helpers are std::sort / std::stable_sort (util).
+   Verified headless (hook removed): the "Quests" button shows bottom-left and opens the window;
+   three open quests listed with pictures and "Found in: Kingdom"; the Completed tab lists two;
+   tapping a slot closes the list and opens the quest window.
+   LEFT IN 4d (98): part 4 LevelInfoWindow, HelpWindow, locators (HUDWindow), the
+   ExecuteFirstHelp chain (autoplay bot), CastleTopWindow's featured quest, arrows' callbacks;
+   part 5 TaskQuickCompleteWindow (ASK FIRST).
+   NEXT: 4d part 4b (HelpWindow, the HUD locators).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

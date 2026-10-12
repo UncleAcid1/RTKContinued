@@ -701,9 +701,9 @@ void UpdateTasks() {
         if (GameState::GetTaskShowTime(list[i]->id) == 0)
             GameState::SetTaskShowTime(list[i]->id, Timer::GetGlobalTime());
     if (GameState::tutorial < 0x66 || GameState::IsBossCombatActive()) {
-        // UNVERIFIED (4d part 4): BattleBarWindow::HideAllTasks.
+        BattleBarWindow::HideAllTasks();
     } else {
-        // UNVERIFIED (4d part 4): BattleBarWindow::ShowAllTasks.
+        BattleBarWindow::ShowAllTasks();
         g_checkOverlimit = true;
         UpdateContents();
     }

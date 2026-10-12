@@ -166,7 +166,7 @@ void OnTweenOutInfo() {
     WindowManager::WindowHide(false);
     g_wnd->shown = false;
     g_wnd->MoveWindowDown(true);
-    // UNVERIFIED (milestone 4): BattleBarWindow::ShowAllTasks (the quest lines).
+    BattleBarWindow::ShowAllTasks();
     BuildingHovers::SetHoverVisiblity(true, true);
 }
 
@@ -869,7 +869,7 @@ void Deinit() {
 void Show() {
     if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
     if (!g_wnd->shown) WindowManager::WindowShow(false);
-    // UNVERIFIED (milestone 4): BattleBarWindow::HideAllTasks (the quest lines).
+    BattleBarWindow::HideAllTasks();
     BuildingHovers::SetHoverVisiblity(false, false);
     g_wnd->shown = true;
     g_wnd->MoveWindowOnTop(true);

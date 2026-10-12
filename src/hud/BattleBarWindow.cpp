@@ -5,11 +5,13 @@
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "game/GameState.h"
+#include "game/Map.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
 #include "hud/Shared.h"
+#include "windows/Windows.h"
 
 namespace BattleBarWindow {
 namespace {
@@ -99,7 +101,7 @@ void Init() {
     }
     g_allQuests = GUI::GetWindowTyped<Window>(g_root, "button_all_quests");
     g_allQuests->SetVisibility(false);
-    g_allQuests->SetOnClick([] {});
+    g_allQuests->SetOnClick(TaskListWindow::Show);   // OnAllTasks @0x24a048 (the same code as TaskListWindow::Show)
     g_allQuestsText = GUI::GetWindowTyped<Textfield>(g_root, "button_all_quests.text_all_quests");
 
     g_slider = GUI::RegisterUI("../resource/kingdom_ui/1Original/Slider_mission_scroll_bg.xml",
@@ -135,14 +137,38 @@ void Show() {
             g_sliderEffect->Animate(-g_slider->w, sy, g_sliderX, sy, true);
         }
         g_root->SetVisibility(true);
-        // UpdateContents() (warrior slots): milestone 4
+        // UpdateContents (0x24a750) fills the warrior slots (milestone 4g) and names the button:
+        g_allQuestsText->SetText(StringTable::GetString("main_menu_button_tasks"));
     }
-    // ShowAllTasks(): quests, milestone 4
+    ShowAllTasks();
+    g_root->PreloadTextures();   // GUI::PreloadWindow
+}
+
+// @0x24b660 BattleBarWindow::ShowAllTasks. The quest line (g_slider, a Shared::TaskWindow) would
+// show instead of the button when the flag at 0x617b90 is set; nothing in 5.11 sets it.
+void ShowAllTasks() {
+    if (!g_root) return;   // PORT: asked before Init (as TaskHolderWindow::UpdateTasks)
+    const bool show = !(GameState::tutorial < 0x66 || GameState::IsBossCombatActive() || ShopWindow::IsVisible() ||
+                        Map::GetCurrentFarm());
+    if (!g_allQuests->visibleSelf) {
+        if (show) g_allQuests->SetVisibility(true);
+    } else if (!show) {
+        g_allQuests->SetVisibility(false);
+    }
+    if (g_slider && g_slider->visibleSelf && !show) g_slider->SetVisibility(false);
+}
+
+// @0x249b90
+void HideAllTasks() {
+    if (!g_root) return;   // PORT: as above
+    g_allQuests->SetVisibility(false);
+    if (g_slider) g_slider->SetVisibility(false);
 }
 
 // @0x24b77c
 void Hide() {
     if (!g_root) return;
+    if (!GameState::IsPlayerCity()) HideAllTasks();
     const int H = GUI::ScreenHeight();
     if (g_root->visibleSelf) {
         int y = (g_barDY + H) - g_root->h;

@@ -705,6 +705,7 @@ int main_Loop_Init() {
     TaskCompleteWindow::Queue();
     TaskHolderWindow::Queue();
     TaskInfoWindow::Queue();
+    TaskListWindow::Queue();
     TopCityWindow::Queue();
     TextStyleManager::Init();
     // The desktop window last (the bottom of the queue), then every window's Init.
