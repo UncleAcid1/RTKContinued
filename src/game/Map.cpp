@@ -2061,10 +2061,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     // tutorial-type locks and completions), Tasks::Update and HUDWindow::RemoveTaskArrows.
     BuildingHovers::Update(0.0, true);
     BeltBarWindow::Show();
-    // UNVERIFIED (milestone 4f): Locations::IsMissionMap (the city is not one): from tileset 2 on, or
-    // off mission maps, the clouds.
-    const bool missionMap = false;
-    if ((unsigned)g_tileset >= 2 || !missionMap) CreateClouds();
+    // From tileset 2 on, or off mission maps, the clouds.
+    if ((unsigned)g_tileset >= 2 || !Locations::IsMissionMap(GameState::GetCurrentMapID())) CreateClouds();
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerFlat3, 1);
     Render::SortRenderLayer(4, 0);

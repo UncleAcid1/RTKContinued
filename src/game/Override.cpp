@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "game/GameData.h"
+#include "game/Locations.h"
 #include "game/Map.h"
 #include "game/Tasks.h"
 
@@ -54,15 +55,17 @@ void Apply(int kind) {
         case kSubTask: Tasks::ChangeSubTaskAttribute(p.id, p.sub, p.name, p.value); break;
         case kObject: Map::ChangeObjectAttribute(p.id, p.sub, p.name, p.value); break;
         case kBuilding: GameData::ChangeBuildingAttribute(p.id, p.sub, p.name, p.value); break;
+        case kMap: Locations::ChangeMapAttribute(p.id, p.name, p.value); break;
+        case kLocation: Locations::ChangeLocationAttribute(p.id, p.name, p.value); break;
         default:
             // UNVERIFIED (online, dormant): the other kinds are only sent by the server:
             // Items::ChangeItemAttribute (1), GameState::SetSetting(name, text) 0x1ac674 (4),
-            // Locations::ChangeMapAttribute (5), Contracts::ChangeContractAttribute (6),
+            // Contracts::ChangeContractAttribute (6),
             // EntityFactory::ChangeEntityAttribute (7), Collections::ChangeCollectionAttribute (8),
             // Chests::ChangeChestAttribute (9), Tavern::ChangeWarriorAttribute (0xc),
             // OG::SetAttribute (0xd), Items::ChangeItemsOfTypeAttributes (0xe) /
-            // ChangeItemsOfSlotAttributes (0xf), Tags::ChangeTagAttribute of the tag `name` (0x10),
-            // Locations::ChangeLocationAttribute (0x11). An unknown kind is just dropped.
+            // ChangeItemsOfSlotAttributes (0xf), Tags::ChangeTagAttribute of the tag `name` (0x10).
+            // An unknown kind is just dropped.
             break;
         }
         g_queue.erase(g_queue.begin() + (long)i);

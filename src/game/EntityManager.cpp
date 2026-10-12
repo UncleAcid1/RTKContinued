@@ -1,4 +1,5 @@
 #include "game/EntityManager.h"
+#include "game/SpawnPoint.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -198,6 +199,14 @@ Entity* GetPlayer() { return g_player; }
 Entity* GetEntityAtXY(int x, int y) {
     for (Entity* e : g_entities)
         if (e->IsActive() && !e->IsDead() && e->tileX == x && e->tileY == y) return e;
+    return nullptr;
+}
+
+Entity* GetEntityByEnemyClassID(uint32_t enemyClass) {
+    for (Entity* e : g_entities)
+        if (e->IsActive() && !e->IsDead() && (uint32_t)e->data->enemyClass == enemyClass &&
+            (!e->GetSpawnPoint() || !e->GetSpawnPoint()->npc))
+            return e;
     return nullptr;
 }
 

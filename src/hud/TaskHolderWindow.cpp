@@ -19,6 +19,7 @@
 #include "game/BuildingPlacement.h"
 #include "game/Combat.h"
 #include "game/GameState.h"
+#include "game/Locations.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -396,10 +397,17 @@ void UpdateContents() {
         if (!w.root->visibleSelf) continue;
         Tasks::TaskInfo* t = Tasks::GetTask(w.taskId);
         if (t) {
-            // UNVERIFIED (milestone 4f): a battle task of a mission map (Locations::IsMissionMap)
-            // that is not a quick task shows the mission's time left
-            // (Locations::GetMissionRemainingTime) when it has no timeout of its own.
-            if (!t->HasTimeout()) {
+            // A battle task of a mission map that is not a quick task shows the mission's time left
+            // when it has no timeout of its own.
+            if (t->showInBattle && t->mapId != 0 && Locations::IsMissionMap(t->mapId) && !t->quickTask) {
+                if (t->HasTimeout() && t->GetRemainingTime() == 0) {
+                    UpdateTasks();
+                    return;
+                }
+                int left = t->HasTimeout() ? t->GetRemainingTime() : Locations::GetMissionRemainingTime(t->mapId);
+                w.timeText->SetVisibility(true);
+                w.timeText->SetText(StringTable::GetNumericTimeString(left, false).c_str());
+            } else if (!t->HasTimeout()) {
                 w.timeText->SetVisibility(false);
                 w.root->UpdatePosition();
             } else {
@@ -574,14 +582,17 @@ void UpdateTasks() {
         if (battle) {
             if (t->campaign != 0) {
                 showCampaign = !t->sidequest;
-                // UNVERIFIED (milestone 4f): campaignDone = Locations::IsCampaignCompleted(
-                // Locations::GetCampaignLocation(campaign)).
+                campaignDone = Locations::IsCampaignCompleted(Locations::GetCampaignLocation(t->campaign));
             }
             if (!t->sidequest && t->mission != 0) raid = true;
         }
         int kind = t->campaign == 5 ? 1 : t->campaign == 0xf ? 2 : 0;   // the desert, the arena
-        // UNVERIFIED (milestone 4f): in the top slot a completed task of a campaign whose
-        // completion is recorded (GameState::GetCampaignCompletionStatus) also counts as done.
+        // In the top slot a completed task of a campaign whose completion is recorded also counts
+        // as done.
+        if (w.target == 0 && GameState::TaskCompleted(t->id) && t->campaign != 0) {
+            Locations::LocationInfo* loc = Locations::GetCampaignLocation(t->campaign);
+            if (loc && GameState::GetCampaignCompletionStatus(loc->id)) campaignDone = true;
+        }
         bool special = showCampaign || campaignDone || raid;
         if (t->f_1e4 && !special && t->campaign != 0) special = showCampaign = true;
         if (special) {
@@ -607,9 +618,17 @@ void UpdateTasks() {
         w.allQuestsBg->SetVisibility(false);
         w.campaignPercent->SetVisibility(false);
         w.desertPercent->SetVisibility(false);
-        // UNVERIFIED (milestone 4f): a campaign button (not the arena's) shows its percent text
-        // (campaignPercent / desertPercent) with "%d%%" of Locations::GetLocationTaskCompleted
-        // over GetLocationTaskCount.
+        // A campaign button (not the arena's) shows how much of the campaign is done.
+        if (Locations::LocationInfo* loc = campaignButton ? Locations::GetCampaignLocation(t->campaign) : nullptr) {
+            if (kind != 2) {
+                GUI::Textfield* percent = kind == 0 ? w.campaignPercent : w.desertPercent;
+                percent->SetVisibility(true);
+                float done = (float)(unsigned)Locations::GetLocationTaskCompleted(loc, false);
+                float all = (float)(unsigned)Locations::GetLocationTaskCount(loc, false);
+                // (no tasks: 0 / 0, which the original's float-to-int conversion turns into 0)
+                percent->SetText(SWPrintf(0x40, U"%d%%", {all == 0.f ? 0 : (int)(done / all * 100.f)}).c_str());
+            }
+        }
         w.icon->SetVisibility(w.bg->visibleSelf);
         w.iconBattle->SetVisibility(w.bgBattle->visibleSelf);
         w.iconBattleSide->SetVisibility(w.bgBattleSide->visibleSelf);

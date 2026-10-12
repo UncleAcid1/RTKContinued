@@ -84,6 +84,20 @@ void ResetMapCollectionInfo(uint32_t map);
 void SetMapStartTime(uint32_t map, uint32_t t);   // @0x1984b8
 uint32_t GetMapStartTime(uint32_t map);           // @0x198484
 void SetMapVisitTime(uint32_t map, uint32_t t);   // @0x1983d8
+uint32_t GetMapVisitTime(uint32_t map);           // @0x1983a4
+bool HasMapVisitTime(uint32_t map);               // @0x195798
+bool HasMapStartTime(uint32_t map);               // @0x195814
+uint32_t GetMapEndTime(uint32_t map);             // @0x198414
+void SetMapEndTime(uint32_t map, uint32_t t);     // @0x198448
+int GetMapCompletionCount(uint32_t map);          // @0x199590 how often a mission was finished
+void AddMapCompletion(uint32_t map);              // @0x1995c4
+uint32_t GetMonsterKilledCount(uint32_t id);      // @0x197a6c
+void MonsterKilled(uint32_t id);                  // @0x197b24
+bool GetCampaignCompletionStatus(uint32_t campaign);   // @0x197e54
+void SetCampaignCompletionStatus(uint32_t campaign);   // @0x197e90
+// @0x191ba0: the chapter number of the last completed chapter task (in id order; tasks 0x4e7..0x696
+// count 13 further), 0 without one.
+int GetLatestChapterCompleted();
 // The game speed factor (0x60efc0, 1 at start): Set @0x191138 ignores values above 1, Get @0x191160,
 // Reset @0x191174 puts back 1.
 void SetTimeModifier(float f);

@@ -48,6 +48,8 @@ void AssignSoldiersToPlayerSquad();
 void GetPlayerAndSoldiers(std::vector<Entity*>& out);   // @0x1682c8 classes 10 and 5
 void ResetOrders(Map::Building* b);              // @0x1669dc every AI forgets its orders to b
 Entity* GetEntityAtXY(int x, int y);             // @0x16613c (active, alive)
+// @0x166448: an active, living monster of this enemy class (not an NPC's spawn point).
+Entity* GetEntityByEnemyClassID(uint32_t enemyClass);
 Entity* GetNonPlayerEntityAtXY(int x, int y);    // @0x1661dc (active, alive, not the player)
 // @0x1673f4: a world tap (world coordinates) goes to the player's AI: a living entity there
 // (ClickedEntity), else the tile on the grid (ClickedTile).

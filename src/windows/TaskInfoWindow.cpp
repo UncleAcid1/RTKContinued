@@ -6,7 +6,7 @@
 // Not ported, marked where they happen: the boss form of the window (a boss's portrait, fight /
 // shop buttons, OnFight: milestone 4g), the task locator icon (4d part 4), ExecuteFirstHelp
 // (0x35d3dc, the autoplay bot: 4d part 4), the windows Show opens for a few special tasks (chests,
-// PvP, item shop: milestone 5), Locations::GetMapName (4f), sounds (6).
+// PvP, item shop: milestone 5), sounds (6).
 #include <cstdio>
 #include <vector>
 
@@ -17,6 +17,7 @@
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
 #include "game/Contracts.h"
+#include "game/Locations.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
@@ -572,8 +573,8 @@ void SetTask(uint32_t id, bool boss) {
             showMap = map != 0;
             b.mapBox->SetVisibility(showMap);
             if (showMap) {
-                // UNVERIFIED (milestone 4f): another map's name is Locations::GetMapName(map).
-                b.mapName->SetText(map == 0x2f ? GameState::GetCastleName() : U"");
+                const char32_t* name = map == 0x2f ? GameState::GetCastleName() : Locations::GetMapName(map);
+                b.mapName->SetText(name ? name : U"");
             }
             centered = map == 0;
         }

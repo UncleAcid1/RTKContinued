@@ -16,6 +16,8 @@
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Locations.h"
+#include "game/Setting.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
@@ -500,6 +502,12 @@ uint32_t MapObjectKey(int map, uint32_t id) {
 // DROP's entries: "name:amount[:percent]" gives the resource (to: the player directly, else a drop
 // at the world point); "item:count[:percent]" rolls each item.
 void GiveDrops(const Decor* d, const MetaData* list, int wx, int wy, bool direct) {
+    // On a mission map gold (8) is scaled by the map's multiplier for its stars and
+    // "raid_star_gold_mult", experience (10) by the map's.
+    uint32_t map = GameState::GetCurrentMapID();
+    bool mission = Locations::IsMissionMap(map);
+    uint32_t stars = mission ? (uint32_t)Locations::GetMissionStarCount(map, 0) : 0;
+    float goldMult = Locations::GetMapGoldMult(map, stars), xpMult = Locations::GetMapXPMult(map, stars);
     for (unsigned i = 0; i < list->GetChildrenCount(); ++i) {
         const MetaData* c = list->GetChild(i);
         int percent = c->GetChildrenCount() < 3 ? 100 : c->GetChild(2)->GetInt();
@@ -513,8 +521,10 @@ void GiveDrops(const Decor* d, const MetaData* list, int wx, int wy, bool direct
                 BuildingHovers::ShowTextHover((float)wx, (float)wy - (d->sprite ? d->sprite->h : 0.f), text.c_str(),
                                               1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true, 2.f, 50.f);
             } else {
-                // UNVERIFIED (milestone 4f): on a mission map gold (8) is scaled by
-                // Locations::GetMapGoldMult and "raid_star_gold_mult", experience (10) by GetMapXPMult.
+                if (type == 8 && mission)
+                    amount = (int)(goldMult * (float)amount * Setting("raid_star_gold_mult").GetChild(stars).GetFloat());
+                else if (type == 10 && mission)
+                    amount = (int)(xpMult * (float)amount);
                 BuildingHovers::DropResource((float)wx, (float)wy, type, (unsigned)(percent * amount / 100), false,
                                              false);
             }

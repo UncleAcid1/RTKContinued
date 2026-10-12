@@ -16,6 +16,7 @@
 #include "engine/Timer.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/MetaData.h"
 #include "game/StringTable.h"
 #include "game/Tags.h"
@@ -530,8 +531,9 @@ bool TaskInfo::CanBeCompleted() const {
 // @0x22fa9c Tasks::TaskInfo::RefreshCampaignInfo
 void TaskInfo::RefreshCampaignInfo() {
     if (campaignInfoKnown) return;
-    // UNVERIFIED (milestone 4f): Locations::GetCampaignForMap / GetMissionForMap of mapId (or, when
-    // 0, of debugMap) into campaign and mission.
+    uint32_t map = mapId ? mapId : debugMap;
+    campaign = Locations::GetCampaignForMap(map);
+    mission = Locations::GetMissionForMap(map);
     campaignInfoKnown = true;
 }
 
@@ -639,8 +641,7 @@ unsigned GetCurrentTasks(TaskInfo** out, unsigned max, bool forHud, bool all) {
     // UNVERIFIED (milestone 5): with forHud outside the campaign and the farm, the world map's
     // campaign tasks come first (GlobalMapWindow::GetCampaignTasks; priority 5, f_1e4).
     const uint32_t curMap = GameState::GetCurrentMapID();
-    // UNVERIFIED (milestone 4f): Locations::GetCampaignForMap / GetMissionForMap(curMap).
-    const uint32_t campaign = 0, mission = 0;
+    const uint32_t campaign = Locations::GetCampaignForMap(curMap), mission = Locations::GetMissionForMap(curMap);
     const uint32_t level = (uint32_t)GameState::GetLevel();
     for (auto& up : g_tasks) {
         TaskInfo* t = up.get();
@@ -765,9 +766,17 @@ unsigned GetCurrentTasks(TaskInfo** out, unsigned max, bool forHud, bool all) {
                 else t->priority += 1;
             }
         }
-        // UNVERIFIED (milestone 4f): in a finished campaign (Locations::GetCampaignLocation,
-        // GameState::GetCampaignCompletionStatus) its "complete the campaign" task is added with
-        // priority 0x32.
+        // In a finished campaign its "complete the campaign" task comes last.
+        if (campaign != 0 && !all) {
+            Locations::LocationInfo* loc = Locations::GetCampaignLocation(campaign);
+            if (loc && GameState::GetCampaignCompletionStatus(loc->id)) {
+                if (TaskInfo* t = GetCampaignCompletionTask(loc->id)) {
+                    t->RefreshCampaignInfo();
+                    t->priority = 0x32;
+                    out[count++] = t;
+                }
+            }
+        }
     }
     return count;
 }
@@ -1039,8 +1048,8 @@ void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
                     if (GameState::PlayerItem* it = GameState::GetItemAt(i)) CompleteSubtask(kEquip, it->id, 1);
                 break;
             case kMasteryLevel:
-                // UNVERIFIED (milestone 4f): met when Locations::GetMissionStarCount(value / 10, 0)
-                // is at least value % 10.
+                // value: the mission's map * 10 + the stars it needs
+                if (s.value % 10 <= (uint32_t)Locations::GetMissionStarCount(s.value / 10, 0)) direct = true;
                 break;
             case kImproveItem:
                 // UNVERIFIED (milestone 5): met when the player has an item (type 8, with an item
@@ -1235,8 +1244,13 @@ void Update(bool force) {
             } else if (s.type == kBallanceItem) {
                 GameState::SetSubTaskDone(s.id, GameState::GetItemAmount(s.value, false));
             } else if (s.type == kCompleteCompaign) {
-                // UNVERIFIED (milestone 4f): the location's completed tasks in percent
-                // ((int)(0.5 + done / count * 100), Locations::GetLocationInfo(value)).
+                // the location's completed tasks in percent
+                if (Locations::LocationInfo* loc = Locations::GetLocationInfo(s.value)) {
+                    float done = (float)(unsigned)Locations::GetLocationTaskCompleted(loc, false);
+                    float all = (float)(unsigned)Locations::GetLocationTaskCount(loc, false);
+                    // (no tasks: 0 / 0, which the original's float-to-int conversion turns into 0)
+                    GameState::SetSubTaskDone(s.id, all == 0.f ? 0 : (int)(0.5f + done / all * 100.f));
+                }
             } else if (s.type == kGetReputation) {
                 // UNVERIFIED (milestone 5): Professions::GetPlayerProfessionLevel(value) >= amount.
             } else if (s.type == kBalanceLevel) {

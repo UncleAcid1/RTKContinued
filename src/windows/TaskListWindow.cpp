@@ -22,6 +22,7 @@
 #include "game/BuildingHovers.h"
 #include "game/Entity.h"
 #include "game/GameState.h"
+#include "game/Locations.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -34,6 +35,12 @@
 
 namespace TaskListWindow {
 namespace {
+
+// PORT: a map without a name (the city, an unknown map) reads as an empty text.
+const char32_t* MapName(uint32_t map) {
+    const char32_t* name = Locations::GetMapName(map);
+    return name ? name : U"";
+}
 
 using GUI::Button;
 using GUI::Textfield;
@@ -238,11 +245,10 @@ void SetSlotTask(Slot& s, Tasks::TaskInfo* t) {
     const char32_t* where;
     if ((int)map == GameState::GetCurrentMapID()) {
         s.place->SetVisibility(false);
-        where = U"";   // (Locations::GetMapName(0))
+        where = MapName(0);
     } else {
         s.place->SetVisibility(map != 0);
-        // UNVERIFIED (milestone 4f): another map's name is Locations::GetMapName(map).
-        where = map == 0x2f ? GameState::GetCastleName() : U"";
+        where = map == 0x2f ? GameState::GetCastleName() : MapName(map);
     }
     s.place->SetText(SWPrintf(0x100, StringTable::GetString("TASK_FOUND_AT"), {where}).c_str());
 }
@@ -256,8 +262,7 @@ void SetSlotGoblin(Slot& s, const SlotInfo& info) {
     const int left = (int)info.endTime - (int)Timer::GetGlobalTime();
     s.time->SetVisibility(true);
     s.time->SetText(StringTable::GetNumericTimeString(left < 0 ? 0 : left, false).c_str());
-    // UNVERIFIED (milestone 4f): the title is Locations::GetMapName(info.map).
-    s.title->SetText(U"");
+    s.title->SetText(MapName(info.map));
     s.place->SetVisibility(false);
 }
 

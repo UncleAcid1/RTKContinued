@@ -1779,6 +1779,33 @@ int GetMapResourceCollectionInfo(uint32_t map, int type) {
 void SetMapStartTime(uint32_t map, uint32_t t) { g_mapStartTime[map] = t; }
 uint32_t GetMapStartTime(uint32_t map) { return g_mapStartTime[map]; }
 void SetMapVisitTime(uint32_t map, uint32_t t) { g_mapVisitTime[map] = t; }
+uint32_t GetMapVisitTime(uint32_t map) { return g_mapVisitTime[map]; }
+bool HasMapVisitTime(uint32_t map) { return g_mapVisitTime.count(map) != 0; }
+bool HasMapStartTime(uint32_t map) { return g_mapStartTime.count(map) != 0; }
+uint32_t GetMapEndTime(uint32_t map) { return g_mapEndTime[map]; }
+void SetMapEndTime(uint32_t map, uint32_t t) { g_mapEndTime[map] = t; }
+int GetMapCompletionCount(uint32_t map) { return (int)g_mapCompletion[map]; }
+void AddMapCompletion(uint32_t map) { ++g_mapCompletion[map]; }
+
+uint32_t GetMonsterKilledCount(uint32_t id) {
+    auto it = g_monsterKills.find(id);
+    return it == g_monsterKills.end() ? 0 : it->second;
+}
+void MonsterKilled(uint32_t id) { ++g_monsterKills[id]; }
+
+bool GetCampaignCompletionStatus(uint32_t campaign) { return g_campaignCompletion[campaign] != 0; }
+void SetCampaignCompletionStatus(uint32_t campaign) { g_campaignCompletion[campaign] = 1; }
+
+int GetLatestChapterCompleted() {
+    int chapter = 0;
+    for (uint32_t id : g_completedTasks) {
+        Tasks::TaskInfo* t = Tasks::GetTask(id);
+        if (!t || !t->chapter) continue;
+        chapter = (int)t->chapterNumber;
+        if (t->id - 0x4e7u < 0x1b0) chapter += 0xd;
+    }
+    return chapter;
+}
 
 namespace { float g_timeModifier = 1.f; }   // 0x60efc0
 void SetTimeModifier(float f) { if (f <= 1.f) g_timeModifier = f; }
