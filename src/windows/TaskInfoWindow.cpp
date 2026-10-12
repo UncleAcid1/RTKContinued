@@ -21,6 +21,7 @@
 #include "game/Items.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
+#include "game/Setting.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
 #include "gui/GUI.h"
@@ -202,6 +203,14 @@ void OnContinue() {
     HideWindow();
 }
 
+// PORT (docs/balance_plan.md, user decision 2026-10-11): skipping a step costs
+// "port_skip_price_mult" times the original price, to deter it.
+int SkipPrice(const Tasks::TaskSubtask& s) {
+    float mult = GameState::GetSetting("port_skip_price_mult");
+    if (mult <= 0.f) mult = 1.f;
+    return GameState::AdjustCrystalCost((int)((float)s.skipPrice * mult));
+}
+
 // @0x35d174 TaskInfoWindow::OnSubtaskSkip: the step is finished for crystals.
 void OnSubtaskSkip(unsigned box) {
     Tasks::TaskInfo* t = Tasks::GetTask(g_task);
@@ -210,7 +219,7 @@ void OnSubtaskSkip(unsigned box) {
     for (Tasks::TaskSubtask& s : t->subtasks) {
         if (s.type == 0) continue;
         if (box == n) {
-            int price = GameState::AdjustCrystalCost((int)s.skipPrice);
+            int price = SkipPrice(s);
             if ((int)GameState::GetResourceAmount(GameState::kCrystal) < price) {
                 NotEnoughWindow::ResetRequirements();
                 NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)price);
@@ -589,7 +598,7 @@ void SetTask(uint32_t id, bool boss) {
         b.smallText->SetText(s.buttonText);
         b.smallIcon->SetTexture(s.buttonIcon, false, 0, 0, false, 0);
         b.skipText->SetText(SWPrintf(0x100, U"%s %d", {StringTable::GetString("SKIP_BUTTON"),
-                                                        GameState::AdjustCrystalCost((int)s.skipPrice)}).c_str());
+                                                        SkipPrice(s)}).c_str());
         b.doneIcon->SetVisibility(complete && !bossStep);
         b.doneText->SetText(StringTable::GetString("TASK_SUBTASK_COMPLETE"));
     }

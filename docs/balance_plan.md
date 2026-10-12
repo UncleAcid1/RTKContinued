@@ -121,6 +121,13 @@ which quests fall at which level is only known once the campaign maps run (step 
    per building, the food cap drops to the largest single Stockpile (6,000) and the formula is
    scaled to match.
 
+## 5b. Skipping quests for crystals (decided 2026-10-11)
+
+The user wants skipping to stay possible but be "way more expensive, just to deter people". The
+original step prices are 10-50 crystals; they are multiplied by `port_skip_price_mult` (5: 50-250
+crystals). Coded in TaskInfoWindow (the "Skip" box of a quest step). The same factor is to apply
+to TaskQuickCompleteWindow (finish a whole quest at once) when it is ported (4d part 5).
+
 ## 6. Unchanged
 
 Speed-up and Buy-all prices, potion prices, the crystal reward shown in the level-up window (it

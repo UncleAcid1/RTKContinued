@@ -635,6 +635,7 @@ int main_Loop_Init() {
     GameState::SetSetting("port_quest_crystals_daily", 1.f);
     GameState::SetSetting("port_level_factor_div", 14.f);
     GameState::SetSetting("port_levelup_crystals_div", 4.f);
+    GameState::SetSetting("port_skip_price_mult", 5.f);   // skipping a quest step: 5x the original price
     SystemFuncs::SetSetting_Int("show_starting_win", 0, "MyCountry_flags");
     // (Building 99's first upgrade gets an exchange limit of 75 once the frame loop applies it.)
     Override::AddParameter(Override::kBuilding, 99, 1, "r_cb_limit", "75");
