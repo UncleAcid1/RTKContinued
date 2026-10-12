@@ -213,6 +213,26 @@ void FindResourceHelp(int type, unsigned line, bool fromLine);
 }
 
 // "Item needed": craft the item in its building or buy it; also the quest/map-object item questions.
+namespace TaskInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "TaskInfoWindow"
+void Init();                                // @0x35d514
+void Deinit();                              // @0x35af38
+void SetZ(float z);                         // @0x359dc8
+bool Click(int x, int y, bool pressed);     // @0x35ae38
+void Update(float dt);                      // @0x35cee4
+bool IsVisible();                           // @0x359e54
+// @0x35afb4: fills the window for the task (boss: the boss form); Show opens it.
+void SetTask(uint32_t task, bool boss);
+void UpdateContents();                      // @0x35cecc
+void Show();                                // @0x35a9cc (a quick task: its text line and action instead)
+void Hide();                                // @0x35a490
+void ForceHide();                           // @0x35a9a0 at once
+void TaskTimeout(uint32_t task);            // @0x35ae00 closes when it shows that task
+void BlockArrowLimitChangeOnce();           // @0x359e68
+void SetFightBossCallback(Entity* boss);    // @0x359e80
+void SetOnContinue(void (*cb)());           // @0x359e9c run once when the window is closed by its X
+}
+
 namespace NeedItemWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "NeedItemWindow" (_INIT_ 0x2f474c)
 void Init();                                // @0x2f6800

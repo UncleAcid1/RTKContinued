@@ -120,7 +120,8 @@ void OnTaskInfo(uint32_t id) {
     // (GlobalMapWindow::ShowCampaignWindowForMap, or for the arena map 0x74 the world map's
     // arrow / HealSquadWindow / ArenaEventWindow); 0x5c9 the sultan's arrival on the world map.
     std::printf("TaskHolderWindow::OnTaskInfo() Showing task %d\n", id);
-    // UNVERIFIED (4d part 2): TaskInfoWindow::SetTask(id, false) and Show.
+    TaskInfoWindow::SetTask(id, false);
+    TaskInfoWindow::Show();
 }
 
 }  // namespace

@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d part 1 done (HUD quest list)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-2a done (HUD quest list, quest window)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -689,7 +689,32 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    1279 / 1012 / 230 / 992 three buttons slide in with their pictures and "New Quest!" banners,
    the banners leave after 8 s, a counted step shows "Progress 1/3", a tap prints the task; the
    real save copy and the building shop as before.
-   NEXT: 4d part 2 (TaskInfoWindow and TaskSubtask::OnHelp with its helpers).
+   4d PART 2a DONE: src/windows/TaskInfoWindow.cpp, the quest window (Task_info_win.xml): Init
+   @0x35d514, SetTask @0x35afb4 (title, giver by the hero's sex, text with a smaller font except
+   in English; three step boxes: icon with mask, "%d/%d" count ("%d%%" for a campaign step),
+   rings, the map's name when the step is elsewhere, the action button with the step's own text
+   and icon, greyed until its required steps are done, or the "skip" box "%s %d" SKIP_BUTTON +
+   crystals when the step has a skip price, or the done mark; the window is one box shorter per
+   missing step and rescaled; the reward strip in the order crystals, XP, gold, resources, items,
+   centred when fewer than six), Show @0x35a9cc (a quick task shows its step's text line and
+   runs its action instead), Update, Click, SetZ, Hide / ForceHide / TaskTimeout, OnHelp (closes,
+   then OnHelpActual @0x35a648 from OnTweenOut), OnSubtaskSkip @0x35d174 (pays the crystals and
+   completes the step: a crystal sink like speed-ups; the user is told in the part 2 summary and
+   can veto), OnItem (reward popup), OnContinue, OnBack. TaskHolderWindow::OnTaskInfo opens it;
+   Tasks::TaskTimeout closes it.
+   Read from the asm: the status rules (r6 complete, [sp+0x12c] boss step = boss form and a
+   kill-mob / kill-spawn step), the formats, the no-reward branch (the window loses the reward
+   holder's height unless boss form).
+   UNVERIFIED inside, each marked: the boss form (4g), OnHelpActual's calls into
+   TaskSubtask::OnHelp / HelpWithMapSwitchTo (part 2b: it only prints "Help with subtask N"),
+   SetTaskLocaterIcon and ExecuteFirstHelp (part 4), the special tasks' other windows (5),
+   Locations::GetMapName (4f: another map's name is empty), GetUndecoratedString's task counts,
+   sounds (6).
+   Verified headless (temporary hook, removed): tapping a quest button opens the window for
+   task 1281 (two steps, XP + gold) and 389 (one step, five rewards), sized and centred right;
+   the action button closes it and reaches OnHelpActual with the right step.
+   NEXT: 4d part 2b (Tasks::TaskSubtask::OnHelp @0x2381d8 with HelpWithLocation,
+   HelpWithMapSwitchTo, RunLastSubTaskHelp, ShowWarriorSlotUnlock; check its jump table in the asm).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

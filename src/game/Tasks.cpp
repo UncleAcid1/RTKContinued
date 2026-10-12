@@ -609,6 +609,7 @@ uint32_t TaskInfo::GetFirstLockedTaskInChain(bool skipHidden) const {
 #include "game/SoldierSlots.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
+#include "windows/Windows.h"
 
 namespace Tasks {
 namespace {
@@ -1137,7 +1138,7 @@ void ChangeTaskAttribute(uint32_t task, const char* name, const char* value) {
 
 // @0x2381b8 Tasks::TaskTimeout
 void TaskTimeout(TaskInfo* task) {
-    (void)task;   // UNVERIFIED (milestone 4d): TaskInfoWindow::TaskTimeout(task->id).
+    TaskInfoWindow::TaskTimeout(task->id);
     Update(true);
     Map::Save(0);
 }
