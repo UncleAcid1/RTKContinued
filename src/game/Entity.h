@@ -219,9 +219,27 @@ public:
     // or +0x38 is set.
     static void UpdateSafePos(Entity* e);
     SpawnPoint* GetSpawnPoint() const { return spawnPoint; }   // @0x1504e4
-    // @0x151d88. UNVERIFIED (milestone 4f): the spawn point's HP fields are not read until spawn
-    // points are ported; only null is passed yet.
+    // @0x151d88: a non-player takes its HP (an NPC 0x400, else its level's; the saved HP when the
+    // spawn point has it), HpMax and initiative from the spawn point.
     void SetSpawnPoint(SpawnPoint* sp);
+    uint32_t GetSpawnPointID() const;            // @0x14ffa4 (0 without one)
+    bool IsOnPatrol() const { return !patrol.empty(); }                      // @0x1503c0
+    bool IsWalkingOnPatrol() const { return !patrol.empty() && patrolStep == 1; }   // @0x1503d4
+    bool PartolEndsOn(int x, int y) const;       // @0x1503fc
+    void RemovePatrol();                         // @0x15d1a0
+    void AssignTalkTask(uint32_t task) { talkTask = task; }      // @0x1504c4
+    uint32_t GetTalkTask() const { return talkTask; }            // @0x1504cc
+    void AssignSpecialTalk(uint32_t id) { specialTalk = id; }    // @0x1504d4
+    uint32_t GetSpecialTalk() const { return specialTalk; }      // @0x1504dc
+    AI::Waypoint* GetCurentWP() const { return waypoint; }       // @0x150a08
+    bool HasFixedLocation() const;               // @0x1518c8
+    bool HasRandomLocation() const;              // @0x151914
+    bool IsPlayerShadow() const;                 // @0x151944 a PvP opponent's stand-in (PVP_SPAWN)
+    bool IsWanderingPlayerShadow() const;        // @0x151b48
+    const char32_t* GetDeadHint() const;         // @0x151ba8 (nullptr without one)
+    const char32_t* GetHint() const;             // @0x151bec
+    bool IsEmperor() const;                      // @0x152bf0
+    bool HasCorpseItem() const;                  // @0x1504ec its corpse still holds its "corpse_drop" item
 
     struct QueuedAnim { std::string name; float time; };   // 0x1c bytes
 
@@ -279,7 +297,7 @@ public:
         int times = 0, pause = 0;    // +0x40 +0x44
         float waitLeft = 0.f, pauseLeft = 0.f;   // +0x48 +0x4c (wait and pause as floats)
     };
-    std::vector<PatrolPoint> patrol; // +0xe0  UNVERIFIED (milestone 4f): nothing walks them yet
+    std::vector<PatrolPoint> patrol; // +0xe0
     int patrolIndex = 0, patrolStep = 0;   // +0xec +0xf0
     MetaExpression* foreignMeta = nullptr; // +0x1a4
     uint32_t guid = 0;               // +0x1b8
@@ -306,7 +324,7 @@ public:
     const char32_t* surname = U"";   // +0x164
     int firstNameIdx = 0, surnameIdx = 0;   // +0x168 +0x16c
     float customZ = 0.f;             // +0x170 (<= 0: from the position; GetCustomZ @0x15003c)
-    int selected = 0, f178 = 0;      // +0x174 +0x178 (ring style 1 while set)
+    uint32_t talkTask = 0, specialTalk = 0;   // +0x174 +0x178 (ring style 1 while set)
     bool appearing = false, disappearing = false;   // +0x17c +0x17d
     float alpha = 1.f;               // +0x180 (GetAlpha @0x1506e8)
     bool greyed = false;             // +0x184 dead player (shader 3)

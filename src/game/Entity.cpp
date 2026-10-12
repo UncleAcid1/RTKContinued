@@ -19,7 +19,9 @@
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
+#include "game/SpawnPoint.h"
 #include "game/Squad.h"
+#include "game/StringTable.h"
 #include "game/Tasks.h"
 
 namespace {
@@ -342,7 +344,7 @@ void Entity::UpdateRing() {
         CreateUnderlay(4);
         return;
     }
-    if (selected != 0 || f178 != 0) {
+    if (talkTask != 0 || specialTalk != 0) {
         CreateUnderlay(1);
         return;
     }
@@ -398,8 +400,8 @@ void Entity::SetActive(bool on, bool idle) {
         active = false;
         if (ai) ai->ClearPath();
         if (sprite) Render::SetVisibility(sprite, false);
-        if (selected != 0) selected = 0;
-        if (f178 != 0) f178 = 0;
+        if (talkTask != 0) talkTask = 0;
+        if (specialTalk != 0) specialTalk = 0;
         UpdateRing();
         RemoveGlow();
         return;
@@ -752,6 +754,74 @@ void Entity::UpdateSafePos(Entity* e) {
 
 void Entity::SetSpawnPoint(SpawnPoint* sp) {
     spawnPoint = sp;
-    // UNVERIFIED (milestone 4f): for a non-player the spawn point sets HP (its NPC flag +0x10: 0x400,
-    // else the level's HP; +0x30/+0x34 an HP override), +0x130 (+0x28) and HpMax (+0x38/+0x3c).
+    if (player) return;
+    // (as the original: a null spawn point is only ever given to the player)
+    hp = sp->npc ? 0x400 : data->GetHpForLevel(GameState::GetLevel());
+    initiative = sp->initiative;
+    if (sp->hasHp) hp = sp->hp;
+    if (sp->hasHpMax) hpMax = sp->hpMax;
+}
+
+// @0x14ffa4
+uint32_t Entity::GetSpawnPointID() const { return spawnPoint ? spawnPoint->id : 0; }
+
+// @0x1503fc
+bool Entity::PartolEndsOn(int x, int y) const {
+    return IsOnPatrol() && patrol.back().x == x && patrol.back().y == y;
+}
+
+// @0x15d1a0
+void Entity::RemovePatrol() {
+    patrol.clear();
+    f1aa = false;
+}
+
+// @0x1518c8: an arena or mob spawn stays where it is put.
+bool Entity::HasFixedLocation() const {
+    MetaExpression* m = GetMetaExpression();
+    return m && (m->FindChildData(kExpArenaSpawn) || m->FindChildData(kExpMobSpawn));
+}
+
+// @0x151914
+bool Entity::HasRandomLocation() const {
+    MetaExpression* m = GetMetaExpression();
+    return m && m->FindChildData(kExpRandom);
+}
+
+// @0x151944
+bool Entity::IsPlayerShadow() const {
+    MetaExpression* m = GetMetaExpression();
+    return m && m->FindChildData(kExpPvpSpawn);
+}
+
+// @0x151b48
+bool Entity::IsWanderingPlayerShadow() const {
+    if (!IsPlayerShadow()) return false;
+    if (spawnPoint && spawnPoint->f24 == 0)
+        if (MetaExpression* m = GetMetaExpression()) return m->FindByType(kExpPatrol) != nullptr;
+    return true;
+}
+
+// @0x151ba8
+const char32_t* Entity::GetDeadHint() const {
+    if (MetaExpression* m = GetMetaExpression())
+        if (const MetaData* d = m->FindChildData(kExpHintDead)) return StringTable::GetString(d->GetString());
+    return nullptr;
+}
+
+// @0x151bec
+const char32_t* Entity::GetHint() const {
+    if (MetaExpression* m = GetMetaExpression())
+        if (const MetaData* d = m->FindChildData(kExpHint)) return StringTable::GetString(d->GetString());
+    return nullptr;
+}
+
+// @0x1504ec
+bool Entity::HasCorpseItem() const { return spawnPoint && spawnPoint->corpseTaken == 0 && data->corpseDropId != 0; }
+
+// @0x152bf0: entity 0x16b while it plays one of its "imperator" animations.
+bool Entity::IsEmperor() const {
+    if (data->id != 0x16b) return false;
+    Animation* a = anim ? anim->anim : nullptr;
+    return a && std::strstr(a->name.c_str(), "imperator") != nullptr;
 }

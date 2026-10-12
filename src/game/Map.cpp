@@ -28,7 +28,9 @@
 #include "game/Locations.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
+#include "game/Game.h"
 #include "game/SoldierSlots.h"
+#include "game/SpawnPoint.h"
 #include "game/Squad.h"
 #include "gui/GUI.h"
 #include "hud/HUD.h"
@@ -66,7 +68,15 @@ std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blo
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
 bool g_victoryPose = false;   // 0x6138cc the player won a fight on the way here (milestone 4g sets it)
 std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
-bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap: milestone 4f)
+bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap)
+bool g_loadQueuedSave = false;                  // 0x613659
+bool g_bossReward = false;                      // 0x61365a a boss reward waits for the next map
+float g_loadQueuedDelay = 0.f;                  // 0x61365c
+int g_loadQueuedMap = -1;                       // 0x60eff8
+bool g_loading = false;                         // 0x61368c (Map::Load is running)
+bool g_storedPosition = false;                  // 0x6136c0
+int g_storedX = -1, g_storedY = -1;             // 0x60f00c 0x60f010
+int g_nextSpawnX = 0, g_nextSpawnY = 0;         // 0x6136d8 0x6136dc
 bool g_allowBuildingVisibility = false;         // 0x60ef20
 bool g_allowDecorationVisibility = false;       // 0x60ef21
 float g_visibilityTimer = 0.f, g_fogTimer = 0.f;   // 0x6138d0 0x6138d4
@@ -1915,7 +1925,7 @@ void Free() {
         if (s) Render::RemoveSprite(s);
         s = nullptr;
     }
-    // UNVERIFIED (milestone 4f): the spawn points (0x6136a4) and portals (0x613740) are deleted.
+    FreeSpawnPointsAndPortals();
     for (unsigned i = 0;; ++i) {
         Entity* e = EntityManager::EnumEntities(i);
         if (!e) break;
@@ -2013,8 +2023,12 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
         }
     }
     CreateFarmPatch();   // (LoadPlayer, after the patches)
-    // PORT (milestone 4): spawn points (2, 9 and followers), portals (3, 10) and the fog (0x17, 0x30)
-    // are not loaded yet; their chunks are kept for SaveMap.
+    std::puts("Map::LoadPlayer() Loading spawn points");
+    LoadSpawnPoints(block);
+    std::puts("Map::LoadPlayer() Loading portals");
+    LoadPortals(block);
+    // PORT (milestone 4f, fog): the fog chunks (0x17, 0x30) are not loaded yet; they are kept for
+    // SaveMap.
     g_otherChunks.clear();
     while (block->NextChunkID() != SaveManager::kEnd) g_otherChunks.push_back(block->GetChunk());
     if (g_mapId == 0) AssignUniqueIDs();   // (the end of LoadPlayer)
@@ -2029,7 +2043,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     // (ProcessOfflineContracts @0x1b7434 is empty.) UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins
     // (class 0x10 goblins away on a job). Music: milestone 5.
     AssignEntities();
-    // UNVERIFIED (milestone 4f): LinkPortals.
+    LinkPortals();
     UpdateSpawns();
     if (Entity* player = EntityManager::GetPlayer()) {
         if (GameState::GetCurrentMapID() == 0) player->SetSpawnPoint(nullptr);
@@ -2102,7 +2116,73 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     return true;
 }
 
-// @0x1c2914 (the player's part). The player stands on its spawn point's saved position, else at the
+// @0x1b6fe8
+Decor* GetPortalToMap(uint32_t map) {
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (d->portal && (uint32_t)d->portal->map == map) return d.get();
+    return nullptr;
+}
+
+// @0x1b7874
+void StorePlayerPosition() {
+    g_storedPosition = true;
+    Entity* player = EntityManager::GetPlayer();
+    g_storedX = player->tileX;
+    g_storedY = player->tileY;
+}
+
+// @0x1b73ec
+void RestorePlayerPosition() {
+    if (!g_storedPosition) return;
+    g_startX = g_storedX;
+    g_startY = g_storedY;
+    g_storedPosition = false;
+}
+
+// @0x1b7d00
+void PlayerDefaultSpawn() {
+    Entity* player = EntityManager::GetPlayer();
+    if (!player || !gameLoaded || g_mapId == 0 || !player->GetAI()) return;
+    for (unsigned i = 0; SpawnPoint* s = GetSpawnByIndex(i); ++i) {
+        if (!((s->clas == 5 || s->clas == 10) && s->entityId == 0xc)) continue;
+        int x = -1, y = -1;
+        Locations::GetPlayerDefaultPosition(GameState::GetCurrentMapID(), &x, &y);
+        if (x == -1 || y == -1) {
+            x = s->x;
+            y = s->y;
+        }
+        g_startX = x;
+        g_startY = y;
+        Entity::UpdateSafePos(player);
+        player->SetPos(x, y);
+        player->GetAI()->UpdateLastTarget();
+        return;
+    }
+}
+
+// @0x1b747c
+void PlayerNextSpawn(int x, int y) {
+    g_nextSpawnX = x;
+    g_nextSpawnY = y;
+}
+
+int GetLastPlayerX() { return g_startX; }   // @0x1b5f58
+int GetLastPlayerY() { return g_startY; }   // @0x1b5f68
+
+// @0x1b5f7c
+void EnqueueLoadMap(int map, bool bossReward, bool save, float delay) {
+    g_loadQueuedDelay = delay;
+    g_loadQueuedMap = map;
+    g_loadQueued = true;
+    g_loadQueuedSave = save;
+    g_bossReward = bossReward;
+}
+
+bool IsMapLoadQueued() { return g_loadQueued; }   // @0x1b5fb8
+bool IsMapLoading() { return g_loading; }         // @0x1b68a4
+
+// @0x1c2914. The spawn points' entities appear; the player stands on its spawn point's saved position, else at the
 // map's default tile ((0x1b, 0xd) in the city, (10, 0x14) on map 0x60), facing down-right in the city.
 void UpdateSpawns() {
     Entity* player = EntityManager::GetPlayer();
@@ -2111,15 +2191,40 @@ void UpdateSpawns() {
         if (player->GetSprite() && player->IsDead() && GameState::GetCurrentMapID() == 0)
             Render::ChangeLayer(player->GetSprite(), 8);
     }
-    int spawns = 0;
-    for (const SaveManager::Chunk& c : g_otherChunks) spawns += c.type == SaveManager::kSpawn;
     std::puts("Map::UpdateSpawns started");
-    std::printf("Map::UpdateSpawns found %d spawns\n", spawns);
-    // UNVERIFIED (milestone 4f): RestoreSpawnpointInfo, RestorePlayerPosition and the spawn points (the
-    // player's own one, class 5 or 10 with entity 0xc, takes the player to the saved position and
-    // gives the default tile; the others spawn their entities, dead ones lying, bosses with their
-    // saved HP).
+    std::printf("Map::UpdateSpawns found %d spawns\n", (int)GetSpawnPointCount());
+    RestoreSpawnpointInfo();
+    RestorePlayerPosition();
     int defX = -1, defY = -1, defDir = -1;
+    // The hero's own spawn point (class 5 or 10, entity 0xc) gives the default tile.
+    auto heros = [](const SpawnPoint* s) { return (s->clas == 5 || s->clas == 10) && s->entityId == 0xc; };
+    for (unsigned i = 0; SpawnPoint* s = GetSpawnByIndex(i); ++i) {
+        if (!heros(s)) continue;
+        defX = s->x;
+        defY = s->y;
+        if (player) {   // PORT: the original has a player on every map
+            player->SetSpawnPoint(s);
+            player->f38 = false;
+            player->SetPos(g_startX, g_startY);
+        }
+        break;
+    }
+    // The others spawn their entities. (Not while GameState::g_Combat, 0x613548, is set: milestone 4g.)
+    for (unsigned i = 0; SpawnPoint* s = GetSpawnByIndex(i); ++i) {
+        if (heros(s)) continue;
+        Entity* e = EntityManager::SpawnEntityAt(s, false, false);
+        if (e->IsDead()) {   // lying dead
+            e->SetAnimationOnce("death", false, false, true, true);
+            e->SetAnimationFrame(e->GetAnimationFrameCount() - 1);
+            if (e->GetSprite()) Render::ChangeLayer(e->GetSprite(), 6);
+        }
+        if (s->corpseTaken != 0) e->SetActive(false, true);
+        // UNVERIFIED (milestone 4g): a boss whose saved fight (GameState::mBossFights) has no HP left
+        // dies here with its reward and subtasks (0x1f, 0x3d, 0x3f); a combat won against this spawn
+        // point ends here (EndActiveCombat, the boss dead at mLastBossXY, the hero back at
+        // mLastBossPlayerXY facing mLastPlayerDir). (milestone 5, PvP): a player shadow that was
+        // defeated (PlayerCompetitionWindow) gets its death time, the selected one its GUID.
+    }
     if (GetMapID() == 0) {
         defY = 0xd;
         defX = 0x1b;
@@ -2130,8 +2235,12 @@ void UpdateSpawns() {
         defX = 10;
         g_startX = g_startY = -1;
     }
-    // UNVERIFIED (milestone 4g): a boss combat (state 0x11) clears the start position too; (milestone
-    // 4f) a pending teleport target (0x6136d8/0x6136dc) replaces it.
+    // UNVERIFIED (milestone 4g): a boss combat (state 0x11) clears the start position too.
+    if (g_nextSpawnX != 0 || g_nextSpawnY != 0) {   // PlayerNextSpawn's tile
+        g_startX = g_nextSpawnX;
+        g_startY = g_nextSpawnY;
+        g_nextSpawnX = g_nextSpawnY = 0;
+    }
     for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i) {
         int clas = e->GetEntityData()->clas;
         if (clas == 0x16) {   // a visited friend (online only)
@@ -2646,8 +2755,10 @@ bool SaveMap() {
         EndChunk();
         SavePatch(p.get());
     }
-    // SaveSpawnPoints, SavePortals, the fog list (0x17) and Fog::SaveFog (0x30). PORT (milestone 4):
-    // the chunks as loaded (a map from its file has no 0x30 chunk until the fog is ported).
+    SaveSpawnPoints();
+    SavePortals();
+    // The fog list (0x17) and Fog::SaveFog (0x30). PORT (milestone 4f, fog): the chunks as loaded
+    // (a map from its file has no 0x30 chunk until the fog is ported).
     for (const SaveManager::Chunk& c : g_otherChunks) {
         BeginChunk(c.type);
         for (uint8_t v : c.data) SaveChar(v);

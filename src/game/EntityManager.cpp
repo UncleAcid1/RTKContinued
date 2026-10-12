@@ -13,8 +13,11 @@
 #include "game/EntityData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
+#include "game/Tasks.h"
 
 namespace EntityManager {
 namespace {
@@ -56,6 +59,112 @@ Entity* SpawnEntityAt(Entity* e, unsigned x, unsigned y, bool appear, bool glow)
         e->Appear(glow, true);
     }
     return e;
+}
+
+Entity* SpawnEntityAt(SpawnPoint* sp, bool appear, bool glow) {
+    Entity* e = CreateEntity((int)sp->entityId, false, true);
+    e->SetSpawnPoint(sp);
+    e->SetPos(sp->x, sp->y);
+    e->SetCurrentMap((int)GameState::GetCurrentMapID());
+    BuildingHovers::SafeRegisterEntity(e);
+    e->SetActive(true, true);
+    e->UpdateGraphics();
+    if (e->data->clas == 5) g_player = e;
+    else if (appear) e->Appear(glow, true);
+    return e;
+}
+
+Entity* GetEntityBySpawnPoint(uint32_t id) {
+    for (Entity* e : g_entities)
+        if (e->GetSpawnPointID() == id) return e;
+    return nullptr;
+}
+
+Entity* GetEntityWithGUID(uint32_t guid) {
+    for (Entity* e : g_entities)
+        if (e->GetGUID() == guid) return e;
+    return nullptr;
+}
+
+Entity* GetEntityWithTalkTask() {
+    for (Entity* e : g_entities) {
+        uint32_t task = e->GetTalkTask();
+        if (task == 0) continue;
+        Tasks::TaskInfo* t = Tasks::GetTask(task);
+        if (t && !t->repeatTask) return e;
+    }
+    return nullptr;
+}
+
+Entity* GetEntityWithDrop(uint32_t item) {
+    Entity* player = GetPlayer();
+    Entity* best = nullptr;
+    // The nearer of the best so far and e (squared world distance to the player; a tie keeps the
+    // earlier one).
+    auto nearer = [&](Entity* e) {
+        if (!best) return e;
+        float bx = best->worldX - player->worldX, by = best->worldY - player->worldY;
+        float ex = e->worldX - player->worldX, ey = e->worldY - player->worldY;
+        return by * by + bx * bx <= ey * ey + ex * ex ? best : e;
+    };
+    for (Entity* e : g_entities) {
+        if (e->IsActive() && !e->IsDead()) {
+            if (const MetaData* drops = e->data->itemsDrop) {
+                for (unsigned i = 0; i < drops->GetChildrenCount(); ++i) {
+                    if ((uint32_t)drops->GetChild(i)->GetChild(0)->GetInt() != item) continue;
+                    if (drops->GetChild(i)->GetChild(1)->GetChild(0)->GetInt() < 1) continue;
+                    best = nearer(e);
+                }
+            }
+            if (MetaExpression* meta = e->GetMetaExpression()) {
+                bool found = false;
+                if (const MetaData* d = meta->FindChildData(kExpDropAfterQuest)) {
+                    for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+                        const MetaData* c = d->GetChild(i);
+                        if ((uint32_t)c->GetChild(1)->GetInt() != item) continue;
+                        if (!GameState::TaskCompleted((unsigned)c->GetChild(0)->GetInt())) continue;
+                        found = true;
+                        best = nearer(e);
+                    }
+                }
+                if (!found) {
+                    if (const MetaData* d = meta->FindChildData(kExpDropBeforeQuest)) {
+                        for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+                            const MetaData* c = d->GetChild(i);
+                            if ((uint32_t)c->GetChild(1)->GetInt() != item) continue;
+                            if (GameState::TaskCompleted((unsigned)c->GetChild(0)->GetInt())) continue;
+                            found = true;
+                            best = nearer(e);
+                        }
+                    }
+                    if (!found) {
+                        if (const MetaData* d = meta->FindChildData(kExpDrop)) {
+                            for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+                                const MetaData* c = d->GetChild(i);
+                                if (c->GetChild(0)->type != MetaData::kNumber) continue;
+                                if ((uint32_t)c->GetChild(0)->GetInt() != item) continue;
+                                best = nearer(e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (e->IsActive() && e->IsDead() && e->HasCorpseItem() && (uint32_t)e->data->corpseDropId == item) return e;
+    }
+    return best;
+}
+
+void RemoveEntitiesByID(uint32_t id, bool all) {
+    for (size_t i = 0; i < g_entities.size();) {
+        Entity* e = g_entities[i];
+        if (e->data->id == id && (all || e->temporary)) {
+            g_entities.erase(g_entities.begin() + (long)i);
+            DestroyEntity(e);
+        } else {
+            ++i;
+        }
+    }
 }
 
 Entity* SpawnEntityAt(int id, unsigned x, unsigned y, bool appear, bool glow) {

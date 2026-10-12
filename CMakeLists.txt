@@ -32,6 +32,7 @@ add_executable(rtk
   src/game/Map.cpp
   src/game/Locations.cpp
     src/game/MapDecor.cpp
+    src/game/MapSpawn.cpp
   src/game/Game.cpp
   src/game/MapMovement.cpp
   src/game/Background.cpp

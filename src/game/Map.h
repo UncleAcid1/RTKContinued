@@ -17,6 +17,8 @@ namespace SaveManager { struct SaveBlock; }
 class MetaExpression;
 class MetaData;
 class Entity;
+struct SpawnPoint;
+struct Portal;
 namespace Contracts { struct Contract; }
 
 namespace Map {
@@ -67,6 +69,7 @@ struct Decor {
     Render::Sprite* sprite = nullptr;  // +0x88
     Render::Sprite* extraDecors = nullptr;   // +0x8c more sprites of it, chained by Sprite::next
     std::unique_ptr<DecorAnim> anim;   // +0x98 while its image is an animation sheet
+    Portal* portal = nullptr;          // +0x90 the way to another map it is (Map::LinkPortals)
     Entity* worker = nullptr;          // +0x9c the hero or goblin doing its job
     Entity* particles = nullptr;       // +0xa0 its particle entities, chained by Entity::nextParticle
     std::vector<Entity*> attackers;    // +0xac
@@ -375,7 +378,32 @@ bool DecorationVisibilityUpdateAllowed();   // PORT: reads the flag (0x60ef21)
 void StoreDecorationInfo();
 void RestoreDecorationInfo();
 void RemoveHoldOfEntities();                // @0x1b8300 every building and decoration forgets its entities
-void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile; spawn points: milestone 4f
+void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile and the spawn points' entities
+// ---- spawn points and portals (MapSpawn.cpp)
+void LoadSpawnPoints(SaveManager::SaveBlock* block);   // @0x1bc0b0
+void SaveSpawnPoints();                                // @0x1b9630
+void LoadPortals(SaveManager::SaveBlock* block);       // @0x1bbeb8
+void SavePortals();                                    // @0x1b955c
+void LinkPortals();                                    // @0x1b846c
+void FreeSpawnPointsAndPortals();                      // PORT: Map::Free's part
+SpawnPoint* GetSpawnByIndex(unsigned i);               // @0x1b7300
+unsigned GetSpawnPointCount();                         // PORT (0x6136b0)
+SpawnPoint* GetSpawnPointAt(int x, int y);             // @0x1b7324
+void StoreSpawnpointInfo();                            // @0x1b88b0
+void RestoreSpawnpointInfo();                          // @0x1b7b08
+Decor* GetPortalToMap(uint32_t map);                   // @0x1b6fe8 the decoration that leads there
+// ---- the hero's place over map switches
+void StorePlayerPosition();                            // @0x1b7874 the next load starts where it stands
+void RestorePlayerPosition();                          // @0x1b73ec
+// @0x1b7d00: the hero back to the map's start tile (Locations), else its own spawn point's.
+void PlayerDefaultSpawn();
+void PlayerNextSpawn(int x, int y);                    // @0x1b747c the next load's start tile
+int GetLastPlayerX();                                  // @0x1b5f58
+int GetLastPlayerY();                                  // @0x1b5f68
+// @0x1b5f7c: Map::Update switches to the map (0x60eff8) on its next run.
+void EnqueueLoadMap(int map, bool bossReward, bool save, float delay);
+bool IsMapLoadQueued();                                // @0x1b5fb8
+bool IsMapLoading();                                   // @0x1b68a4
 void SpawnEntities();    // @0x1c0460 (Map::Load) the player's squad appears around it
 // @0x1b6754: after the app's pause every building and decoration runs one Update with the time
 // paused (main_Loop_Func).

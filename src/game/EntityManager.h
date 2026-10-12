@@ -22,6 +22,17 @@ Entity* CreateEntity(int id, bool noPlayer, bool temporary);
 Entity* SpawnEntityAt(Entity* e, unsigned x, unsigned y, bool appear, bool glow);
 Entity* SpawnEntityAt(int id, unsigned x, unsigned y, bool appear, bool glow);   // @0x167f1c
 Entity* SpawnEntityAt(const std::string& name, unsigned x, unsigned y, bool appear, bool glow);  // @0x167fc0
+// @0x168138: the spawn point's entity, created at its tile.
+Entity* SpawnEntityAt(SpawnPoint* sp, bool appear, bool glow);
+Entity* GetEntityBySpawnPoint(uint32_t id);      // @0x16606c
+Entity* GetEntityWithGUID(uint32_t guid);        // @0x1660d4
+// @0x165e2c: an entity whose talk task is not a repeated one.
+Entity* GetEntityWithTalkTask();
+// @0x165860: a dead entity whose corpse holds the item; else the living one nearest to the player
+// that drops it (its "items_drop", or its meta's drop for the quest state, or its DROP).
+Entity* GetEntityWithDrop(uint32_t item);
+// @0x167568: the temporary entities of this EntityData id are destroyed (all: the kept ones too).
+void RemoveEntitiesByID(uint32_t id, bool all);
 void AddEntity(Entity* e);                       // @0x168488
 void RemoveEntity(Entity* e, bool any);          // @0x165794 (without any: temporary ones only)
 void DestroyEntity(Entity* e);                   // @0x1656f8
