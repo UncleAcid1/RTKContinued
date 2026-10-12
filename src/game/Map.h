@@ -162,6 +162,12 @@ struct Decor {
     void RemoveAttacker(Entity* e);                  // @0x13a388
     // @0x13b99c: the world point of the tile half its depth back from (x, y).
     void GetCenterPoint(int& x, int& y) const;
+    // @0x134948: a tap that the job handling left over: a used-up decoration with PORTAL sends the
+    // hero to it (true), one with MESSAGE shows it.
+    bool OnClick();
+    // @0x133c80: its "use" icon shows: usable, unlocked by its quests, and either INTERACT_ICON
+    // (not "none") or its required item in the bag.
+    bool ShowUseItemHover() const;
     // +0x44 @0x13577c, every frame: its animation; the end of the job on it (its uses, the quest
     // steps, the drops, what its expression does after an interaction); the hero stepping on its
     // quest or teleport tiles; its sprite's visibility.
@@ -223,6 +229,8 @@ Decor* GetTriggeredDecoration(int x, int y);           // @0x1baa60 the first wi
 Decor* GetBlockingDecoration(int x, int y);            // @0x1bab04 the first with a block tile there
 // The searches below collect the visible, still usable decorations that match and give the one
 // nearest to the hero (null without the hero).
+// @0x1be5e8: any (unlocked: not locked; reachable: the hero has a way to its action point).
+Decor* GetDecorationWithAnyInteraction(bool unlocked, bool reachable);
 Decor* GetDecorationWithDrop(uint32_t item);           // @0x1be870 CanDropItem(item)
 Decor* GetDecorationWithAnyDrop();                     // @0x1bea14 unlocked, with a DROP
 // @0x1bf1ec: key is the decimal digits of the map id followed by those of the decoration id (in

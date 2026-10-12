@@ -50,6 +50,9 @@ void SetCurrentMapID(uint32_t id);             // @0x19056c
 bool IsTutorial();                             // @0x190ad4 tutorial < 0x18 (the opening campaign)
 int GetPlayerWorkersCount();                   // @0x1927bc
 int GetMaxWorkerCount();                       // @0x19a7a8
+// @0x1938f4: the first storage goblin (class 0x10) at home (map 0) that is not fading in or out;
+// its work is cancelled.
+Entity* GetGoblin();
 int GetGoblinCount();                          // @0x191a2c the storage goblins (entity class 0x10)
 bool IsMalePlayer();                           // @0x190ca8
 void SetPlayerGender(bool male);               // @0x190cbc

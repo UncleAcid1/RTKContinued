@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e parts 1-2 done (decoration job state, Decor::Update); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e done (decoration jobs); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -875,10 +875,30 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified: builds, the city loads and runs 200 frames. NOT exercised: no decoration in the test
    city has a job, an animation sheet or an expression, so Update's job end, particles and
    teleports have not run yet (part 3 adds the way to start a job).
-   NEXT: 4e part 3 (AIPlayer's decoration actions, Decor::OnClick, OnDecorClick's job half,
-   GetDecorationWithAnyInteraction, Map::RemoveBlockedTiles / RestoreBlockedTiles,
-   ShowUseItemHover, SendGoblinToWork, AssignEntities' decoration branch, the 4e notes left in
-   TasksHelp / AIPlayer / BuildingHovers / Map.cpp's particles in OnSetup / OnTaskCompleted).
+- 4e part 3 (2026-10-12): the hero and the taps. AIPlayer: ClickedDecoration (walks to the action
+   point, action 5), AssignToJob (action 3), SearchDecoration (state 0x21, WorkStarted, the search
+   animation), RemoveFromJob, SendGoblinToWork, GetBestDecorationActionPoint, TryToInterruptJob /
+   StopMovement's worker removal, ProcessAction cases 3 (NeedItemWindow for the price or item, then
+   the search), 4 (block message) and 5 (portal, goblin job, start / end quests, required item,
+   message, the anvil's quests on map 0x5a). BuildingHovers::OnDecorClick's job half
+   (NotEnoughWindow for the price, the hero away from home, a worker at home, the FREE_UP_WORKER
+   popup), OnFreeWorkerAssignDecoration, Decor::OnClick, Decor::ShowUseItemHover,
+   Map::GetDecorationWithAnyInteraction, GameState::GetGoblin, Entity::GetCurrentAnimation,
+   Map::AssignEntities' decoration branch, the particles of OnSetup / OnTaskCompleted /
+   OnSubTaskCompleted / Disable, the quest helper's arrows at decorations (steps 0x22 / 0x23, the
+   ruin before tutorial 0x80, a decoration that drops the wanted item).
+   Plan changes: CallbackAssignWorker is dead (never constructed); Map::RemoveBlockedTiles /
+   RestoreBlockedTiles, TargetedAI::GetClosestReachableWPToDecor and AIPlayer::PlayBuffAnimation
+   -> 4g.
+   UNVERIFIED left inside 4e code, by milestone: several action points pick the first (4g:
+   GetDistanceToTarget); combat taps, HealSquadWindow, traps (4g); portals, fog, map teleports,
+   camera paths, offline goblins, the goblin popup's find / buy buttons, the use-item hover type
+   in UpdateHovers (4f); world dialog hides (4h); chests, craft nodes, collections (5); sounds (6).
+   Verified: builds; the city loads, saves, reloads and runs; a tap on the map still works;
+   inventory shows no 4e function left. NOT exercised: the test city has no decoration with a job
+   or an expression, so the job flow itself (tap, walk, search, rewards) first runs on a campaign
+   map (4f) or in the tutorial (4h). Test it there before trusting it.
+   4e IS CLOSED. NEXT: 4f (campaign maps).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
@@ -1207,7 +1227,7 @@ Milestones:
               the quest-locked shop items and the upgrade-lock quest names, LevelUpWindow's "new
               tasks" cell. Moved: CastleTopWindow::FeaturedQuestHolder and LevelInfoWindow -> 5;
               TaskQuickCompleteWindow and every ExecuteFirstHelp are dead code.
-       4e [ ] decoration jobs: Map::Decor Update/WorkStarted/teleports, DecorAnimController, AIPlayer's
+       4e [x] (done 2026-10-12) decoration jobs: Map::Decor Update/WorkStarted/teleports, DecorAnimController, AIPlayer's
               decoration actions (SearchDecoration, ClickedDecoration, AssignToJob, ProcessAction,
               AutoInteraction), SendGoblinToWork, Decor::UpdateOfflineState, Map::OfflineUpdate's
               decoration half, the job parts of DecorationHoverWindow/OnDecorClick.

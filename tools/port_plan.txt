@@ -154,15 +154,17 @@ dead  ::ExecuteFirstHelp$   # the QA game bot's "do the first help" per window (
 
 # ---- 4e: decoration jobs ------------------------------------------------------------------------
 dead  ^(DecorAnimController|BuildingAnimController)::   # no caller in 5.11 (symbol table only; decorations use BaseAnimController<Map::Decor>)
-4e  ^CallbackAssignWorker::
+dead  ^CallbackAssignWorker::   # never constructed in 5.11 (no call of its constructors)
 4g  ^Map::Decor::OnHitByEnemy$   # with Decor::Destroy and the traps of Decor::Update
 4f  ^Map::Decor::PortalAction$   # needs the portals (Decor +0x90)
 6   ^Map::Decor::PlayTeleportSound$
 4e  ^Map::Decor::
-4e  ^AIPlayer::(AssignToJob|ClickedDecoration|GetBestDecorationActionPoint|RemoveFromJob|SearchDecoration|SendGoblinToWork|PlayBuffAnimation)$
+4g  ^AIPlayer::PlayBuffAnimation$   # a buff's particles (Particles::BuffParticleSystem) and the "cast" animation
+4e  ^AIPlayer::(AssignToJob|ClickedDecoration|GetBestDecorationActionPoint|RemoveFromJob|SearchDecoration|SendGoblinToWork)$
 4e  ^AIBaseState::(AssignToJob|AutoInteraction|CancelWork|ClickedDecoration|IsWorking|RemoveFromJob|SearchDecoration|StartTraining|TryToInterruptJob|ResetOrder)$
+4g  ^Map::(RemoveBlockedTiles|RestoreBlockedTiles)$   # only TargetedAI::SetBlockedPathTarget uses them
 4e  ^Map::(GetBlockingDecoration|GetDecorationThatIsReplacedWith|GetDecorationToClick|GetDecorationToInteract|GetDecorationWithAnyDrop|GetDecorationWithAnyInteraction|GetDecorationWithDrop|GetNearestFilteredDecoration|GetTriggeredDecoration|RemoveBlockedTiles|RestoreBlockedTiles|RemoveHoldOfEntities|StoreDecorationInfo|RestoreDecorationInfo)$
-4e  ^TargetedAI::GetClosestReachableWPToDecor$
+4g  ^TargetedAI::GetClosestReachableWPToDecor$   # with the GetClosestReachableWPTo family
 4e  ^BuildingHovers::(FollowDecor|HideArrowOnDecor|OnFreeWorkerAssignDecoration|AllowDecorClickInBattleOnce)$
 4e  ^Entity::IsDecorInRange$
 

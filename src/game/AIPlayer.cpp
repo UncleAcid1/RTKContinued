@@ -1,6 +1,7 @@
 // AIWarrior (soldiers, and the base of the hero's AI) and AIPlayer (the hero). See AIState.h.
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <string>
 
 #include "engine/IconManager.h"
@@ -18,6 +19,10 @@
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/HiddenObjects.h"
+#include "game/Items.h"
+#include "game/MetaExpression.h"
+#include "game/StringTable.h"
+#include "hud/HUD.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Squad.h"
@@ -412,7 +417,7 @@ void AIPlayer::UnableToWalk(int x, int y) {
             action = 0;
         }
     } else {
-        // UNVERIFIED (milestone 4e): TargetedAI::SetBlockedPathTarget(GetWaypoint(x, y)) finds the
+        // UNVERIFIED (milestone 4g): TargetedAI::SetBlockedPathTarget(GetWaypoint(x, y)) finds the
         // quest-blocked decoration next to the end of the path; then action 4 shows its message.
         (void)x, (void)y;
     }
@@ -421,12 +426,12 @@ void AIPlayer::UnableToWalk(int x, int y) {
 
 bool AIPlayer::TryToInterruptJob() {
     Map::Decor* d = entity->GetWorkplaceDecoration();
-    if (action == 3 && d && !GameState::IsTutorial()) {
-        // UNVERIFIED (milestone 4e): Map::Decor::RemoveWorker(d).
-    }
-    if (d && IsWorking() && !GameState::IsTutorial()) {
-        // UNVERIFIED (milestone 4e): a job without a required item is cancelled: Decor::ReturnCost,
-        // Decor::RemoveWorker, BuildingHovers::Update(0, true).
+    if (action == 3 && d && !GameState::IsTutorial()) entity->GetWorkplaceDecoration()->RemoveWorker();
+    // A job without a required item is cancelled and its price returned.
+    if (d && IsWorking() && !GameState::IsTutorial() && d->GetRequiredItem() == 0) {
+        d->ReturnCost();
+        d->RemoveWorker();
+        BuildingHovers::Update(0.f, true);
     }
     if (action == 3) return false;
     return !IsWorking();
@@ -444,9 +449,9 @@ void AIPlayer::StopMovement() {
     if (entity->GetSquad()->IsAnyoneInCombat()) return;
     if (entity->f38) return;
     if (action == 3) {
-        // UNVERIFIED (milestone 4e): outside the tutorial the decoration job's worker is removed
-        // (Map::Decor::RemoveWorker).
-        return;
+        if (entity->GetWorkplaceDecoration() && !GameState::IsTutorial())
+            entity->GetWorkplaceDecoration()->RemoveWorker();
+        if (action == 3) return;   // (RemoveWorker's RemoveFromJob clears the action)
     }
     if (IsWorking()) return;
     BaseSquad* sq = entity->GetSquad();
@@ -454,6 +459,132 @@ void AIPlayer::StopMovement() {
 }
 
 void AIPlayer::OnMapUnload() { hidden->Clear(false); }
+
+// @0xee7a0 AIPlayer::GetBestDecorationActionPoint
+unsigned AIPlayer::GetBestDecorationActionPoint(Map::Decor* d) {
+    if (d->GetActionPointCount() < 2) return 0;
+    // UNVERIFIED (milestone 4g): of several action points the one with the shortest way
+    // (TargetedAI::GetDistanceToTarget 0xe5ef8); the first until then.
+    return 0;
+}
+
+// @0xee858 AIPlayer::SendGoblinToWork
+void AIPlayer::SendGoblinToWork(Map::Decor* d) {
+    Entity* goblin = GameState::GetGoblin();
+    if (!goblin || goblin->GetWorkplaceDecoration()) {
+        // UNVERIFIED (milestones 4f / 5): "find" (FUN_000ee920) and "buy" (FUN_000ee97c) lead to
+        // the goblins' window; the buttons only close the popup until then.
+        PopupSelectionWindow::Show(StringTable::GetString("MESSAGE_GOBLIN_NOT_AVAILABLE"),
+                                   StringTable::GetString("GOBLIN_NOT_AVAILABLE_DESC"),
+                                   StringTable::GetString("PERFORM_FIND"), IconManager::GetIcon("gold_find", false),
+                                   [] { PopupSelectionWindow::Hide(); }, StringTable::GetString("PERFORM_BUY"),
+                                   IconManager::GetIcon("gold_add", false), [] { PopupSelectionWindow::Hide(); });
+        PopupSelectionWindow::SetGoblinIcon();
+        return;
+    }
+    goblin->SetCurrentMap((int)Map::GetMapID());
+    int ax = 0, ay = 0;
+    d->GetActionPoint(ax, ay, 0);
+    AI::Waypoint* wp = AI::GetRandomWaypointInRange(ax, ay, 1, 0, false, nullptr, false);
+    if (!wp) wp = AI::GetWaypoint(entity->tileX, entity->tileY, false);
+    EntityManager::SpawnEntityAt(goblin, (unsigned)wp->x, (unsigned)wp->y, false, false);
+    d->AssignWorker(goblin);
+    d->collectStart = Timer::GetGlobalTime();
+    // Someone standing on the action point steps aside.
+    Entity* o = EntityManager::GetNonPlayerEntityAtXY(ax, ay);
+    if (o && o != entity && !o->f39)
+        if (AI::Waypoint* to = AI::GetRandomWaypointInRange(ax, ay, 1, 0, false, nullptr, false)) o->GetAI()->WalkTo(to);
+}
+
+// @0xeee64 AIPlayer::SearchDecoration
+void AIPlayer::SearchDecoration(Map::Decor* d) {
+    int sx = (int)entity->worldX, sy = (int)entity->worldY;
+    Map::WorldCoordinatesToScreen(sx, sy);
+    if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
+        Render::CenterOn(entity->worldX, entity->worldY);   // (over 0.4 s on the original)
+    ChangeState(0x21);
+    entity->OnStartedToWork();
+    Map::Decor* job = entity->GetWorkplaceDecoration();
+    if (!job) {
+        entity->SetWorkplaceDecoration(d);
+        d->worker = entity;
+        job = d;
+    }
+    job->WorkStarted();
+    unsigned time = 0;
+    const char* anim = entity->GetWorkplaceDecoration()->GetPlayerSearchAnimation(&time);
+    if (!anim) entity->SetAnimationP("search", false, false, false);
+    else entity->SetAnimationMult(anim, (int)time, false, false, true);
+    int w = 0, h = 0, tx = 0, ty = 0;
+    d->GetBuildZone(w, h);
+    d->GetStartTile(tx, ty);
+    TurnTo(entity->tileX, entity->tileY, tx, ty, w, h);
+    BuildingHovers::Update(0.f, true);
+}
+
+// @0xef104 AIPlayer::ClickedDecoration
+void AIPlayer::ClickedDecoration(Map::Decor* d) {
+    // UNVERIFIED (milestone 4g): in a combat the tap goes to CombatManager::OnDecorClicked (0x12e494).
+    if (entity->IsRetreating()) return;
+    // (BottomScreenshotWindow, the screenshot mode: not in the port.)
+    if (!TryToInterruptJob()) return;
+    if (GameState::IsCombatActive()) return;
+    if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
+        // UNVERIFIED (milestone 4g): HealSquadWindow::Show (0x2cd1d8).
+        return;
+    }
+    unsigned point = GetBestDecorationActionPoint(d);
+    int ax = 0, ay = 0;
+    d->GetActionPoint(ax, ay, (int)point);
+    AI::Waypoint* wp = AI::GetWaypoint(ax, ay, false);
+    if (!wp && !(wp = AI::GetWaypointNearDecoration(d, false))) return;
+    int dir = 0;
+    if (AI::Waypoint* near = AI::GetNearestWP(wp->x, wp->y, entity->worldX, entity->worldY, dir)) wp = near;
+    actionWP = wp;
+    ChangeState(0x20);
+    actionArg = (int)point;
+    actionTarget = d;
+    action = 5;
+    // A decoration that will do something gets the "goto" marker: an unlocked usable one, or a
+    // used-up one with a portal.
+    bool useful = d->f4c != 0 ? !d->IsLocked() : d->meta && d->meta->FindChildData(kExpPortal);
+    if (useful) GotoMarker();
+    else BlockedMarker();
+    // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+    entity->GetSquad()->MoveTo(wp);
+    // UNVERIFIED (milestone 4h): BuildingHovers::HideWorldDialog(nullptr).
+}
+
+// @0xef3ec AIPlayer::AssignToJob
+bool AIPlayer::AssignToJob(Map::Decor* d) {
+    if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
+        // UNVERIFIED (milestone 4g): HealSquadWindow::Show (0x2cd1d8).
+        return false;
+    }
+    // UNVERIFIED (milestone 4h): tutorial step 0x14 hides the world dialog (HideWorldDialog).
+    int ax = 0, ay = 0;
+    d->GetActionPoint(ax, ay, (int)GetBestDecorationActionPoint(d));
+    AI::Waypoint* wp = AI::GetWaypoint(ax, ay, false);
+    if (!wp && !(wp = AI::GetWaypointNearDecoration(d, false))) return false;
+    actionWP = wp;
+    ChangeState(0x20);
+    action = 3;
+    GotoMarkerAt(d->x, d->y);
+    // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+    entity->GetSquad()->MoveTo(wp);
+    return d->f50 != 0;
+}
+
+// @0xef654 AIPlayer::RemoveFromJob
+void AIPlayer::RemoveFromJob() {
+    if (!entity->GetWorkplaceDecoration())
+        std::fprintf(stderr, "ERROR: AIPlayer::RemoveFromJob() is called on a player with no job\n");
+    else entity->GetWorkplaceDecoration()->WorkEnded();
+    ChangeState(0);
+    if (action != 3) entity->SetAnimationP("idle_1", true, false, false);
+    autoInteraction = false;
+    action = 0;
+}
 
 void AIPlayer::ProcessAction() {
     if (action == 0) return;
@@ -466,18 +597,99 @@ void AIPlayer::ProcessAction() {
         // UNVERIFIED (milestones 4c/4f): talking: NeedItemWindow for a task wanting items, else
         // Entity::OnTalkTo.
         break;
-    case 3:
-        // UNVERIFIED (milestone 4e): a decoration job: NeedItemWindow for its cost or required item,
-        // else SearchDecoration.
+    case 3: {   // the job on the hero's decoration: its price or item is confirmed first
+        Map::Decor* d = entity->GetWorkplaceDecoration();
+        auto ask = [this, d](uint32_t item, int resource, unsigned amount) {
+            NeedItemWindow::SetSearchParameters(item, resource, amount,
+                                                new std::function<void()>([this, d] { SearchDecoration(d); }),
+                                                new std::function<void()>([d] { d->RemoveWorker(); }));
+            NeedItemWindow::Show();
+        };
+        bool asked = false;
+        for (int i = 0; i < 11; ++i) {
+            if (d->cost[i] == 0) continue;
+            if (d->GetRequiredItem() != 0) {
+                std::fprintf(stderr, "ERROR: AIPlayer::ProcessAction() Decoration requires an item and a resource\n");
+            } else if (asked) {
+                std::fprintf(stderr, "ERROR: AIPlayer::ProcessAction() Decoration multiple resources\n");
+            } else {
+                ask(0, i, (unsigned)d->cost[i]);
+                asked = true;
+            }
+        }
+        if (asked) break;
+        if (uint32_t item = d->GetRequiredItem()) {
+            if (!autoInteraction) {
+                ask(item, 0xb, 1);
+                break;
+            }
+            autoInteraction = false;
+        }
+        SearchDecoration(d);
         break;
-    case 4:
-        // UNVERIFIED (milestone 4e): the blocking decoration's message over the hero, the view centred
-        // on it.
+    }
+    case 4: {   // a blocked way: the blocking decoration's message over the hero
+        const char32_t* text = static_cast<Map::Decor*>(actionTarget)->GetBlockMessage();
+        if (text)
+            BuildingHovers::ShowTextHover(entity->worldX, entity->worldY, text, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19,
+                                          5, 5.f, true, 2.f, 50.f);
+        Render::CenterOn(entity->worldX, entity->worldY - entity->GetIdleHeight());   // (over 0.4 s on the original)
         break;
-    case 5:
-        // UNVERIFIED (milestones 4c/4e): a decoration action: teleport, a goblin to work, its start and
-        // end quests, the item it needs (NeedItemWindow, crafting), its message.
+    }
+    case 5: {   // a tapped decoration
+        Map::Decor* d = static_cast<Map::Decor*>(actionTarget);
+        if (!d) break;
+        if (d->f4c == 0) {   // used up: only its portal is left
+            action = 0;
+            d->TeleportAction((unsigned)actionArg);
+            break;
+        }
+        if (!d->IsLocked() && d->f50 != 0) {   // a timed job is the goblin's
+            SendGoblinToWork(d);
+            break;
+        }
+        if (Tasks::TaskInfo* t = Tasks::GetTask(d->GetStartQuestID())) {
+            GameState::StartTask(t->id);
+            Tasks::Update(true);
+            BuildingHovers::Update(0.f, true);
+            HUDWindow::UpdateTasks();
+        }
+        Tasks::TaskInfo* end = Tasks::GetTask(d->GetEndQuestID());
+        if (end && !GameState::TaskCompleted(end->id)) {
+            for (const Tasks::TaskSubtask& st : end->subtasks)
+                if (st.id != 0) Tasks::CompleteSubtaskDirect(st.id, 0x400);
+            Tasks::CompleteTask(end->id, true, true, false);
+            Tasks::Update(true);
+            BuildingHovers::Update(0.f, true);
+            HUDWindow::UpdateTasks();
+        }
+        if (uint32_t item = d->GetRequiredItem()) {
+            const Items::ItemInfo* info = Items::GetItemInfo(item);
+            if (info && (info->type == 9 || info->type == 6)) {   // made in a building
+                NeedItemWindow::SetParameters(item, d);
+                NeedItemWindow::Show();
+                break;
+            }
+            // UNVERIFIED (milestone 5): an item that a collection gives (Collections::
+            // GetCollectionWithResult) opens CraftingWindow on it (type 8) or, once
+            // "craft_unlock_task" is done, CraftItemWindow.
+        }
+        if (d->sprite) {
+            std::u32string text = d->GetMessage(0x80);
+            BuildingHovers::ShowTextHoverWithStyle(d->sprite->x + d->sprite->w * 0.5f, d->sprite->y - d->sprite->h,
+                                                   text.c_str(), 0xe, 2.f, 50.f, false, false);
+            // The Smithy's anvil on map 0x5a (tile 0x10, 0x1c): its first open quest is shown.
+            if (d->x == 0x10 && d->y == 0x1c && d->id == 0x55e && GameState::GetCurrentMapID() == 0x5a) {
+                for (unsigned task : {0x2fbu, 0x3fau, 0x3feu})
+                    if (!GameState::TaskCompleted(task)) {
+                        TaskInfoWindow::SetTask(task, false);
+                        TaskInfoWindow::Show();
+                        break;
+                    }
+            }
+        }
         break;
+    }
     case 6:
         entity->SetDirection(5);
         entity->SetAnimationMult("search", 2, false, false, true);

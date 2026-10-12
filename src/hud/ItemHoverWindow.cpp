@@ -944,7 +944,7 @@ void ItemHoverWindow::OnEnable() {
             PopupWindow::Show(StringTable::GetString("MAGNIFYING_GLASS_TOWN"), PopupWindow::Hide, nullptr, nullptr);
             return;
         }
-        // UNVERIFIED (milestones 4e/4f): away from the city: CharacterInfoWindow::Hide, the glass is
+        // UNVERIFIED (milestone 4f): away from the city: CharacterInfoWindow::Hide, the glass is
         // used up (RemoveUniqueItem), Map::GetDecorationWithAnyDrop -> "MAGNIFYING_GLASS_NONE" or
         // the camera / arrow on that decoration (Fog::IsVisible, Map::AddCameraPoint). Only the city
         // is loaded so far.

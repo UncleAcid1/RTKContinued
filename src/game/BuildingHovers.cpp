@@ -691,7 +691,7 @@ void UpdateHovers() {
             }
         } else if (GameState::IsPlayerCity()) {
             if (d) {
-                // UNVERIFIED (milestone 4e): the battle health bar, decorations being searched by a
+                // UNVERIFIED (milestone 4f): the battle health bar, decorations being searched by a
                 // worker (2) and the use-item hover (0xf, Map::Decor::ShowUseItemHover: its window is
                 // ported) need the decorations' expressions and jobs.
                 const GameData::DecorData* dd = d->data;
@@ -1450,18 +1450,72 @@ bool Click(int x, int y, bool pressed) {
     return false;
 }
 
-// @0x26a3b0: a tapped decoration. In the city one that pays taxes shows its info window.
+// @0x26a3b0: a tapped decoration. A locked one, or one with a timed job away from home, goes to
+// the hero; a job is checked for its price and given to the hero (away) or a worker (at home);
+// Decor::OnClick handles the rest; in the city one that pays taxes shows its info window.
 bool OnDecorClick(Map::Decor* d, int x, int y) {
-    int step = GameState::tutorial;
-    // UNVERIFIED (tutorial): steps 0x13 and 0x3a hide the world dialog.
-    if (step == 0x14 || step == 0x3a) HideArrow();
-    // UNVERIFIED (milestone 4): in a combat only skipCombatCheck lets a tap through.
-    if (GameState::GetCurrentMapID() == 0 && d->patch && !d->patch->owned) return true;
-    // UNVERIFIED (milestone 4): a quest-locked decoration (Decor::IsLocked: its MetaExpression) goes to
-    // the hero (ClickedDecoration); a decoration job (+0x4c: its resource needs, "REQUIREMENT_GOBLIN",
-    // the hero or a worker sent, the "FREE_UP_WORKER" popup); Decor::OnClick (quest text, portals).
-    // Without a MetaExpression, a job or a portal none of these apply.
-    if (d->f4c != 0) return true;
+    // UNVERIFIED (milestone 4h): steps 0x13 and 0x3a hide the world dialog (HideWorldDialog).
+    if (GameState::tutorial == 0x14 || GameState::tutorial == 0x3a) HideArrow();
+    Entity* player = EntityManager::GetPlayer();
+    bool passes = g_skipCombatCheck;
+    g_skipCombatCheck = false;
+    if (GameState::IsCombatActive() && !passes) return true;
+    if (GameState::GetCurrentMapID() != 0 || !d->patch || d->patch->owned) {
+        if (d->IsLocked()) {
+            player->GetAI()->ClickedDecoration(d);
+            return true;
+        }
+        if (d->f4c != 0) {
+            if (d->WorkerAssigned()) return true;
+            NotEnoughWindow::ResetRequirements();
+            NotEnoughWindow::SetDescriptionText(StringTable::GetString("REQUIREMENT_GOBLIN"), nullptr);
+            for (int i = 0; i < 11; ++i)
+                if (d->cost[i] != 0) NotEnoughWindow::AddRequirement(i, (unsigned)d->cost[i]);
+            if (!NotEnoughWindow::CheckRequirements()) {
+                NotEnoughWindow::SetActionCallback([d, x, y] { OnDecorClick(d, x, y); }, nullptr, false);
+                NotEnoughWindow::Show();
+                return true;
+            }
+            if (GameState::GetCurrentMapID() != 0) {
+                if (d->f50 != 0) {
+                    player->GetAI()->ClickedDecoration(d);
+                    return true;
+                }
+                if (player->GetWorkplaceDecoration() && player->GetWorkplaceDecoration() != d)
+                    player->GetAI()->TryToInterruptJob();
+                if (player->GetWorkplaceDecoration()) return true;
+                // UNVERIFIED (milestone 5): a CRAFT node takes its profession tool's GATHER_TIME.
+                d->f50 = 2;
+                d->AssignWorker(player);
+                return true;
+            }
+            if (Entity* w = EntityManager::GetFreeWorker()) {
+                d->AssignWorker(w);
+                return true;
+            }
+            if (EntityManager::GetFirstBusyWorker()) {
+                // UNVERIFIED (milestone 6): "ui_show_busyworkers".
+                PopupSelectionWindow::Show(StringTable::GetString("FREE_UP_WORKER"),
+                                           StringTable::GetString("NO_FREE_WORKER_DESC"),
+                                           StringTable::GetString("FIRE_PERSON"),
+                                           IconManager::GetIcon("icon_profession_builder"),
+                                           [d] { OnFreeWorkerAssignDecoration(d); },
+                                           StringTable::GetString("PERFORM_BUILD"), IconManager::GetIcon("gold_build"),
+                                           OnFreeWorkerBuild);
+                PopupSelectionWindow::SetMentorIcon();
+                return true;
+            }
+            if (d->f4c != 0 && d->WorkerAssigned() && GameState::GetCurrentMapID() == 0) {
+                Render::Sprite* s = d->sprite;
+                ShowTextHover(s->x + s->w * 0.5f, s->y - s->h, StringTable::GetString("BUILDER_COMING"), 1.f, 1.f,
+                              1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true, 2.f, 50.f);
+                return true;
+            }
+        }
+        if (d->OnClick()) return true;
+    } else {
+        return true;   // a decoration on land the player does not own
+    }
     const GameData::DecorData* data = d->GetData();
     BuildingHoverWindow* w = g_currentHover;
     if (data && data->collectTime != 0 && GameState::GetCurrentMapID() == 0 && d->patch && d->patch->owned) {
@@ -1645,8 +1699,22 @@ void OnFreeWorkerAssign(Map::Building* b) {
     Entity* w = EntityManager::GetFirstBusyWorker();
     if (!w) return;
     if (Map::Building* job = w->GetWorkplace()) job->RemoveWorker(w);
-    // UNVERIFIED (milestone 4): a worker on a decoration job leaves it (Decor::RemoveWorker).
+    if (Map::Decor* job = w->GetWorkplaceDecoration()) job->RemoveWorker();
     b->AssignWorker(w, 0);
+}
+
+// @0x263af8 BuildingHovers::OnFreeWorkerAssignDecoration
+void OnFreeWorkerAssignDecoration(Map::Decor* d) {
+    PopupSelectionWindow::Hide();
+    if (Entity* w = EntityManager::GetFreeWorker()) {
+        d->AssignWorker(w);
+        return;
+    }
+    Entity* w = EntityManager::GetFirstBusyWorker();
+    if (!w) return;
+    if (Map::Building* job = w->GetWorkplace()) job->RemoveWorker(w);
+    if (Map::Decor* job = w->GetWorkplaceDecoration()) job->RemoveWorker();
+    d->AssignWorker(w);
 }
 
 namespace {

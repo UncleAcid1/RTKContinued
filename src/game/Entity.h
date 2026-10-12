@@ -16,6 +16,7 @@ namespace Map { struct Building; struct Decor; }
 namespace AI { struct Waypoint; }
 struct EntityData;
 struct AnimationController;
+struct Animation;
 class AIBaseState;
 class BaseSquad;
 struct SpawnPoint;
@@ -51,6 +52,7 @@ public:
     void AnimationEnded();                       // @0x15293c
     void OnMapUnload();                          // @0x150764 drops its links into the map
     AnimationController* GetAnimController() const { return anim; }   // @0x14ffcc
+    Animation* GetCurrentAnimation() const;      // @0x151158 its controller's active animation
     int GetAnimationFrameCount() const;          // @0x151168 the active animation's frames (0 without one)
     Render::Sprite* GetSprite() const { return sprite; }             // @0x14ffd4
 

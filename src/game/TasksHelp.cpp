@@ -129,7 +129,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         int x = (int)assistX, y = (int)assistY;
         Map::TileCoordinatesToWorld(x, y);
         HelpWithLocation(x, y, (int)assistX, (int)assistY);
-        // UNVERIFIED (milestone 4e): step 0x36c also points an arrow at each of its decorations
+        // UNVERIFIED (milestone 4f): step 0x36c also points an arrow at each of its decorations
         // still to be used (the tile list 0x58c6ec).
         return true;
     }
@@ -145,8 +145,12 @@ bool TaskSubtask::OnHelp(bool arrow) {
             if (arrow) ArrowAtBuilding(b);
             return true;
         }
-        // UNVERIFIED (milestone 4e): before tutorial step 0x80 the ruin that becomes this building
-        // (Map::GetDecorationThatIsReplacedWith) gets the arrow instead of the shop.
+        // Before tutorial step 0x80 the ruin that becomes this building gets the arrow instead.
+        if (GameState::tutorial < 0x80)
+            if (Map::Decor* ruin = Map::GetDecorationThatIsReplacedWith(value)) {
+                if (arrow) ArrowAtDecor(ruin);
+                return true;
+            }
         ShopOn(value);
         return true;
     }
@@ -390,8 +394,12 @@ bool TaskSubtask::OnHelp(bool arrow) {
             }
             return true;
         }
-        // UNVERIFIED (milestones 4e / 4f): an enemy (EntityManager::GetEntityWithDrop) or a
-        // decoration (Map::GetDecorationWithDrop) that drops it gets the arrow.
+        // UNVERIFIED (milestone 4f): an enemy that drops it (EntityManager::GetEntityWithDrop)
+        // gets the arrow first.
+        if (Map::Decor* d = Map::GetDecorationWithDrop(value)) {   // a decoration that drops it
+            if (arrow) ArrowAtDecor(d);   // (the original also hides GlobalMapWindow, milestone 5)
+            return true;
+        }
         const Items::ItemInfo* info = Items::GetItemInfo(value);
         if (info && (info->type == 6 || info->type == 9)) {   // made in a building
             unsigned slot = 0;
@@ -421,11 +429,21 @@ bool TaskSubtask::OnHelp(bool arrow) {
     case kBuyRealMoney:   // PORT: the exchange (the original opens its real-money tab 0)
         ExchangeWindow::Show();
         return true;
+    case kInteractBuilding:      // the arrow at the decoration to use
+    case kInteractBuildingAny: { // the arrow at a decoration of the type to click
+        Map::Decor* d = type == kInteractBuilding ? Map::GetDecorationToInteract(value) : Map::GetDecorationToClick(value);
+        if (!d) {
+            std::fprintf(stderr, "Tasks::TaskSubtask::OnHelp() cannot help with %s not on the current map (%d)\n",
+                         type == kInteractBuilding ? "SUBTASK_BATTLE_INTERACT_BUILDING" : "SUBTASK_TASK_CLICK_BUILDING_ANY",
+                         value);
+            return false;
+        }
+        if (arrow) ArrowAtDecor(d);
+        return true;
+    }
     // UNVERIFIED (milestone 4f): the campaign's people and places.
     case kTalkToPerson:        // the arrow at the person of spawn point `value` (its tap: walk and talk)
     case kCompleteCompaign:    // the arrow at the person with a talk task (EntityManager::GetEntityWithTalkTask)
-    case kInteractBuilding:    // 4e: the arrow at the decoration to use (Map::GetDecorationToInteract)
-    case kInteractBuildingAny: // 4e: the arrow at a decoration to click (Map::GetDecorationToClick)
     // UNVERIFIED (milestone 4g): the arrow at an enemy (its tap: attack).
     case kKillMob:             // EntityManager::GetNearestEnemyTo(player, value)
     case kKillAllOnMap:        // EntityManager::GetNearestEnemy

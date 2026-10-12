@@ -113,6 +113,7 @@ void ShowTextHover(float x, float y, const char32_t* text, float r, float g, flo
                    bool nearest, float fade, float rise);
 // @0x269cec: an icon that rises and fades like the text popups, centred on x.
 void ShowIconHover(float x, float y, Render::Texture* tex);
+void OnFreeWorkerAssignDecoration(Map::Decor* d);   // @0x263af8 a free (else the first busy) worker takes the job
 void FollowDecor(Map::Decor* d);            // @0x263218 the last arrow belongs to the decoration
 void HideArrowOnDecor(Map::Decor* d);       // @0x266c60 HideArrow if an arrow belongs to it
 void AllowDecorClickInBattleOnce();         // @0x263000 the next decoration tap passes the combat check

@@ -505,6 +505,9 @@ void Entity::SetWorkplace(Map::Building* b) {
     }
 }
 
+// @0x151158 Entity::GetCurrentAnimation
+Animation* Entity::GetCurrentAnimation() const { return anim ? anim->anim : nullptr; }
+
 void Entity::SetWorkplaceDecoration(Map::Decor* d) {
     workplaceDecor = d;
     if (!d) {

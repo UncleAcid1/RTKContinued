@@ -538,6 +538,17 @@ void CancelWork(int type) {
 
 int GetTutorialType() { return (int)g_tutorialType; }
 
+// @0x1938f4 GameState::GetGoblin
+Entity* GetGoblin() {
+    for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i) {
+        if (e->GetEntityData()->clas != 0x10 || e->GetCurrentMap() != 0 || e->IsDisappearing() || e->IsAppearing())
+            continue;
+        e->GetAI()->CancelWork();
+        return e;
+    }
+    return nullptr;
+}
+
 int GetGoblinCount() {
     int n = 0;
     for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i)

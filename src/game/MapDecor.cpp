@@ -559,6 +559,52 @@ void ParticlesFrom(Decor* d, const MetaData* p) {
 
 }  // namespace
 
+// @0x134948 Map::Decor::OnClick
+bool Decor::OnClick() {
+    // UNVERIFIED (milestone 4g): in a combat a real decoration's tap goes to
+    // CombatManager::OnDecorClicked (0x12e494).
+    if (meta) {
+        const MetaData* d;
+        if ((d = meta->FindChildData(kExpReqUnlockQuest)) && !GameState::TaskCompleted((unsigned)d->GetInt())) return false;
+        if ((d = meta->FindChildData(kExpReqUnlockSubQuest)) &&
+            !GameState::SubTaskCompleted((unsigned)d->GetChild(0)->GetInt(), (unsigned)d->GetChild(1)->GetInt()))
+            return false;
+        // (Without its item only a used-up decoration with a portal goes on, to the portal.)
+        if ((d = meta->FindChildData(kExpReqUnlockItem)) && GameState::GetItemAmount((uint32_t)d->GetInt(), false) == 0)
+            return false;
+        if (f4c != 0) return false;
+        if (meta->FindChildData(kExpPortal)) {
+            if (Entity* player = EntityManager::GetPlayer()) {
+                player->GetAI()->ClickedDecoration(this);
+                return true;
+            }
+        }
+        if ((d = meta->FindChildData(kExpMessage)) && sprite)
+            MessageHover(this, StringTable::GetString(d->GetString()));
+    }
+    // UNVERIFIED (milestone 4f): a decoration with a portal (+0x90) sends the hero through it
+    // (Decor::PortalAction 0x131fd8).
+    return false;
+}
+
+// @0x133c80 Map::Decor::ShowUseItemHover
+bool Decor::ShowUseItemHover() const {
+    if (!visible || !meta || f4c == 0) return false;
+    const MetaData* d;
+    if ((d = meta->FindChildData(kExpReqUnlockQuest)) && !GameState::TaskCompleted((unsigned)d->GetInt())) return false;
+    if ((d = meta->FindChildData(kExpReqUnlockSubQuest)) &&
+        !GameState::SubTaskCompleted((unsigned)d->GetChild(0)->GetInt(), (unsigned)d->GetChild(1)->GetInt()))
+        return false;
+    if (MetaExpression* icon = meta->FindByType(kExpInteractIcon)) {
+        d = icon->GetData();
+        if (d && d->GetChildrenCount() != 0 && d->GetChild(0)->type == MetaData::kString)
+            return std::strcmp(d->GetChild(0)->GetString(), "none") != 0;
+        return true;
+    }
+    if ((d = meta->FindChildData(kExpReqUnlockItem))) return GameState::GetItemAmount((uint32_t)d->GetInt(), false) != 0;
+    return false;
+}
+
 // @0x132bcc Map::Decor::WorkStarted
 void Decor::WorkStarted() {
     uint32_t now = Timer::GetGlobalTime();

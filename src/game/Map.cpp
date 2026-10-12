@@ -601,8 +601,7 @@ void Decor::RemoveBlockedTiles() {
 }
 
 // ---- the quest reactions of a decoration's expression ------------------------------------------
-// Not ported yet, marked where they happen: the particles (Decor::CreateParticles 0x135260 /
-// RemoveParticles 0x133c44, milestone 4e), the camera paths (Map::AddCameraCinematic 0x1b81a8 /
+// Not ported yet, marked where they happen: the camera paths (Map::AddCameraCinematic 0x1b81a8 /
 // AddCameraPoint 0x1c08cc / AddCameraShake 0x1b7438, milestone 4f) and the spell effects
 // (ParticlePresets::OnSpell 0x1db8f8, milestone 6).
 
@@ -620,7 +619,21 @@ void Disable(Decor* d) {
     d->disabled = true;
     d->f4c = 0;
     d->RemoveBlockedTiles();
-    // UNVERIFIED (milestone 4e): RemoveParticles.
+    d->RemoveParticles();
+}
+
+// PARTICLE_*: p's first value is the particle's name ("none": only the old ones go); its play count
+// is value `ci` and "fixed start" the one after. At setup only an entry without a count (or with
+// count 0) is restored, playing forever.
+void SetParticles(Decor* d, const MetaData* p, unsigned ci, bool setup) {
+    d->RemoveParticles();
+    if (!d->data || d->data->particlePoints.empty()) return;
+    const char* name = p->type == MetaData::kString ? p->GetString() : p->GetChild(0)->GetString();
+    if (std::strcmp(name, "none") == 0) return;
+    unsigned count = p->GetChildrenCount() > ci ? (unsigned)p->GetChild(ci)->GetInt() : 0;
+    if (setup && count != 0) return;
+    bool randomStart = p->GetChildrenCount() < ci + 2 || p->GetChild(ci + 1)->GetInt() == 0;
+    d->CreateParticles(name, count, randomStart);
 }
 
 // The decorations GetDecorationToInteract collected (0x613694, count 0x6136a0).
@@ -673,9 +686,9 @@ void Decor::OnSubTaskCompleted(uint32_t subtask) {
             SetBlockedTiles();
         }
         if ((d = e->GetDataWithType(kExpDisableAfterSubQuest)) && (uint32_t)Int(d, 1) == subtask) Disable(this);
-        // UNVERIFIED (milestone 4e): PARTICLE_AFTER_SUB_QUEST (name:task:subtask[:arg[:once]]):
-        // RemoveParticles, then CreateParticles(name, arg, !once) unless the name is "none" (only
-        // for a decoration type with DecorData +0x74).
+        // PARTICLE_AFTER_SUB_QUEST (name:task:subtask[:count[:fixed start]]).
+        if ((d = e->GetDataWithType(kExpParticleAfterSubQuest)) && (uint32_t)Int(d, 2) == subtask)
+            SetParticles(this, d, 3, false);
         // UNVERIFIED (milestone 4f): CAM_AFTER_SUB_QUEST (a camera path) and
         // SHAKE_AFTER_SUB_QUEST (task:subtask:strength:time).
         // UNVERIFIED (milestone 6): SPELL_AFTER_SUB_QUEST (task:subtask:x:y:spell[:arg]).
@@ -704,8 +717,9 @@ void Decor::OnTaskCompleted(uint32_t task) {
         if ((d = e->GetDataWithType(kExpDisableAfterQuest)) && d->type == MetaData::kNumber &&
             (uint32_t)d->GetInt() == task)
             Disable(this);
-        // UNVERIFIED (milestone 4e): PARTICLE_AFTER_QUEST (name:task[:arg[:once]]), as in
-        // OnSubTaskCompleted.
+        // PARTICLE_AFTER_QUEST (name:task[:count[:fixed start]]).
+        if ((d = e->GetDataWithType(kExpParticleAfterQuest)) && (uint32_t)Int(d, 1) == task)
+            SetParticles(this, d, 2, false);
         // UNVERIFIED (milestone 4f): CAM_AFTER_QUEST and SHAKE_AFTER_QUEST (task:strength:time).
         // UNVERIFIED (milestone 6): SPELL_AFTER_QUEST (task:x:y:spell[:arg]).
     }
@@ -781,10 +795,19 @@ void Decor::OnSetup() {
             GameState::SubTaskCompleted((unsigned)Int(d, 0), (unsigned)Int(d, 1)))
             Disable(this);
         if ((d = e->GetDataWithType(0x5d)) && interacted(d)) Disable(this);
-        // UNVERIFIED (milestone 4e): the particles: PARTICLE_IDLE (name), PARTICLE_AFTER_INTERACT
-        // (name[:arg[:once]], while f4c is 0), PARTICLE_AFTER_QUEST and PARTICLE_AFTER_SUB_QUEST
-        // once their quest / step is completed: RemoveParticles, then CreateParticles unless the
-        // name is "none" (the last three only without an arg or with arg 0).
+        // The particles its state calls for: PARTICLE_IDLE, PARTICLE_AFTER_INTERACT once used up,
+        // PARTICLE_AFTER_QUEST and PARTICLE_AFTER_SUB_QUEST once their quest / step is completed.
+        if ((d = e->GetDataWithType(kExpParticleIdle))) {
+            RemoveParticles();
+            if (data && !data->particlePoints.empty() && std::strcmp(d->GetString(), "none") != 0)
+                CreateParticles(d->GetString(), 0, true);
+        }
+        if ((d = e->GetDataWithType(kExpParticleAfterInteract)) && f4c == 0) SetParticles(this, d, 1, true);
+        if ((d = e->GetDataWithType(kExpParticleAfterQuest)) && GameState::TaskCompleted((unsigned)Int(d, 1)))
+            SetParticles(this, d, 2, true);
+        if ((d = e->GetDataWithType(kExpParticleAfterSubQuest)) &&
+            GameState::SubTaskCompleted((unsigned)Int(d, 1), (unsigned)Int(d, 2)))
+            SetParticles(this, d, 3, true);
         // RANDOM (x:y|x:y|...): the first time on this map the decoration moves to one of the places.
         if ((d = meta->GetDataWithType(kExpRandom)) && GameState::GetMapStartTime(GameState::GetCurrentMapID()) == 0) {
             g_setupSeed = g_setupSeed * 0x343fd + 0x269ec3;
@@ -876,6 +899,28 @@ Decor* GetDecorationWithAnyDrop() {
         for (auto& d : p->decors)
             if (d->visible && d->f4c != 0 && !d->IsLocked() && d->meta && d->meta->FindChildData(kExpDrop))
                 g_filtered.push_back(d.get());
+    return NearestFilteredToPlayer();
+}
+
+// @0x1be5e8 Map::GetDecorationWithAnyInteraction
+Decor* GetDecorationWithAnyInteraction(bool unlocked, bool reachable) {
+    g_filtered.clear();
+    for (auto& p : g_patches)
+        for (auto& d : p->decors) {
+            if (!d->visible || d->f4c == 0) continue;
+            if (unlocked && d->IsLocked()) continue;
+            if (reachable) {
+                Entity* player = EntityManager::GetPlayer();
+                if (AIPlayer* ai = dynamic_cast<AIPlayer*>(player->GetAI())) {
+                    int ax = 0, ay = 0;
+                    d->GetActionPoint(ax, ay, (int)ai->GetBestDecorationActionPoint(d.get()));
+                    AI::Waypoint* wp = AI::GetWaypoint(ax, ay, false);
+                    if (!wp) wp = AI::GetWaypointNearDecoration(d.get(), false);
+                    if (!wp || !ai->SetTarget(wp, true)) continue;
+                }
+            }
+            g_filtered.push_back(d.get());
+        }
     return NearestFilteredToPlayer();
 }
 
@@ -1994,7 +2039,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
         Render::CenterOn((float)x, (float)y);
         if (GameState::tutorial == 9) Render::CenterOn(392.f, 201.f);
     }
-    // UNVERIFIED (milestones 4c/4e): the "auto_fix_map_reset" decoration fixes (quest maps 0x52..0x59).
+    // UNVERIFIED (milestone 4f): the "auto_fix_map_reset" decoration fixes (quest maps 0x52..0x59).
     g_loaded = true;
     if (Entity* player = EntityManager::GetPlayer()) player->OnSetup();
     EntityManager::ExecuteStaticMeta();
@@ -2337,14 +2382,25 @@ void AssignEntities() {
                     work->AssignWorker(e, 0);
                 }
             } else {
-                // UNVERIFIED (milestone 4, decoration jobs): a decoration's job continues if not
-                // finished (Decor::GetActionPoint, UpdateOfflineState, WorkFinished, AssignWorker);
-                // until then the job ends as for a missing decoration.
-                e->workType = 0;
-                e->SetWorkplace(nullptr);
-                e->SetWorkplaceDecoration(nullptr);
-                e->SetCurrentMap(0);
-                if (GetMapID() == 0) EntityManager::SpawnEntityAt(e, (unsigned)hx, (unsigned)hy, false, false);
+                // A decoration's job goes on from its action point unless it ended meanwhile.
+                Decor* job = GetDecoration(e->workX, e->workY);
+                int ax = e->workX, ay = e->workY;
+                bool goesOn = false;
+                if (job) {
+                    job->GetActionPoint(ax, ay, 0);
+                    job->UpdateOfflineState();
+                    goesOn = !job->WorkFinished();
+                }
+                if (goesOn) {
+                    EntityManager::SpawnEntityAt(e, (unsigned)ax, (unsigned)ay, false, false);
+                    job->AssignWorker(e);
+                } else {
+                    e->workType = 0;
+                    e->SetWorkplace(nullptr);
+                    e->SetWorkplaceDecoration(nullptr);
+                    e->SetCurrentMap(0);
+                    if (GetMapID() == 0) EntityManager::SpawnEntityAt(e, (unsigned)hx, (unsigned)hy, false, false);
+                }
             }
             if (jobDone) {
                 e->workType = 0;

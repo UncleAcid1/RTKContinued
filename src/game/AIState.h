@@ -78,7 +78,7 @@ public:
     virtual void ClickedTile(int, int, int, int) {}   // +0x54
     virtual void ClickedPortal() {}                   // +0x58
     virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c @0xe81f8
-    virtual void SearchDecoration() {}                // +0x60 @0xe81fc
+    virtual void SearchDecoration(Map::Decor*) {}     // +0x60 @0xe81fc
     virtual void UpdateAggroZone() {}                 // +0x64
     virtual void UpdateLastTarget();                  // +0x68 @0xe8880
     virtual void WalkTo(int x, int y);                // +0x6c @0xe90f4
@@ -333,6 +333,10 @@ public:
     void Reset(bool idle) override;                   // +0xd4 @0xeed48 (always to idle)
     void WalkCompleted() override;                    // +0xd8 @0xf01fc
     void UnableToWalk(int x, int y) override;         // +0xe4 @0xeec6c
+    void ClickedDecoration(Map::Decor* d) override;   // +0x5c @0xef104 walks to it; action 5 on arrival
+    void SearchDecoration(Map::Decor* d) override;    // +0x60 @0xeee64 the job starts (state 0x21)
+    bool AssignToJob(Map::Decor* d) override;         // +0x108 @0xef3ec walks to it; action 3 on arrival
+    void RemoveFromJob() override;                    // +0x10c @0xef654
     bool TryToInterruptJob() override;                // +0x110 @0xef578
     bool IsWorking() override { return GetState() == 0x21; }   // +0x114 @0xee378
     void RemoveActionMarker() override;               // +0x13c @0xeeb80
@@ -340,6 +344,11 @@ public:
     void AutoInteraction() override { autoInteraction = true; }   // +0x144 @0xee398
     void OnMapUnload() override;                      // +0x150 @0xee644
     void ProcessAction();                             // @0xef6e0 the action of the tap, on arrival
+    // @0xee7a0: which of d's action points the hero uses.
+    unsigned GetBestDecorationActionPoint(Map::Decor* d);
+    // @0xee858: the storage goblin appears next to d's action point and takes the job; without a
+    // free goblin a popup offers to find or buy one.
+    void SendGoblinToWork(Map::Decor* d);
 
     AI::Waypoint* actionWP = nullptr;   // +0x64 where the action is done
     void* actionTarget = nullptr;       // +0xe0 the tapped entity, decoration or portal
