@@ -429,6 +429,13 @@ void ResetTask(unsigned id) {
 
 // @0x1987d0 GameState::IsFeaturedTaskClicked
 bool IsFeaturedTaskClicked(unsigned id) { return MapGet(g_featuredTaskClickTime, id) != 0; }
+// @0x198890 GameState::GetFeaturedTaskClickTime
+uint32_t GetFeaturedTaskClickTime(unsigned id) { return MapGet(g_featuredTaskClickTime, id); }
+// @0x198f24 GameState::SetFeaturedTaskClickTime
+void SetFeaturedTaskClickTime(unsigned id, uint32_t t) {
+    g_featuredTaskClickTime[id] = t;
+    Tasks::EnqueueUpdate();
+}
 // @0x198054 GameState::GetEventStartTime
 uint32_t GetEventStartTime(unsigned event) { return MapGet(g_eventStartTime, event); }
 // @0x198018 GameState::SetEventStartTime

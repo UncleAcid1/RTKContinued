@@ -135,16 +135,18 @@ util  ^Tasks::FUN_(0023583c|00235eac)$   # a name hash map's insert and clear
 4c  ^Entity::(GetMetaExpression|SetForeignMetaExpression|ExecutePvPSpawnMeta)$
 
 # ---- 4d: quest UI -------------------------------------------------------------------------------
+dead  ^(TaskHolderWindow|TaskInfoWindow|LevelInfoWindow)::ExecuteFirstHelp$   # the QA game bot (see ::ExecuteFirstHelp below)
+online  ^HelpWindow::   # the platform web view of the help pages (FileManager::BlogProcess); callers: OnHelp, CastleTopWindow::OnPvP, UpdateServerFlags
 util  ^TaskListWindow::FUN_(0035ef14|0035f000|0035f194|0035f210|0035fef8|0035ffe4|00360138|00360224|00360854)   # std::sort / std::stable_sort instances and the slot list's growth
 4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins (GameState::GetOfflineGoblin); BuyGoblin's hire window is 5
 4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::
 4d  ^Shared::TaskWindow::
-4d  ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)
+5   ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)   # the featured-quest button: every featured quest opens a milestone-5 window (pyramid exchange, chests, item shop sale, PvP); ASK the user which promotions stay
 4d  ^GameState::(GetFeaturedTaskClickTime|SetFeaturedTaskClickTime|IsFeaturedTaskClicked)$
 4d  ^HUDWindow::(OnFindTask|RemoveTaskArrows|SetTaskLocaterIcon|ShowTaskLocaterTo|UpdateTaskLocator|UpdateTasks|SetQuickLocatorForce|UpdatePlayerLocator|HideLocators)$
 4d  ^BattleBarWindow::(HideAllTasks|OnAllTasks|ShowAllTasks)$
-4d  ^BuildingHovers::(HideWorldDialogByTask)$
-4d  ::ExecuteFirstHelp$   # the help arrows each window raises for the current task
+4f  ^BuildingHovers::(HideWorldDialogByTask)$   # needs WorldHintHoverWindow (Tasks::CompleteTask calls it)
+dead  ::ExecuteFirstHelp$   # the QA game bot's "do the first help" per window (TutorialWindow::StartGameBot): only symbol-table entries in 5.11, no caller, GOT or vtable entry (checked 2026-10-11, file address = Ghidra - 0x10000)
 4d  ^(BuildProgressHoverWindow::HelpWithSpeedUp|NotEnoughWindow::ExecuteFirstHelp)$
 
 # ---- 4e: decoration jobs ------------------------------------------------------------------------

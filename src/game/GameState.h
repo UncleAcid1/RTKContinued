@@ -116,6 +116,8 @@ void CompleteTask(unsigned id, bool setBegin);
 void StartTask(unsigned id);                   // @0x19cd64 started; the entities are told
 void ResetTask(unsigned id);                   // @0x19ce58 every record of the task and its steps goes
 bool IsFeaturedTaskClicked(unsigned id);       // @0x1987d0
+uint32_t GetFeaturedTaskClickTime(unsigned id);   // @0x198890 (0: never)
+void SetFeaturedTaskClickTime(unsigned id, uint32_t t);   // @0x198f24
 uint32_t GetEventStartTime(unsigned event);    // @0x198054 (0: never)
 void SetEventStartTime(unsigned event, uint32_t t);   // @0x198018
 uint32_t GetEventDifficulty(unsigned event);   // @0x197f74

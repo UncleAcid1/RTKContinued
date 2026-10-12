@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-4a done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-4b done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -777,10 +777,30 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    Verified headless (hook removed): the "Quests" button shows bottom-left and opens the window;
    three open quests listed with pictures and "Found in: Kingdom"; the Completed tab lists two;
    tapping a slot closes the list and opens the quest window.
-   LEFT IN 4d (98): part 4 LevelInfoWindow, HelpWindow, locators (HUDWindow), the
-   ExecuteFirstHelp chain (autoplay bot), CastleTopWindow's featured quest, arrows' callbacks;
-   part 5 TaskQuickCompleteWindow (ASK FIRST).
-   NEXT: 4d part 4b (HelpWindow, the HUD locators).
+   4d part 4b DONE: the HUD's edge locators (HUDWindow.cpp): HideLocators @0x2c66bc,
+   SetQuickLocatorForce, SetTaskLocaterIcon @0x2c680c (called by TaskInfoWindow::OnHelpActual),
+   ShowTaskLocaterTo @0x2c814c, OnFindTask @0x2c7cb8, UpdatePlayerLocator @0x2c7220 and
+   UpdateTaskLocator @0x2c6e04 (both now run in HUDWindow::Update); BuildingHovers::
+   HijackArrowCallback @0x263260 and ExecuteArrowCallback @0x265468; GameState::Get /
+   SetFeaturedTaskClickTime. In the home city neither locator ever shows (the hero's is hidden on
+   map 0; the quest's only appears for a target under fog, HelpWithLocation's 4f branch), so they
+   are untested beyond "nothing changed": re-test in 4f. UNVERIFIED inside: Fog::IsVisible (true),
+   PlayerTopWindow::IsPlayerDialogVisible, the camera path (Map::AddCameraPoint) and the animated
+   CenterOn (both the instant CenterOn), Update's once-a-second campaign-map locator, Map::Load /
+   LoadShort calling HideLocators (4f prologue).
+   MOVED in port_plan (2026-10-11), each with the reason on its rule:
+   - every ::ExecuteFirstHelp (14) -> dead: the QA game bot (TutorialWindow::StartGameBot); only
+     symbol-table entries, no caller / GOT / vtable entry. NOTE for such checks: an address in the
+     .so file is the Ghidra address - 0x10000.
+   - HelpWindow -> online (the platform web view of help pages, FileManager::BlogProcess).
+   - BuildingHovers::HideWorldDialogByTask -> 4f (WorldHintHoverWindow).
+   - CastleTopWindow's featured-quest button (5 functions) -> 5: every featured quest opens a
+     milestone-5 window (pyramid exchange, chests, item shop sale, PvP). ASK the user then which
+     promotions stay.
+   - TaskListWindow::FindGoblin / BuyGoblin -> 4f (offline goblins).
+   LEFT IN 4d (61): part 4c LevelInfoWindow (29: the level / statistics window); part 5
+   TaskQuickCompleteWindow (32, ASK FIRST).
+   NEXT: 4d part 4c (LevelInfoWindow).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

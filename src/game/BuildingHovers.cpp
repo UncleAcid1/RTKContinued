@@ -293,6 +293,37 @@ int SetArrowClickCallback(GUI::Callback* cb) {
     return g_arrowCallbackID;
 }
 
+GUI::Callback* HijackArrowCallback() {
+    HelperArrow* a = g_arrows.back();
+    GUI::Callback* cb = a->onClick;
+    a->onClick = nullptr;
+    return cb;
+}
+
+// Without a callback the hero is sent to the arrow's tile.
+void ExecuteArrowCallback() {
+    HelperArrow* a = nullptr;
+    for (HelperArrow* o : g_arrows) {
+        if (o->sprite && o->sprite->visible) {
+            a = o;
+            break;
+        }
+    }
+    if (!a) return;
+    Render::SetVisibility(a->sprite, false);
+    if (!a->onClick) {
+        int x = (int)a->x, y = (int)a->y;
+        Map::WorldCoordinatesToTile(x, y);
+        EntityManager::GetPlayer()->GetAI()->ClickedTile(x, y, 0, 0);
+        return;
+    }
+    for (HelperArrow* o : g_arrows)
+        if (o && o->sprite) Render::SetVisibility(o->sprite, false);
+    // (the arrow stops following its entity: +0x28, +0x2c, not ported)
+    (*a->onClick)();
+    ++g_arrowCallbackID;
+}
+
 bool ClickOnArrow(int x, int y, bool pressed) {
     for (HelperArrow* a : g_arrows) {
         if (!a->onClick) {

@@ -156,7 +156,7 @@ void OnHelpActual(unsigned step) {
         if (!b || b != Map::GetCurrentFarm()) HUDWindow::ExitFarm();
     }
     Tasks::SetLastSubTaskHelp(s.id);
-    // UNVERIFIED (4d part 4): HUDWindow::SetTaskLocaterIcon(s.GetIcon(), showInBattle, sidequest, quickTask).
+    HUDWindow::SetTaskLocaterIcon(s.GetIcon(), t->showInBattle, t->sidequest, t->quickTask);
     if (s.type != Tasks::kEnterMap && t->id != 0x5c9) {
         // (GlobalMapWindow::Hide here: milestone 5; a city task met outside the city also
         // refreshes the quest list)

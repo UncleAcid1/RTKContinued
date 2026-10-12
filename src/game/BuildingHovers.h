@@ -133,6 +133,10 @@ int GetArrowClickCallbackID();              // @0x2631e8
 void SetArrowVisibleWindowLimit(unsigned limit);   // @0x26330c the arrow hides above this many windows
 // @0x264270: the last arrow calls `cb` (owned) when tapped; returns the new callback id.
 int SetArrowClickCallback(GUI::Callback* cb);
+// @0x263260: takes the last arrow's callback away from it (the caller owns it now).
+GUI::Callback* HijackArrowCallback();
+// @0x265468: as if the first visible arrow had been tapped (the game bot, the tutorial's skip).
+void ExecuteArrowCallback();
 void AllowWindowOverHoverOnce();            // @0x262fe8
 void ShowArrowAtSpeedup(Map::Building* b);  // @0x263bd0
 void ShowArrowAtUpgrade();                  // @0x263c44

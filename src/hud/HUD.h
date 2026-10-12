@@ -5,6 +5,8 @@
 
 namespace WindowManager { class FunctionalWindow; }
 
+namespace Render { struct Texture; }
+
 namespace HUDWindow {
 void Init();                  // @0x2c9a7c
 void Show();                  // @0x2c909c
@@ -26,6 +28,11 @@ void EnterFarm();             // @0x2c9040 the farm view's HUD
 // @0x2c7588: the big map-name popup in the screen's centre zooms in, then fades (HUDWindow::Update).
 void ShowMapName(const char32_t* name);
 void ExitFarm();              // @0x2c8ddc back to the city's
+// The edge locators: the hero's (away from home, out of view) and the quest target's.
+void HideLocators();                                  // @0x2c66bc
+void SetQuickLocatorForce(bool force);                // @0x2c670c
+void SetTaskLocaterIcon(Render::Texture* icon, bool battle, bool side, bool quick);   // @0x2c680c
+void ShowTaskLocaterTo(int x, int y, int tileX, int tileY);   // @0x2c814c
 }
 
 // Panels: Init/Show/Hide/SetZ/Update/IsVisible as on the original.
