@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e part 1 done (decoration job state); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e parts 1-2 done (decoration job state, Decor::Update); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -854,7 +854,31 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    half), Decor::OnClick, GetDecorationWithAnyInteraction, the hovers (FollowDecor,
    HideArrowOnDecor, ShowIconHover, ShowUseItemHover) and the 4e UNVERIFIED notes left in
    Tasks / TasksHelp / AIPlayer / BuildingHovers.
-   NEXT: 4e part 2.
+ - 4e part 2 (2026-10-11): what a decoration does. Decor::Update runs every frame from Map::Update
+   and Map::OfflineUpdate: the animation sheet (DecorAnim = BaseAnimController<Map::Decor>, made by
+   UpdateImage; DecorData frameTime from the child node's "fs"), the end of the job (Finish, a PORT
+   split of Update: uses left, quest steps 0x22 / 0x23, START_QUEST or the taken REQ_UNLOCK_ITEM
+   with its icon popup, DROP / DROP_AFTER_QUEST, PARTICLE_AFTER_INTERACT, REPLACE_OBJ, PORTAL,
+   the three messages, OnInteract to the entities and the map), the hero on START_QUEST_TILE /
+   END_QUEST_TILE / END_SUB_QUEST_TILE / TELEPORT_TILE, sprite visibility. Also WorkStarted (the
+   price is paid, "-n name" popups), UpdateOfflineState, CreateParticles / RemoveParticles /
+   UpdateDamageParticles / ReceiveDamage (DecorData "particle_points"), TeleportPlayerTile /
+   TeleportAction / HandleTeleportTile, Map::StoreDecorationInfo / RestoreDecorationInfo (called
+   in Map::Load), Map::RemoveHoldOfEntities + Building::RemoveHoldOfEntities (not called yet: the
+   reload paths), BuildingHovers::ShowIconHover / FollowDecor / HideArrowOnDecor /
+   AllowDecorClickInBattleOnce, Entity::SetEndWorkTS.
+   UNVERIFIED inside, by milestone: traps (TRAP_*; 4g with Decor::Destroy / OnHitByEnemy), fog
+   and map teleports and camera paths and mission drop multipliers (4f), chests and craft nodes
+   (5), sounds (6). Render::CenterOn is instant in the port, so CenteringInProgress is false.
+   Plan changes: DecorAnimController / BuildingAnimController are dead code; Decor::Destroy and
+   OnHitByEnemy -> 4g; PortalAction -> 4f; PlayTeleportSound -> 6.
+   Verified: builds, the city loads and runs 200 frames. NOT exercised: no decoration in the test
+   city has a job, an animation sheet or an expression, so Update's job end, particles and
+   teleports have not run yet (part 3 adds the way to start a job).
+   NEXT: 4e part 3 (AIPlayer's decoration actions, Decor::OnClick, OnDecorClick's job half,
+   GetDecorationWithAnyInteraction, Map::RemoveBlockedTiles / RestoreBlockedTiles,
+   ShowUseItemHover, SendGoblinToWork, AssignEntities' decoration branch, the 4e notes left in
+   TasksHelp / AIPlayer / BuildingHovers / Map.cpp's particles in OnSetup / OnTaskCompleted).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

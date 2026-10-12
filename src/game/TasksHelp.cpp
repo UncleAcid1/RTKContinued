@@ -54,7 +54,7 @@ void ArrowAtDecor(Map::Decor* d) {
     DecorPoint(d, x, y);
     BuildingHovers::SetArrowClickCallback(new GUI::Callback([d] { BuildingHovers::OnDecorClick(d, 0, 0); }));
     HelpWithLocation(x, y, 0, 0);
-    // UNVERIFIED (milestone 4e): BuildingHovers::FollowDecor(d) keeps the arrow on it.
+    BuildingHovers::FollowDecor(d);
 }
 
 void ShopOn(uint32_t building) {

@@ -104,6 +104,8 @@ float GetDefaultZoom();          // @0x1f6084
 // @0x1f60c0 CenterOn(x, y, _, animate=false, ...): the instant path. UNVERIFIED: the animated path
 // (camera tween in Render::Update) is not ported; its callers come with milestones 3-4.
 void CenterOn(float x, float y);
+// @0x1f5ccc: an animated CenterOn is still moving the view. The port's CenterOn is instant, so never.
+inline bool CenteringInProgress() { return false; }
 void SetForceLinear(bool on);   // @0x201514
 bool GetForceLinear();          // @0x201528
 void SetBaseZoomFactor(float z);   // @0x1f61c0 (world zoom chosen from the screen size)

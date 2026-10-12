@@ -111,6 +111,11 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
 void ShowTextHover(float x, float y, const char32_t* text, float r, float g, float b, float glowR,
                    float glowG, float glowB, int fontSize, int glowBlur, float glowStrength,
                    bool nearest, float fade, float rise);
+// @0x269cec: an icon that rises and fades like the text popups, centred on x.
+void ShowIconHover(float x, float y, Render::Texture* tex);
+void FollowDecor(Map::Decor* d);            // @0x263218 the last arrow belongs to the decoration
+void HideArrowOnDecor(Map::Decor* d);       // @0x266c60 HideArrow if an arrow belongs to it
+void AllowDecorClickInBattleOnce();         // @0x263000 the next decoration tap passes the combat check
 // @0x26b6b8: a text popup in a TextStyleManager style; returns the text height without its glow.
 int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, float fade, float rise,
                            bool topLayer, bool screenSpace);

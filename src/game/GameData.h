@@ -40,6 +40,10 @@ struct DecorData {               // DecorData
     int cost1 = 0;               // +0x44 "cost1" gold
     int cost2 = 0;               // +0x48 "cost2" crystals
     const RoadData* road = nullptr;  // +0x78 the road style it belongs to
+    float frameTime = 0.f;       // +0x70 1 / its child node's "fs" (an animation sheet's frame time)
+    // +0x74 "particle_points" ("x,y;x,y": where its particles sit, from the image's top left;
+    // a MetaData list on the original).
+    std::vector<std::pair<int, int>> particlePoints;
     int hp = 0;                  // +0x7c "hp" (0: 50 from the first decoration of the type loaded)
     std::string img;             // +0x50 "img"
     Render::Texture* image = nullptr;  // +0x4c (DecorData::LoadImage)

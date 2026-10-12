@@ -102,6 +102,7 @@ CastleHoverWindow* g_castleWindow = nullptr;              // BuildingHovers::cas
 ResourceHoverWindow* g_resourceActiveWindow = nullptr;    // BuildingHovers::resourceActiveWindow
 DecorationHoverWindow* g_decorationWindow = nullptr;      // BuildingHovers::decorationWindow
 bool g_skipHoverCheck = false;         // BuildingHovers::skipHoverCheck
+bool g_skipCombatCheck = false;        // BuildingHovers::skipCombatCheck
 int g_lastID = 0;                      // 0x618998
 bool g_hoversVisible = true;           // 0x60f138
 uint32_t g_lastTime = 0;               // 0x6189dc
@@ -119,6 +120,7 @@ struct HelperArrow {
     bool mirror = false, flip = false; // +0x05 +0x06
     float x = 0.f, y = 0.f;            // +0x08 +0x0c the anchor, world space unless screenSpace
     GUI::Callback* onClick = nullptr;  // +0x10 SetArrowClickCallback (owned)
+    Map::Decor* decor = nullptr;       // +0x2c the decoration it points at (FollowDecor)
     ~HelperArrow() { delete onClick; }
 };
 std::vector<HelperArrow*> g_arrows;    // BuildingHovers::arrows
@@ -319,7 +321,7 @@ void ExecuteArrowCallback() {
     }
     for (HelperArrow* o : g_arrows)
         if (o && o->sprite) Render::SetVisibility(o->sprite, false);
-    // (the arrow stops following its entity: +0x28, +0x2c, not ported)
+    a->decor = nullptr;   // (and the entity it follows, +0x28: not ported)
     (*a->onClick)();
     ++g_arrowCallbackID;
 }
@@ -392,6 +394,7 @@ void ArrowAt(float x, float y, bool hide, bool left, bool mirror, bool flip, boo
     }
     if (newArrow) g_arrows.push_back(new HelperArrow());
     HelperArrow* a = g_arrows.back();
+    a->decor = nullptr;
     if (!a->sprite) a->sprite = Render::CreateSprite(IconManager::GetIcon("Arrow_show"), Render::kLayer15, false, false);
     Render::Sprite* s = a->sprite;
     Render::SetTexture(s, IconManager::GetIcon(left ? "Arrow_show_left" : "Arrow_show"));
@@ -1177,6 +1180,38 @@ void ShowTextHover(float x, float y, const char32_t* text, float r, float g, flo
     // UNVERIFIED: `nearest` sets the text texture's magnify filter to nearest (Texture::SetMagnifyFilter).
     (void)nearest;
 }
+
+// @0x269cec BuildingHovers::ShowIconHover
+void ShowIconHover(float x, float y, Render::Texture* tex) {
+    if (!tex) {
+        std::puts("BuildingHovers::ShowIconHover() tex is NULL");
+        return;
+    }
+    TextInfo ti;
+    ti.fade = 2.f;
+    ti.rise = 50.f;
+    ti.grow = false;
+    ti.sprite = Render::CreateSprite(tex, 0xc, false, false);
+    g_itemInfo.push_back(ti);
+    Render::SetPosition(ti.sprite, x + ti.sprite->w * -0.5f, y, 0.3f);
+    Render::SetShaderType(ti.sprite, 1);
+    // UNVERIFIED: the texture's magnify filter is set to linear (Texture::SetMagnifyFilter(false)).
+}
+
+// @0x263218 BuildingHovers::FollowDecor
+void FollowDecor(Map::Decor* d) { g_arrows.back()->decor = d; }
+
+// @0x266c60 BuildingHovers::HideArrowOnDecor
+void HideArrowOnDecor(Map::Decor* d) {
+    for (HelperArrow* a : g_arrows)
+        if (a->decor == d) {
+            HideArrow();
+            return;
+        }
+}
+
+// @0x263000 BuildingHovers::AllowDecorClickInBattleOnce
+void AllowDecorClickInBattleOnce() { g_skipCombatCheck = true; }
 
 int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, float fade, float rise,
                            bool topLayer, bool screenSpace) {

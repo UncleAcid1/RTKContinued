@@ -100,6 +100,7 @@ public:
     void SetWorkplaceDecoration(Map::Decor* d);  // @0x15011c
     Map::Decor* GetWorkplaceDecoration() const { return workplaceDecor; }   // @0x1500c0
     bool IsDecorInRange(const Map::Decor* d, int range) const;   // @0x150b50
+    void SetEndWorkTS(int t) { f78 = t; }        // @0x150888 when a goblin's job ends
     void SetHome(Map::Building* b);              // @0x1500c8
     Map::Building* GetHome() const { return home; }                  // @0x1500b0
     void SetOfflineMode(bool on) { offline = on; }   // @0x15068c
@@ -243,7 +244,7 @@ public:
     int workType = 0;                // +0x70 1 building, 2 decoration
     bool hasHome = false;            // +0x74
     bool f75 = true;                 // +0x75 may act (combat turns; squads move only such members)
-    int f78 = 0;                     // +0x78
+    int f78 = 0;                     // +0x78 when its job ends (SetEndWorkTS)
     Render::Sprite* underlay = nullptr;  // +0x7c
     Render::Sprite* debugText = nullptr; // +0x80 (Map::debugEntity overlay, off)
     int f84 = 0, f88 = 0, f8c = 0;   // +0x84 defense, +0x88 attack, +0x8c crit chance (combat additions)

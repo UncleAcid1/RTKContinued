@@ -74,6 +74,16 @@ bool LoadDecorations(const char* file) {
         d.collectExp = n.attribute("collectexp").as_uint();
         d.collectChest = n.attribute("collect_chest").as_uint();
         d.hp = n.attribute("hp").as_int();
+        for (pugi::xml_node c = n.first_child(); c; c = c.next_sibling())
+            d.frameTime = 1.0f / c.attribute("fs").as_float();
+        for (const char* v = n.attribute("particle_points").value(); *v;) {
+            int px = 0, py = 0;
+            std::sscanf(v, "%d,%d", &px, &py);
+            d.particlePoints.emplace_back(px, py);
+            const char* next = std::strchr(v, ';');
+            if (!next) break;
+            v = next + 1;
+        }
         bool fresh = g_decors.find(d.id) == g_decors.end();
         g_decors[d.id] = d;
         if (fresh) g_decorList.push_back(&g_decors[d.id]);

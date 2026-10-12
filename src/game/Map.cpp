@@ -439,7 +439,6 @@ void Decor::UpdateImage() {
     const GameData::DecorData& D = *d->data;
     Render::Sprite* s = Render::CreateSprite(tex, DecorLayer(D.layer), d->mirrored, false);
     d->sprite = s;
-    if (tex->frames > 0) Render::SetFrame(s, tex->h / tex->frames, 0);  // BaseAnimController, frame 0
     float wy = (float)d->y * 42.f * 0.5f;
     float X, Y;
     d->GetBasePoint(X, Y);
@@ -448,6 +447,20 @@ void Decor::UpdateImage() {
     // (c % 5) / 10000 tie-break. Passed as 0.
     float z = GetSpriteZ(wy, half, 0);
     Render::SetPosition(s, X - (float)(int)half, Y, z);
+    if (tex->frames > 0) {   // an animation sheet: its controller starts over
+        tex->frameTime = D.frameTime;
+        if (!anim) {
+            anim = std::make_unique<DecorAnim>();
+            anim->decor = this;
+        }
+        anim->frame = 0;
+        anim->texture = tex;
+        anim->timer = 0.f;
+        anim->shownFrame = -1;
+        anim->Update(0.f);
+    } else {
+        anim.reset();
+    }
     s->visible = d->visible;
     linearX = x;
     linearY = y;
@@ -883,6 +896,41 @@ Decor* GetDecorationToClick(uint32_t key) {
     for (Decor* d : g_filtered)
         if (d->WorkerAssigned()) return d;
     return NearestFilteredToPlayer();
+}
+
+bool DecorationVisibilityUpdateAllowed() { return g_allowDecorationVisibility; }
+
+namespace {
+struct DecorInfo { int x, y; uint32_t uses, start; };   // 0x10 bytes
+std::vector<DecorInfo> g_decorInfo;                      // 0x6136e0
+}  // namespace
+
+// @0x1b85c0 Map::StoreDecorationInfo
+void StoreDecorationInfo() {
+    if (g_patches.empty()) return;
+    g_decorInfo.clear();
+    for (auto& d : g_patches[0]->decors) g_decorInfo.push_back({d->x, d->y, d->f4c, d->collectStart});
+}
+
+// @0x1b7a38 Map::RestoreDecorationInfo
+void RestoreDecorationInfo() {
+    if (g_patches.empty()) return;
+    printf("Map::RestoreDecorationInfo() %d decorations to restore\n", (int)g_decorInfo.size());
+    for (auto& d : g_patches[0]->decors)
+        for (const DecorInfo& i : g_decorInfo)
+            if (i.x == d->x && i.y == d->y) {
+                d->f4c = i.uses;
+                d->collectStart = i.start;
+            }
+    g_decorInfo.clear();
+}
+
+// @0x1b8300 Map::RemoveHoldOfEntities
+void RemoveHoldOfEntities() {
+    for (auto& p : g_patches) {
+        for (auto& b : p->buildings) b->RemoveHoldOfEntities();
+        for (auto& d : p->decors) d->RemoveHoldOfEntities();
+    }
 }
 
 // @0x131268 Map::PrepareDecorationsForSetup
@@ -1692,11 +1740,17 @@ void Update(double dt) {
         g_fogTimer = 0.f;
     }
     g_currentTime = Timer::GetGlobalTime();   // SetCurrentTime @0x130f2c (0x6118c4)
+    std::vector<Decor*> destroyed;
     for (auto& p : g_patches) {
         for (size_t i = 0; i < p->buildings.size(); ++i) p->buildings[i]->Update(dt);
-        // UNVERIFIED (milestone 4e): Decor::Update (resource decorations, timers) and the removal of
-        // decorations that flag themselves (+0x40) afterwards (RemoveDecoration).
+        for (size_t i = 0; i < p->decors.size(); ++i) {
+            Decor* d = p->decors[i].get();
+            if (d->removed) continue;   // PORT: removed decorations stay in the list (RemoveDecoration)
+            d->Update(dt);
+            if (d->destroyed) destroyed.push_back(d);
+        }
     }
+    for (Decor* d : destroyed) RemoveDecoration(d->x, d->y, false);
     AllowBuildingVisibilityUpdate(false);
     AllowDecorationVisibilityUpdate(false);
     UpdateClouds(dt);
@@ -1750,8 +1804,8 @@ void Update(double dt) {
 void OfflineUpdate(double dt) {
     for (auto& p : g_patches) {
         for (size_t i = 0; i < p->buildings.size(); ++i) p->buildings[i]->Update(dt);
-        // UNVERIFIED (milestone 4e): then each decoration's Update (vtable +0x44, Decor::Update
-        // 0x13577c).
+        for (size_t i = 0; i < p->decors.size(); ++i)
+            if (!p->decors[i]->removed) p->decors[i]->Update(dt);
     }
 }
 
@@ -1944,7 +1998,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     g_loaded = true;
     if (Entity* player = EntityManager::GetPlayer()) player->OnSetup();
     EntityManager::ExecuteStaticMeta();
-    // UNVERIFIED (milestone 4e): RestoreDecorationInfo.
+    RestoreDecorationInfo();
     AI::allowWaypointLink = false;   // (the decorations block and free tiles; the links are redone once)
     ExecuteStaticMeta();
     AI::allowWaypointLink = true;

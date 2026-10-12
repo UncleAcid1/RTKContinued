@@ -10,17 +10,32 @@
 
 #include "game/Building.h"
 
-namespace Render { struct Sprite; }
+namespace Render { struct Sprite; struct Texture; }
 namespace GameData { struct DecorData; }
 namespace SaveManager { struct SaveBlock; }
 
 class MetaExpression;
+class MetaData;
 class Entity;
 namespace Contracts { struct Contract; }
 
 namespace Map {
 
 struct Patch;
+
+struct Decor;
+
+// BaseAnimController<Map::Decor> (0x1c bytes, Update @0x1329ac): plays the frames of an animated
+// decoration's sheet, 1.5 frame times per frame.
+struct DecorAnim {
+    int frame = 0;                     // +0x04
+    int shownFrame = -1;               // +0x08 the frame its sprite shows
+    Render::Texture* texture = nullptr;   // +0x0c
+    Decor* decor = nullptr;            // +0x10
+    float timer = 0.f;                 // +0x14
+    bool paused = false;               // +0x18
+    void Update(float dt);
+};
 
 struct Decor {
     Patch* patch = nullptr;            // +0x04
@@ -30,6 +45,7 @@ struct Decor {
     bool visible = true;               // +0x1d
     std::string metaText;              // the text of its MetaExpression (kept for the save)
     MetaExpression* meta = nullptr;    // +0x20 its quest behaviour (see OnSetup), null without one
+    bool destroyed = false;            // +0x40 Destroy (milestone 4g): Map::Update removes it
     bool disabled = false;             // +0x41 DISABLE_AFTER_* happened: no longer interactive
     mutable const GameData::DecorData* data = nullptr;  // +0x3c (GetData fills it on first use)
     bool fake = false;                 // +0x43 random decoration (Patch::AddRandomDecors)
@@ -50,6 +66,7 @@ struct Decor {
     float baseX = 0.f, minX = 0.f, maxX = 0.f, baseY = 0.f, maxY = 0.f, minY = 0.f;
     Render::Sprite* sprite = nullptr;  // +0x88
     Render::Sprite* extraDecors = nullptr;   // +0x8c more sprites of it, chained by Sprite::next
+    std::unique_ptr<DecorAnim> anim;   // +0x98 while its image is an animation sheet
     Entity* worker = nullptr;          // +0x9c the hero or goblin doing its job
     Entity* particles = nullptr;       // +0xa0 its particle entities, chained by Entity::nextParticle
     std::vector<Entity*> attackers;    // +0xac
@@ -145,6 +162,28 @@ struct Decor {
     void RemoveAttacker(Entity* e);                  // @0x13a388
     // @0x13b99c: the world point of the tile half its depth back from (x, y).
     void GetCenterPoint(int& x, int& y) const;
+    // +0x44 @0x13577c, every frame: its animation; the end of the job on it (its uses, the quest
+    // steps, the drops, what its expression does after an interaction); the hero stepping on its
+    // quest or teleport tiles; its sprite's visibility.
+    void Update(double dt);
+    void Finish();                                   // PORT: Update's part for a decoration used up
+    // @0x132bcc: the job starts now; its price is paid, each resource in a "-n name" popup.
+    void WorkStarted();
+    // @0x133058 (Map::AssignEntities): a job that ended while the game was closed gives its DROP
+    // straight to the player.
+    void UpdateOfflineState();
+    // @0x135260: a particle entity `name` at each of its type's particle points (count: how many
+    // times it plays, 0 forever; randomStart: its animation starts at a random frame).
+    void CreateParticles(const char* name, unsigned count, bool randomStart);
+    void RemoveParticles();                          // @0x133c44
+    void UpdateDamageParticles();                    // @0x135550 smoke below 66% of its hit points, fire below 33%
+    void ReceiveDamage(int damage);                  // @0x1356ec
+    void TeleportPlayerTile(int x, int y);           // @0x1337d4 the hero's squad jumps to the tile
+    bool TeleportAction(unsigned i);                 // @0x13391c PORTAL's i-th tile (after the tutorials)
+    void TeleportPlayerMap(int map);                 // @0x1339cc
+    // @0x1339f8: the hero stands on one of TELEPORT_TILE's tiles and the decoration is unlocked:
+    // to its map, or to its tile.
+    void HandleTeleportTile(const MetaData* d);
 };
 
 struct Patch {
@@ -322,6 +361,12 @@ void UpdateResources();                                // @0x1ba5ac every buildi
 // Map::Update every 0.1 s; read on campaign maps only).
 void AllowBuildingVisibilityUpdate(bool on);
 void AllowDecorationVisibilityUpdate(bool on);
+bool DecorationVisibilityUpdateAllowed();   // PORT: reads the flag (0x60ef21)
+// @0x1b85c0 / @0x1b7a38: the first patch's decorations' uses and start times are remembered by
+// tile (a battle map's reset), and given back to the decorations loaded next.
+void StoreDecorationInfo();
+void RestoreDecorationInfo();
+void RemoveHoldOfEntities();                // @0x1b8300 every building and decoration forgets its entities
 void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile; spawn points: milestone 4f
 void SpawnEntities();    // @0x1c0460 (Map::Load) the player's squad appears around it
 // @0x1b6754: after the app's pause every building and decoration runs one Update with the time

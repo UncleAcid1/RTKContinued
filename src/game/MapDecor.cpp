@@ -2,20 +2,27 @@
 // expression answers. Port of the Map::Decor functions @0x130b58..0x13b99c that are not in Map.cpp.
 #include "game/Map.h"
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include "engine/Render.h"
 #include "engine/Timer.h"
 #include "game/AI.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
 #include "game/Entity.h"
+#include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Rand48.h"
+#include "game/Squad.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
+#include "hud/HUD.h"
 
 namespace Map {
 
@@ -357,6 +364,374 @@ void Decor::GetCenterPoint(int& cx, int& cy) const {
         --cy;
     }
     TileCoordinatesToWorld(cx, cy);
+}
+
+// @0x1329ac BaseAnimController<Map::Decor>::Update
+void DecorAnim::Update(float dt) {
+    if (!texture) return;
+    if (dt > 8.f) dt = 8.f;
+    if (decor && decor->sprite) {
+        if (texture != decor->sprite->tex) {
+            Render::SetTexture(decor->sprite, texture);
+            shownFrame = -1;
+        }
+        if (shownFrame != frame)
+            Render::SetFrame(decor->sprite, (float)Render::GetFrameHeight(texture),
+                             (float)Render::GetFrameWidth(texture), frame);
+        shownFrame = frame;
+    }
+    if (paused) return;
+    timer += dt;
+    while (timer > 0.f) {
+        if (++frame >= texture->frames) frame = 0;
+        timer += 1.5f / (-1.f / texture->frameTime);
+    }
+}
+
+// @0x133c44 Map::Decor::RemoveParticles
+void Decor::RemoveParticles() {
+    while (particles) {
+        Entity* next = particles->nextParticle;
+        EntityManager::RemoveEntity(particles, true);
+        particles = next;
+    }
+}
+
+// @0x135260 Map::Decor::CreateParticles
+void Decor::CreateParticles(const char* name, unsigned count, bool randomStart) {
+    if (!data || data->particlePoints.empty() || !sprite) return;
+    for (const std::pair<int, int>& point : data->particlePoints) {
+        Entity* e = EntityManager::SpawnEntityAt(std::string(name), 0x1e, 8, false, false);
+        if (!e) break;
+        e->SetWorldPos((float)point.first + sprite->x, (float)point.second + sprite->y - sprite->h);
+        e->SetCustomZ(sprite->z - 1e-05f);
+        if (!e->GetEntityData()->anims.empty())
+            e->SetAnimationP(e->GetEntityData()->anims[0]->name.c_str(), randomStart, false, false);
+        // UNVERIFIED (milestone 6): Entity::SetParticlePlayCount(count) (0x15124c) when count != 0.
+        (void)count;
+        if (particles) e->nextParticle = particles;
+        particles = e;
+    }
+}
+
+// @0x135550 Map::Decor::UpdateDamageParticles
+void Decor::UpdateDamageParticles() {
+    if (!data || data->particlePoints.empty()) return;
+    if ((float)hp < (float)hpMax * 0.33f) {
+        if (!particles || particles->GetEntityData()->id != 0xfa) return;   // the smoke becomes fire
+        RemoveParticles();
+        CreateParticles("fire_1", 0, false);
+    } else if ((float)hp < (float)hpMax * 0.66f && !particles) {
+        CreateParticles("production_smoke", 0, false);
+    }
+}
+
+// @0x1356ec Map::Decor::ReceiveDamage
+void Decor::ReceiveDamage(int damage) {
+    hp -= damage;
+    UpdateDamageParticles();
+}
+
+// @0x1337d4 Map::Decor::TeleportPlayerTile
+void Decor::TeleportPlayerTile(int tx, int ty) {
+    Entity* player = EntityManager::GetPlayer();
+    if (player->tileX == tx && player->tileY == ty) return;
+    BaseSquad* squad = player->GetSquad();
+    for (unsigned i = 0; i < (unsigned)squad->GetSoldierCount(); ++i) {
+        squad->GetSoldier(i)->SetPos(tx, ty);
+        squad->GetSoldier(i)->GetAI()->Reset(true);
+    }
+    Entity::UpdateSafePos(player);
+    player->GetSquad()->MoveTo(AI::GetWaypoint(tx, ty, false));
+    TileCoordinatesToWorld(tx, ty);
+    Render::CenterOn((float)tx, (float)ty);   // (animated over 0.4 s on the original)
+}
+
+// @0x13391c Map::Decor::TeleportAction
+bool Decor::TeleportAction(unsigned i) {
+    if (GameState::secondTutorial != 0x100) return false;
+    const MetaData* d = meta->FindChildData(kExpPortal);
+    if (!d || !EntityManager::GetPlayer()) return false;
+    if (i >= d->GetChildrenCount()) i = 0;
+    TeleportPlayerTile(d->GetChild(i)->GetChild(0)->GetInt(), d->GetChild(i)->GetChild(1)->GetInt());
+    return true;
+}
+
+// @0x1339cc Map::Decor::TeleportPlayerMap
+void Decor::TeleportPlayerMap(int map) {
+    // UNVERIFIED (milestone 4f): unless a map load is queued (Map::IsMapLoadQueued 0x1b5fb8),
+    // Map::EnqueueLoadMap(map, false, true, 0) (0x1b5f7c).
+    (void)map;
+}
+
+// @0x1339f8 Map::Decor::HandleTeleportTile
+void Decor::HandleTeleportTile(const MetaData* d) {
+    Entity* player = EntityManager::GetPlayer();
+    if (!ListHasTile(d, 1, player->tileX, player->tileY) || IsLocked()) return;
+    const MetaData* to = d->GetChild(0);
+    if (to->type == MetaData::kNumber) {
+        // (The original also looks for a tile near the hero that is not one of these tiles, to
+        // come back to; its loop runs over an empty range and never finds one.)
+        TeleportPlayerMap(to->GetInt());
+    } else if (to->type == MetaData::kList && to->GetChildrenCount() == 2) {
+        // Both numbers are read from the pair's first (as the original does).
+        TeleportPlayerTile(to->GetChild(0)->GetInt(), to->GetChild(0)->GetInt());
+    }
+}
+
+namespace {
+
+// The hover text of a decoration's message: half its image to the right of its tile, above it.
+void MessageHover(const Decor* d, const char32_t* text) {
+    int wx = d->x, wy = d->y;
+    TileCoordinatesToWorld(wx, wy);
+    float dx = d->sprite ? d->sprite->w * 0.5f : 0.f, dy = d->sprite ? d->sprite->h : 0.f;
+    BuildingHovers::ShowTextHover((float)wx + dx, (float)wy - dy, text, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5,
+                                  5.f, true, 2.f, 50.f);
+}
+
+// "<map><id>" as one decimal number: how quests name a decoration type on a map.
+uint32_t MapObjectKey(int map, uint32_t id) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%d%d", map, (int)id);
+    return (uint32_t)std::atoi(buf);
+}
+
+// DROP's entries: "name:amount[:percent]" gives the resource (to: the player directly, else a drop
+// at the world point); "item:count[:percent]" rolls each item.
+void GiveDrops(const Decor* d, const MetaData* list, int wx, int wy, bool direct) {
+    for (unsigned i = 0; i < list->GetChildrenCount(); ++i) {
+        const MetaData* c = list->GetChild(i);
+        int percent = c->GetChildrenCount() < 3 ? 100 : c->GetChild(2)->GetInt();
+        if (c->GetChild(0)->type == MetaData::kString) {
+            int type = GameState::StringToResourceType(c->GetChild(0)->GetString());
+            int amount = c->GetChild(1)->GetInt();
+            if (direct) {
+                GameState::ChangeResourceAmount(type, percent * amount / 100);
+                std::u32string text =
+                    SWPrintf(0x80, U"+%d %s", {percent * amount / 100, GameState::GetResourceGameName(type)});
+                BuildingHovers::ShowTextHover((float)wx, (float)wy - (d->sprite ? d->sprite->h : 0.f), text.c_str(),
+                                              1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true, 2.f, 50.f);
+            } else {
+                // UNVERIFIED (milestone 4f): on a mission map gold (8) is scaled by
+                // Locations::GetMapGoldMult and "raid_star_gold_mult", experience (10) by GetMapXPMult.
+                BuildingHovers::DropResource((float)wx, (float)wy, type, (unsigned)(percent * amount / 100), false,
+                                             false);
+            }
+        }
+        if (c->GetChild(0)->type == MetaData::kNumber) {
+            for (int n = 0; n < c->GetChild(1)->GetInt(); ++n)
+                if (lrand48() % 100 < percent)
+                    BuildingHovers::DropItem((float)wx, (float)wy,
+                                             Items::GetItemInfo((uint32_t)c->GetChild(0)->GetInt()), 0, 1);
+        }
+    }
+}
+
+// What both ends of a job tell the quests and the world: the steps "click object" (0x23) and
+// "interact with place" (0x22); in the city also as map 47.
+void CompleteInteractSteps(const Decor* d) {
+    int map = (int)GameState::GetCurrentMapID();
+    Tasks::CompleteSubtask(0x23, MapObjectKey(map, d->id), 1);
+    if (map == 0) Tasks::CompleteSubtask(0x23, MapObjectKey(0x2f, d->id), 1);
+    Tasks::CompleteSubtask(0x22, (uint32_t)d->y + (uint32_t)d->x * 0x100 + (uint32_t)map * 0x10000, 1);
+    if (map == 0) Tasks::CompleteSubtask(0x22, (uint32_t)d->y + 0x2f0000 + (uint32_t)d->x * 0x100, 1);
+}
+
+void TellInteract(const Decor* d) {
+    uint32_t map = GameState::GetCurrentMapID();
+    uint32_t key = (uint32_t)d->y + (uint32_t)d->x * 0x100 + (map == 0 ? 0x2f0000 : map << 16);
+    EntityManager::OnInteract(key);
+    OnInteract(key);
+    BuildingHovers::Update(0.f, true);
+}
+
+// PARTICLE_* values: name[:count[:fixed start]].
+void ParticlesFrom(Decor* d, const MetaData* p) {
+    d->RemoveParticles();
+    if (!d->data || d->data->particlePoints.empty()) return;
+    const char* name = p->GetChild(0)->GetString();
+    if (std::strcmp(name, "none") == 0) return;
+    unsigned count = p->GetChildrenCount() < 2 ? 0 : (unsigned)p->GetChild(1)->GetInt();
+    bool randomStart = p->GetChildrenCount() < 3 || p->GetChild(2)->GetInt() == 0;
+    d->CreateParticles(name, count, randomStart);
+}
+
+}  // namespace
+
+// @0x132bcc Map::Decor::WorkStarted
+void Decor::WorkStarted() {
+    uint32_t now = Timer::GetGlobalTime();
+    collectStart = now;
+    if (worker && !worker->IsPlayer()) {
+        worker->SetEndWorkTS((int)(now + f50));
+        // UNVERIFIED (milestone 4f): GameState::RefreshOfflineGoblins (0x19c874).
+    }
+    // UNVERIFIED (milestone 6): the hero's start sound: SOUND, else the type's sound (DecorData
+    // +0x60), else "gather_grass" / "gather_ore" for a herb / ore node and
+    // "interact_(fe)male_player_interact".
+    for (int i = 0; i < 11; ++i) {
+        if (cost[i] == 0) continue;
+        GameState::ChangeResourceAmount(i, -cost[i]);
+        std::u32string text = SWPrintf(0x80, U"-%d %s", {cost[i], GameState::GetResourceGameName(i)});
+        int wx = x, wy = y;
+        TileCoordinatesToWorld(wx, wy);
+        BuildingHovers::ShowTextHover((float)wx, (float)wy, text.c_str(), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5,
+                                      5.f, true, 2.f, 50.f);
+    }
+}
+
+// @0x133058 Map::Decor::UpdateOfflineState
+void Decor::UpdateOfflineState() {
+    if (f50 + collectStart >= Timer::GetGlobalTime()) return;
+    if ((int)f4c < 1) f4c = 0;
+    else if (--f4c != 0) return;
+    int wx = x, wy = y;
+    TileCoordinatesToWorld(wx, wy);
+    CompleteInteractSteps(this);
+    if (const MetaData* d = meta ? meta->FindChildData(kExpDrop) : nullptr) GiveDrops(this, d, wx, wy, true);
+    TellInteract(this);
+}
+
+// @0x13577c Map::Decor::Update
+void Decor::Update(double dt) {
+    if (anim) anim->Update((float)dt);
+    if (WorkerIsWorking()) {
+        uint32_t now = Timer::GetGlobalTime();
+        // The tutorial's two jobs take half their time.
+        if ((GameState::tutorial == 0x1f || GameState::tutorial == 0x3b) && f50 / 2 < now - collectStart)
+            collectStart = now - f50 / 2;
+        if (now == f50 + collectStart && !worker->IsPlayer() && !Render::CenteringInProgress() && !IsCameraMoving()) {
+            // A goblin about to finish off screen (within 49 px of an edge) is shown.
+            int sx = (int)worker->worldX, sy = (int)worker->worldY;
+            WorldCoordinatesToScreen(sx, sy);
+            if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
+                Render::CenterOn(worker->worldX, worker->worldY);   // (animated over 0.4 s on the original)
+        }
+        if (Timer::GetGlobalTime() > f50 + collectStart) {
+            RemoveWorker();
+            // UNVERIFIED (milestone 6): "chest_opened" for a type whose name contains "chest".
+            bool usedUp = true;
+            if ((int)f4c < 1) f4c = 0;
+            else usedUp = --f4c == 0;
+            if (usedUp) Finish();
+        }
+    }
+    Entity* player = EntityManager::GetPlayer();
+    const MetaData* d;
+    // PORT: without the hero (the original reads a null player) the tiles are skipped.
+    if (visible && meta && player && (d = meta->FindChildData(kExpStartQuestTile)) &&
+        ListHasTile(d, 1, player->tileX, player->tileY)) {
+        GameState::StartTask((unsigned)d->GetChild(0)->GetInt());
+        HUDWindow::UpdateTasks();
+        Tasks::EnqueueUpdate();
+    }
+    if (visible && meta && player && (d = meta->FindChildData(kExpEndQuestTile)) &&
+        ListHasTile(d, 1, player->tileX, player->tileY)) {
+        uint32_t task = (uint32_t)d->GetChild(0)->GetInt();
+        Tasks::TaskInfo* t = GameState::TaskCompleted(task) ? nullptr : Tasks::GetTask(task);
+        if (t && (!t->HasTimeout() || t->GetRemainingTime() != 0)) {
+            for (const Tasks::TaskSubtask& s : t->subtasks)
+                if (s.id != 0) Tasks::CompleteSubtaskDirect(s.id, 0x400);
+            Tasks::CompleteTask(task, true, true, false);
+        }
+    }
+    if (visible && meta && player && (d = meta->FindChildData(kExpEndSubQuestTile)) &&
+        ListHasTile(d, 1, player->tileX, player->tileY)) {
+        const MetaData* step = d->GetChild(0);
+        if (!GameState::SubTaskCompleted((unsigned)step->GetChild(0)->GetInt(), (unsigned)step->GetChild(1)->GetInt()))
+            Tasks::CompleteSubtaskDirect((uint32_t)step->GetChild(1)->GetInt(), 0x400);
+    }
+    if (visible && meta && player && (d = meta->FindChildData(kExpTeleportTile))) HandleTeleportTile(d);
+    // UNVERIFIED (milestone 4g): traps. TRAP_DAMAGE hurts the entity standing on it once per its
+    // delay while the trap is on (trapOn, not in a fight, not a reserve soldier): PARTICLE_TRAP,
+    // TRAP_SOUND, "gethit" or death, the damage in a popup; collectStart is the last hit.
+    // TRAP_PATTERN switches trapOn by the map time and fades its particles (or plays
+    // TRAP_ANIMATED's two animations).
+    if (DecorationVisibilityUpdateAllowed() && sprite) {
+        // UNVERIFIED (milestone 4f): and Fog::IsVisible (0x173888) of the sprite's rectangle.
+        sprite->visible = visible;
+    }
+    if (particles && particles->GetSprite() && particles->GetSprite()->visible != visible)
+        for (Entity* p = particles; p; p = p->nextParticle)
+            if (p->GetSprite()) p->GetSprite()->visible = visible;
+    // (A debug overlay, off: the footprint as a bar with the id and depth, sprites +0xa4.)
+}
+
+// The part of Update that runs when the last use of the decoration ends.
+void Decor::Finish() {
+    BuildingHovers::HideArrowOnDecor(this);
+    if (GameState::tutorial == 0x13) GameState::tutorial = 0x16;
+    int wx = x, wy = y;
+    TileCoordinatesToWorld(wx, wy);
+    CompleteInteractSteps(this);
+    if (meta) {
+        const MetaData* d;
+        // UNVERIFIED (milestone 5): a chest (CHEST_DROP / CHEST_DROP_TYPE) drops the contents of
+        // the chest for the player's level, or shows them in ChestOpenedWindow, and takes its key.
+        if (!(d = meta->FindChildData(kExpReqUnlockItem))) {
+            if (Tasks::TaskInfo* t = Tasks::GetTask(GetStartQuestID())) {
+                GameState::StartTask(t->id);
+                Tasks::Update(true);
+                BuildingHovers::Update(0.f, true);
+                HUDWindow::UpdateTasks();
+            }
+        } else {
+            uint32_t item = (uint32_t)d->GetInt();
+            if (GameState::GetItemAmount(item, false) != 0) GameState::RemoveItem(item, 1);
+            Items::ItemInfo* info = sprite ? Items::GetItemInfo(item) : nullptr;
+            if (info)
+                BuildingHovers::ShowIconHover(sprite->x + sprite->w * 0.5f, sprite->y + sprite->h * -0.5f,
+                                              info->GetIcon());
+        }
+        if ((d = meta->FindChildData(kExpDrop))) GiveDrops(this, d, wx, wy, false);
+        if ((d = meta->FindChildData(kExpDropAfterQuest))) {
+            for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+                const MetaData* c = d->GetChild(i);
+                if (!GameState::TaskCompleted((unsigned)c->GetChild(0)->GetInt())) continue;
+                for (int n = 0; n < c->GetChild(2)->GetInt(); ++n)
+                    BuildingHovers::DropItem((float)wx, (float)wy,
+                                             Items::GetItemInfo((uint32_t)c->GetChild(1)->GetInt()), 0, 1);
+            }
+        }
+        if ((d = meta->FindChildData(kExpParticleAfterInteract))) ParticlesFrom(this, d);
+        if ((d = meta->FindChildData(kExpReplaceObj))) {
+            uint32_t to = (uint32_t)d->GetInt();
+            if (GameState::GetCurrentMapID() == 0 && GameData::GetBuilding(to)) {
+                EnqueueBuildingPlacement(x, y, to);
+            } else {
+                id = to;
+                data = GameData::GetDecoration(to);
+                UpdateImage();
+                Render::SortRenderLayer(8, 1);
+            }
+            RemoveBlockedTiles();
+        }
+        if (meta->FindChildData(kExpPortal)) TeleportAction(0);
+        // UNVERIFIED (milestone 6): SOUND.
+        bool shown = false;
+        auto textAndTask = [](const MetaData* m) {
+            return m->type == MetaData::kList && m->GetChildrenCount() > 1 &&
+                   m->GetChild(0)->type == MetaData::kString && m->GetChild(1)->type == MetaData::kNumber;
+        };
+        if ((d = meta->FindChildData(kExpMsgBeforeQuest)) && textAndTask(d) &&
+            !GameState::TaskCompleted((unsigned)d->GetChild(1)->GetInt())) {
+            MessageHover(this, StringTable::GetString(d->GetChild(0)->GetString()));
+            shown = true;
+        }
+        if ((d = meta->FindChildData(kExpMsgAfterQuest)) && textAndTask(d) && !shown &&
+            GameState::TaskCompleted((unsigned)d->GetChild(1)->GetInt())) {
+            MessageHover(this, StringTable::GetString(d->GetChild(0)->GetString()));
+            shown = true;
+        }
+        if ((d = meta->FindChildData(kExpInteractMessage)) && d->type == MetaData::kString && !shown)
+            MessageHover(this, StringTable::GetString(d->GetString()));
+        // UNVERIFIED (milestone 4f): CAM_AFTER_INTERACT (Map::AddCameraCinematic 0x1b81a8 and an
+        // AddCameraPoint 0x1c08cc per entry) and SHAKE_AFTER_INTERACT (AddCameraShake 0x1b7438).
+        // UNVERIFIED (milestone 5): CRAFT: the profession's item drops (Professions::GenerateItem)
+        // or "SEARCH_NOTHING", a profession point, the tool's wear ("DURABILITY_PENALTY").
+    }
+    TellInteract(this);
 }
 
 }  // namespace Map

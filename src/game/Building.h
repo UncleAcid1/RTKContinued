@@ -134,6 +134,7 @@ struct Building {
     void SetClosed(bool c) { if (c) opened = false; }  // @0x11c6cc
     void SetUniqueID(uint32_t uid);              // @0x11c9d4
     bool BuilderAssigned() const { return builder != nullptr; }   // @0x11c8f0
+    void RemoveHoldOfEntities();                 // @0x1200e0 forgets every entity it points at
     bool BuilderIsWorking() const;               // @0x11d394
     void AssignWorker(Entity* e, int slot);      // @0x126054 (the builder while not opened)
     void AssignLiver(Entity* e);                 // @0x124d18

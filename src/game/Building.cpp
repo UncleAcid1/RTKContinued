@@ -1470,4 +1470,16 @@ void Building::Update(double dt) {
     // and the building's combat event list.
 }
 
+// @0x1200e0 Map::Building::RemoveHoldOfEntities
+void Building::RemoveHoldOfEntities() {
+    for (Entity*& e : workers) e = nullptr;
+    for (Entity*& e : livers) e = nullptr;
+    for (Entity*& e : patchEntities) e = nullptr;
+    for (Entity*& e : piles) e = nullptr;
+    trainee = nullptr;
+    builder = nullptr;
+    farmer = nullptr;
+    farmEntity = nullptr;
+}
+
 }  // namespace Map
