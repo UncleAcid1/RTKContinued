@@ -99,6 +99,7 @@ public:
     Map::Building* GetWorkplace() const { return workplace; }        // @0x1500b8
     void SetWorkplaceDecoration(Map::Decor* d);  // @0x15011c
     Map::Decor* GetWorkplaceDecoration() const { return workplaceDecor; }   // @0x1500c0
+    bool IsDecorInRange(const Map::Decor* d, int range) const;   // @0x150b50
     void SetHome(Map::Building* b);              // @0x1500c8
     Map::Building* GetHome() const { return home; }                  // @0x1500b0
     void SetOfflineMode(bool on) { offline = on; }   // @0x15068c
@@ -248,6 +249,7 @@ public:
     int f84 = 0, f88 = 0, f8c = 0;   // +0x84 defense, +0x88 attack, +0x8c crit chance (combat additions)
     float f90 = 1.f;                 // +0x90
     bool f94 = false, f95 = false, f96 = false;   // +0x94..+0x96
+    Entity* nextParticle = nullptr;  // +0x98 the next particle entity of its decoration
     bool f9c = true;                 // +0x9c
     Render::Sprite* glow = nullptr;  // +0xa0
     float glowTime = 0.f, glowAlpha = 0.f;   // +0xa4 +0xa8

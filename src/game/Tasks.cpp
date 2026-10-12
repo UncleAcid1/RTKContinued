@@ -1023,8 +1023,9 @@ void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
                 break;
             }
             case kInteractBuildingAny:
-                // UNVERIFIED (milestone 4e): step 0x515 with value 0x7315c in the city is met when
-                // Map::GetDecorationToClick(value) (0x1bf1ec) finds no decoration left to click.
+                // Step 0x515 (value 0x7315c) in the city: no decoration is left to click.
+                if (s.id == 0x515 && s.value == 0x7315c && GameState::GetCurrentMapID() == 0)
+                    direct = Map::GetDecorationToClick((uint32_t)s.value) == nullptr;
                 break;
             case kTrainWorkerInBuilding:
                 if (s.value == 0x12 && GameState::GetCurrentMapID() == 0)

@@ -15,6 +15,7 @@ namespace GameData { struct DecorData; }
 namespace SaveManager { struct SaveBlock; }
 
 class MetaExpression;
+class Entity;
 namespace Contracts { struct Contract; }
 
 namespace Map {
@@ -35,11 +36,24 @@ struct Decor {
     // +0x44 (map flag bit 1; also set on unowned city patches and in the tame tutorial). Decor::IsFake
     // is +0x43 || +0x44. UNVERIFIED: only loaded and saved so far.
     bool hidden = false;
-    uint32_t collectStart = 0;         // +0x48 when its taxes (DecorData collectTime) started
-    uint32_t f4c = 0;                  // +0x4c (saved byte)
-    uint32_t f50 = 0, f54 = 0;         // +0x50 +0x54
-    std::string resourceText;          // +0x58 "TYPE=n|..." (parsed into +0x5c per resource)
+    bool trapOn = true;                // +0x42 a trap's phase (TRAP_PATTERN): it hurts while set
+    // +0x48: when its taxes (DecorData collectTime) or the job on it (workTime) started; a trap's
+    // last hit.
+    uint32_t collectStart = 0;
+    uint32_t f4c = 0;                  // +0x4c how many times it can still be used (saved byte)
+    uint32_t f50 = 0, f54 = 0;         // +0x50 the seconds its job takes; +0x54
+    std::string resourceText;          // +0x58 "TYPE=n|..." the job's price, parsed into cost
+    int cost[11] = {};                 // +0x5c per resource type (ReturnCost)
+    int linearX = 0, linearY = 0;      // +0x10 +0x14 (TileCoordinatesToLinear of x, y; UpdateImage)
+    // +0x24..+0x38 FindBaseCoordinates: the base point's x three times (base, min, max over the
+    // sprites) and its y three times (base, max, min).
+    float baseX = 0.f, minX = 0.f, maxX = 0.f, baseY = 0.f, maxY = 0.f, minY = 0.f;
     Render::Sprite* sprite = nullptr;  // +0x88
+    Render::Sprite* extraDecors = nullptr;   // +0x8c more sprites of it, chained by Sprite::next
+    Entity* worker = nullptr;          // +0x9c the hero or goblin doing its job
+    Entity* particles = nullptr;       // +0xa0 its particle entities, chained by Entity::nextParticle
+    std::vector<Entity*> attackers;    // +0xac
+    int hp = 0, hpMax = 0;             // +0xb8 +0xbc
     bool removed = false;
 
     Decor() = default;
@@ -72,6 +86,7 @@ struct Decor {
     // ignoreFake; the tile's virtual decoration never blocks), on the grid and not on unowned land.
     bool CanBePlaced(bool ignoreFake) const;
     void UpdateImage();                              // +0x0c @0x134c14
+    void GetBasePoint(float& X, float& Y) const;     // PORT helper (needs data)
     void UpdateMapLink();                            // @0x1346b8
     // +0x2c @0x1344b0: the sprite has a pixel at the world point; a plain decoration (no quest, portal,
     // worker or collect time) only counts when `any`.
@@ -79,6 +94,57 @@ struct Decor {
     void ReplaceWith(uint32_t id);                   // @0x131f08
     // @0x131284: the crystal speed-up of a decoration's job: collectStart = now + ~f50.
     void SpeedupDecoration();
+
+    // ---- the job on it and its expression's answers (game/MapDecor.cpp)
+    void AddExtraDecor(Render::Sprite* s);           // @0x130b88
+    void RemoveExtraDecors();                        // @0x13297c
+    bool HasEntity(const Entity* e) const;           // @0x130b98 its worker or one of its particles
+    void RemoveHoldOfEntities() { particles = nullptr; worker = nullptr; }   // @0x130bd8
+    void FindBaseCoordinates();                      // @0x130be8
+    Render::Sprite* GetSpriteList() const { return sprite; }   // @0x130e18
+    bool WorkerAssigned() const { return worker != nullptr; }  // @0x130ea4
+    Entity* GetWorker() const { return worker; }     // @0x130eb4
+    bool IsDestroyed() const { return hp < 1; }      // @0x130f40
+    void OnAttackedBy(Entity*) {}                    // @0x130f54
+    void GetCenterWorldXY(int& x, int& y) const;     // @0x130f58
+    // @0x130fa0: e stands within range (at least 1) linear tiles of the footprint.
+    bool IsEntityInRange(const Entity* e, int range) const;
+    bool WorkerIsWorking() const;                    // @0x1311e8 its worker's AI says so
+    bool WorkFinished() const;                       // @0x1312a4 workTime after the start has passed
+    uint32_t GetReplaceWithTarget() const;           // @0x131658 REPLACE_OBJ
+    const char32_t* GetName() const;                 // @0x1316e8
+    void WorkEnded();                                // @0x1317a4
+    // @0x1317b4: (x, y) is one of its quest, teleport or action tiles (START_QUEST_TILE,
+    // END_QUEST_TILE, END_SUB_QUEST_TILE, TELEPORT_TILE, AP, TP).
+    bool HasTriggerTileAt(int x, int y) const;
+    bool HasBlockTileAt(int x, int y) const;         // @0x131aa0 BT
+    unsigned GetActionPointCount() const;            // @0x131b48
+    // @0x131ba4: where its user stands: AP's i-th tile, TP's tile, else (a craft node or a typed
+    // chest) the first neighbouring tile with a waypoint, else its own tile. (0, 0) without any.
+    void GetActionPoint(int& x, int& y, int i) const;
+    const char* GetGoblinSearchAnimation() const;    // @0x131e28 GOBLIN
+    const char32_t* GetHintMessage() const;          // @0x131e58 HINT
+    const char32_t* GetBlockMessage() const;         // @0x131e90 BT's leading text
+    const char32_t* GetProgressMessage() const;      // @0x131f74 PROGRESS_MSG
+    // @0x132040: the item its use takes (REQ_UNLOCK_ITEM), 0 while its unlocking quest or step is
+    // open or without one.
+    uint32_t GetRequiredItem() const;
+    // @0x1321b8: its unlocking quest (REQ_UNLOCK_QUEST) or step is open, or the player lacks its item.
+    bool IsLocked() const;
+    // @0x13234c: MESSAGE's text; else, when unlocked by its quests but the item is missing,
+    // "MSG_MISSING" with the item's name; else empty.
+    std::u32string GetMessage(unsigned size) const;
+    // @0x132ad8: INTERACT_ANIM's animation name (its number into time); null without a valid one.
+    const char* GetPlayerSearchAnimation(unsigned* time) const;
+    void ReturnCost();                               // @0x132b8c the job's price back to the player
+    void AssignWorker(Entity* e);                    // @0x1336f0 (dropped again if its AI refuses)
+    void RemoveWorker();                             // @0x133748
+    void RemoveGoblinWorker();                       // @0x134b94 forgets a worker that is not the hero
+    bool CanDropItem(uint32_t item) const;           // @0x133dc0 DROP or DROP_AFTER_QUEST names it
+    void AddAttacker(Entity* e) { attackers.push_back(e); }   // @0x13b650
+    void RemoveAttacker(Entity* e);                  // @0x13a388
+    // @0x13b99c: the world point of the tile half its depth back from (x, y).
+    void GetCenterPoint(int& x, int& y) const;
 };
 
 struct Patch {
@@ -113,6 +179,16 @@ void EnqueueBuildingPlacement(int x, int y, uint32_t id);
 Decor* GetDecorationToInteract(uint32_t key);
 // @0x1b6f60: of the decorations the last such search collected, the nearest to the tile.
 Decor* GetNearestFilteredDecoration(unsigned x, unsigned y);
+Decor* GetDecorationThatIsReplacedWith(uint32_t id);   // @0x1ba9c4 the first whose REPLACE_OBJ is id
+Decor* GetTriggeredDecoration(int x, int y);           // @0x1baa60 the first with a trigger tile there
+Decor* GetBlockingDecoration(int x, int y);            // @0x1bab04 the first with a block tile there
+// The searches below collect the visible, still usable decorations that match and give the one
+// nearest to the hero (null without the hero).
+Decor* GetDecorationWithDrop(uint32_t item);           // @0x1be870 CanDropItem(item)
+Decor* GetDecorationWithAnyDrop();                     // @0x1bea14 unlocked, with a DROP
+// @0x1bf1ec: key is the decimal digits of the map id followed by those of the decoration id (in
+// the city also with map 47); one with a worker is preferred.
+Decor* GetDecorationToClick(uint32_t key);
 // @0x1bca94 (Override): a named value for object `id` (with sub-id) is kept in a table; a value
 // already there for the same name is replaced too, and the entry is always added.
 // UNVERIFIED (online, dormant): Map::LoadPlayer (0x1c0cd8) applies the table to the map's objects.

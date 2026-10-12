@@ -77,8 +77,8 @@ public:
     virtual void ClickedEntity(Entity*) {}            // +0x50 @0xe81ec
     virtual void ClickedTile(int, int, int, int) {}   // +0x54
     virtual void ClickedPortal() {}                   // +0x58
-    virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c
-    virtual void SearchDecoration() {}                // +0x60
+    virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c @0xe81f8
+    virtual void SearchDecoration() {}                // +0x60 @0xe81fc
     virtual void UpdateAggroZone() {}                 // +0x64
     virtual void UpdateLastTarget();                  // +0x68 @0xe8880
     virtual void WalkTo(int x, int y);                // +0x6c @0xe90f4
@@ -94,7 +94,7 @@ public:
     virtual void Reset(bool idle);                    // +0xd4 @0xe898c
     virtual void WalkCompleted() {}                   // +0xd8
     virtual void PositionChanged() {}                 // +0xdc
-    virtual void StartTraining() {}                   // +0xe0
+    virtual void StartTraining() {}                   // +0xe0 @0xe8250
     virtual void UnableToWalk(int, int) {}            // +0xe4
     virtual void Retreat() {}                         // +0xe8
     virtual int GetFutureDirection();                 // +0xec @0xe82d8
@@ -104,12 +104,12 @@ public:
     virtual bool SpeedUpProcess() { return false; }   // +0xfc @0xe8264
     // +0x100 @0xe826c: a farmer works order `contract` (0-based) on soil patch `patch`.
     virtual void Farm(int contract, int patch, bool plant) {}
-    virtual void AssignToJob(Map::Building*) {}       // +0x104
-    virtual bool AssignToJob(Map::Decor*) { return false; }   // +0x108
-    virtual void RemoveFromJob() {}                   // +0x10c
-    virtual bool TryToInterruptJob() { return false; }   // +0x110
-    virtual bool IsWorking() { return false; }        // +0x114
-    virtual void CancelWork() {}                      // +0x118
+    virtual void AssignToJob(Map::Building*) {}       // +0x104 @0xe8270
+    virtual bool AssignToJob(Map::Decor*) { return false; }   // +0x108 @0xe8274
+    virtual void RemoveFromJob() {}                   // +0x10c @0xe827c
+    virtual bool TryToInterruptJob() { return false; }   // +0x110 @0xe8280
+    virtual bool IsWorking() { return false; }        // +0x114 @0xe8288
+    virtual void CancelWork() {}                      // +0x118 @0xe8290
     virtual void SetCurrentPatch(unsigned) {}         // +0x11c @0xe8294
     virtual void SetItem(int, int, int) {}            // +0x120 @0xe8298
     virtual int GetItem() { return 0; }               // +0x124 @0xe829c
@@ -117,10 +117,10 @@ public:
     virtual void CleanFarm() {}                       // +0x12c @0xe82a8
     virtual int GetFarmPatchNum() { return 0; }       // +0x130 @0xe82ac
     virtual void SetFarmPatchNum(unsigned) {}         // +0x134 @0xe82b4
-    virtual void ResetOrder(Map::Building*) {}        // +0x138
+    virtual void ResetOrder(Map::Building*) {}        // +0x138 @0xe82b8
     virtual void RemoveActionMarker() {}              // +0x13c
     virtual void StopMovement() {}                    // +0x140
-    virtual void AutoInteraction() {}                 // +0x144
+    virtual void AutoInteraction() {}                 // +0x144 @0xe82c4
     virtual void CheckAggro() {}                      // +0x148
     virtual void OnMapUnload() {}                     // +0x150
     virtual void UpdateWalking(float dt, int depth);  // +0x154 @0xe8a24

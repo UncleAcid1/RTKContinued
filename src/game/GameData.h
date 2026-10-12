@@ -40,6 +40,7 @@ struct DecorData {               // DecorData
     int cost1 = 0;               // +0x44 "cost1" gold
     int cost2 = 0;               // +0x48 "cost2" crystals
     const RoadData* road = nullptr;  // +0x78 the road style it belongs to
+    int hp = 0;                  // +0x7c "hp" (0: 50 from the first decoration of the type loaded)
     std::string img;             // +0x50 "img"
     Render::Texture* image = nullptr;  // +0x4c (DecorData::LoadImage)
     bool imageLoaded = false;

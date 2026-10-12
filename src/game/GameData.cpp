@@ -73,6 +73,7 @@ bool LoadDecorations(const char* file) {
         d.collectMoney = n.attribute("collectmoney").as_uint();
         d.collectExp = n.attribute("collectexp").as_uint();
         d.collectChest = n.attribute("collect_chest").as_uint();
+        d.hp = n.attribute("hp").as_int();
         bool fresh = g_decors.find(d.id) == g_decors.end();
         g_decors[d.id] = d;
         if (fresh) g_decorList.push_back(&g_decors[d.id]);

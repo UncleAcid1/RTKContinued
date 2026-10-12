@@ -4,11 +4,13 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "engine/Splitter.h"
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
 #include "game/AI.h"
@@ -146,8 +148,11 @@ void LoadDecors(Patch* p, const SaveManager::Chunk& c) {  // @0x1e271c, one chun
     d->y = r.u8();
     d->id = r.u32();
     d->data = GameData::GetDecoration(d->id);
-    // UNVERIFIED (milestone 4): a decoration type without hit points (+0x7c) gets 50, on the type and
-    // the decoration (+0xb8, +0xbc).
+    // A type without hit points gets 50, and so does this decoration: the first of its type loaded.
+    if (d->data && d->data->hp == 0) {
+        const_cast<GameData::DecorData*>(d->data)->hp = 0x32;
+        d->hpMax = d->hp = 0x32;
+    }
     uint8_t flags = r.u8();
     d->hidden = (flags & 2) != 0;
     d->mirrored = (flags & 1) != 0;
@@ -156,14 +161,20 @@ void LoadDecors(Patch* p, const SaveManager::Chunk& c) {  // @0x1e271c, one chun
     d->f4c = r.u8();
     d->f50 = r.u32();
     d->f54 = r.u32();
-    d->resourceText = r.str16();   // UNVERIFIED: not parsed into the per-resource amounts (+0x5c) yet
+    d->resourceText = r.str16();
+    if (!d->resourceText.empty())
+        for (const std::string& part : SplitterParse(d->resourceText.c_str(), "|")) {
+            std::vector<std::string> kv = SplitterParse(part.c_str(), "=");
+            // PORT: a part without '=' or of an unknown type is skipped (the original reads past it).
+            int type = GameState::StringToResourceType(kv[0].c_str());
+            if (kv.size() > 1 && type >= 0 && type < 11) d->cost[type] = atoi(kv[1].c_str());
+        }
     d->SetMeta(r.str16());
     if (!d->metaText.empty() && city) d->hidden = false;
     d->UpdateImage();
     d->UpdateMapLink();
-    // UNVERIFIED (milestone 4): decorations with a meta expression (+0x20) or hit points (+0xb8,
-    // DecorData +0x7c) register too.
-    if (d->f4c != 0 || (d->data && d->data->collectTime != 0)) BuildingHovers::RegisterDecoration(d.get());
+    if (d->meta || d->f4c != 0 || (d->data && d->data->collectTime != 0) || d->hp > 0)
+        BuildingHovers::RegisterDecoration(d.get());
     p->decors.push_back(std::move(d));
 }
 
@@ -429,11 +440,28 @@ void Decor::UpdateImage() {
     Render::Sprite* s = Render::CreateSprite(tex, DecorLayer(D.layer), d->mirrored, false);
     d->sprite = s;
     if (tex->frames > 0) Render::SetFrame(s, tex->h / tex->frames, 0);  // BaseAnimController, frame 0
-    float wx = (float)(d->x * 84) + ((d->y & 1) ? 42.f : 0.f);
     float wy = (float)d->y * 42.f * 0.5f;
-    int w = D.w, h = D.h;
     float X, Y;
-    if (!d->mirrored) {
+    d->GetBasePoint(X, Y);
+    float half = s->w * 0.5f;
+    // UNVERIFIED: GetSpriteZ's third argument (r2) is not set by this caller; it only adds a
+    // (c % 5) / 10000 tie-break. Passed as 0.
+    float z = GetSpriteZ(wy, half, 0);
+    Render::SetPosition(s, X - (float)(int)half, Y, z);
+    s->visible = d->visible;
+    linearX = x;
+    linearY = y;
+    TileCoordinatesToLinear(linearX, linearY);
+}
+
+// PORT: the world point its image hangs from, as UpdateImage and FindBaseCoordinates (0x130be8)
+// both compute it.
+void Decor::GetBasePoint(float& X, float& Y) const {
+    const GameData::DecorData& D = *data;
+    float wx = (float)(x * 84) + ((y & 1) ? 42.f : 0.f);
+    float wy = (float)y * 42.f * 0.5f;
+    int w = D.w, h = D.h;
+    if (!mirrored) {
         X = 42.f + (float)(w / 2) * -42.f - (float)D.ox + wx;
         Y = (float)(h / 2) * 21.f - (float)D.oy + wy;
     } else {  // 0x134ecc
@@ -444,12 +472,6 @@ void Decor::UpdateImage() {
         X = 42.f + (float)(w / 2) * -42.f + (float)D.ox + (float)k * 84.f * 0.5f + wx;
         Y = (float)(h / 2) * 21.f - (float)D.oy + (float)k * 42.f * -0.5f + wy;
     }
-    float half = s->w * 0.5f;
-    // UNVERIFIED: GetSpriteZ's third argument (r2) is not set by this caller; it only adds a
-    // (c % 5) / 10000 tie-break. Passed as 0.
-    float z = GetSpriteZ(wy, half, 0);
-    Render::SetPosition(s, X - (float)(int)half, Y, z);
-    s->visible = d->visible;
 }
 
 
@@ -792,6 +814,75 @@ Decor* GetDecorationToInteract(uint32_t key) {
         }
     Entity* player = EntityManager::GetPlayer();
     return player ? GetNearestFilteredDecoration((unsigned)player->tileX, (unsigned)player->tileY) : nullptr;
+}
+
+// @0x1ba9c4 Map::GetDecorationThatIsReplacedWith
+Decor* GetDecorationThatIsReplacedWith(uint32_t id) {
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (d->GetReplaceWithTarget() == id) return d.get();
+    return nullptr;
+}
+
+// @0x1baa60 Map::GetTriggeredDecoration
+Decor* GetTriggeredDecoration(int x, int y) {
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (d->HasTriggerTileAt(x, y)) return d.get();
+    return nullptr;
+}
+
+// @0x1bab04 Map::GetBlockingDecoration
+Decor* GetBlockingDecoration(int x, int y) {
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (d->HasBlockTileAt(x, y)) return d.get();
+    return nullptr;
+}
+
+namespace {
+Decor* NearestFilteredToPlayer() {
+    Entity* player = EntityManager::GetPlayer();
+    return player ? GetNearestFilteredDecoration((unsigned)player->tileX, (unsigned)player->tileY) : nullptr;
+}
+}  // namespace
+
+// @0x1be870 Map::GetDecorationWithDrop
+Decor* GetDecorationWithDrop(uint32_t item) {
+    g_filtered.clear();
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (d->visible && d->CanDropItem(item) && d->f4c != 0) g_filtered.push_back(d.get());
+    return NearestFilteredToPlayer();
+}
+
+// @0x1bea14 Map::GetDecorationWithAnyDrop
+Decor* GetDecorationWithAnyDrop() {
+    g_filtered.clear();
+    for (auto& p : g_patches)
+        for (auto& d : p->decors)
+            if (d->visible && d->f4c != 0 && !d->IsLocked() && d->meta && d->meta->FindChildData(kExpDrop))
+                g_filtered.push_back(d.get());
+    return NearestFilteredToPlayer();
+}
+
+// @0x1bf1ec Map::GetDecorationToClick
+Decor* GetDecorationToClick(uint32_t key) {
+    g_filtered.clear();
+    char buf[32];
+    for (auto& p : g_patches)
+        for (auto& d : p->decors) {
+            if (d->f4c == 0 || !d->visible) continue;
+            snprintf(buf, sizeof buf, "%d%d", (int)GameState::GetCurrentMapID(), (int)d->id);
+            if ((uint32_t)atoi(buf) == key) g_filtered.push_back(d.get());
+            if (GameState::GetCurrentMapID() == 0) {
+                snprintf(buf, sizeof buf, "%d%d", 0x2f, (int)d->id);
+                if ((uint32_t)atoi(buf) == key) g_filtered.push_back(d.get());
+            }
+        }
+    for (Decor* d : g_filtered)
+        if (d->WorkerAssigned()) return d;
+    return NearestFilteredToPlayer();
 }
 
 // @0x131268 Map::PrepareDecorationsForSetup
@@ -1659,8 +1750,8 @@ void Update(double dt) {
 void OfflineUpdate(double dt) {
     for (auto& p : g_patches) {
         for (size_t i = 0; i < p->buildings.size(); ++i) p->buildings[i]->Update(dt);
-        // UNVERIFIED (milestone 4): then each decoration's Update (vtable +0x44, Decor::Update
-        // @0x13577c, not ported yet).
+        // UNVERIFIED (milestone 4e): then each decoration's Update (vtable +0x44, Decor::Update
+        // 0x13577c).
     }
 }
 

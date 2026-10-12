@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e part 1 done (decoration job state); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -833,7 +833,28 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    them in the test city): the upgrade lock's quest name, NeedItemWindow's task mode, a
    description with count slots, task 0x5b2.
    (ExchangeWindow's discount tasks 0x4d8 / 0x4da / 0x4db are the pyramid events: milestone 5.)
-   4d IS CLOSED. NEXT: 4e.
+   4d IS CLOSED.
+ - 4e part 1 (2026-10-11): the decoration's own state. game/MapDecor.cpp (new) holds Map::Decor's
+   job side: worker (AssignWorker / RemoveWorker / WorkerIsWorking / WorkFinished), price
+   (cost[11] parsed from the saved "TYPE=n|..." text; ReturnCost), action points (GetActionPoint /
+   GetActionPointCount), trigger and block tiles, locks (IsLocked / GetRequiredItem), messages
+   (GetMessage / GetHintMessage / GetBlockMessage / GetProgressMessage), animations' names, drops
+   (CanDropItem), attackers, hit points (DecorData "hp"; 50 for the first decoration of a type
+   without one, as the original), ranges and centre points. Decor::UpdateImage now sets the
+   linear coordinates. LoadDecors registers decorations with an expression or hit points with the
+   hovers too. Map lookups: GetDecorationThatIsReplacedWith, GetTriggeredDecoration,
+   GetBlockingDecoration, GetDecorationWithDrop, GetDecorationWithAnyDrop, GetDecorationToClick
+   (Tasks step 0x515 uses it). AIBaseState's empty job virtuals carry their addresses.
+   UNVERIFIED inside (other milestones): chests (CHEST_DROP*, M5), craft nodes (CRAFT, M5),
+   portals (Decor +0x90, 4f), offline goblins (4f).
+   4e PLAN: part 2 = Decor::Update (0x13577c, 1500 lines: the finished job's rewards, tile
+   triggers, traps), WorkStarted, UpdateOfflineState, particles, teleports, DecorAnimController,
+   Store/RestoreDecorationInfo. Part 3 = AIPlayer's decoration actions (SearchDecoration,
+   ClickedDecoration, AssignToJob, RemoveFromJob, SendGoblinToWork, ProcessAction's decoration
+   half), Decor::OnClick, GetDecorationWithAnyInteraction, the hovers (FollowDecor,
+   HideArrowOnDecor, ShowIconHover, ShowUseItemHover) and the 4e UNVERIFIED notes left in
+   Tasks / TasksHelp / AIPlayer / BuildingHovers.
+   NEXT: 4e part 2.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
