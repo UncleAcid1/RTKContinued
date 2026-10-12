@@ -929,14 +929,38 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    GlobalMapWindow and its sepia effect, the loading screen's trigger, PvP shadows (5), the camera
    points (ClearCameraPoints etc.: still 4f), HideWorldDialog (4f windows), tutorial task fixes and
    UpdateCityMap (4h), sounds (6).
-   STILL TO DO IN 4f (inventory: 210 functions): AIEnemy wandering / aggro, Entity::OnTalkTo and
-   the talk action (ProcessAction case 2), EventManager, the map's person list, camera points and
-   shake, offline goblins / buildings, LoadEntitiesFromCopy, CmdOpenMap, HUDWindow map reset /
-   darkening / HideMapName, GUI highlight blockers, then the windows: hover windows (Hint, Person,
-   PlayerHint, Talk, Tap, WorldHint + BuildingHovers::Show/HideWorldDialog, FollowEntity),
-   LoadingScreenWindow, ChoosePathWindow, CampaignInfoWindow, CampaignCompleteWindow,
-   CampaignPerfectedWindow, ChapterWindow, FoundItemsWindow::SetParameters(location),
-   TaskListWindow::FindGoblin / BuyGoblin.
+   - part 5 (693b4bf): src/game/AIEnemy.cpp (AI state 9: the aggro zone from SpawnPoint::aggroRange;
+     CheckAggro, which starts the fight, is 4g), talking (AIPlayer::ClickedEntity's talk walk,
+     ProcessAction case 2 with NeedItemWindow, Entity::OnTalkTo), GameState's offline goblins and
+     buildings, TaskListWindow's goblin rows + FindGoblin / BuyGoblin (the goblin popup's buttons),
+     src/game/MapCamera.cpp (AddCameraPoint / AddCameraPath / shake / cinematic bars / UpdateCamera;
+     CAM, CAM_AFTER_*, SHAKE_AFTER_* expressions; the view jumps where the original glides).
+   - part 6a-6d (04edfe1 .. 3a9dbb3): TalkHoverWindow (hover type 0xc) and the hover decisions for
+     talk tasks, the guide's special talk and decoration jobs; src/hud/WorldHintHoverWindow.cpp +
+     BuildingHovers::ShowWorldDialog / HideWorldDialog / HideWorldDialogByTask (quest dialogs said
+     by their givers in Tasks::CompleteTask / Update); HUDWindow::UpdateScreenDarkening (every
+     open window now darkens the screen behind it, as the original), HardMapReset / MapReset /
+     SoftMapReset, HideMapName / HideBlack, the campaign map's once-a-second quest locator;
+     src/windows/ChapterWindow.cpp; Tasks::Update gives NPCs their talk tasks.
+   Plan changes in 4f (tools/port_plan.txt): dead: Locations::ReportLocationTaskState, the map's
+   own person list (Map::Person*, LoadPersonList ...), PersonHoverWindow (created, never shown);
+   online: GiveAllChaptersTillCompleted, LoadEntitiesFromCopy; 4g: AIEnemy::CheckAggro,
+   EventManager, Entity::GetClosestWPTo, PlayerHintHoverWindow (PlayerTopWindow's dialog),
+   TapHoverWindow (the belt's); 5: CmdOpenMap, CampaignCompleteWindow, CampaignPerfectedWindow,
+   LoadingScreenWindow, FoundItemsWindow::SetParameters(location) (all only reachable from the
+   global map).
+   Verified: campaign map 14 with fog, NPCs, the world dialog (test hook), the chapter banner (test
+   hook), the darkening behind the quest list, city save / reload. A hole found from 4e:
+   BuildProgressHoverWindow's decoration branch (the progress box over a decoration being searched:
+   HoverWindows.cpp "decoration jobs" notes) is still UNVERIFIED.
+   INCIDENT (2026-10-12): one test run was started without --storage (a mistaken `--help` call), so
+   the game loaded the user's real save and re-saved it at 13:19 with the build of that moment
+   (spawn points now saved with it; task 1182 completed on load). A copy of that save loads fine;
+   a backup copy is in the session scratch dir (realcopy_keep). Always pass --storage AND
+   --screenshot; there is no --help.
+   STILL TO DO IN 4f (inventory: 61 functions): ChoosePathWindow (25; Entity::OnTalkTo's 0x1d7
+   and Map::Load's RunShowOnLoad wait for it), CampaignInfoWindow (30; Tasks::HelpWithMapSwitchTo's
+   travel window) with HintHoverWindow (8). Then close 4f: STATUS, roadmap [x].
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
