@@ -30,6 +30,12 @@ void ShowMapName(const char32_t* name);
 void ExitFarm();              // @0x2c8ddc back to the city's
 // The edge locators: the hero's (away from home, out of view) and the quest target's.
 void HideLocators();                                  // @0x2c66bc
+void UpdateScreenDarkening(float dt);                 // @0x2c6a74
+void HideBlack();                                     // @0x2c67cc the dark cover goes at once
+bool HideMapName();                                   // @0x2c6680
+void HardMapReset(uint32_t map);                      // @0x2c96d4
+void MapReset();                                      // @0x2c9714
+void SoftMapReset();                                  // @0x2c97dc
 void SetQuickLocatorForce(bool force);                // @0x2c670c
 void SetTaskLocaterIcon(Render::Texture* icon, bool battle, bool side, bool quick);   // @0x2c680c
 void ShowTaskLocaterTo(int x, int y, int tileX, int tileY);   // @0x2c814c

@@ -17,6 +17,9 @@
 #include "game/GameData.h"
 #include "game/Fog.h"
 #include "game/GameState.h"
+#include "game/Locations.h"
+#include "game/SaveManager.h"
+#include "engine/Timer.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -92,10 +95,9 @@ LocatorHolder g_playerLocator;        // +0x00
 LocatorHolder g_taskLocator;          // +0x30
 TimerHolder g_farmTimer;              // +0x60
 Window* g_mapName = nullptr;          // +0x70 Text_map_name_popup (centred)
-Render::Sprite* g_darken = nullptr;   // +0x78 full-screen sprite (created by the screen darkening)
+Render::Sprite* g_black = nullptr;    // +0x78 the dark cover behind the open windows (UpdateScreenDarkening)
 Window* g_mapName2 = nullptr;         // +0x80 Text_map_name_popup (near the top)
 Textfield* g_mapName2Text = nullptr;  // +0x84
-int g_unk88 = 0;                      // +0x88
 Textfield* g_mapNameText = nullptr;   // +0x94
 float g_mapNameTime = 0.f;            // +0x98
 float g_mapNameW = 0.f, g_mapNameH = 0.f;   // +0x9c +0xa0 the name sprite's full size (h < 0: text)
@@ -109,6 +111,9 @@ bool g_quickLocator = false;          // +0x7c the target is a quick task's: fou
 int g_targetX = 0, g_targetY = 0;     // +0x8c +0x90 the target in world pixels
 int g_targetTileX = 0, g_targetTileY = 0;   // +0xa8 +0xac and as a tile (0, 0: none)
 GUI::Callback* g_arrowCallback = nullptr;   // +0xb0 the help arrow's callback taken over by the locator
+int g_lastSecond = 0;                 // +0xb4 Update's once-a-second mark
+Render::Texture* g_blackTex = nullptr;   // +0x88 the cover's texture
+bool g_darkening = false;             // 0x60f274 a window is open: the cover fades in
 
 bool FogIsVisible(int x0, int y0, int x1, int y1) { return Fog::IsVisible(x0, y0, x1, y1); }
 
@@ -280,8 +285,8 @@ WindowManager::FunctionalWindow* Queue() {   // static FunctionalWindow "HUDWind
 
 // @0x2c9a7c: the edge locators, the farm timer and the map name popups, all hidden until needed.
 void Init() {
-    g_darken = nullptr;
-    g_unk88 = 0;
+    g_black = nullptr;
+    g_blackTex = nullptr;
     g_playerLocator.LoadFrom("../resource/kingdom_ui/1Original/Player_locator_large.xml", "Player_locator_large.png");
     g_playerLocator.root->SetOnClick(OnFindPlayer);
     g_playerLocator.maleBad->SetTexture(Resources::GetDirectImage("images/damage_locator_m.png"), false, 0, 0, false, 0);
@@ -450,10 +455,10 @@ void SetZ(float z) {
     g_playerLocator.root->SetZ(0.01f);
     g_farmTimer.root->SetZ(z);
     UpdateFrameBorder();
-    if (g_darken) {
-        g_darken->w = (float)GUI::ScreenWidth();
-        g_darken->h = (float)GUI::ScreenHeight();
-        Render::SetPosition(g_darken, 0.f, g_darken->h, WindowManager::GetTopWindowRange() + 0.0001f);
+    if (g_black) {
+        g_black->w = (float)GUI::ScreenWidth();
+        g_black->h = (float)GUI::ScreenHeight();
+        Render::SetPosition(g_black, 0.f, g_black->h, WindowManager::GetTopWindowRange() + 0.0001f);
     }
     PlayerTopWindow::SetZ(z);
     CastleTopWindow::SetZ(z);
@@ -490,6 +495,102 @@ void UpdateMapName(Render::Sprite* s, float dt) {
 }
 }  // namespace
 
+// @0x2c6a74 HUDWindow::UpdateScreenDarkening: while a window is open (a hover, the shop or one of
+// the full-screen windows counts as none) the screen behind is covered black, up to 0.6, 2 a second.
+void UpdateScreenDarkening(float dt) {
+    if (!g_blackTex || g_blackTex->glId == 0) {
+        g_blackTex = Render::CreateSolidFillTexture(0.f, 0.f, 0.f, 1.f);
+        if (g_black) Render::SetTexture(g_black, g_blackTex);
+    }
+    if (!g_black) {
+        g_black = Render::CreateSprite(g_blackTex, Render::kLayerGUI, false, false);
+        g_black->screenSpace = true;
+        Render::SetShaderType(g_black, 1);   // UNVERIFIED: the type (the argument is lost in the decompile)
+        g_black->w = (float)GUI::ScreenWidth();
+        g_black->h = (float)GUI::ScreenHeight();
+        Render::SetPosition(g_black, 0.f, g_black->h, WindowManager::GetTopWindowRange() + 0.0001f);
+        Render::SetVisibility(g_black, false);
+        Render::SetAlpha(g_black, 0.f);
+        GUI::RegisterHighlightBlocker(g_black);
+    }
+    if (g_black->visible) {
+        if (!g_darkening) {
+            float a = g_black->alpha[0] + dt * -2.f;
+            Render::SetAlpha(g_black, a >= 0.f ? a : 0.f);
+            if (!(a > 0.f)) Render::SetVisibility(g_black, false);
+        } else {
+            float a = dt + dt + g_black->alpha[0];
+            Render::SetAlpha(g_black, a > 0.6f ? 0.6f : a);
+        }
+    }
+    // UNVERIFIED (milestones 4g/5): GlobalMapWindow, RaidCompleteWindow, BossOutroWindow,
+    // BossIntroWindow's black, ChestOpenedWindow and PlayerBattleInOutWindow count like the hover.
+    // (4f, campaign windows: CampaignPerfectedWindow and CampaignCompleteWindow too.)
+    const unsigned free = (BuildingHovers::IsHoverVisible() || ShopWindow::IsVisible()) ? 1 : 0;
+    const unsigned shown = WindowManager::GetShownWindowCount();
+    if (free < shown) {
+        g_darkening = true;
+        Render::SetVisibility(g_black, true);
+    }
+    if (shown <= free) g_darkening = false;
+}
+
+// @0x2c67cc HUDWindow::HideBlack
+void HideBlack() {
+    if (!g_black || !g_black->visible) return;
+    Render::SetAlpha(g_black, 0.f);
+    Render::SetVisibility(g_black, false);
+}
+
+// @0x2c6680 HUDWindow::HideMapName: whether it was showing.
+bool HideMapName() {
+    bool was = g_mapName->visibleSelf;
+    g_mapName->SetVisibility(false);
+    return was;
+}
+
+// @0x2c96d4 HUDWindow::HardMapReset: another map goes back to its file, with its tasks.
+void HardMapReset(uint32_t map) {
+    if (GameState::GetCurrentMapID() == map) return;
+    SaveManager::GetMainSave()->ResetMap(map);
+    Tasks::ResetMap(map);
+    // UNVERIFIED (milestone 4g): GameState::ResetBossFightsOnMap(map).
+    Tasks::Update(true);
+    UpdateTasks();
+}
+
+// @0x2c9714 HUDWindow::MapReset: the current map (not the city) starts over.
+void MapReset() {
+    if (GameState::GetCurrentMapID() == 0) return;
+    const uint32_t map = GameState::GetCurrentMapID();
+    SaveManager::GetMainSave()->ResetMap(map);
+    Tasks::ResetMap(map);
+    // UNVERIFIED (milestone 4g): GameState::ResetBossFightsOnMap(map); a running combat is told
+    // (BaseCombat +0x3c).
+    Map::Load(SaveManager::GetMapData(GameState::GetCurrentMapID()), (uint32_t)Timer::GetGlobalTime(), false, false);
+    Map::UpdateOfflineResources();
+    Tasks::Update(true);
+    UpdateTasks();
+    g_taskLocator.root->SetVisibility(false);
+}
+
+// @0x2c97dc HUDWindow::SoftMapReset: the current map is loaded again from its file, keeping what
+// the player did on it (decorations, spawn points, position, fog) and its tasks.
+void SoftMapReset() {
+    Map::StoreDecorationInfo();
+    Map::StoreSpawnpointInfo();
+    Map::StorePlayerPosition();
+    Map::StoreFogInfo();
+    SaveManager::GetMainSave()->ResetMap(GameState::GetCurrentMapID());
+    // UNVERIFIED (milestone 4g): GameState::ResetBossFightsOnMap; a running combat is told.
+    Map::Load(SaveManager::GetMapData(GameState::GetCurrentMapID()), (uint32_t)Timer::GetGlobalTime(), false, false);
+    Map::UpdateOfflineResources();
+    Tasks::Update(true);
+    UpdateTasks();
+    Map::RestoreFogInfo();
+    g_taskLocator.root->SetVisibility(false);
+}
+
 // @0x2c81c8. Nothing without a player entity. The map-name popup: over the first second the name
 // grows from half size (on a quarter circle) and fades in; it fades out until 3 s, then hides.
 // Last, the HUD's return: with no window shown after the city tutorial (0x80), outside the second
@@ -502,9 +603,54 @@ void Update(float dt) {
     if (g_mapName->visibleSelf && s) UpdateMapName(s, dt);
     UpdatePlayerLocator();
     UpdateTaskLocator();
-    // UNVERIFIED (milestones 4f/4g): UpdateScreenDarkening, the mission timer, and once a second on
-    // a campaign map without a help arrow the locator of the first open quest step there
-    // (SetTaskLocaterIcon + the step's help); then Render::SortRenderLayer(GUI).
+    UpdateScreenDarkening(dt);
+    // UNVERIFIED (milestones 4g/5): the mission timer box (+0x60: "MISSION_TIME_LEFT" with
+    // Locations::GetMissionRemainingTime on a mission map, a boss fight's time left in a boss
+    // combat), placed under the top bar.
+    // Once a second on a campaign map without a help arrow: the locator of whoever the newest open
+    // quest wants the hero to talk to, when that somebody is out of view.
+    const int now = Timer::GetGlobalTime();
+    if (now != g_lastSecond) {
+        if (!g_locatorPending && !g_taskLocator.root->visibleSelf && GameState::GetCurrentLocation() == 2 &&
+            !BuildingHovers::ArrowVisible()) {
+            Tasks::TaskInfo* cur[0x80] = {};
+            unsigned count = Tasks::GetCurrentTasks(cur, 0x80, false, false);
+            Locations::LocationInfo* loc =
+                Locations::GetCampaignLocation(Locations::GetCampaignForMap(GameState::GetCurrentMapID()));
+            // (while the campaign has main quests left, only those)
+            const bool mainOnly = loc && Locations::GetLocationTaskCompleted(loc, true) != Locations::GetLocationTaskCount(loc, true);
+            Tasks::TaskInfo* best = nullptr;
+            Entity* who = nullptr;
+            for (unsigned i = 0; i < count; ++i) {
+                Tasks::TaskInfo* t = cur[i];
+                if (t->dnShow || t->repeatTask) continue;
+                if (best && GameState::GetTaskBeginTime(t->id) < GameState::GetTaskBeginTime(best->id)) continue;
+                if (mainOnly && t->sidequest) continue;
+                if (t->subtasks[0].type != Tasks::kTalkToPerson || t->subtasks[1].type != 0) continue;
+                Entity* e = EntityManager::GetEntityBySpawnPoint(t->subtasks[0].value);
+                if (e && e->IsActive() && GameState::GetSubTaskDone(t->subtasks[0].id) < t->subtasks[0].amount) {
+                    best = t;
+                    who = e;
+                }
+            }
+            if (who) {
+                int sx = (int)who->worldX, sy = (int)who->worldY;
+                Map::WorldCoordinatesToScreen(sx, sy);
+                if ((sx < 0x33 || GUI::ScreenWidth() - 0x32 <= sx || sy < 0x33 || GUI::ScreenHeight() - 0x32 <= sy) &&
+                    WindowManager::GetShownWindowCount() == 0 && !BuildingHovers::IsWorldDialogVisible()) {
+                    // UNVERIFIED (milestone 4g): nor while PlayerTopWindow::IsPlayerDialogVisible.
+                    Render::Texture* icon = best->GetIcon();
+                    SetTaskLocaterIcon(icon ? icon : IconManager::GetIcon("gold_quest", false), best->showInBattle,
+                                       best->sidequest, false);
+                    ShowTaskLocaterTo((int)who->worldX, (int)((who->worldY - who->GetIdleHeight()) - 40.f), who->tileX,
+                                      who->tileY);
+                    g_locatorGoing = true;
+                }
+            }
+        }
+        if (g_taskLocator.root->visibleSelf) Render::SortRenderLayer(Render::kLayerGUI, 1);
+    }
+    g_lastSecond = now;
     // UNVERIFIED (milestone 4g): not while PlayerTopWindow::IsPlayerDialogVisible; LoadingInternetWindow
     // is online.
     if (WindowManager::GetShownWindowCount() == 0 && GameState::tutorial == 0x80 &&

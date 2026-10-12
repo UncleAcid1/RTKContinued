@@ -952,6 +952,21 @@ void RemoveTweenEffect(TweenEffect* e) { RemoveEffect(e); }   // @0x17c4a0
 
 void RemoveMovementEffect(MovementEffect* e) { RemoveEffect(e); }   // @0x17c538
 
+namespace { std::vector<Render::Sprite*> g_highlightBlockers; }   // 0x611fe8
+
+void RegisterHighlightBlocker(Render::Sprite* s) { g_highlightBlockers.push_back(s); }
+
+void UnregisterHighlightBlocker(Render::Sprite* s) {
+    for (size_t i = 0; i < g_highlightBlockers.size();) {
+        if (g_highlightBlockers[i] == s) {
+            g_highlightBlockers[i] = g_highlightBlockers.back();
+            g_highlightBlockers.pop_back();
+        } else {
+            ++i;
+        }
+    }
+}
+
 // Press highlights (SetTargetHighlight): the window's sprites are drawn with alpha * cur, which the
 // text shader turns into brightness above 1. 0x18 bytes on the original.
 namespace {

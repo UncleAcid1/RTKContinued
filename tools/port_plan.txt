@@ -84,6 +84,8 @@ online  ^GameState::LoadEntitiesFromCopy$   # only VisitFriendCity
 5  ^CmdOpenMap$   # an EditorConsole command (the admin mode), through GlobalMapWindow::SwitchMap
 4g  ^Entity::GetClosestWPTo$   # only EasyAI::DoMeleeAttackIfReady (needs AI::GetNearestReachableWPZeroWeight)
 dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever shows it (only UnregisterEntity and Deinit touch personWindow)
+4g  ^PlayerHintHoverWindow::   # the hero panel's own dialog: created, placed and shown by PlayerTopWindow (SetParameters / HideDialog / ShowArrowAndLock, 4g)
+4g  ^TapHoverWindow::   # the belt's tap hint, created by BeltBarWindow::Init (4g)
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
 4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
 

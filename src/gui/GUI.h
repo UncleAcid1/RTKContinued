@@ -284,6 +284,10 @@ int ScreenWidth();
 int ScreenHeight();
 bool IsTabletVersion();                                            // @0x176698
 bool IsHighDPIVersion();                                           // @0x1766e0
+// @0x17e624 / @0x1769cc: sprites that would block the press highlight. (The list is only ever
+// written in 5.11.)
+void RegisterHighlightBlocker(Render::Sprite* s);
+void UnregisterHighlightBlocker(Render::Sprite* s);
 bool IsSmallScreenVersion();                                       // @0x1767ec
 float GetScaleFactor(int w, int h, bool phone, float scale);       // @0x176760
 float GetHighDPIScaleFactor();                                     // @0x176184
