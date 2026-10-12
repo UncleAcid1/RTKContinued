@@ -1796,6 +1796,12 @@ void MonsterKilled(uint32_t id) { ++g_monsterKills[id]; }
 bool GetCampaignCompletionStatus(uint32_t campaign) { return g_campaignCompletion[campaign] != 0; }
 void SetCampaignCompletionStatus(uint32_t campaign) { g_campaignCompletion[campaign] = 1; }
 
+uint32_t GetMapVersion(uint32_t map) {
+    auto it = g_mapVersion.find(map);
+    return it == g_mapVersion.end() ? 0 : it->second;
+}
+void SetMapVersion(uint32_t map, uint32_t v) { g_mapVersion[map] = v; }
+
 int GetLatestChapterCompleted() {
     int chapter = 0;
     for (uint32_t id : g_completedTasks) {

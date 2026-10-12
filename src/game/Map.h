@@ -376,6 +376,7 @@ void UpdateResources();                                // @0x1ba5ac every buildi
 void AllowBuildingVisibilityUpdate(bool on);
 void AllowDecorationVisibilityUpdate(bool on);
 bool DecorationVisibilityUpdateAllowed();   // PORT: reads the flag (0x60ef21)
+bool BuildingVisibilityUpdateAllowed();     // PORT: reads the flag (0x60ef20)
 // @0x1b85c0 / @0x1b7a38: the first patch's decorations' uses and start times are remembered by
 // tile (a battle map's reset), and given back to the decorations loaded next.
 void StoreDecorationInfo();
@@ -395,6 +396,14 @@ SpawnPoint* GetSpawnPointAt(int x, int y);             // @0x1b7324
 void StoreSpawnpointInfo();                            // @0x1b88b0
 void RestoreSpawnpointInfo();                          // @0x1b7b08
 Decor* GetPortalToMap(uint32_t map);                   // @0x1b6fe8 the decoration that leads there
+// ---- the fog (Fog.h)
+void AddFog(int x, int y, int size);                   // @0x1b8514
+void ClearFog();                                       // @0x1b8808
+void RemoveFog(float x0, float y0, float x1, float y1);   // @0x1b84d4
+void ToggleFogRender();                                // @0x1b84d0
+void StoreFogInfo();                                   // @0x1b88ac
+void RestoreFogInfo();                                 // @0x1b88a8
+void UpdateBattleMap();                                // @0x1c4cfc
 // ---- the hero's place over map switches
 void StorePlayerPosition();                            // @0x1b7874 the next load starts where it stands
 void RestorePlayerPosition();                          // @0x1b73ec

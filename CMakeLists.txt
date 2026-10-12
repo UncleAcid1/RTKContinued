@@ -30,7 +30,8 @@ add_executable(rtk
   src/game/SaveManager.cpp
   src/game/GameData.cpp
   src/game/Map.cpp
-  src/game/Locations.cpp
+  src/game/Fog.cpp
+    src/game/Locations.cpp
     src/game/MapDecor.cpp
     src/game/MapSpawn.cpp
   src/game/Game.cpp

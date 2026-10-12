@@ -98,6 +98,9 @@ void SetCampaignCompletionStatus(uint32_t campaign);   // @0x197e90
 // @0x191ba0: the chapter number of the last completed chapter task (in id order; tasks 0x4e7..0x696
 // count 13 further), 0 without one.
 int GetLatestChapterCompleted();
+uint32_t GetMapVersion(uint32_t map);             // @0x198088 (0 for a map never loaded)
+void SetMapVersion(uint32_t map, uint32_t v);     // @0x198140
+inline uint32_t GetGameMapVersion() { return 0xc; }   // @0x1909fc
 // The game speed factor (0x60efc0, 1 at start): Set @0x191138 ignores values above 1, Get @0x191160,
 // Reset @0x191174 puts back 1.
 void SetTimeModifier(float f);

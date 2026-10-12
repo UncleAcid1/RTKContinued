@@ -11,6 +11,7 @@
 #include "game/Contracts.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
+#include "game/Fog.h"
 #include "game/EntityData.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
@@ -1466,8 +1467,13 @@ void Building::Update(double dt) {
         UpdateOfflineStateNoWorker();
         firstUpdate = false;
     }
-    // UNVERIFIED (milestone 4): fog visibility on campaign maps, tower attacks (0x84/0x8c) in combat
-    // and the building's combat event list.
+    // Away from the city the building shows only where the fog is open.
+    if (Map::BuildingVisibilityUpdateAllowed() && mainSprite && GameState::GetCurrentMapID() != 0) {
+        Render::Sprite* sp = mainSprite;
+        Render::SetVisibility(sp, Fog::IsVisible((int)sp->x, (int)(sp->y - sp->h), (int)(sp->x + sp->w), (int)sp->y));
+    }
+    // UNVERIFIED (milestone 4g): tower attacks (0x84/0x8c) in combat and the building's combat event
+    // list.
 }
 
 // @0x1200e0 Map::Building::RemoveHoldOfEntities

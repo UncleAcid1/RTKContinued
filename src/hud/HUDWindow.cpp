@@ -15,6 +15,7 @@
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
+#include "game/Fog.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
@@ -109,8 +110,7 @@ int g_targetX = 0, g_targetY = 0;     // +0x8c +0x90 the target in world pixels
 int g_targetTileX = 0, g_targetTileY = 0;   // +0xa8 +0xac and as a tile (0, 0: none)
 GUI::Callback* g_arrowCallback = nullptr;   // +0xb0 the help arrow's callback taken over by the locator
 
-// UNVERIFIED (milestone 4f): Fog::IsVisible(x1, y1, x2, y2). The city has no fog.
-bool FogIsVisible(int, int, int, int) { return true; }
+bool FogIsVisible(int x0, int y0, int x1, int y1) { return Fog::IsVisible(x0, y0, x1, y1); }
 
 // UNVERIFIED (milestone 4): CastleTopWindow::OnFindPlayer moves the camera to the player;
 // OnFarmTimer opens the farm.

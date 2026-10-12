@@ -213,7 +213,7 @@ AIPlayer::~AIPlayer() {
 void AIPlayer::Update(float dt) {
     g_fogTime += dt;
     if (0.25f < g_fogTime) {
-        // UNVERIFIED (milestone 4f): Map::RemoveFog over the hero's sprite box.
+        if (Render::Sprite* sp = entity->GetSprite()) Map::RemoveFog(sp->x, sp->y - sp->h, sp->x + sp->w, sp->y);
         hidden->ShowAll();
         // In combat the decorations in front of the squad (lower on screen, covering a member's
         // feet) fade to 0.4.

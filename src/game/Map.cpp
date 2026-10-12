@@ -22,6 +22,7 @@
 #include "game/BuildingMovement.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
+#include "game/Fog.h"
 #include "game/GameData.h"
 #include "game/Setting.h"
 #include "game/GameState.h"
@@ -68,7 +69,6 @@ std::unique_ptr<Patch> g_farmPatch;             // 0x6136b4
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
 bool g_victoryPose = false;   // 0x6138cc the player won a fight on the way here (milestone 4g sets it)
-std::vector<SaveManager::Chunk> g_otherChunks;  // the map chunks not loaded yet (spawns, portals, fog)
 bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap)
 bool g_loadQueuedSave = false;                  // 0x613659
 bool g_bossReward = false;                      // 0x61365a a boss reward waits for the next map
@@ -79,6 +79,9 @@ bool g_newGameLoad = false;                     // 0x6137f8 Map::Load's third ar
 bool g_storedPosition = false;                  // 0x6136c0
 int g_storedX = -1, g_storedY = -1;             // 0x60f00c 0x60f010
 int g_nextSpawnX = 0, g_nextSpawnY = 0;         // 0x6136d8 0x6136dc
+struct FogMarker { int x, y, size; bool f0c; };  // 0x10 bytes
+std::vector<FogMarker> g_fogMarkers;            // 0x613750 (count 0x613768) the map's covered spots
+bool g_versionUpdate = false;                   // 0x6138cd (Map::Load's version check is running)
 bool g_allowBuildingVisibility = false;         // 0x60ef20
 bool g_allowDecorationVisibility = false;       // 0x60ef21
 float g_visibilityTimer = 0.f, g_fogTimer = 0.f;   // 0x6138d0 0x6138d4
@@ -957,6 +960,7 @@ Decor* GetDecorationToClick(uint32_t key) {
 }
 
 bool DecorationVisibilityUpdateAllowed() { return g_allowDecorationVisibility; }
+bool BuildingVisibilityUpdateAllowed() { return g_allowBuildingVisibility; }
 
 namespace {
 struct DecorInfo { int x, y; uint32_t uses, start; };   // 0x10 bytes
@@ -1828,7 +1832,7 @@ void Update(double dt) {
         g_visibilityTimer = 0.f;
     }
     if (g_fogTimer >= 0.05f) {
-        // UNVERIFIED (milestone 4f): Fog::Update.
+        Fog::Update(g_fogTimer);
         g_fogTimer = 0.f;
     }
     g_currentTime = Timer::GetGlobalTime();   // SetCurrentTime @0x130f2c (0x6118c4)
@@ -1980,8 +1984,8 @@ void Free() {
     // UNVERIFIED (milestone 4f): the sprites of the list 0x613844 (shown away from the city) are removed.
     for (Bird& b : g_birds) b.sprite = Render::RemoveSprite(b.sprite);
     g_birds.clear();
-    // UNVERIFIED (milestone 4f): Fog::ClearFog. PORT: Render::FreeMemory on low-performance devices
-    // is not needed.
+    ClearFog();
+    // (Render::FreeMemory on low-performance devices is not needed.)
 }
 
 bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromCache) {
@@ -2084,10 +2088,42 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     LoadSpawnPoints(block);
     std::puts("Map::LoadPlayer() Loading portals");
     LoadPortals(block);
-    // PORT (milestone 4f, fog): the fog chunks (0x17, 0x30) are not loaded yet; they are kept for
-    // SaveMap.
-    g_otherChunks.clear();
-    while (block->NextChunkID() != SaveManager::kEnd) g_otherChunks.push_back(block->GetChunk());
+    // The fog: the covered spots of a map with its own fog, then what the player has opened.
+    if (block->NextChunkID() == SaveManager::kFog) {
+        SaveManager::Reader fr(block->GetChunk());
+        unsigned n = (uint16_t)fr.s16();
+        for (unsigned i = 0; i < n; ++i) {
+            int x = fr.u8(), y = fr.u8(), size = fr.u8();
+            AddFog(x, y, size);
+        }
+        block->EndChunkLoading(fr);
+    }
+    Fog::Init();
+    Fog::Create((unsigned)(GetGridWidth() + 2), ((unsigned)GetGridHeight() >> 1) + 4, (unsigned)GetTileset());
+    if (block->NextChunkID() == SaveManager::kFogV2) {
+        Fog::LoadFog(block);
+    } else {
+        if (!Locations::MapHasCustomFog(GameState::GetCurrentMapID())) {
+            // An ordinary map starts covered; one that opens with its campaign is open once that is
+            // completed.
+            Locations::LocationInfo* loc = Locations::GetLocationWithMap(GameState::GetCurrentMapID());
+            if (loc && Locations::MapOpensFogAfterCompletion(GameState::GetCurrentMapID()) &&
+                Locations::IsCampaignCompleted(loc))
+                Fog::FillZero();
+        } else {
+            // A map with its own fog is open but for a circle round each spot (three sizes).
+            Fog::FillZero();
+            for (const FogMarker& m : g_fogMarkers) {
+                int x = m.x, y = m.y;
+                TileCoordinatesToWorld(x, y);
+                if (m.size == 3) Fog::FillOne(x - 0x5f, y + 0x2e, x + 199, y + 0xc9);
+                else if (m.size == 4) Fog::FillOne(x - 0xa0, y + 0x4c, x + 0xf4, y + 0x124);
+                else if (m.size == 2) Fog::FillOne(x - 0x31, y + 0x10, x + 0x87, y + 0x73);
+            }
+        }
+        Fog::OpenZero();
+    }
+    Fog::Update(128.f);
     if (g_mapId == 0) AssignUniqueIDs();   // (the end of LoadPlayer)
     // (back in Map::Load) the queued switch is over.
     g_loadQueuedMap = -1;
@@ -2212,10 +2248,68 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     GameState::SetMapVisitTime(GameState::GetCurrentMapID(), (uint32_t)Timer::GetGlobalTime());
     g_loading = false;
     // OnMapLoaded @0x1b79c0 only reports some map ids to the online event log (OG2::MakeRequest).
-    // UNVERIFIED (milestone 4f, fog part): the map version update (UpdateCityMap / UpdateBattleMap,
-    // Get/SetMapVersion; a map from the cache older than the game's is loaded again from its file).
-    (void)fromCache;
+    // The map version: a map from the save that is older than the game's is brought up to date; a
+    // map from its file is the game's version.
+    if (!g_versionUpdate) {
+        g_versionUpdate = true;
+        uint32_t map = GameState::GetCurrentMapID();
+        if (!fromCache) {
+            GameState::SetMapVersion(map, GameState::GetGameMapVersion());
+        } else if (GameState::GetMapVersion(map) < GameState::GetGameMapVersion()) {
+            std::printf("Map::Load() Updating user map %d from version %d to %d\n", (int)map,
+                        (int)GameState::GetMapVersion(map), (int)GameState::GetGameMapVersion());
+            // UNVERIFIED (milestone 4h): the city's update (Map::UpdateCityMap 0x1c49a8: every owned
+            // patch's content is carried into the map file's new version).
+            if (map != 0) UpdateBattleMap();
+            if (GameState::GetMapVersion(GameState::GetCurrentMapID()) == GameState::GetGameMapVersion())
+                std::puts("Map::Load() Successfully updated user map");
+            else std::fprintf(stderr, "Map::Load() Failed to update user map\n");
+        }
+        g_versionUpdate = false;
+    }
     return true;
+}
+
+// @0x1b8514 Map::AddFog: one more covered spot (tile, size 2..4) of a map with its own fog.
+void AddFog(int x, int y, int size) { g_fogMarkers.push_back({x, y, size, false}); }
+
+// @0x1b8808
+void ClearFog() {
+    g_fogMarkers.clear();
+    Fog::Deinit(false);
+}
+
+// @0x1b84d4 Map::RemoveFog: the fog opens 300 pixels round the middle of the world box.
+void RemoveFog(float x0, float y0, float x1, float y1) { Fog::Open((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, 300.f, 0.75f); }
+
+void ToggleFogRender() { Fog::ToggleFogRender(); }   // @0x1b84d0
+void StoreFogInfo() { Fog::StoreFogState(); }        // @0x1b88ac
+void RestoreFogInfo() { Fog::RestoreFogState(); }    // @0x1b88a8
+
+// @0x1c4cfc Map::UpdateBattleMap: a campaign map of an older version is loaded again from its file;
+// what the player did on it (decorations, spawn points, position, fog) is carried over.
+void UpdateBattleMap() {
+    uint32_t map = GameState::GetCurrentMapID();
+    if (map == 0) {
+        std::fprintf(stderr, "ERROR: Map::UpdateBattleMap() Cannot update city map %d\n", 0);
+        return;
+    }
+    if (!GameState::IsCombatActive()) {
+        StoreDecorationInfo();
+        StoreSpawnpointInfo();
+        StorePlayerPosition();
+        StoreFogInfo();
+        SaveManager::GetMainSave()->ResetMap(map);
+        Load(SaveManager::GetMapData(map), (uint32_t)Timer::GetGlobalTime(), false, false);
+        UpdateOfflineResources();
+        Tasks::Update(true);
+        HUDWindow::UpdateTasks();
+        RestoreFogInfo();
+    } else if (!Locations::GetMapBat(map)) {
+        std::fprintf(stderr, "ERROR: Map::UpdateBattleMap() Cannot update map %d while the battle is active\n", map);
+        return;
+    }
+    GameState::SetMapVersion(map, GameState::GetGameMapVersion());
 }
 
 // @0x1b6fe8
@@ -2859,13 +2953,15 @@ bool SaveMap() {
     }
     SaveSpawnPoints();
     SavePortals();
-    // The fog list (0x17) and Fog::SaveFog (0x30). PORT (milestone 4f, fog): the chunks as loaded
-    // (a map from its file has no 0x30 chunk until the fog is ported).
-    for (const SaveManager::Chunk& c : g_otherChunks) {
-        BeginChunk(c.type);
-        for (uint8_t v : c.data) SaveChar(v);
-        EndChunk();
+    BeginChunk(SaveManager::kFog);
+    SaveShort((int16_t)g_fogMarkers.size());
+    for (const FogMarker& m : g_fogMarkers) {
+        SaveChar((uint8_t)m.x);
+        SaveChar((uint8_t)m.y);
+        SaveChar((uint8_t)m.size);
     }
+    EndChunk();
+    Fog::SaveFog();
     BeginChunk(SaveManager::kEnd);
     SaveUnsigned(0);
     EndChunk();

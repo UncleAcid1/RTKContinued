@@ -13,6 +13,7 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
+#include "game/Fog.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
@@ -713,8 +714,9 @@ void Decor::Update(double dt) {
     // TRAP_PATTERN switches trapOn by the map time and fades its particles (or plays
     // TRAP_ANIMATED's two animations).
     if (DecorationVisibilityUpdateAllowed() && sprite) {
-        // UNVERIFIED (milestone 4f): and Fog::IsVisible (0x173888) of the sprite's rectangle.
-        sprite->visible = visible;
+        // (and only where the fog is open)
+        sprite->visible = visible && Fog::IsVisible((int)sprite->x, (int)(sprite->y - sprite->h),
+                                                    (int)(sprite->x + sprite->w), (int)sprite->y);
     }
     if (particles && particles->GetSprite() && particles->GetSprite()->visible != visible)
         for (Entity* p = particles; p; p = p->nextParticle)

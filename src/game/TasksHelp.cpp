@@ -16,6 +16,7 @@
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
+#include "game/Fog.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
@@ -78,10 +79,11 @@ void ArrowAtArea(const GameState::AreaInfo& a) {
 
 // @0x22f53c Tasks::HelpWithLocation: the camera goes to the world point and the arrow points at it.
 void HelpWithLocation(int x, int y, int tileX, int tileY) {
-    (void)tileX;
-    (void)tileY;
-    // UNVERIFIED (milestone 4f / 4d part 4): a point still under the fog (Fog::IsVisible of the
-    // 60 px around it) gets HUDWindow::ShowTaskLocaterTo(x, y, tileX, tileY) instead.
+    // A point still under the fog gets the locator at the screen's edge instead.
+    if (!Fog::IsVisible(x - 0x1e, y - 0x1e, x + 0x1e, y + 0x1e)) {
+        HUDWindow::ShowTaskLocaterTo(x, y, tileX, tileY);
+        return;
+    }
     Render::CenterOn((float)x, (float)y);   // (animated in the original: zoom 0.4)
     BuildingHovers::ArrowAt((float)x, (float)y, false, false, false, false, false, false, false);
 }
