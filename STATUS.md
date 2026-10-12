@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e done (decoration jobs); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-12, 4f in progress (parts 1-4 of campaign maps: see the 4f entry below); 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e done (decoration jobs); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -899,6 +899,44 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    or an expression, so the job flow itself (tap, walk, search, rewards) first runs on a campaign
    map (4f) or in the tutorial (4h). Test it there before trusting it.
    4e IS CLOSED. NEXT: 4f (campaign maps).
+   4f IN PROGRESS (2026-10-12), parts 1-4 committed (3f8d6b9 .. 177df70):
+   - part 1: src/game/Locations.* (locations.xml: campaigns, missions, their maps; the city is
+     location 0x400), GameState's map / campaign state (visit, start, end times, completions,
+     monster kills, campaign status, map versions), EntityManager::GetEntityByEnemyClassID, and
+     every hook that waited for them (Tasks campaign / mission lookups, mastery and campaign-percent
+     steps, quest windows' map names, the HUD quest list's campaign percent and mission timer,
+     mission multipliers on decoration drops, Override kinds 5 and 0x11).
+   - part 2: src/game/SpawnPoint.h (SpawnPoint 0x54, Portal 0x20), src/game/MapSpawn.cpp (load /
+     save of chunks 2/9 + 0x14/0x25/0x28/0x42/0x44/0x45 and 3/10, lookups, Store/Restore
+     SpawnpointInfo), Entity's spawn point / patrol / talk / hint helpers, EntityManager::
+     SpawnEntityAt(SpawnPoint*) / GetEntityBySpawnPoint / GetEntityWithGUID / GetEntityWithTalkTask
+     / GetEntityWithDrop / RemoveEntitiesByID, UpdateSpawns' spawn loop. Entity +0x174/+0x178 are
+     talkTask / specialTalk (were `selected` / f178).
+   - part 3: the map switch (Map::EnqueueLoadMap, Map::Update's queued branch, Map::Load's
+     leave-map start, task / help steps and map name), campaign maps' walkable grid (Patch::tiles
+     from the mask, CreateRoadAI), portals (Decor::portal, PortalAction, AIPlayer::ClickedPortal,
+     ProcessAction case 1). Map::Load now takes (block, time, newGame, fromCache).
+   - part 4: src/game/Fog.* (blocks, quad tree, rim sprites, load / save chunk 0x30, Open, Update),
+     Map's fog list (chunk 0x17) and its wrappers, Fog::IsVisible in buildings, decorations, the
+     quest helper and the HUD locator, AIPlayer::Update's RemoveFog, the map version update
+     (UpdateBattleMap; UpdateCityMap is 4h).
+   Verified so far: the city loads, saves (with fog) and reloads; campaign map 14 loads with its
+   NPCs, monsters, fire particles and fog; the hero walks through a portal and map 15 loads (test
+   hook, removed). Facts learned: a campaign map's walkable tiles are small islands until quests
+   remove the blocking decorations; `--map N` loads a map file directly; a headless run only saves
+   with `--save`; tools/gotslot.py names a GOT slot from a function's literal.
+   UNVERIFIED left in these parts: boss / combat branches of UpdateSpawns and the map switch (4g),
+   GlobalMapWindow and its sepia effect, the loading screen's trigger, PvP shadows (5), the camera
+   points (ClearCameraPoints etc.: still 4f), HideWorldDialog (4f windows), tutorial task fixes and
+   UpdateCityMap (4h), sounds (6).
+   STILL TO DO IN 4f (inventory: 210 functions): AIEnemy wandering / aggro, Entity::OnTalkTo and
+   the talk action (ProcessAction case 2), EventManager, the map's person list, camera points and
+   shake, offline goblins / buildings, LoadEntitiesFromCopy, CmdOpenMap, HUDWindow map reset /
+   darkening / HideMapName, GUI highlight blockers, then the windows: hover windows (Hint, Person,
+   PlayerHint, Talk, Tap, WorldHint + BuildingHovers::Show/HideWorldDialog, FollowEntity),
+   LoadingScreenWindow, ChoosePathWindow, CampaignInfoWindow, CampaignCompleteWindow,
+   CampaignPerfectedWindow, ChapterWindow, FoundItemsWindow::SetParameters(location),
+   TaskListWindow::FindGoblin / BuyGoblin.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
