@@ -1996,11 +1996,12 @@ void Free() {
 bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromCache) {
     g_loading = true;
     // What is left of the map being left.
-    // UNVERIFIED (milestone 4f, hovers): BuildingHovers::HideWorldDialog. (milestone 5): the loading screen (LoadingScreenWindow, with
-    // Render::minLayer 0xe) only shows when the switch starts from the open global map.
+    // UNVERIFIED (milestone 5): the loading screen (LoadingScreenWindow, with Render::minLayer 0xe)
+    // only shows when the switch starts from the open global map.
     ClearCameraPoints();
     CastleTopWindow::HideTools();
     HUDWindow::HideLocators();
+    BuildingHovers::HideWorldDialog(nullptr);
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();
@@ -3027,7 +3028,7 @@ void Save(int type) {
 }
 
 void SafeSave() {
-    // UNVERIFIED (milestone 4): BuildingHovers::HideWorldDialog first.
+    BuildingHovers::HideWorldDialog(nullptr);
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();

@@ -281,8 +281,8 @@ void AIPlayer::ClickedEntity(Entity* e) {
         actionTarget = e;
         if (GameState::tutorial == 0x51) near = AI::GetWaypoint(0x1b, 0x15, false);
         GotoMarkerAt(e->tileX, e->tileY);
-        // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)". (4f, hovers):
-        // BuildingHovers::HideWorldDialog(nullptr).
+        // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+        BuildingHovers::HideWorldDialog(nullptr);
         entity->GetSquad()->MoveTo(near);
         return;
     }
@@ -568,7 +568,7 @@ void AIPlayer::ClickedPortal(Portal* p) {
     // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
     GotoMarkerAt(p->walkX, p->walkY);
     entity->GetSquad()->MoveTo(wp);
-    // UNVERIFIED (milestone 4f, hovers): BuildingHovers::HideWorldDialog(nullptr).
+    BuildingHovers::HideWorldDialog(nullptr);
 }
 
 void AIPlayer::ClickedDecoration(Map::Decor* d) {

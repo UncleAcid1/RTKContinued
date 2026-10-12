@@ -105,6 +105,7 @@ bool g_skipHoverCheck = false;         // BuildingHovers::skipHoverCheck
 bool g_skipCombatCheck = false;        // BuildingHovers::skipCombatCheck
 int g_lastID = 0;                      // 0x618998
 bool g_hoversVisible = true;           // 0x60f138
+WorldHintHoverWindow* g_worldDialog = nullptr;   // BuildingHovers::worldDialogHoverWindow
 uint32_t g_lastTime = 0;               // 0x6189dc
 bool g_updatingDrops = false;          // 0x6188e1
 int g_textCounter = 0;                 // 0x6188d8 (ShowTextHover)
@@ -120,6 +121,7 @@ struct HelperArrow {
     bool mirror = false, flip = false; // +0x05 +0x06
     float x = 0.f, y = 0.f;            // +0x08 +0x0c the anchor, world space unless screenSpace
     GUI::Callback* onClick = nullptr;  // +0x10 SetArrowClickCallback (owned)
+    Entity* entity = nullptr;          // +0x28 the entity it follows (FollowEntity)
     Map::Decor* decor = nullptr;       // +0x2c the decoration it points at (FollowDecor)
     ~HelperArrow() { delete onClick; }
 };
@@ -232,9 +234,8 @@ WindowManager::FunctionalWindow* Queue() {
 void Init() {
     // UNVERIFIED: wndScale is 1.5 below a 320 px screen height (the arrows' scale).
     g_arrows.push_back(new HelperArrow());
-    // UNVERIFIED: PersonHoverWindow (only shown on campaign maps: milestone 4) and the world dialog
-    // (WorldHintHoverWindow) are created here too. FarmGrowHoverWindow is created as well but
-    // nothing in 5.11 shows it, so it is not ported.
+    // (PersonHoverWindow and FarmGrowHoverWindow are created here too, but nothing in 5.11 shows
+    // them: not ported.)
     g_emptyWindow = new EmptyHoverWindow();
     g_storageWindow = new StorageHoverWindow();
     g_resourceActiveWindow = new ResourceHoverWindow();
@@ -244,7 +245,8 @@ void Init() {
     g_castleWindow = new CastleHoverWindow();
     g_farmRestoreWindow = new FarmRestoreWindow();
     g_decorationWindow = new DecorationHoverWindow();
-    // UNVERIFIED (world dialog): the queue's back function becomes BuildingHovers::OnBack.
+    g_worldDialog = new WorldHintHoverWindow();
+    // UNVERIFIED (milestone 7, the Back key): the queue's back function becomes BuildingHovers::OnBack.
 }
 
 // ---- the helper arrow ----
@@ -323,7 +325,8 @@ void ExecuteArrowCallback() {
     }
     for (HelperArrow* o : g_arrows)
         if (o && o->sprite) Render::SetVisibility(o->sprite, false);
-    a->decor = nullptr;   // (and the entity it follows, +0x28: not ported)
+    a->decor = nullptr;
+    a->entity = nullptr;
     (*a->onClick)();
     ++g_arrowCallbackID;
 }
@@ -637,7 +640,12 @@ void UnregisterEntity(Entity* e) {
         RemoveHover(i);
         ++i;
     }
-    // UNVERIFIED (milestone 3e / tutorial): the person window, the world dialog and the arrows drop e.
+    if (g_worldDialog && g_worldDialog->entity == e) {
+        g_worldDialog->Hide();
+        g_worldDialog->SetEntity(nullptr);
+    }
+    for (HelperArrow* a : g_arrows)
+        if (a->entity == e) a->entity = nullptr;
 }
 
 // ---- hover types ----
@@ -1234,6 +1242,59 @@ void ShowIconHover(float x, float y, Render::Texture* tex) {
 // @0x263218 BuildingHovers::FollowDecor
 void FollowDecor(Map::Decor* d) { g_arrows.back()->decor = d; }
 
+// @0x2631fc BuildingHovers::FollowEntity. UNVERIFIED (milestone 4h): UpdateArrow moving the arrow
+// with the entity (and dropping it when the entity dies) comes with the tutorial that uses it.
+void FollowEntity(Entity* e) { g_arrows.back()->entity = e; }
+
+// ---- the world dialog ----
+
+bool IsWorldDialogVisible() { return g_worldDialog && g_worldDialog->shownHover; }
+
+void SetWorldDialogOffset(int x, int y) { g_worldDialog->SetOffset(x, y); }
+
+// @0x268ec8 BuildingHovers::ShowWorldDialog
+void ShowWorldDialog(Entity* e, const char32_t* text, uint32_t task, bool arrow, bool nextButton, bool setSide,
+                     uint32_t nextTask, bool noCenter, bool sideLeft) {
+    if (g_worldDialog->shownHover) {
+        if (g_worldDialog->task == task) return;
+        std::puts("BuildingHovers::ShowWorldDialog() Closing previous dialog");
+        g_worldDialog->OnClose();
+        g_worldDialog->Hide();
+    }
+    if (task == 0x775 || task == 0x777) arrow = true;
+    // UNVERIFIED (milestone 6): the speaker's voice, as Entity::OnTalkTo's.
+    g_worldDialog->Show();
+    g_worldDialog->SetEntity(e);
+    // (PORT: a task without a pre-quest text says nothing)
+    g_worldDialog->SetParameters(StringTable::GetUndecoratedString(text ? text : U"", 0x200).c_str(), task, nextTask,
+                                 e->GetSpawnPointID());
+    g_worldDialog->Update(0.f);
+    if (!noCenter) g_worldDialog->CenterIfOffScreen();
+    if (arrow) g_worldDialog->ShowArrow();
+    if (!nextButton) g_worldDialog->HideNextButton();
+    if (setSide) g_worldDialog->SetDefaultSideLeft(sideLeft);
+    UpdateHovers();
+    // UNVERIFIED (milestone 4h): for task 0x427 (before task 0x429 is done) the sawmill's (0x6b) and
+    // the farm's (0x13) running contracts are taken back with their costs refunded.
+}
+
+// @0x263a6c BuildingHovers::HideWorldDialog
+void HideWorldDialog(Entity* e) {
+    if (g_worldDialog->shownHover && (g_worldDialog->entity == e || !e)) {
+        g_worldDialog->OnClose();
+        g_worldDialog->Hide();
+    }
+    // UNVERIFIED (milestone 4f, PlayerHintHoverWindow): for the hero (or nullptr)
+    // PlayerTopWindow::HideDialog.
+}
+
+// @0x263a1c BuildingHovers::HideWorldDialogByTask
+void HideWorldDialogByTask(uint32_t task) {
+    if (!g_worldDialog->shownHover || g_worldDialog->task != task) return;
+    g_worldDialog->OnClose();
+    g_worldDialog->Hide();
+}
+
 // @0x266c60 BuildingHovers::HideArrowOnDecor
 void HideArrowOnDecor(Map::Decor* d) {
     for (HelperArrow* a : g_arrows)
@@ -1368,7 +1429,7 @@ void Update(double dtIn, bool force) {
         !BuildingMovement::Activated() && !BuildingPlacement::Activated() && !GameState::IsTutorial())
         HideArrow();
     // UNVERIFIED (tutorial): the tablet attention rings' animation.
-    // UNVERIFIED: the world dialog's Update (not ported).
+    g_worldDialog->Update(dt);
     UpdateHoverPositions();
     if (Timer::GetGlobalTime() != g_lastTime || force) {
         g_lastTime = Timer::GetGlobalTime();

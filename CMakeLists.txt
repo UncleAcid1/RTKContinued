@@ -101,6 +101,7 @@ add_executable(rtk
   src/hud/BottomFarmWindow.cpp
   src/hud/TaskHolderWindow.cpp
   src/hud/HoverWindows.cpp
+  src/hud/WorldHintHoverWindow.cpp
   src/hud/InfoHoverWindows.cpp
   src/hud/ItemHoverWindow.cpp
 )

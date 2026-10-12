@@ -66,7 +66,18 @@ void UnregisterEntity(Entity* e);           // @0x264c54
 
 bool BuildingHasActiveHover(Map::Building* b);   // @0x262f14
 void ActivateBuildingHover(Map::Building* b);    // @0x263018
-inline bool IsWorldDialogVisible() { return false; }   // @0x2632c4 UNVERIFIED: no world dialog yet
+// ---- the world dialog (WorldHintHoverWindow)
+bool IsWorldDialogVisible();                // @0x2632c4
+void SetWorldDialogOffset(int x, int y);    // @0x2632dc
+// @0x268ec8: somebody speaks: the dialog opens beside e with the text (a string table text with
+// its decorations taken out). Closing it completes `task`; nextTask is the task that follows.
+// arrow: the help arrow points at "next"; nextButton: the box has the button; setSide + sideLeft:
+// which side of the speaker; noCenter: the view is not moved to show the box.
+void ShowWorldDialog(Entity* e, const char32_t* text, uint32_t task, bool arrow, bool nextButton, bool setSide,
+                     uint32_t nextTask, bool noCenter, bool sideLeft);
+void HideWorldDialog(Entity* e);            // @0x263a6c e's dialog (any when nullptr) closes
+void HideWorldDialogByTask(uint32_t task);  // @0x263a1c
+void FollowEntity(Entity* e);               // @0x2631fc the last arrow follows e
 bool IsHoverVisible();                      // @0x263320
 void ScheduleUpdate();                      // @0x2630a4
 void AddDeliveryContractToFinishOnLastItem(unsigned id);   // @0x263164

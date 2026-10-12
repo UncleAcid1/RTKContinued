@@ -30,6 +30,8 @@ public:
 
     void MoveWindowOnTop(bool reassignZ);   // @0x36f270
     void MoveWindowDown(bool reassignZ);    // @0x36f0c4
+    // @0x36efa0: no window called `other` stands above this one.
+    bool IsWindowHigherThan(const char* other) const;
 
     std::string name;                 // +0x04
     bool usesZRange = true;           // +0x08

@@ -869,18 +869,24 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
             if (GameState::TaskCompleted(next->id)) {
                 std::printf("Tasks::CompleteTask() Cannot show next dialog %d - it was already completed\n", t->postQuest);
             } else {
-                // UNVERIFIED (milestone 4f): without a giver PlayerTopWindow::SetParameters(next's
-                // pre-quest text, its id, !showButton, showButton); with one that is on the map and
-                // active BuildingHovers::ShowWorldDialog(giver, text, next id, false, !showButton,
-                // false, this task's id when it repeats without a timeout else 0, false, false).
+                if (next->dialogGiver == 0) {
+                    // UNVERIFIED (milestone 4f, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
+                    // next's pre-quest text, its id, !showButton, showButton).
+                } else {
+                    Entity* giver = EntityManager::GetEntityBySpawnPoint(next->dialogGiver);
+                    if (giver && giver->IsActive())
+                        BuildingHovers::ShowWorldDialog(giver, next->preQuest, next->id, false, !next->showButton, false,
+                                                        t->repeatTask && t->repeatTimeout == 0 ? t->id : 0, false,
+                                                        false);
+                }
             }
         }
     }
     GameState::CompleteTask(id, setBegin);
     Map::OnTaskCompleted(id);
     EntityManager::OnTaskCompleted(id);
-    // UNVERIFIED (milestone 5 / 4f): GlobalMapWindow::OnTaskCompleted(id),
-    // BuildingHovers::HideWorldDialogByTask(id).
+    // UNVERIFIED (milestone 5): GlobalMapWindow::OnTaskCompleted(id).
+    BuildingHovers::HideWorldDialogByTask(id);
     if ((int)id == Setting("squad_slot_02_quest_unlock").GetInt() ||
         (int)id == Setting("squad_slot_03_quest_unlock").GetInt()) {
         // UNVERIFIED (milestone 5): WindowManager::EnqueueWindow(Tasks::ShowWarriorSlotUnlock, 0.2).
@@ -1283,9 +1289,9 @@ void Update(bool force) {
                     CompleteTask(t->id, true, true, false);
                     return;
                 }
-            } else if (WindowManager::GetEnqueuedWindowCount() == 0 && !FoundItemsWindow::HasPostAction()) {
-                // UNVERIFIED: not during a PvP fight (GameState::IsPvPCombatActive, milestone 5)
-                // or with a map load queued (Map::IsMapLoadQueued, milestone 4f).
+            } else if (WindowManager::GetEnqueuedWindowCount() == 0 && !FoundItemsWindow::HasPostAction() &&
+                       !Map::IsMapLoadQueued()) {
+                // UNVERIFIED: not during a PvP fight (GameState::IsPvPCombatActive, milestone 5).
                 TaskCompleteWindow::Complete(t->id);
                 TaskCompleteWindow::Show();
                 return;
@@ -1297,8 +1303,15 @@ void Update(bool force) {
             CompleteTask(t->id, false, true, false);
             return;
         }
-        // UNVERIFIED (milestone 4f): a pop-up to show (f_1df): PlayerTopWindow::SetParameters or the
-        // giver's BuildingHovers::ShowWorldDialog with the pre-quest text.
+        // A pop-up to show: said by its giver, else in the hero's own panel.
+        if (t->f_1df) {
+            if (t->dialogGiver == 0) {
+                // UNVERIFIED (milestone 4f, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
+                // pre-quest text, id, !showButton, showButton).
+            } else if (Entity* giver = EntityManager::GetEntityBySpawnPoint(t->dialogGiver)) {
+                BuildingHovers::ShowWorldDialog(giver, t->preQuest, t->id, false, !t->showButton, false, 0, false, false);
+            }
+        }
     }
     CheckOverlimit(cur, count, false);
     // A completed repeating task comes back once its timeout has passed, with the tasks under it.

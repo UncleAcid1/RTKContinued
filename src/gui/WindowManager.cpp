@@ -41,6 +41,12 @@ WindowQueue::~WindowQueue() {
     next = prev = nullptr;
 }
 
+bool WindowQueue::IsWindowHigherThan(const char* other) const {
+    for (const WindowQueue* w = g_head; w && w != this; w = w->next)
+        if (w->name == other) return false;
+    return true;
+}
+
 // @0x36f270: unlink and insert at the head; then hand out depths from the top down. Each visible
 // window that uses a z range takes ZRange(), others 0.0012.
 void WindowQueue::MoveWindowOnTop(bool reassignZ) {

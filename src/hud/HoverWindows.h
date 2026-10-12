@@ -172,6 +172,54 @@ public:
     float t = 0.f;                     // +0x54 bob time
 };
 
+// The world dialog: a speech box beside somebody (Dialog_hint_hd.xml, world space) with a "next"
+// button; closing it completes its task. One instance (BuildingHovers::worldDialogHoverWindow),
+// shown by BuildingHovers::ShowWorldDialog. Port of WorldHintHoverWindow (0x7c bytes;
+// WorldHintHoverWindow.cpp).
+class WorldHintHoverWindow : public BuildingHoverWindow {
+public:
+    WorldHintHoverWindow();                      // @0x39c3d0
+    ~WorldHintHoverWindow() override;
+    void Init() override;                        // +0x08 @0x39c0ac
+    void SetZ(float z) override;                 // +0x10 @0x39b028
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x39bf04
+    void Show() override;                        // +0x1c @0x39c040
+    void Hide() override;                        // +0x20 @0x39bfdc
+    void Update(float dt) override;              // +0x24 @0x39b74c
+    bool Back() override;                        // +0x2c @0x39b700
+    void SetPosition(int x, int y) override;     // +0x3c @0x39bb94
+    // +0x54 @0x39b920: the text (the box grows to fit it), the task closing completes, the task that
+    // then runs on, and the speaker's spawn point id.
+    virtual void SetParameters(const char32_t* text, uint32_t task, uint32_t nextTask, uint32_t special);
+    virtual void SetOffset(int x, int y) { offX = x; offY = y; }   // +0x58 @0x39b044
+    void HideNextButton();                       // @0x39b050
+    void SetDefaultSideLeft(bool left);          // @0x39b070
+    void CenterIfOffScreen();                    // @0x39b0d8 the view moves so that the box is on screen
+    void ShowArrow();                            // @0x39b2d4 the help arrow points at "next"
+    void OnClose();                              // @0x39b2e8
+    void OnUserClose();                          // @0x39b64c "next" was tapped
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* arrowSW = nullptr;    // +0x38 the box's pointer when it stands right of the speaker
+    GUI::Window* arrowSE = nullptr;    // +0x3c ... and left of it
+    GUI::Window* arrowNW = nullptr;    // +0x40 (hidden)
+    GUI::Window* arrowNE = nullptr;    // +0x44 (hidden)
+    GUI::Window* frame = nullptr;      // +0x48 dialog_hint_window_9s
+    GUI::Textfield* text = nullptr;    // +0x4c
+    GUI::Window* next = nullptr;       // +0x50 button_dialog_hint_next
+    uint32_t task = 0;                 // +0x54
+    uint32_t nextTask = 0;             // +0x58
+    uint32_t special = 0;              // +0x5c
+    int frameW = 0;                    // +0x60
+    int grow = 0;                      // +0x64 how much taller than the layout the box is now
+    bool arrow = false;                // +0x68
+    bool fixedSide = false;            // +0x69
+    bool sideLeft = false;             // +0x6a
+    int arrowCallback = 0;             // +0x6c
+    float scale = 1.f;                 // +0x70 1.25 on a high-DPI screen
+    int offX = 0, offY = 0;            // +0x74 +0x78
+};
+
 // The round tax button over houses and decorations with collectable gold.
 class TaxesHoverWindow : public BuildingHoverWindow {
 public:
