@@ -444,7 +444,6 @@ void UpdateTasks() {
         if (combat->GetType() > 2) count = 0;
     if (!GameState::IsPlayerCity()) count = 0;
     if (!g_taskVisibility) count = 0;
-    bool setBegin = true;
     if (GameState::GetCurrentLocation() == 3) {
         if (count != 0) {   // only the path choice (0x5fb) and the sultan (0x5c9)
             Tasks::TaskInfo* path = nullptr;
@@ -455,16 +454,12 @@ void UpdateTasks() {
             }
             if (path) list[0] = path;
             count = path ? 1 : 0;
-            if (sultan) {
-                list[count++] = sultan;
-                setBegin = false;
-            }
+            if (sultan) list[count++] = sultan;
         }
     }
-    if (setBegin)
-        for (unsigned i = 0; i < count; ++i)
-            if (GameState::GetTaskBeginTime(list[i]->id) == 0)
-                GameState::SetTaskBeginTime(list[i]->id, Timer::GetGlobalTime());
+    for (unsigned i = 0; i < count; ++i)
+        if (GameState::GetTaskBeginTime(list[i]->id) == 0)
+            GameState::SetTaskBeginTime(list[i]->id, Timer::GetGlobalTime());
 
     // The campaign tasks share one place: one of them is shown, the others wait their turn.
     g_campaignTasks.clear();

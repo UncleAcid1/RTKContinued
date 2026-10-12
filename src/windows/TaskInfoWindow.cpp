@@ -460,10 +460,11 @@ void SetZ(float z) {
 
 // @0x35ae38 TaskInfoWindow::Click
 bool Click(int x, int y, bool pressed) {
-    if (!g_root->visibleSelf) return false;
-    if (BuildingHovers::ClickOnArrow(x, y, pressed)) return true;
-    if (!pressed) BuildingHovers::HideArrow();
-    if (g_scroller.Click(x, y, pressed, g_root)) return true;
+    if (g_root->visibleSelf) {
+        if (BuildingHovers::ClickOnArrow(x, y, pressed)) return true;
+        if (!pressed) BuildingHovers::HideArrow();
+        if (g_scroller.Click(x, y, pressed, g_root)) return true;
+    }
     if (TopCityWindow::Click(x, y, pressed)) return true;
     if (g_hover->Click(x, y, pressed)) return true;
     bool visible = g_root->visibleSelf;
