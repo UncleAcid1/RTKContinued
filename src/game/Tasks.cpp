@@ -874,7 +874,7 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     // BuildingHovers::HideWorldDialogByTask(id).
     if ((int)id == Setting("squad_slot_02_quest_unlock").GetInt() ||
         (int)id == Setting("squad_slot_03_quest_unlock").GetInt()) {
-        // UNVERIFIED (milestone 4d): WindowManager::EnqueueWindow(Tasks::ShowWarriorSlotUnlock, 0.2).
+        // UNVERIFIED (milestone 5): WindowManager::EnqueueWindow(Tasks::ShowWarriorSlotUnlock, 0.2).
     }
     // (task 0x402: CraftSuccessWindow for unit 0x195, milestone 5)
 
@@ -1255,7 +1255,7 @@ void Update(bool force) {
         }
         if (done && !t->tutorialType && !t->isHint) {
             if (t->chapter) {
-                // UNVERIFIED (milestone 4d): unless the world map or an edit mode is up,
+                // UNVERIFIED (milestone 4f): unless the world map or an edit mode is up,
                 // ChapterWindow::SetParameters(id) and Show, FileManager::SetChapterNow.
                 if (BuildingPlacement::Activated() || BuildingMovement::Activated()) return;
                 return;

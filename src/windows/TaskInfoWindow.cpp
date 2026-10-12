@@ -708,7 +708,7 @@ void UpdateContents() { SetTask(g_task, g_bossMode); }
 void Show() {
     Tasks::TaskInfo* t = Tasks::GetTask(g_task);
     if (t && t->IsFeaturedTask()) {
-        // UNVERIFIED (4d part 4): GameState::SetFeaturedTaskClickTime(id, now).
+        GameState::SetFeaturedTaskClickTime(t->id, (uint32_t)Timer::GetGlobalTime());
         HUDWindow::UpdateTasks();
     }
     // UNVERIFIED (milestone 5): the tasks that open another window instead: 0x6b4 and 0x75b the

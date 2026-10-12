@@ -11,7 +11,7 @@
 //  - the PvP arena path (PlayerBattleInOutWindow, 4g; its buttons "Attack again", "Profile",
 //    "Restock", PlayerWeakWindow, PvPArenaCombat restarts) is left out: that window is never shown;
 //  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with Locations (4f);
-//  - RunPostAction's windows (item shop, hire troops: 5; level info: 4d) and OnClose's owners
+//  - RunPostAction's windows (item shop, hire troops: 5; level info: 5) and OnClose's owners
 //    (raid / campaign / boss / chest windows) are named in comments only.
 // PORT (online removed): the share ticks (Shared::ShareButtonsHolder, the Facebook / Twitter
 // toggles of SettingsWindow) stay hidden and no wall posts are made (OnShare); Ok only closes.
@@ -303,7 +303,7 @@ void RunPostAction() {
         // UNVERIFIED (milestone 4g / online): PlayerCompetitionWindow (tab 4) unless the PvP
         // tutorial runs (it ends) or it returns without a window.
     } else if (g_postAction == 4) {
-        // UNVERIFIED (milestone 4d / 5): LevelInfoWindow::Show on the tab of profession 7.
+        // UNVERIFIED (milestone 5): LevelInfoWindow::Show on the tab of profession 7.
     }
     g_postAction = 0;
 }

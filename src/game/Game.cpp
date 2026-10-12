@@ -57,7 +57,7 @@ void FileManager::RestartGame() {
 void OnResume() {
     // (PlayerProfileManager::ResetNoConnectionWarning: online. PlayerWeakWindow::ResetSession:
     // milestone 5.)
-    // UNVERIFIED (milestone 4d): CastleTopWindow::ActivateFeatureHolders (0x28a53c).
+    // UNVERIFIED (milestone 5): CastleTopWindow::ActivateFeatureHolders (0x28a53c).
     // UNVERIFIED (milestone 5, the daily bonus): with no bonus received yet today
     // (GameState::GetReceivedDailyBonusCount), task 0x35c completed, the connection not being
     // checked (temporary setting 2), no window, combat, hover, world dialog or pause:

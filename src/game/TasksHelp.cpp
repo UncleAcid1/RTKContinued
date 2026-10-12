@@ -441,10 +441,10 @@ bool TaskSubtask::OnHelp(bool arrow) {
     case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item
     case kRepairItem:          // CharacterInfoWindow on the first broken item worn
-    case kBalanceLevel:        // LevelInfoWindow on that level (4d part 4)
+    case kBalanceLevel:        // LevelInfoWindow on that level (milestone 5)
     case kDealDamage:          // CastleTopWindow::HelpWithPvP
     case kWinInRow:            // CastleTopWindow::HelpWithPvP
-    case kOpenWeb:             // HelpWindow::Show(value) (4d part 4)
+    case kOpenWeb:             // HelpWindow::Show(value) (online: the help web view)
         std::printf("Tasks::TaskSubtask::OnHelp() step %u (type %d): its help is not ported yet\n", id, type);
         return true;
     // (online, not ported: 0x33 the FAQ, 0x34 rate the game, 0x38 like the game: the step is

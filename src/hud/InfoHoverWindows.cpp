@@ -632,7 +632,7 @@ void FactoryHoverWindow::ShowArrowAt(unsigned i) {
     selectedOrder = i;
     SetBuilding(building);
     BuildingHovers::SetArrowVisibleWindowLimit(3);
-    // UNVERIFIED (milestone 4): TaskInfoWindow::BlockArrowLimitChangeOnce.
+    TaskInfoWindow::BlockArrowLimitChangeOnce();
     if (order->visibleSelf) {
         BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnLaunchContract(); }));
         ArrowAtButton(root, order);
@@ -908,7 +908,7 @@ void LivingHoverWindow::OnUpgrade() {
 void LivingHoverWindow::ShowArrowAtUpgrade() {
     if (!building) return;
     BuildingHovers::SetArrowVisibleWindowLimit(2);
-    // UNVERIFIED (milestone 4): TaskInfoWindow::BlockArrowLimitChangeOnce.
+    TaskInfoWindow::BlockArrowLimitChangeOnce();
     BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnUpgrade(); }));
     BuildingHovers::ArrowAt((float)(upgrade->w + upgrade->x), (float)(upgrade->y + upgrade->h / 2), false, true, false,
                             false, true, false, false);
@@ -1105,7 +1105,7 @@ void StorageHoverWindow::OnUpgrade() {
 void StorageHoverWindow::ShowArrowAtUpgrade() {
     if (!building) return;
     BuildingHovers::SetArrowVisibleWindowLimit(2);
-    // UNVERIFIED (milestone 4): TaskInfoWindow::BlockArrowLimitChangeOnce.
+    TaskInfoWindow::BlockArrowLimitChangeOnce();
     BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnUpgrade(); }));
     BuildingHovers::ArrowAt((float)(upgrade->w + upgrade->x), (float)(upgrade->y + upgrade->h / 2), false, true, false,
                             false, true, false, false);
@@ -1387,7 +1387,7 @@ static void OnCastleRename() {
 void CastleHoverWindow::ShowArrowAtUpgrade() {
     if (!building) return;
     BuildingHovers::SetArrowVisibleWindowLimit(2);
-    // UNVERIFIED (milestone 4): TaskInfoWindow::BlockArrowLimitChangeOnce.
+    TaskInfoWindow::BlockArrowLimitChangeOnce();
     BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnUpgrade(); }));
     BuildingHovers::ArrowAt((float)(upgrade->w + upgrade->x), (float)(upgrade->y + upgrade->h / 2), false, true, false,
                             false, true, false, false);

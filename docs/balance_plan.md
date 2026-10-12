@@ -125,8 +125,8 @@ which quests fall at which level is only known once the campaign maps run (step 
 
 The user wants skipping to stay possible but be "way more expensive, just to deter people". The
 original step prices are 10-50 crystals; they are multiplied by `port_skip_price_mult` (5: 50-250
-crystals). Coded in TaskInfoWindow (the "Skip" box of a quest step). The same factor is to apply
-to TaskQuickCompleteWindow (finish a whole quest at once) when it is ported (4d part 5).
+crystals). Coded in TaskInfoWindow (the "Skip" box of a quest step). (TaskQuickCompleteWindow turned
+out to be an unused window of the original, not a pay-to-finish one: nothing else to price.)
 
 ## 6. Unchanged
 

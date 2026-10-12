@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-4b done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators)) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-4 done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators; the level window moved to 5); part 5 = quest hooks in older windows) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -798,9 +798,33 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
      milestone-5 window (pyramid exchange, chests, item shop sale, PvP). ASK the user then which
      promotions stay.
    - TaskListWindow::FindGoblin / BuyGoblin -> 4f (offline goblins).
-   LEFT IN 4d (61): part 4c LevelInfoWindow (29: the level / statistics window); part 5
-   TaskQuickCompleteWindow (32, ASK FIRST).
-   NEXT: 4d part 4c (LevelInfoWindow).
+   4d: EVERY FUNCTION IS PLACED (2026-10-11), part 5 (below) is still open. The last two windows
+   turned out not to belong here:
+   - LevelInfoWindow (29) -> 5. It is the levels-and-professions window (Window_lvl.xml: a
+     vertical scroller of three rank holders, each with horizontal item / building strips, PvP
+     statistics, five tabs from Professions::GetProfessionForTab). UpdateContents (2219 lines) and
+     OnTab are built on Professions, Collections, PvP, ItemShopWindow: port it with Professions.
+     Its setup code was read (Init, GeneralHolder / LevelHolder / UnlockedItemsHolder / ItemInfo /
+     PvPStatisticsHolder LoadFrom): nothing written.
+   - TaskQuickCompleteWindow (32) -> dead. It is an unused second quest-complete window (it
+     completes the task and shows a "claim reward" strip), NOT a pay-crystals window as the plan
+     had guessed: SetParameters has no caller, GOT or vtable entry and nothing else opens it.
+   USER DECISION (2026-10-11): paying crystals to skip stays but "way more expensive just to deter
+   people": a quest step's skip price is 5x the original ("port_skip_price_mult", TaskInfoWindow;
+   docs/balance_plan.md section 5b).
+   Small wiring done with it: TaskInfoWindow::BlockArrowLimitChangeOnce in the four hover
+   windows, SetFeaturedTaskClickTime in TaskInfoWindow::Show.
+   LEFT IN 4d = part 5, the quest hooks inside windows ported earlier (no function of their own,
+   so tools/inventory.py does not list them; grep "UNVERIFIED (milestone 4" for task / quest):
+   - ShopWindow.cpp (2): a quest-locked item's "needs quest <name>" text and status.
+   - InfoHoverWindows.cpp (1): the upgrade lock's quest name.
+   - LevelUpWindow.cpp: the "new tasks" cell (Tasks::HasTasksForLevel).
+   - NeedItemWindow.cpp (3): the task mode (icon / amount from the task, the three special tasks,
+     home to the city).
+   - StringTable::GetUndecoratedString: a task's counts as the first three arguments.
+   - Tasks.cpp: task 0x5b2 opens TaskInfoWindow on 0x5b3; main.cpp: TaskInfoWindow::Update's call.
+   (ExchangeWindow's discount tasks 0x4d8 / 0x4da / 0x4db are the pyramid events: milestone 5.)
+   NEXT: 4d part 5 (those hooks), then 4e.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
