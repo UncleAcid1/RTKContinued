@@ -9,6 +9,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "hud/HUD.h"
 #include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
@@ -365,7 +366,7 @@ void Show() {
     g_scroller.firstIndex = 0;
     g_scroller.HandleMove(-g_scroller.offset);
     UpdateContents();
-    // UNVERIFIED (milestone 4): HUDWindow::UpdateTasks.
+    HUDWindow::UpdateTasks();
     BuildingHovers::HideArrow();
     if (!wasShown) GameState::RaiseGamePauseState();
     g_root->PreloadTextures();   // GUI::PreloadWindow

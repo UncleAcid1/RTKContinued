@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); next 4d) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d part 1 done (HUD quest list)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -661,45 +661,35 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    TaskCompleteWindow (replaces Tasks::Update's "completed at once" PORT); part 4 TaskListWindow,
    LevelInfoWindow, HelpWindow, the locators and remaining arrows; part 5
    TaskQuickCompleteWindow (pay crystals to finish): ASK THE USER FIRST.
-   4d PART 1 IN PROGRESS (nothing coded yet; analysis notes so it is not redone):
-   - scratch decompiles are regenerated with the `raw` awk | picsym | picvar pipeline; the list:
-     Init 0x355384, UpdateTasks 0x356048 (1794 lines, gotos; SWPrintf's arguments are lost: read
-     the asm for the progress texts), UpdateContents 0x358c70, Update 0x359680, SetZ 0x354c2c,
-     Click 0x354d8c, Move 0x354d6c, OnTaskInfo 0x3591e8, ExecuteFirstHelp 0x359414, ResetTasks
-     0x355eb8, RemoveTaskArrows 0x354ad8, SetTaskCharacter 0x354940, TaskOrdering 0x3548ec (by
-     TaskInfo::priority descending, then later begin time first), QuickTaskWindow Init 0x355150 /
-     AnimateIn / AnimateOut / Update 0x3543b4, Show / Hide QuickTaskDescription, four FUN_ sort
-     helpers (std::sort with TaskOrdering).
-   - Shared::TaskWindow (0xa8 bytes; LoadFrom 0x342ef0 from "Slider_mission_scroll_bg"): +0x00
-     root, +0x04 button_scroll_bg, +0x08 button_scroll_bg_battle, +0x0c .._battle_side, +0x10
-     button_campaign_quest, +0x14 button_desert_quest, +0x18 button_arena_quest, +0x1c / +0x20
-     their text_percent, +0x28 button_campaign_100_quest, +0x2c button_raid_quest, +0x30..+0x40
-     quick_task_bg_generic / blue / green / orange / red, +0x44 button_bg_all_quests, +0x48
-     text_all_quests, +0x4c icon_all_quests, +0x50 / +0x54 / +0x58 the three backgrounds' "icon"
-     (Window +0x5d set), +0x5c icon_all_quests_quick_task, +0x60 icon_gold_quest_new, +0x64
-     icon_all_quests, +0x68 text_goblin_time_2, +0x6c text_status, +0x70 clickArea (Button),
-     +0x74 task id, +0x78 slot, +0x7c target slot, +0x80 new flag, +0x81 status shown, +0x82
-     animating with +0x84.. (Animate 0x3408dc: from x,y +0x90/+0x94 to +0x98/+0x9c, time +0x8c),
-     +0xa0 banner timer, +0xa4 banner kind.
-   - TaskHolderWindow globals: 32 TaskWindows at 0x62e0b8; 32 {window, text} "New_task_huge_
-     container" banners at 0x62f5b8 and 32 "New_task_container" at 0x62f6b8; QuickTaskWindow
-     ("Quick_task_line_holder") at 0x62e08c; ContentScroller 0x62f838 (vertical, the 32 roots,
-     itemSize = root height + gap, scrollbar "Scroll_bar_tiny_container" / "scroll_bar_tiny" with
-     images/scroll.png); slot y table 0x62f7b8; known-task records {id, progress, sub progress,
-     three step counters} (0x18 bytes) at 0x62f944 drive the "NEW_TASK_ARROW" / "PROGRESS_ARROW"
-     banners; campaign task list 0x62f950 with its rotating index 0x62f960; layout numbers
-     0x60f3d8..0x60f404 (scale 0x60f404, task visibility 0x60f400).
-   - UpdateTasks in outline: GetCurrentTasks(forHud) plus the special tasks 0x5da (arena map
-     0x74), 0x5fb (location 3), 0x5eb (expansions: online, skip); nothing in a fight past stage
-     2, outside the player's city or with task visibility off; begin times set; campaign tasks
-     (TaskInfo +0x1e4) rotate through one visible slot (priority 0x32, the others -1); sorted
-     with TaskOrdering; trailing priority -1 entries cut; at most 32; windows whose task left
-     are hidden, kept ones Animate to their new slot, new ones slide in from the left; then per
-     window the background by kind (main / battle / side / campaign / desert / arena / raid /
-     quick), the icon (SetTaskCharacter with the left mask), the progress or percent text, the
-     banners; show times set; BattleBarWindow::ShowAllTasks / HideAllTasks (tutorial >= 0x66 and
-     no boss combat) and UpdateContents.
-   NEXT: 4d part 1 (write src/hud/TaskHolderWindow.cpp and Shared::TaskWindow from the notes above).
+   4d PART 1 DONE: the quest list of the HUD. Shared::TaskWindow (Shared.h: LoadFrom @0x342ef0,
+   Animate @0x3408dc; the field table is in the struct) and src/hud/TaskHolderWindow.cpp: Init
+   @0x355384 (32 buttons "Slider_mission_scroll_bg", 32 + 32 banners "New_task_huge_container" /
+   "New_task_container", the scroller with "Scroll_bar_tiny_container", QuickTaskWindow
+   "Quick_task_line_holder"), UpdateTasks @0x356048 (= HUDWindow::UpdateTasks @0x2c7ba8),
+   UpdateContents @0x358c70, Update @0x359680, SetZ, Click, Hide, ResetTasks, RemoveTaskArrows
+   (+ HUDWindow's), SetTaskCharacter, TaskOrdering, OnTaskInfo @0x3591e8, Show / Hide
+   QuickTaskDescription, SetTaskVisibility. Every "HUDWindow::UpdateTasks" marker in Tasks.cpp,
+   Game.cpp, HUDWindow.cpp, LevelUpWindow.cpp, BuildingHovers.cpp and HoverWindows.cpp is now a
+   call. Read from the asm (Ghidra lost them): the background logic of a button (registers: r6
+   campaign button, [sp+0xf4] campaign done, r8 raid, r7 "special", r10 desert / arena kind), the
+   texts ("%d/%d" a quick task's counted actions; "%d%%" campaign percent; PROGRESS_ARROW with
+   two ToWideString numbers), the timers (a "new" banner 8 s, 32 s in the first virtual tutorial
+   and second-tutorial steps 0x208 / 0x20c; a progress banner 8 s; the campaign button rotates
+   every 8 s), Init's numbers (x -5, top 65 * hud scale, bottom margin 170 (+35 above 600 px),
+   gap -25, banner offsets -60/-5 and -30/-5, scale 0.96 * hud scale on high DPI else 1).
+   UNVERIFIED inside, each marked: everything of Locations (campaign done / percent / mission
+   time: 4f), the arena map's task 0x5da and OnTaskInfo's other windows (5), expansion task 0x5eb
+   (online), PlayerTopWindow::IsPlayerDialogVisible (4f), the "ui_new_quest" sound (6),
+   BattleBarWindow::ShowAllTasks / HideAllTasks and ExecuteFirstHelp @0x359414 (4d part 4; the
+   latter is the autoplay bot's "tap the first quest"), TaskInfoWindow (part 2: OnTaskInfo only
+   prints "Showing task N"), who calls ResetTasks (Map::Load, GameReload, GenerateNew: with them).
+   PORT: UpdateTasks returns when the HUD does not exist yet (LoadSavedGame asks before Init).
+   Verified headless (temporary hook, removed): a city jumped past the tutorial has no visible
+   quest (all 21 open ones are dn_show or "talk to" quests: correct); after completing tasks
+   1279 / 1012 / 230 / 992 three buttons slide in with their pictures and "New Quest!" banners,
+   the banners leave after 8 s, a counted step shows "Progress 1/3", a tap prints the task; the
+   real save copy and the building shop as before.
+   NEXT: 4d part 2 (TaskInfoWindow and TaskSubtask::OnHelp with its helpers).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

@@ -199,7 +199,7 @@ bool BubbleHoverWindow::Click(int x, int y, bool pressed) {
                 if (b->needsBuilder != 0 || b->upgrading != 0 || ShopWindow::IsVisible()) return true;
                 if (!building->FarmCollectAndReplant() && !Map::GetCurrentFarm()) {
                     GameState::SetCurrentLocation(1);
-                    // UNVERIFIED (milestone 4, Tasks): HUDWindow::UpdateTasks.
+                    HUDWindow::UpdateTasks();
                     HUDWindow::SetBottomType(3);
                     Map::ShowFarm(true, building);
                     return true;

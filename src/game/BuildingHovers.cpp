@@ -1282,7 +1282,7 @@ void Update(double dtIn, bool force) {
 // The farm view opens (OnBuildingClick and Click share these steps).
 static void EnterFarmView(Map::Building* b) {
     GameState::SetCurrentLocation(1);
-    // UNVERIFIED (milestone 4, Tasks): HUDWindow::UpdateTasks.
+    HUDWindow::UpdateTasks();
     HUDWindow::SetBottomType(3);
     Map::ShowFarm(true, b);
 }

@@ -5,6 +5,7 @@
 #include "gui/GUI.h"
 
 #include <cstdio>
+#include <string>
 
 namespace Shared {
 
@@ -282,6 +283,63 @@ void ItemHolder::LoadFrom(Window* r, const char* p, bool repOverlay) {
     quantity = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity", p);
     quantityRed = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity_red", p);
     lockTiny = GUI::GetWindowTypedF<Window>(r, "%s.icon_lock_tiny", p);
+}
+
+// @0x342ef0 Shared::TaskWindow::LoadFrom
+void TaskWindow::LoadFrom(GUI::Window* r, const char* prefix) {
+    std::string pre = prefix ? std::string(prefix) + "." : std::string();
+    auto win = [&](const char* n) { return GUI::GetWindowTyped<GUI::Window>(r, (pre + n).c_str()); };
+    auto text = [&](const char* n) { return GUI::GetWindowTyped<GUI::Textfield>(r, (pre + n).c_str()); };
+    auto slotted = [&](const char* n) {
+        GUI::Window* w = win(n);
+        w->takesZ = true;
+        return w;
+    };
+    root = prefix ? GUI::GetWindowTyped<GUI::Window>(r, prefix) : r;
+    bg = win("button_scroll_bg");
+    bgBattle = win("button_scroll_bg_battle");
+    bgBattleSide = win("button_scroll_bg_battle_side");
+    campaign = win("button_campaign_quest");
+    desert = win("button_desert_quest");
+    arena = win("button_arena_quest");
+    campaignPercent = text("button_campaign_quest.text_percent");
+    desertPercent = text("button_desert_quest.text_percent");
+    campaignDone = win("button_campaign_100_quest");
+    raid = win("button_raid_quest");
+    quick = win("quick_task_bg_generic");
+    quickBlue = win("quick_task_bg_blue");
+    quickGreen = win("quick_task_bg_green");
+    quickOrange = win("quick_task_bg_orange");
+    quickRed = win("quick_task_bg_red");
+    allQuestsBg = win("button_bg_all_quests");
+    allQuestsText = text("text_all_quests");
+    allQuestsIcon = win("icon_all_quests");
+    icon = slotted("button_scroll_bg.icon");
+    iconBattle = slotted("button_scroll_bg_battle.icon");
+    iconBattleSide = slotted("button_scroll_bg_battle_side.icon");
+    iconQuick = slotted("icon_all_quests_quick_task");
+    iconNew = slotted("icon_gold_quest_new");
+    iconAll = slotted("icon_all_quests");
+    timeText = text("text_goblin_time_2");
+    status = text("text_status");
+    clickArea = GUI::GetWindowTyped<GUI::Button>(r, (pre + "clickArea").c_str());
+    taskId = 0;
+    slot = target = 0;
+    isNew = false;
+    animating = false;
+    bannerTimer = 0.f;
+}
+
+// @0x3408dc Shared::TaskWindow::Animate
+void TaskWindow::Animate(int x0, int y0, int x1, int y1) {
+    animating = true;
+    animTime = 0.f;
+    animDuration = 0.5f;
+    fromX = x0;
+    fromY = y0;
+    toX = x1;
+    toY = y1;
+    animMode = 0;
 }
 
 }  // namespace Shared

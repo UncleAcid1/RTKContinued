@@ -12,6 +12,8 @@ void SetZ(float z);           // @0x2c9158
 float GetZ();                 // @0x2c6548
 void UpdateFrameBorder();     // @0x2c76e0
 void Update(float dt);        // @0x2c81c8
+void UpdateTasks();            // @0x2c7ba8 (a jump to TaskHolderWindow::UpdateTasks)
+void RemoveTaskArrows();       // @0x2c7bac
 int UpdateNumberToTarget(int current, int target);   // @0x2c6560 (animated counters)
 inline int GetDeltaTimeMultiplier() { return 1; }    // @0x2c6664
 WindowManager::FunctionalWindow* Queue();
@@ -76,6 +78,14 @@ bool Click(int x, int y, bool pressed);   // @0x365908 (NotEnoughWindow passes i
 
 namespace TaskHolderWindow {
 void SetTaskVisibility(bool on);   // @0x359648 (hidden while buildings are edited)
+void UpdateTasks();                // @0x356048 the list is made from the open tasks
+void UpdateContents();             // @0x358c70 icons and time left
+bool Click(int x, int y, bool pressed);   // @0x354d8c
+void ResetTasks();                 // @0x355eb8 every button freed (a new game, another save)
+void RemoveTaskArrows();           // @0x354ad8 the banners go, the first is reset
+// @0x355098 / @0x354674: the line of text that folds out at the bottom for `seconds`.
+void ShowQuickTaskDescription(const char32_t* text, float seconds);
+void HideQuickTaskDescription();
 }
 
 namespace CastleTopWindow {

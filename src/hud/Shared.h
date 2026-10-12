@@ -1,7 +1,8 @@
 // Shared HUD helpers (the original's Shared namespace).
 #pragma once
+#include <cstdint>
 
-namespace GUI { class Window; class Textfield; }
+namespace GUI { class Window; class Textfield;  class Button; }
 namespace Render { struct Texture; }
 namespace Items { struct ItemInfo; }
 
@@ -181,6 +182,52 @@ struct ItemIconHolder {
     void LoadFrom(GUI::Window* root, const char* prefix, bool repOverlay);
     // The item's quality frame and image, the marks hidden (null: only forgets the item).
     void SetItem(Items::ItemInfo* info);
+};
+
+// Shared::TaskWindow (0xa8 bytes): a quest button of the HUD's quest list, with one background
+// per kind of quest. LoadFrom @0x342ef0 ("Slider_mission_scroll_bg").
+struct TaskWindow {
+    GUI::Window* root = nullptr;             // +0x00
+    GUI::Window* bg = nullptr;               // +0x04 button_scroll_bg (a city quest)
+    GUI::Window* bgBattle = nullptr;         // +0x08 button_scroll_bg_battle
+    GUI::Window* bgBattleSide = nullptr;     // +0x0c button_scroll_bg_battle_side (a side quest)
+    GUI::Window* campaign = nullptr;         // +0x10 button_campaign_quest
+    GUI::Window* desert = nullptr;           // +0x14 button_desert_quest
+    GUI::Window* arena = nullptr;            // +0x18 button_arena_quest
+    GUI::Textfield* campaignPercent = nullptr;   // +0x1c button_campaign_quest.text_percent
+    GUI::Textfield* desertPercent = nullptr;     // +0x20 button_desert_quest.text_percent
+    GUI::Window* campaignDone = nullptr;     // +0x28 button_campaign_100_quest
+    GUI::Window* raid = nullptr;             // +0x2c button_raid_quest
+    GUI::Window* quick = nullptr;            // +0x30 quick_task_bg_generic
+    GUI::Window* quickBlue = nullptr;        // +0x34
+    GUI::Window* quickGreen = nullptr;       // +0x38
+    GUI::Window* quickOrange = nullptr;      // +0x3c
+    GUI::Window* quickRed = nullptr;         // +0x40
+    GUI::Window* allQuestsBg = nullptr;      // +0x44 button_bg_all_quests
+    GUI::Textfield* allQuestsText = nullptr; // +0x48 text_all_quests
+    GUI::Window* allQuestsIcon = nullptr;    // +0x4c icon_all_quests
+    GUI::Window* icon = nullptr;             // +0x50 button_scroll_bg.icon (these six take a depth slot)
+    GUI::Window* iconBattle = nullptr;       // +0x54 button_scroll_bg_battle.icon
+    GUI::Window* iconBattleSide = nullptr;   // +0x58 button_scroll_bg_battle_side.icon
+    GUI::Window* iconQuick = nullptr;        // +0x5c icon_all_quests_quick_task
+    GUI::Window* iconNew = nullptr;          // +0x60 icon_gold_quest_new
+    GUI::Window* iconAll = nullptr;          // +0x64 icon_all_quests
+    GUI::Textfield* timeText = nullptr;      // +0x68 text_goblin_time_2
+    GUI::Textfield* status = nullptr;        // +0x6c text_status
+    GUI::Button* clickArea = nullptr;        // +0x70 clickArea
+    uint32_t taskId = 0;                     // +0x74 (0: free)
+    unsigned slot = 0, target = 0;           // +0x78 +0x7c its place in the list and where it is moving to
+    bool isNew = false;                      // +0x80 slides in for the first time (the "new quest" sound)
+    bool statusShown = false;                // +0x81
+    bool animating = false;                  // +0x82
+    float animTime = 0.f, animDuration = 0.f;    // +0x84 +0x88
+    int animMode = 0;                        // +0x8c 0 eases out, 1 eases in
+    int fromX = 0, fromY = 0, toX = 0, toY = 0;  // +0x90..+0x9c
+    float bannerTimer = 0.f;                 // +0xa0 how long its "new" / "progress" banner stays
+    bool bannerSmall = false;                // +0xa4 the small banner (a step's progress)
+    // @0x342ef0: with a prefix the names are "<prefix>.<name>".
+    void LoadFrom(GUI::Window* root, const char* prefix);
+    void Animate(int fromX, int fromY, int toX, int toY);   // @0x3408dc half a second
 };
 
 // Shared::ItemHolder (0x88 bytes): an inventory cell. LoadFrom @0x344c5c.

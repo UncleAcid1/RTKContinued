@@ -802,7 +802,7 @@ void CompleteSubtask(int type, uint32_t value, int n) {
     }
     if (changed) {
         EnqueueUpdate();
-        // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks (0x2c7ba8).
+        HUDWindow::UpdateTasks();
     }
 }
 
@@ -817,7 +817,10 @@ void ResetSubtask(int type, uint32_t value) {
                 changed = true;
                 GameState::SetSubTaskDone(s.id, 0);
             }
-    if (changed) EnqueueUpdate();   // (and HUDWindow::UpdateTasks, 4d)
+    if (changed) {
+        EnqueueUpdate();
+        HUDWindow::UpdateTasks();
+    }
 }
 
 // @0x22fa5c Tasks::CompleteSubtaskDirect
@@ -826,7 +829,7 @@ void CompleteSubtaskDirect(uint32_t subtask, int n) {
     EntityManager::OnSubTaskCompleted(subtask);
     Map::OnSubTaskCompleted(subtask);
     EnqueueUpdate();
-    // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks.
+    HUDWindow::UpdateTasks();
 }
 
 int PortQuestCrystals(const TaskInfo* t) {
@@ -914,7 +917,8 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     if (t->giveItemCount != 0 && takeItems)
         for (uint32_t i = 0; i < t->giveItemCount; ++i) GameState::RemoveItem(t->giveItems[i].id, (int)t->giveItems[i].count);
     SoldierSlots::SetFreeSlotsCount(GameState::GetSoldierSlotCount());
-    // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks; task 0x5b2 opens TaskInfoWindow on 0x5b3.
+    HUDWindow::UpdateTasks();
+    // UNVERIFIED (4d part 2): task 0x5b2 opens TaskInfoWindow on 0x5b3.
     BuildingHovers::Update(0.f, true);
     EnqueueUpdate();
 }
@@ -1235,7 +1239,7 @@ void Update(bool force) {
             }
             if (before != GameState::GetSubTaskDone(s.id)) changed = true;
         }
-    // (changed: HUDWindow::UpdateTasks, 4d)
+    if (changed) HUDWindow::UpdateTasks();
     for (unsigned i = 0; i < count; ++i) {
         TaskInfo* t = cur[i];
         bool done;
@@ -1290,7 +1294,7 @@ void Update(bool force) {
                 GameState::ResetTask(c->id);
                 c->dnShowDefault = c->dnShow;
             }
-        // (HUDWindow::UpdateTasks, 4d)
+        HUDWindow::UpdateTasks();
     }
     // Once a day a daily task is launched from each group.
     if (0x15180 < now - GameState::GetEventStartTime(3000)) {
@@ -1301,7 +1305,7 @@ void Update(bool force) {
         bool b = LaunchDailyTaskFromGroup(kDailyPvp, 1, cur, count);
         changed = a || b || changed;
     }
-    (void)changed;   // (HUDWindow::UpdateTasks, 4d)
+    if (changed) HUDWindow::UpdateTasks();
 }
 
 }  // namespace Tasks

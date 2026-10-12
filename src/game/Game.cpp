@@ -1,3 +1,4 @@
+#include "hud/HUD.h"
 #include "game/Game.h"
 
 #include <cstdio>
@@ -205,5 +206,5 @@ void UpdateTagState() {
         t->f05 = t->IsActive();
     }
     if (!changed) return;
-    // UNVERIFIED (milestone 4d): HUDWindow::UpdateTasks (0x2c7ba8).
+    HUDWindow::UpdateTasks();
 }

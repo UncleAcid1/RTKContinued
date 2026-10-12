@@ -248,11 +248,16 @@ void ShowMapName(const char32_t* name) {
     // UNVERIFIED (milestone 5): "emperor_map_enter" on map 0xb, "farm_map_enter" on mission maps.
 }
 
+// @0x2c7ba8 HUDWindow::UpdateTasks
+void UpdateTasks() { TaskHolderWindow::UpdateTasks(); }
+// @0x2c7bac HUDWindow::RemoveTaskArrows
+void RemoveTaskArrows() { TaskHolderWindow::RemoveTaskArrows(); }
+
 void ExitFarm() {
     if (!Map::GetCurrentFarm()) return;
     if (GameState::GetCurrentLocation() == 1) GameState::SetCurrentLocation(0);
     Tasks::Update(true);
-    // UNVERIFIED (milestone 4d): UpdateTasks.
+    UpdateTasks();
     SetBottomType(0);
     Map::ShowFarm(false, nullptr);
     BuildingHovers::Hide();
