@@ -31,6 +31,7 @@
 #include "game/Game.h"
 #include "game/SoldierSlots.h"
 #include "game/SpawnPoint.h"
+#include "game/Tasks.h"
 #include "game/Squad.h"
 #include "gui/GUI.h"
 #include "hud/HUD.h"
@@ -74,6 +75,7 @@ bool g_bossReward = false;                      // 0x61365a a boss reward waits 
 float g_loadQueuedDelay = 0.f;                  // 0x61365c
 int g_loadQueuedMap = -1;                       // 0x60eff8
 bool g_loading = false;                         // 0x61368c (Map::Load is running)
+bool g_newGameLoad = false;                     // 0x6137f8 Map::Load's third argument
 bool g_storedPosition = false;                  // 0x6136c0
 int g_storedX = -1, g_storedY = -1;             // 0x60f00c 0x60f010
 int g_nextSpawnX = 0, g_nextSpawnY = 0;         // 0x6136d8 0x6136dc
@@ -1769,16 +1771,50 @@ void CreateRoadAI() {
     if (GameState::GetCurrentMapID() == 0) {
         for (int x = 0; x < GetGridWidth(); ++x)
             for (int y = 0; y < GetGridHeight(); ++y) AI::CreateMapWaypoint(x, y);
+    } else if (!g_patches.empty()) {   // elsewhere the first patch's free tiles
+        for (const Patch::Tile& t : g_patches[0]->tiles)
+            if (!t.blocked) AI::CreateMapWaypoint(t.x, t.y);
     }
-    // UNVERIFIED (milestone 4): other maps create waypoints from the first patch's walkable tile
-    // list (+0xcc, 0xc bytes each, skipped when +8 is set).
     AI::LinkAdjacentWaypoints();
 }
 
 void Update(double dt) {
-    if (g_loadQueued) {
-        // UNVERIFIED (milestone 4f): a queued map switch (EnqueueLoadMap): the global map and boss
-        // intro effects, the save, EntityManager::RemoveEntitiesByID and Map::Load.
+    if (g_loadQueued) {   // EnqueueLoadMap's switch: this map is saved and the next one loaded
+        SaveManager::SaveData* save = SaveManager::GetMainSave();
+        if (save->HasMapInCache(0x70)) save->ResetMap(0x70);
+        if (GameState::GetTutorialType() == 2 && GameState::tutorial == 9) {
+            GameState::tutorial = 0x17;
+            g_loadQueuedMap = 0;
+        }
+        if (GameState::tutorial == 0x17 && g_loadQueuedMap == 0) {
+            BuildingHovers::HideArrow();
+            // UNVERIFIED (milestones 4h/5): GlobalMapWindow::Show / CenterOnMap(0) and
+            // FirstCityEnterEffect::Run.
+        }
+        // UNVERIFIED (milestone 5): the screen turns sepia over the switch
+        // (GlobalMapWindow::AnimateSepiaIn / Out) unless the tutorial is at 0x17 or the device is
+        // slow; (milestone 4g) a boss combat (state 0x11) hides the arrow and runs BossIntroEffect
+        // instead, continued after the load.
+        BuildingHovers::CollectAll();
+        Tasks::CompleteSubtask(Tasks::kEnterMap, (uint32_t)g_loadQueuedMap, 1);
+        Tasks::Update(true);
+        if (0x75 < (unsigned)(GameState::secondTutorial - 0x8a) || GameState::secondTutorial == 0x9f) {
+            if (g_loadQueuedSave) SafeSave();
+            else Save(0);
+        }
+        GameState::SetCurrentMapID((uint32_t)g_loadQueuedMap);
+        // (GlobalMapWindow::Hide when it is open: milestone 5)
+        const int map = g_loadQueuedMap;
+        const bool cached = save->HasMapInCache((uint32_t)map);
+        SaveManager::SaveBlock* block = SaveManager::GetMapData((uint32_t)map);
+        const bool firstCity = map == 0 && GameState::tutorial != 0x80;
+        // (the tutorial's soldier does not come to the city)
+        if (GameState::tutorial == 0x17 && map == 0) EntityManager::RemoveEntitiesByID(0x1a2, true);
+        Load(block, (uint32_t)Timer::GetGlobalTime(), false, cached);
+        if (GameState::tutorial == 0x17) {
+            BuildingHovers::HideArrow();
+            if (firstCity) GameState::tutorial = 0x18;
+        }
         return;
     }
     float fdt = (float)dt;
@@ -1948,15 +1984,26 @@ void Free() {
     // is not needed.
 }
 
-bool Load(SaveManager::SaveBlock* block, uint32_t time) {
-    // UNVERIFIED (milestone 4f, leaving a running map): the camera points are cleared, the
-    // castle tools, locators and world dialog hidden, TaskCompleteWindow::Hide, the drops
-    // collected, the edit modes declined and the loading screen shown.
+bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromCache) {
+    g_loading = true;
+    // What is left of the map being left.
+    // UNVERIFIED (milestone 4f, cameras and hovers): ClearCameraPoints (twice) and
+    // BuildingHovers::HideWorldDialog. (milestone 5): the loading screen (LoadingScreenWindow, with
+    // Render::minLayer 0xe) only shows when the switch starts from the open global map.
+    CastleTopWindow::HideTools();
+    HUDWindow::HideLocators();
+    TaskCompleteWindow::Hide();
+    BuildingHovers::CollectAll();
+    BuildingMovement::Decline();
+    BuildingPlacement::Decline();
     Free();
     Rand48::srand48((long)time);
     g_loaded = false;
     g_blockedTiles.clear();
-    if (!block) return false;
+    if (!block) {   // PORT: the original goes on with a null block
+        g_loading = false;
+        return false;
+    }
     block->next = 0;
     auto next = [&](uint32_t type) -> const SaveManager::Chunk* {  // SkipToChunk + BeginChunkLoading
         block->SkipToChunk(type);
@@ -1964,7 +2011,10 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     };
     // LoadPlayer: header chunk 0xe
     const SaveManager::Chunk* hc = next(SaveManager::kHeader);
-    if (!hc) return false;
+    if (!hc) {
+        g_loading = false;
+        return false;
+    }
     SaveManager::Reader hr(*hc);
     hr.u32();                // version (FileManager::ResaveVersion: online)
     g_mapId = hr.u32();
@@ -2016,9 +2066,16 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
         if (const SaveManager::Chunk* mc = next(SaveManager::kPatchMask)) {
             SaveManager::Reader mr(*mc);
             raw->mask = mr.str16();
-            if (g_mapId != 0 && (int)raw->mask.size() == g_gridW * g_gridH) {
+            // Away from the city every tile is listed with its mask character ('1': blocked; no mask:
+            // all free). PORT: a mask shorter than the grid counts as free past its end.
+            if (g_mapId != 0) {
+                size_t i = 0;
                 for (int x = 0; x < g_gridW; ++x)
-                    for (int y = 0; y < g_gridH; ++y) At(x, y)->block = raw->mask[(size_t)x * g_gridH + y] == '1';
+                    for (int y = 0; y < g_gridH; ++y, ++i) {
+                        bool blocked = i < raw->mask.size() && raw->mask[i] == '1';
+                        raw->tiles.push_back({x, y, blocked});
+                        SetBlock(x, y, blocked);
+                    }
             }
         }
     }
@@ -2032,6 +2089,13 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     g_otherChunks.clear();
     while (block->NextChunkID() != SaveManager::kEnd) g_otherChunks.push_back(block->GetChunk());
     if (g_mapId == 0) AssignUniqueIDs();   // (the end of LoadPlayer)
+    // (back in Map::Load) the queued switch is over.
+    g_loadQueuedMap = -1;
+    g_loadQueuedDelay = 0.f;
+    g_loadQueuedSave = false;
+    g_newGameLoad = newGame;
+    g_loadQueued = false;
+    if (newGame) GameState::tutorial = 0x80;
     // Map::Load: CreateRandomDecors, UpdateAreaBorders (spawns/portals/fog not rendered yet)
     CreateRandomDecors();
     UpdateAreaBorders();
@@ -2054,7 +2118,23 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
         Render::CenterOn((float)x, (float)y);
         if (GameState::tutorial == 9) Render::CenterOn(392.f, 201.f);
     }
-    // UNVERIFIED (milestone 4f): the "auto_fix_map_reset" decoration fixes (quest maps 0x52..0x59).
+    // "auto_fix_map_reset": a quest decoration of maps 0x52..0x59 that kept a use although its quest
+    // is done loses it.
+    if (GameState::SettingExists("auto_fix_map_reset") && Setting("auto_fix_map_reset").GetInt() == 1) {
+        auto fix = [](int x, int y, bool done) {
+            Decor* d = GetDecoration(x, y);
+            if (d && d->f4c == 1 && done) d->f4c = 0;
+        };
+        switch (GameState::GetCurrentMapID()) {
+        case 0x52:
+            fix(0x1a, 0x3f, GameState::TaskCompleted(0x2ec));
+            fix(0x1d, 0x1e, GameState::TaskCompleted(0x2e5));
+            break;
+        case 0x54: fix(0x18, 0x3d, GameState::SubTaskCompleted(0x28c, 0x3c8)); break;
+        case 0x59: fix(0x20, 0x19, GameState::SubTaskCompleted(0x307, 0x3f3)); break;
+        case 0x53: fix(0xd, 0x37, GameState::TaskCompleted(0x38a)); break;
+        }
+    }
     g_loaded = true;
     if (Entity* player = EntityManager::GetPlayer()) player->OnSetup();
     EntityManager::ExecuteStaticMeta();
@@ -2072,8 +2152,12 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
         Render::CenterOn((float)x, (float)y);
     }
     UpdateResources();
-    // UNVERIFIED (milestones 4c/4h): the tutorial's task fixes (subtask 0x1e/0x2f in the city, the
-    // tutorial-type locks and completions), Tasks::Update and HUDWindow::RemoveTaskArrows.
+    if (GameState::GetCurrentMapID() == 0) Tasks::CompleteSubtask(Tasks::kEnterMap, 0x2f, 1);
+    // UNVERIFIED (milestone 4h): the tutorial types' task fixes (type 1: task 0xbe's flag +0x104;
+    // type 2 after task 0xd5: locks of 0x449/0x429/0x438/0x43a/0x43c, 0x120's next task, tasks
+    // 0xbe/0xfe/0x434/0x433 completed).
+    Tasks::Update(true);   // (not while Game::skipGameLoad, the online profile choice)
+    HUDWindow::RemoveTaskArrows();
     BuildingHovers::Update(0.0, true);
     BeltBarWindow::Show();
     // From tileset 2 on, or off mission maps, the clouds.
@@ -2086,10 +2170,10 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerObjects, 1);
-    // UNVERIFIED (milestones 4f/4g): the map's name (HUDWindow::ShowMapName) or the boss intro / PvP
-    // intro of a running combat.
-    // (after the map name and the boss intro) the player's stats and its regenerated HP.
+    // The map's name. UNVERIFIED (milestones 4g/5): a running boss combat shows the boss intro
+    // instead, a PvP one the players' intro.
     if (EntityManager::GetPlayer()) {
+        if (const char32_t* name = Locations::GetMapName(GameState::GetCurrentMapID())) HUDWindow::ShowMapName(name);
         CharacterInfoWindow::UpdateContents();
         GameState::SetupPlayerRegenerationState();
     }
@@ -2099,20 +2183,38 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time) {
     AllowBuildingVisibilityUpdate(true);
     AllowDecorationVisibilityUpdate(true);
     Update(0.0);
-    // (the loading screen closes here: not ported)
-    if (GameState::tutorial == 9) GameState::tutorial = 10;
-    // UNVERIFIED (milestone 4h): tutorial step 0x67 and second-tutorial step 0x20e send their
-    // tutorial events; during a tutorial the help arrows of the last help item are run again
-    // (NeedItemWindow, NotEnoughWindow, TaskListWindow, Tasks, FoundItemsWindow::RunPostAction,
-    // SultanArrivingWindow, ChoosePathWindow).
+    // (the loading screen closes here: LoadingScreenWindow::Hide, milestone 5)
+    if (GameState::tutorial == 9) {
+        GameState::tutorial = 10;
+    } else if (GameState::tutorial == 0x67 && GameState::GetCurrentMapID() == 0xe) {
+        // The first tutorial ends on reaching map 0xe. (TutorialSender::AddTutorialStep(0x80) and
+        // FileManager::SendTutorialFinished report it to the server: online.)
+        GameState::tutorial = 0x80;
+        GameState::lastSentStep = 0x80;
+    }
+    if (GameState::secondTutorial == 0x20e && GameState::GetCurrentMapID() != 0xf) BuildingHovers::HideArrow();
+    // UNVERIFIED (milestone 4g): outside the tutorial BottomBattleWindow shows on every map but the
+    // city and the emperor's (0xb).
+    // The help that was running when the map was left goes on.
+    if (GameState::GetCurrentMapID() == 0) {
+        NeedItemWindow::RunLastHelpItem();
+        NotEnoughWindow::RunLastHelpItem();
+    }
+    TaskListWindow::RunLastHelpItem();
+    Tasks::RunLastSubTaskHelp();
+    FoundItemsWindow::RunPostAction();
+    // UNVERIFIED (milestone 5): SultanArrivingWindow::RunLastHelp. (4f, windows):
+    // ChoosePathWindow::RunShowOnLoad.
     g_mapTimer = missionMap ? 360.f : 0.f;
     GameState::ResetTimeModifier();
     CreateBirds();
     GameState::SetBeltItemMode(GameState::IsArenaCombatActive());
     GameState::SetMapVisitTime(GameState::GetCurrentMapID(), (uint32_t)Timer::GetGlobalTime());
+    g_loading = false;
     // OnMapLoaded @0x1b79c0 only reports some map ids to the online event log (OG2::MakeRequest).
-    // UNVERIFIED (milestone 4f): the map version update (UpdateCityMap / UpdateBattleMap,
-    // Get/SetMapVersion) on the first load.
+    // UNVERIFIED (milestone 4f, fog part): the map version update (UpdateCityMap / UpdateBattleMap,
+    // Get/SetMapVersion; a map from the cache older than the game's is loaded again from its file).
+    (void)fromCache;
     return true;
 }
 

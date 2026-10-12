@@ -189,6 +189,7 @@ struct Decor {
     void ReceiveDamage(int damage);                  // @0x1356ec
     void TeleportPlayerTile(int x, int y);           // @0x1337d4 the hero's squad jumps to the tile
     bool TeleportAction(unsigned i);                 // @0x13391c PORTAL's i-th tile (after the tutorials)
+    bool PortalAction();                             // @0x131fd8 the hero walks to its portal
     void TeleportPlayerMap(int map);                 // @0x1339cc
     // @0x1339f8: the hero stands on one of TELEPORT_TILE's tiles and the decoration is unlocked:
     // to its map, or to its tile.
@@ -207,12 +208,14 @@ struct Patch {
     std::vector<std::unique_ptr<Decor>> decors;      // +0xac
     std::vector<std::unique_ptr<Building>> buildings;
     std::string mask;                  // chunk 7 ('0'/'1' per tile, x-major)
+    struct Tile { int x, y; bool blocked; };   // 0xc bytes
+    std::vector<Tile> tiles;           // +0xcc a campaign map's tiles from the mask (CreateRoadAI)
 };
 
 // @0x1c3518 (with LoadPlayer @0x1c0cd8): a map from its save block (SaveManager::GetMapData);
 // the header sets the current map id. lrand48 is seeded with time (the random decorations and
 // the dark grass use GameState::playerSeed).
-bool Load(SaveManager::SaveBlock* block, uint32_t time);
+bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame = false, bool fromCache = false);
 // @0x1bc954: the patch made from area `id` (AreaInfo id), made now if there is none (null when the
 // area does not exist).
 Patch* GetAreaByID(uint32_t id);

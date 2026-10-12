@@ -25,7 +25,9 @@
 #include "hud/HUD.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
+#include "game/SpawnPoint.h"
 #include "game/Squad.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "engine/Timer.h"
@@ -523,6 +525,30 @@ void AIPlayer::SearchDecoration(Map::Decor* d) {
 }
 
 // @0xef104 AIPlayer::ClickedDecoration
+// @0xf0418 AIPlayer::ClickedPortal
+void AIPlayer::ClickedPortal(Portal* p) {
+    if (entity->IsRetreating()) return;
+    if (!GUI::CanInteractWith(p)) return;
+    // (BottomScreenshotWindow, the screenshot mode: not in the port.)
+    if (!TryToInterruptJob()) return;
+    if (GameState::IsCombatActive()) return;
+    if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
+        // UNVERIFIED (milestone 4g): HealSquadWindow::Show (0x2cd1d8).
+        return;
+    }
+    if (GameState::tutorial < 8) return;
+    if (GameState::tutorial == 9) BuildingHovers::HideArrow();
+    // (tutorial 0x17: TutorialSender::AddTutorialStep(0x52c), online)
+    AI::Waypoint* wp = AI::GetWaypoint(p->walkX, p->walkY, false);
+    if (!wp) return;
+    actionTarget = p;
+    action = 1;
+    // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+    GotoMarkerAt(p->walkX, p->walkY);
+    entity->GetSquad()->MoveTo(wp);
+    // UNVERIFIED (milestone 4f, hovers): BuildingHovers::HideWorldDialog(nullptr).
+}
+
 void AIPlayer::ClickedDecoration(Map::Decor* d) {
     // UNVERIFIED (milestone 4g): in a combat the tap goes to CombatManager::OnDecorClicked (0x12e494).
     if (entity->IsRetreating()) return;
@@ -589,10 +615,39 @@ void AIPlayer::RemoveFromJob() {
 void AIPlayer::ProcessAction() {
     if (action == 0) return;
     switch (action) {
-    case 1:
-        // UNVERIFIED (milestone 4f): the portal: its teleport sound, the travel subtasks 0x22/0x23,
-        // the global map from map 0xe's exit (10, 0x12), else Map::EnqueueLoadMap.
+    case 1: {   // through the portal
+        Portal* p = static_cast<Portal*>(actionTarget);
+        if (Map::Decor* d = Map::GetPortalToMap((uint32_t)p->map)) {
+            // UNVERIFIED (milestone 6): Decor::PlayTeleportSound.
+            // The travel steps name the decoration ("<map><id>") or its tile; the city also counts
+            // as map 0x2f.
+            int map = (int)GameState::GetCurrentMapID();
+            char key[32];
+            std::snprintf(key, sizeof key, "%d%d", map, (int)d->id);
+            Tasks::CompleteSubtask(Tasks::kInteractBuildingAny, (uint32_t)std::atoi(key), 1);
+            if (map == 0) {
+                std::snprintf(key, sizeof key, "%d%d", 0x2f, (int)d->id);
+                Tasks::CompleteSubtask(Tasks::kInteractBuildingAny, (uint32_t)std::atoi(key), 1);
+            }
+            Tasks::CompleteSubtask(Tasks::kInteractBuilding, (uint32_t)(d->y + d->x * 0x100 + map * 0x10000), 1);
+            if (map == 0) Tasks::CompleteSubtask(Tasks::kInteractBuilding, (uint32_t)(d->y + 0x2f0000 + d->x * 0x100), 1);
+        }
+        if (GameState::secondTutorial == 0x20d) {
+            GameState::secondTutorial = 0x20e;
+            BuildingHovers::HideArrow();
+        }
+        if (p->map == 0xe && p->x == 10 && p->y == 0x12) {
+            // The way out of the tutorial's last map leads to the world map.
+            entity->SetHP(entity->GetHpMax());
+            GameState::UpdatePlayerRegenerationState();
+            // UNVERIFIED (milestone 5): GlobalMapWindow::Show, then its tutorial animation (until
+            // task 0x773 is done) or SwitchMapAnimated(0); the player gets item 0x5b, bound to
+            // slot 8, unless it has one or better (SetInfoWindow::GetPlayerItemOrBetter).
+        } else {
+            Map::EnqueueLoadMap(p->map, false, true, 0.f);
+        }
         break;
+    }
     case 2:
         // UNVERIFIED (milestones 4c/4f): talking: NeedItemWindow for a task wanting items, else
         // Entity::OnTalkTo.

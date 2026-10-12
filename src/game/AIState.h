@@ -18,6 +18,7 @@ namespace Render { struct Sprite; struct Texture; }
 class Entity;
 class HiddenObjects;
 namespace Map { struct Building; struct Decor; }
+struct Portal;
 
 class BaseAI {
 public:
@@ -76,7 +77,7 @@ public:
     virtual void Update(float dt);                    // +0x4c @0xe9010
     virtual void ClickedEntity(Entity*) {}            // +0x50 @0xe81ec
     virtual void ClickedTile(int, int, int, int) {}   // +0x54
-    virtual void ClickedPortal() {}                   // +0x58
+    virtual void ClickedPortal(Portal*) {}            // +0x58 @0xe81f4
     virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c @0xe81f8
     virtual void SearchDecoration(Map::Decor*) {}     // +0x60 @0xe81fc
     virtual void UpdateAggroZone() {}                 // +0x64
@@ -333,6 +334,7 @@ public:
     void Reset(bool idle) override;                   // +0xd4 @0xeed48 (always to idle)
     void WalkCompleted() override;                    // +0xd8 @0xf01fc
     void UnableToWalk(int x, int y) override;         // +0xe4 @0xeec6c
+    void ClickedPortal(Portal* p) override;           // +0x58 @0xf0418 walks to it; action 1 on arrival
     void ClickedDecoration(Map::Decor* d) override;   // +0x5c @0xef104 walks to it; action 5 on arrival
     void SearchDecoration(Map::Decor* d) override;    // +0x60 @0xeee64 the job starts (state 0x21)
     bool AssignToJob(Map::Decor* d) override;         // +0x108 @0xef3ec walks to it; action 3 on arrival

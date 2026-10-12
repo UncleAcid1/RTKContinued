@@ -18,6 +18,7 @@
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Setting.h"
+#include "game/SpawnPoint.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
@@ -255,9 +256,8 @@ bool Decor::IsLocked() const {
         !GameState::SubTaskCompleted((unsigned)d->GetChild(0)->GetInt(), (unsigned)d->GetChild(1)->GetInt()))
         return true;
     if ((d = meta->FindChildData(kExpReqUnlockItem)) && GameState::GetItemAmount((uint32_t)d->GetInt(), false) == 0) {
-        // UNVERIFIED (milestone 4f): a decoration with a portal (+0x90) that is used up (f4c == 0)
-        // stays open without the item; there are no portals yet.
-        return true;
+        // (a used-up decoration with a portal stays open without the item)
+        if (!portal || f4c != 0) return true;
     }
     // UNVERIFIED (milestone 5): a CRAFT node without its profession's tool, and a chest whose key
     // the player lacks, are locked too (see GetRequiredItem).
@@ -581,8 +581,9 @@ bool Decor::OnClick() {
             return false;
         // (Without its item only a used-up decoration with a portal goes on, to the portal.)
         if ((d = meta->FindChildData(kExpReqUnlockItem)) && GameState::GetItemAmount((uint32_t)d->GetInt(), false) == 0)
-            return false;
+            return portal && f4c == 0 ? PortalAction() : false;
         if (f4c != 0) return false;
+        if (portal) return PortalAction();
         if (meta->FindChildData(kExpPortal)) {
             if (Entity* player = EntityManager::GetPlayer()) {
                 player->GetAI()->ClickedDecoration(this);
@@ -592,9 +593,16 @@ bool Decor::OnClick() {
         if ((d = meta->FindChildData(kExpMessage)) && sprite)
             MessageHover(this, StringTable::GetString(d->GetString()));
     }
-    // UNVERIFIED (milestone 4f): a decoration with a portal (+0x90) sends the hero through it
-    // (Decor::PortalAction 0x131fd8).
-    return false;
+    return portal ? PortalAction() : false;
+}
+
+// @0x131fd8 Map::Decor::PortalAction: the hero goes to the portal (not during tutorial steps 10..0x16).
+bool Decor::PortalAction() {
+    if ((unsigned)(GameState::tutorial - 10) <= 0xc || !portal) return false;
+    Entity* player = EntityManager::GetPlayer();
+    if (!player) return false;
+    player->GetAI()->ClickedPortal(portal);
+    return true;
 }
 
 // @0x133c80 Map::Decor::ShowUseItemHover
