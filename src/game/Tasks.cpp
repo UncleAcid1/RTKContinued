@@ -919,9 +919,12 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
         for (uint32_t i = 0; i < t->giveItemCount; ++i) GameState::RemoveItem(t->giveItems[i].id, (int)t->giveItems[i].count);
     SoldierSlots::SetFreeSlotsCount(GameState::GetSoldierSlotCount());
     HUDWindow::UpdateTasks();
-    // UNVERIFIED (4d part 2): task 0x5b2 opens TaskInfoWindow on 0x5b3.
     BuildingHovers::Update(0.f, true);
     EnqueueUpdate();
+    if (id == 0x5b2) {
+        TaskInfoWindow::SetTask(0x5b3, false);
+        TaskInfoWindow::Show();
+    }
 }
 
 namespace {

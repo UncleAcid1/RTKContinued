@@ -54,10 +54,10 @@ std::u32string DecodeUtf8(const char* s);
 // ones are empty). Words: "player", "castle", "item:<id>" (the item's name), "building:<id>" (the
 // building's name), anything else is used as it is. `last` (when given) gets the last word as
 // written, or nothing without one. Cut at `size` characters as SWPrintf does.
-// UNVERIFIED (milestone 4c): with a task, the missing first three arguments are its counts
-// (TaskInfo +0x30, +0x78, +0xc0); no caller passes one yet.
+// With a task (the original's last argument; here `counts`, its three steps' amounts: TaskInfo
+// +0x30, +0x78, +0xc0) a missing one of the first three arguments is that step's amount.
 std::u32string GetUndecoratedString(const char32_t* text, unsigned size, std::u32string* last = nullptr,
-                                    unsigned lastSize = 0);
+                                    unsigned lastSize = 0, const int* counts = nullptr);
 
 }  // namespace StringTable
 

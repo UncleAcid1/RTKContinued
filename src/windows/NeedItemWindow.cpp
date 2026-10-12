@@ -18,6 +18,7 @@
 #include "game/Items.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
@@ -195,8 +196,19 @@ void SetItemsToBeRemoved(unsigned task, GUI::Callback* cb) {
     g_item = 0;
     g_findItem = 0;
     g_title->SetText(StringTable::GetString("NEED_SOMETHING_HEADER"));
-    // UNVERIFIED (milestone 4c): Tasks::GetTask(task): the item's icon, the amount (what the player
-    // has, at most the count; the count when none) and NEED_ITEM_DESC_2 with the item's name.
+    // The item the task takes: its icon, the amount (what the player has, at most the count; the
+    // count when he has none) and its name.
+    if (Tasks::TaskInfo* t = Tasks::GetTask(task)) {
+        const uint32_t item = t->giveItems[0].id;
+        if (Items::ItemInfo* info = Items::GetItemInfo(item)) {
+            g_icon->SetTexture(info->GetIcon(), true);
+            const unsigned count = t->giveItems[0].count;
+            unsigned have = (unsigned)GameState::GetItemAmount(item, false);
+            if (have == 0 || count <= have) have = count;
+            g_amount->SetText(ToWideString((int)have));
+            g_text->SetText(SWPrintf(0x100, StringTable::GetString("NEED_ITEM_DESC_2"), {info->title}).c_str());
+        }
+    }
     g_left.ShowGreen(StringTable::GetString("HUD_OK"), IconManager::GetIcon("gold_confirm"));
     g_right.ShowBlue(StringTable::GetString("CANCEL"), IconManager::GetIcon("gold_cancel"));
 }
@@ -337,13 +349,22 @@ void OnProduce(uint32_t item) {
     uint32_t producer = GetBuildingThatProducesItem(id, slot);
     if ((!GameState::TaskCompleted(0x3f4) || !GameState::TaskCompleted(0x462) || !GameState::TaskCompleted(0x3f6)) &&
         producer == 0x6a) {
-        // UNVERIFIED (milestones 4c/4d): the current task among 0x3f4, 0x462, 0x3f6 opens in
-        // TaskInfoWindow (Tasks::GetCurrentTasks, TaskInfoWindow::SetTask / Show).
+        // While the Smithy's first quests are open, the open one of them is shown instead.
+        Tasks::TaskInfo* cur[0x80] = {};
+        const unsigned n = Tasks::GetCurrentTasks(cur, 0x80, true, true);
+        for (unsigned i = 0; i < n; ++i) {
+            const uint32_t t = cur[i]->id;
+            if (t == 0x3f4 || t == 0x462 || t == 0x3f6) {
+                TaskInfoWindow::SetTask(t, false);
+                TaskInfoWindow::Show();
+                return;
+            }
+        }
     }
     if (GameState::GetCurrentMapID() != 0) {
         SetLastHelpItem(item ? item : g_item);
         EnableLastHelpItem();
-        // UNVERIFIED (milestone 4c): Tasks::HelpWithMapSwitchTo(0, true, false, 0) (home to the city).
+        Tasks::HelpWithMapSwitchTo(0, true, false, 0);   // home to the city
         return;
     }
     if (!producer) return;

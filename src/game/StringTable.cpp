@@ -275,7 +275,8 @@ const char32_t* ResolveDecoration(const char32_t* w) {
 }
 }  // namespace
 
-std::u32string GetUndecoratedString(const char32_t* text, unsigned size, std::u32string* last, unsigned lastSize) {
+std::u32string GetUndecoratedString(const char32_t* text, unsigned size, std::u32string* last, unsigned lastSize,
+                                    const int* counts) {
     if (!text) {
         if (last) last->clear();
         return U"";
@@ -295,7 +296,10 @@ std::u32string GetUndecoratedString(const char32_t* text, unsigned size, std::u3
     }
     const char32_t* format = ResolveDecoration(parts[0].c_str());
     const char32_t* a[8];
-    for (size_t i = 0; i < 8; ++i) a[i] = i + 1 < parts.size() ? ResolveDecoration(parts[i + 1].c_str()) : U"";
+    for (size_t i = 0; i < 8; ++i) {
+        if (i + 1 < parts.size()) a[i] = ResolveDecoration(parts[i + 1].c_str());
+        else a[i] = counts && i < 3 ? ToWideString(counts[i]) : U"";
+    }
     std::u32string out = SWPrintf(size, format, {a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]});
     if (last) {
         if (parts.size() < 2) last->clear();

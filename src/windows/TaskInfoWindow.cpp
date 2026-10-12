@@ -136,9 +136,9 @@ void UpdateDescription() {
     if (!g_root->visibleSelf) return;
     Tasks::TaskInfo* t = Tasks::GetTask(g_task);
     if (!t) return;
-    // UNVERIFIED: GetUndecoratedString is given the task here: its three steps' amounts fill the
-    // text's first "%d" slots (StringTable.h).
-    std::u32string text = t->description ? StringTable::GetUndecoratedString(t->description, 0x200)
+    // (the task's three step amounts fill the text's first slots that name nothing)
+    const int counts[3] = {t->subtasks[0].amount, t->subtasks[1].amount, t->subtasks[2].amount};
+    std::u32string text = t->description ? StringTable::GetUndecoratedString(t->description, 0x200, nullptr, 0, counts)
                                          : SWPrintf(0x200, U"None", {});
     if (g_text->visibleSelf) g_text->SetText(text.c_str(), nullptr, StringTable::GetLangID() == 0 ? nullptr : g_smallFont);
     if (g_bossText->visibleSelf) g_bossText->SetText(text.c_str());

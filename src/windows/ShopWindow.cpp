@@ -26,6 +26,7 @@
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
@@ -416,9 +417,11 @@ void OnBuy() {
     GameData::BuildingData* d = g_buildings[g_tab][index];
     if (AtMax(d)) return;
     if (!QuestDone(d)) {
-        // UNVERIFIED (milestone 4): with Tasks::GetTask (the first locked task of its chain) the
-        // text is HIRE_TROOPS_TASK_LOCK; Tasks are not ported, so it is always SHOP_UNLOCK_TASK.
-        PopupText(SWPrintf(0x100, StringTable::GetString("SHOP_UNLOCK_TASK")));
+        // The quest to finish: the first one still locked in its chain, when it is locked itself.
+        Tasks::TaskInfo* t = Tasks::GetTask((unsigned)d->requiresQuest);
+        if (t && t->IsLockedByTask()) t = Tasks::GetTask(t->GetFirstLockedTaskInChain(true));
+        if (t) PopupText(SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name}));
+        else PopupText(SWPrintf(0x100, StringTable::GetString("SHOP_UNLOCK_TASK")));
         return;
     }
     if ((unsigned)GameState::GetMaxWorkerCount() <
@@ -575,8 +578,10 @@ void FillBuildings() {
             enabled = true;
         } else {
             cell.lock->SetVisibility(true);
-            // UNVERIFIED (milestone 4): with Tasks::GetTask(requiresQuest) the status shows
-            // SHOP_UNLOCK_TASK; Tasks are not ported, so the status is left as it was.
+            if (Tasks::GetTask((unsigned)d->requiresQuest)) {
+                cell.status->SetVisibility(true);
+                cell.status->SetText(StringTable::GetString("SHOP_UNLOCK_TASK"));
+            }
         }
         cell.image->SetEnabled(enabled);
         GUI::FitImageIntoWindow(cell.image, GameData::BuildingImage(d, 0), true, true);

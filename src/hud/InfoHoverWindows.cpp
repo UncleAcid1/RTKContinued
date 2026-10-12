@@ -57,9 +57,10 @@ bool UpgradeBuilding(Map::Building* b, bool prepareOnly) {
         }
         text = SWPrintf(0x100, StringTable::GetString("PEOPLE_LIMIT"), {ToWideString(GameState::GetMaxWorkerCount())});
     } else {
-        // UNVERIFIED (milestone 4, Tasks): with the quest known (Tasks::GetTask) the text is
-        // "HIRE_TROOPS_TASK_LOCK" with the quest's name; without one it is "UPGRADE_LOCKED".
-        text = StringTable::GetString("UPGRADE_LOCKED");
+        if (Tasks::TaskInfo* t = Tasks::GetTask((unsigned)u.quest))
+            text = SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name});
+        else
+            text = StringTable::GetString("UPGRADE_LOCKED");
     }
     PopupWindow::Show(text.c_str(), PopupWindow::Hide, nullptr, nullptr);
     return false;

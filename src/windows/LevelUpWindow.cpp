@@ -20,6 +20,7 @@
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
@@ -292,7 +293,7 @@ void UpdateContents() {
     g_unlocks.push_back({nullptr, false, false, cb});
     for (unsigned i = 0; const GameData::BuildingData* d = GameData::EnumBuildings(i); ++i)
         if ((unsigned)d->tab <= 9 && d->buy && (int)d->level == GameState::GetLevel()) g_unlocks.push_back({d});
-    // UNVERIFIED (milestone 4): Tasks::HasTasksForLevel(level) adds the "new tasks" cell.
+    if (Tasks::HasTasksForLevel((uint32_t)GameState::GetLevel())) g_unlocks.push_back({nullptr, true, false, 0});
 
     for (ItemHolder& h : g_holders) h.root->SetVisibility(false);
     g_scroller.itemCount = (unsigned)g_unlocks.size();

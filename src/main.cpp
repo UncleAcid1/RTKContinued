@@ -221,7 +221,10 @@ void Tick(float dt) {
     BuildingPlacement::Update(dt);
     MapMovement::Update(dt);
     BuildingHovers::Update(dt, false);
-    if (!GameState::IsPaused()) Tasks::Update(false);   // (and TaskInfoWindow::Update, 4d)
+    if (!GameState::IsPaused()) {
+        Tasks::Update(false);
+        TaskInfoWindow::Update(dt);   // (besides the window queue's own call, as the original)
+    }
     if (!GameState::IsPaused()) {
         Entity::SetCurrentTime((uint32_t)Timer::GetGlobalTime());
         EntityManager::Update(dt);

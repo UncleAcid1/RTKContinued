@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d parts 1-4 done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators; the level window moved to 5); part 5 = quest hooks in older windows) — read this first in a new conversation
+## Handoff (last updated 2026-10-11, 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -814,17 +814,26 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    docs/balance_plan.md section 5b).
    Small wiring done with it: TaskInfoWindow::BlockArrowLimitChangeOnce in the four hover
    windows, SetFeaturedTaskClickTime in TaskInfoWindow::Show.
-   LEFT IN 4d = part 5, the quest hooks inside windows ported earlier (no function of their own,
-   so tools/inventory.py does not list them; grep "UNVERIFIED (milestone 4" for task / quest):
-   - ShopWindow.cpp (2): a quest-locked item's "needs quest <name>" text and status.
-   - InfoHoverWindows.cpp (1): the upgrade lock's quest name.
-   - LevelUpWindow.cpp: the "new tasks" cell (Tasks::HasTasksForLevel).
-   - NeedItemWindow.cpp (3): the task mode (icon / amount from the task, the three special tasks,
-     home to the city).
-   - StringTable::GetUndecoratedString: a task's counts as the first three arguments.
-   - Tasks.cpp: task 0x5b2 opens TaskInfoWindow on 0x5b3; main.cpp: TaskInfoWindow::Update's call.
+   4d part 5 DONE (2026-10-11): the quest hooks inside windows ported earlier.
+   - ShopWindow::OnBuy: a quest-locked building pops "HIRE_TROOPS_TASK_LOCK" with the quest's name
+     (the first locked task of its chain when the quest is itself locked), else SHOP_UNLOCK_TASK;
+     the cell's status shows SHOP_UNLOCK_TASK when the quest exists.
+   - UpgradeBuilding (InfoHoverWindows.cpp): the upgrade lock names its quest, else UPGRADE_LOCKED.
+   - LevelUpWindow: the "new tasks" cell (Tasks::HasTasksForLevel).
+   - NeedItemWindow: SetItemsToBeRemoved fills icon / amount / NEED_ITEM_DESC_2 from the task's
+     give_items[0]; OnProduce shows the open one of tasks 0x3f4 / 0x462 / 0x3f6 instead while the
+     Smithy's first quests are open; away from home it calls Tasks::HelpWithMapSwitchTo(0, ...).
+   - StringTable::GetUndecoratedString takes the task's three step amounts (`counts`); only
+     TaskInfoWindow::UpdateDescription passes them, as in the original.
+   - Tasks::CompleteTask: task 0x5b2 opens TaskInfoWindow on 0x5b3.
+   - main Update: TaskInfoWindow::Update(dt) after Tasks::Update when not paused (the original
+     calls it there besides the window queue's own call).
+   Verified headless (hook removed): at level 6 the Carpenter's cell pops "Complete quest 'Juicy
+   Carrots'"; the level-up window shows the "New Orders" cell. NOT exercised (no data / state for
+   them in the test city): the upgrade lock's quest name, NeedItemWindow's task mode, a
+   description with count slots, task 0x5b2.
    (ExchangeWindow's discount tasks 0x4d8 / 0x4da / 0x4db are the pyramid events: milestone 5.)
-   NEXT: 4d part 5 (those hooks), then 4e.
+   4d IS CLOSED. NEXT: 4e.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
@@ -1148,10 +1157,11 @@ Milestones:
               task state in the save (chunks already kept), progress events (the OnTaskStarted/
               OnSubTaskCompleted/OnTaskCompleted/OnTagUpdate hooks in Entity/EntityManager/Map),
               rewards. Freemium rule: propose the crystal rewards to the user before coding them.
-       4d [ ] quest UI: TaskHolderWindow (queue, quick task), TaskInfoWindow, TaskCompleteWindow,
-              TaskListWindow, Shared::TaskWindow, CastleTopWindow::FeaturedQuestHolder, task arrows,
+       4d [x] (done 2026-10-11) quest UI: TaskHolderWindow (queue, quick task), TaskInfoWindow,
+              TaskCompleteWindow, TaskListWindow, Shared::TaskWindow, task arrows and locators,
               the quest-locked shop items and the upgrade-lock quest names, LevelUpWindow's "new
-              tasks" cell. TaskQuickCompleteWindow (pay crystals to finish): ask the user first.
+              tasks" cell. Moved: CastleTopWindow::FeaturedQuestHolder and LevelInfoWindow -> 5;
+              TaskQuickCompleteWindow and every ExecuteFirstHelp are dead code.
        4e [ ] decoration jobs: Map::Decor Update/WorkStarted/teleports, DecorAnimController, AIPlayer's
               decoration actions (SearchDecoration, ClickedDecoration, AssignToJob, ProcessAction,
               AutoInteraction), SendGoblinToWork, Decor::UpdateOfflineState, Map::OfflineUpdate's
