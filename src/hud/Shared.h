@@ -33,6 +33,8 @@ struct BottomSlotInfo {
     float progressValue = 0;             // +0x54
     float unk64 = 0;                     // +0x64
     void LoadFrom(GUI::Window* root, const char* prefix);
+    // @0x340858: the bar keeps its lower (1 - f) part: f is the share that is empty.
+    void SetFillPercent(float f);
 };
 
 // Shared::ButtonBuildingControls (0x2c bytes): one round button of the building controls

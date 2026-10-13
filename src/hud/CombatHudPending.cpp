@@ -3,10 +3,6 @@
 #include "hud/HUD.h"
 
 namespace HUDWindow { void OnDamage(Entity*) {} }
-namespace BattleBarWindow {
-void OnDamage(Entity*) {}
-void LaunchFirstDeathHelper() {}
-}
 namespace BeltBarWindow { void UpdateContents() {} }
 namespace BottomBattleWindow {
 void EnableNet(uint32_t) {}

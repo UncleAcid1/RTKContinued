@@ -67,8 +67,12 @@ void RefreshHP();                    // @0x327564
 void RaiseAndMoveIntoPlayer(float z, Render::Sprite* sprite, uint32_t item);
 }
 namespace BattleBarWindow {
-void OnDamage(Entity* e);            // (0x249ba8)
-void LaunchFirstDeathHelper();       // (0x24b7b4) the helper arrow after the first soldier died
+void OnDamage(Entity* e);            // @0x24b114
+void LaunchFirstDeathHelper();       // @0x249dd4 the helper arrow after the first soldier died
+bool DeathTutorialActive();          // @0x249c10
+void HideHoverWindow();              // @0x249bd4 the soldier's card
+void ShowSoldier(uint32_t id, bool help);   // @0x24a6a0
+void UpdateContents();               // @0x24a750
 }
 namespace BeltBarWindow { void UpdateContents(); }         // (0x24dc20)
 namespace BottomBattleWindow {

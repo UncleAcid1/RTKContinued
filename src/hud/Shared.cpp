@@ -1,5 +1,7 @@
 #include "hud/Shared.h"
 
+#include "engine/Render.h"
+
 #include "engine/IconManager.h"
 #include "game/Items.h"
 #include "gui/GUI.h"
@@ -340,6 +342,14 @@ void TaskWindow::Animate(int x0, int y0, int x1, int y1) {
     toX = x1;
     toY = y1;
     animMode = 0;
+}
+
+void BottomSlotInfo::SetFillPercent(float f) {
+    float h = (float)(unsigned)progressH;
+    float keep = 1.f - f;
+    progress->h = (int16_t)(int)(h * keep);
+    progress->SetPosition(progress->x, (int)((float)(unsigned)progressY + h * f));
+    if (progress->sprite) progress->sprite->h = keep * h;
 }
 
 }  // namespace Shared
