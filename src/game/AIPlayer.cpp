@@ -483,6 +483,21 @@ void AIPlayer::ClickedTile(int x, int y, int, int) {
     // while speed running).
 }
 
+void AIPlayer::Retreat() {
+    ClearPath();
+    entity->SetRetreating(true);
+    if (Map::GetLastPlayerX() == entity->tileX && Map::GetLastPlayerY() == entity->tileY) {
+        if (Entity* m = EntityManager::IsPlayerInAggroRange()) {
+            int range = m->GetSpawnPoint()->aggroRange;
+            entity->GetSquad()->MoveTo(AI::GetRandomWaypointInRange(m->tileX, m->tileY, range + 1, range, false, nullptr, false));
+        }
+    } else {
+        entity->GetSquad()->MoveTo(AI::GetWaypoint(entity->spawnX, entity->spawnY, false));
+    }
+    action = 0;
+    entity->OnRetreat();
+}
+
 void AIPlayer::AnimEnded() {
     if (action == 7) ProcessAction();
     AIWarrior::AnimEnded();
@@ -512,12 +527,16 @@ void AIPlayer::WalkCompleted() {
     ProcessAction();
     entity->GetSquad()->SetReady(entity);
     if (entity->IsRetreating()) {
-        // UNVERIFIED (milestone 4g): while an enemy still has the player in its aggro range
-        // (EntityManager::IsPlayerInAggroRange) the squad keeps retreating away from it.
-        entity->f38 = false;
-        entity->SetRetreating(false);
+        // Still within a monster's reach: on, out of its range; else the retreat is over.
+        if (Entity* m = EntityManager::IsPlayerInAggroRange()) {
+            int range = m->GetSpawnPoint()->aggroRange;
+            entity->GetSquad()->MoveTo(AI::GetRandomWaypointInRange(m->tileX, m->tileY, range + 1, range, false, nullptr, false));
+        } else {
+            entity->f38 = false;
+            entity->SetRetreating(false);
+        }
     }
-    // UNVERIFIED (milestone 4g): in an arena combat (types 5, 6) the waypoint under it gets weight 1000.
+    // (In an arena combat, types 5 and 6, the waypoint under him gets weight 1000: milestone 5.)
 }
 
 void AIPlayer::UnableToWalk(int x, int y) {
@@ -534,9 +553,13 @@ void AIPlayer::UnableToWalk(int x, int y) {
             action = 0;
         }
     } else {
-        // UNVERIFIED (milestone 4g): TargetedAI::SetBlockedPathTarget(GetWaypoint(x, y)) finds the
-        // quest-blocked decoration next to the end of the path; then action 4 shows its message.
-        (void)x, (void)y;
+        // The way is only shut by a quest's blockage: the hero walks up to it (action 4 shows its
+        // message on arrival).
+        Map::Decor* blocker = nullptr;
+        if (SetBlockedPathTarget(AI::GetWaypoint(x, y, false), &blocker) && blocker) {
+            actionTarget = blocker;
+            action = 4;
+        }
     }
     BlockedMarker();
 }
@@ -580,9 +603,18 @@ void AIPlayer::OnMapUnload() { hidden->Clear(false); }
 // @0xee7a0 AIPlayer::GetBestDecorationActionPoint
 unsigned AIPlayer::GetBestDecorationActionPoint(Map::Decor* d) {
     if (d->GetActionPointCount() < 2) return 0;
-    // UNVERIFIED (milestone 4g): of several action points the one with the shortest way
-    // (TargetedAI::GetDistanceToTarget 0xe5ef8); the first until then.
-    return 0;
+    // The action point with the shortest way (one without a way counts as the farthest).
+    unsigned best = 0, bestSteps = 0xffffffff;
+    for (unsigned i = 0; i < (unsigned)d->GetActionPointCount(); ++i) {
+        int x = 0, y = 0;
+        d->GetActionPoint(x, y, (int)i);
+        unsigned steps = (unsigned)GetDistanceToTarget(AI::GetWaypoint(x, y, false));
+        if (steps < bestSteps) {
+            best = i;
+            bestSteps = steps;
+        }
+    }
+    return best;
 }
 
 // @0xee858 AIPlayer::SendGoblinToWork

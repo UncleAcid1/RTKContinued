@@ -233,6 +233,8 @@ Decor* GetNearestFilteredDecoration(unsigned x, unsigned y);
 Decor* GetDecorationThatIsReplacedWith(uint32_t id);   // @0x1ba9c4 the first whose REPLACE_OBJ is id
 Decor* GetTriggeredDecoration(int x, int y);           // @0x1baa60 the first with a trigger tile there
 Decor* GetBlockingDecoration(int x, int y);            // @0x1bab04 the first with a block tile there
+void RemoveBlockedTiles();                             // @0x1c0708 the blocked tiles open for a path search
+void RestoreBlockedTiles();                            // @0x1b8824
 // The searches below collect the visible, still usable decorations that match and give the one
 // nearest to the hero (null without the hero).
 // @0x1be5e8: any (unlocked: not locked; reachable: the hero has a way to its action point).

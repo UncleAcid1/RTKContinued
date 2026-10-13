@@ -164,6 +164,71 @@ AI::Waypoint* TargetedAI::SetTarget(Map::Decor* d) {
     return path.empty() ? nullptr : wp;
 }
 
+// The straight steps of this search always cost 1.41 times the weight.
+int TargetedAI::GetDistanceToTarget(AI::Waypoint* wp) {
+    if (!wp) return -1;
+    if (current == wp || !current) return 0;
+    if (current->part != wp->part) return -1;
+    for (AI::Waypoint* w : farm ? AI::GetFarmWaypoints() : AI::GetWaypoints()) {
+        w->cost = kUnvisited;
+        w->parent = nullptr;
+    }
+    current->cost = 0.f;
+    std::vector<AI::Waypoint*>& open = AI::SearchList();
+    open.clear();
+    open.push_back(current);
+    while (!open.empty()) {
+        int i = AI::GetNearest(open);
+        if (i == -1) break;
+        AI::Waypoint* w = open[(size_t)i];
+        if (w->cost == kUnvisited) break;
+        open[(size_t)i] = open.back();
+        open.pop_back();
+        if (w == wp) break;
+        for (int k = 0; k < 8; ++k) {
+            AI::Waypoint* n = w->n[k];
+            if (!n) continue;
+            if (n->cost == kUnvisited) open.push_back(n);
+            float c = n->weight;
+            if (k >= 4) c *= 1.41f;
+            if (c + w->cost < n->cost) {
+                n->cost = c + w->cost;
+                n->parent = w;
+            }
+        }
+    }
+    if (!wp->parent) return -1;
+    int steps = 0;
+    for (AI::Waypoint* p = wp->parent; p; p = p->parent) ++steps;
+    return steps;
+}
+
+bool TargetedAI::SetBlockedPathTarget(AI::Waypoint* wp, Map::Decor** blocker) {
+    Map::RemoveBlockedTiles();
+    AI::ClassifyWaypoints();
+    bool found = SetTarget(wp, false);
+    Map::RestoreBlockedTiles();
+    AI::ClassifyWaypoints();
+    if (blocker) {
+        *blocker = nullptr;
+        if (!path.empty()) {
+            // The first blocking decoration on a tile round the target (the four diagonal
+            // neighbours, then left, right, up, down).
+            AI::Waypoint* t = path[0];
+            int x = t->x, y = t->y, odd = std::abs(y) & 1;
+            const int tiles[8][2] = {{x + odd - 1, y + 1}, {x + (y % 2 == 1 ? 1 : 0), y - 1}, {x + odd - 1, y - 1},
+                                     {x + odd, y + 1},     {x - 1, y},                         {x + 1, y},
+                                     {x, y - 2},           {x, y + 2}};
+            for (const auto& c : tiles)
+                if (Map::Decor* d = Map::GetBlockingDecoration(c[0], c[1])) {
+                    *blocker = d;
+                    break;
+                }
+        }
+    }
+    return found && !path.empty();
+}
+
 AI::Waypoint* TargetedAI::GetClosestReachableWP(AI::Waypoint* wp, int steps) {
     if (!wp || current == wp) return nullptr;
     if (current->part != wp->part) return nullptr;

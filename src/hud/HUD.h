@@ -85,10 +85,13 @@ void OnUseSlot(unsigned slot);       // @0x24f05c the slot's potion is drunk
 void OnActivateSlot(unsigned slot);  // @0x24e944 the slot's orb goes on or off
 void HideHoverWindow();              // @0x24c63c
 }
+// UNVERIFIED (milestone 5, with the spells): the rage bar (BottomBattleWindow, Rage_bar.xml: spell
+// slots, fury buttons, the arena's stances, the taming net). Until then it never shows, nothing is
+// tamed and no net is aimed.
 namespace BottomBattleWindow {
-void Hide();                         // (0x2536e0)
-void EnableNet(uint32_t spawnId);    // (0x2577d4) the taming net's button, for a dying monster
-uint32_t GetNetTargetSpawnID();      // (0x253c1c)
+inline void Hide() {}                               // (0x259338)
+inline void EnableNet(uint32_t) {}                  // (0x258f30) a dying monster may be tamed
+inline uint32_t GetNetTargetSpawnID() { return 0; } // (0x257090)
 }
 // The "Heal Hero" window (windows/HealSquadWindow.cpp).
 namespace HealSquadWindow {

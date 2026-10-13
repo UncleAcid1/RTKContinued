@@ -58,8 +58,12 @@ public:
     virtual AI::Waypoint* GetLastTarget() { return current; }   // +0x38 @0xe1c18
     // +0x3c @0xe711c: the waypoint `steps` steps before wp on the cheapest path to it.
     virtual AI::Waypoint* GetClosestReachableWP(AI::Waypoint* wp, int steps);
-    // (+0x30 GetDistanceToTarget, +0x34 SetBlockedPathTarget, +0x40..+0x48 the
-    //  GetClosestReachableWPTo* family are not ported yet.)
+    // +0x30 @0xe5ef8: the steps of the cheapest way to wp (0: there already, -1: none).
+    virtual int GetDistanceToTarget(AI::Waypoint* wp);
+    // +0x34 @0xe2104: SetTarget as if the quest-blocked tiles were open (at weight 10); *blocker
+    // gets the blocking decoration next to the target, if any. True if a way exists.
+    virtual bool SetBlockedPathTarget(AI::Waypoint* wp, Map::Decor** blocker);
+    // (+0x40..+0x48, the GetClosestReachableWPTo* family: only the unused siege AI calls them.)
 
     std::vector<AI::Waypoint*> pathCopy;   // +0x24
     std::vector<AI::Waypoint*> path;       // +0x34 target first; path.back() is the next step
@@ -398,6 +402,9 @@ public:
     bool TryToInterruptJob() override;                // +0x110 @0xef578
     bool IsWorking() override { return GetState() == 0x21; }   // +0x114 @0xee378
     void RemoveActionMarker() override;               // +0x13c @0xeeb80
+    // +0xe8 @0xee538: gives up the fight: back to the last safe tile (if he stands on it: out of
+    // the reach of the monster that sees him).
+    void Retreat() override;
     void StopMovement() override;                     // +0x140 @0xeed68
     void AutoInteraction() override { autoInteraction = true; }   // +0x144 @0xee398
     void OnMapUnload() override;                      // +0x150 @0xee644

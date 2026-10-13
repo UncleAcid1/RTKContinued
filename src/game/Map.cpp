@@ -67,6 +67,7 @@ const float kFarmWorldX = 150.f, kFarmWorldY = 2880.f;   // 0x60f004 0x60f008
 std::vector<uint8_t> g_farmBlocks;              // 0x613794 (empty: the farm is not shown)
 std::unique_ptr<Patch> g_farmPatch;             // 0x6136b4
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
+std::vector<std::pair<uint8_t, uint8_t>> g_openedTiles;    // 0x613784 blocked tiles given a waypoint for a search
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
 bool g_victoryPose = false;   // 0x6138cc the player won a fight on the way here (milestone 4g sets it)
 bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap)
@@ -890,6 +891,28 @@ Decor* GetTriggeredDecoration(int x, int y) {
         for (auto& d : p->decors)
             if (d->HasTriggerTileAt(x, y)) return d.get();
     return nullptr;
+}
+
+// @0x1c0708: every quest-blocked tile without a waypoint gets one (weight 10) for the length of a
+// search (TargetedAI::SetBlockedPathTarget); RestoreBlockedTiles takes them away again.
+void RemoveBlockedTiles() {
+    g_openedTiles.clear();
+    for (const auto& t : g_blockedTiles) {
+        if (AI::GetWaypoint(t.first, t.second, false)) continue;
+        AI::CreateMapWaypoint(t.first, t.second);
+        if (AI::Waypoint* wp = AI::GetWaypoint(t.first, t.second, false)) {
+            AI::LinkAdjacentWaypoints(wp);
+            wp->weight = 10.f;
+        }
+        g_openedTiles.push_back(t);
+    }
+}
+
+// @0x1b8824
+void RestoreBlockedTiles() {
+    for (const auto& t : g_openedTiles)
+        if (AI::GetWaypoint(t.first, t.second, false)) AI::RemoveMapWaypoint(t.first, t.second);
+    g_openedTiles.clear();
 }
 
 // @0x1bab04 Map::GetBlockingDecoration
