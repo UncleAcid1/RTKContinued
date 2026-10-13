@@ -909,7 +909,7 @@ void ItemHoverWindow::SetEntity(Entity* e, EntityData* data, bool train, bool ma
 void ItemHoverWindow::OnDrink() {
     if (!item) return;
     if (healMode) {
-        // UNVERIFIED (milestone 4g): HealSquadWindow::UseItem(item->id).
+        HealSquadWindow::UseItem(item->id);
         Hide();
         return;
     }
@@ -957,7 +957,7 @@ void ItemHoverWindow::OnEnable() {
     }
     if (slot == -1) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 4g): BeltBarWindow::OnActivateSlot(slot) turns the orb on.
+    BeltBarWindow::OnActivateSlot((unsigned)slot);
     CharacterInfoWindow::UpdateContents();
     Hide();
 }

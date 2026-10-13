@@ -112,6 +112,9 @@ dead  ^HealthbarHoverWindow::   # hover type 0xd: BuildingHovers::Update never a
 5  ^Shared::WarriorSlotInfo::   # PlayerWeakWindow, HireTroopsWindow, ChestsWindow
 5  ^Shared::(EndscreenProgressBar|ProgressBarLarge)::   # the boss / PvP end screens; CraftItemWindow, LevelInfoWindow
 4h  ^Shared::PlayerHolder::   # the hero's figure with its equipment: SelectHQWindow (4h) is its first user that matters; HealSquadWindow shows the plain figure until then
+5  ^BeltBarWindow::(OnCraftPanelMove|OnMovingCraftPanel|OnCrafting|ShowProfessionPoint|OnInventory|OnShowInventory|ShowInventory|OnEmptySlot)$   # the belt's Crafting button and bar (crafting, professions) and its inventory button (CharacterInfoWindow)
+5  ^BeltBarWindow::(RunRageAnimation|GetAdjustedBuffZoneLocation|RaiseWindow|OnAddMoreSlot)$   # the fury flash (spells), the buff row's place, the raised belt for the character window, the shop link
+5  ^Shared::(BuffHolder|BuffHolderManager)::   # the row of running buffs (timed potions): BeltBarWindow, HealSquadWindow, CharacterInfoWindow
 util  ^App::   # the App singleton's accessors: the port's managers are namespaces
 util  ^AIWarrior::FUN_000f3b4c$   # std::string::find
 

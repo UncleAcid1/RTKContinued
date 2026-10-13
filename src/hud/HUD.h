@@ -78,7 +78,13 @@ void HideHoverWindow();              // @0x249bd4 the soldier's card
 void ShowSoldier(uint32_t id, bool help);   // @0x24a6a0
 void UpdateContents();               // @0x24a750
 }
-namespace BeltBarWindow { void UpdateContents(); }         // (0x24dc20)
+namespace BeltBarWindow {
+void UpdateContents();               // @0x24dc20
+void UpdateBeltItems();              // @0x24d790 which items ride on the belt
+void OnUseSlot(unsigned slot);       // @0x24f05c the slot's potion is drunk
+void OnActivateSlot(unsigned slot);  // @0x24e944 the slot's orb goes on or off
+void HideHoverWindow();              // @0x24c63c
+}
 namespace BottomBattleWindow {
 void Hide();                         // (0x2536e0)
 void EnableNet(uint32_t spawnId);    // (0x2577d4) the taming net's button, for a dying monster
@@ -95,6 +101,7 @@ bool IsVisible();                    // @0x2c9f10
 void SetAttacker(Entity* e);         // @0x2c9efc who felled the hero
 void SetHealPostAction(std::function<void()> cb);   // @0x2c9f28 run when it closes with him alive
 void ResetRecentDeaths();            // @0x2c9f6c
+void UseItem(uint32_t id);            // @0x2cc24c one of the item flies to the hero's figure and is drunk
 }
 
 namespace BattleBarWindow {

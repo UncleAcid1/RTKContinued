@@ -2,7 +2,6 @@
 // parts of this step. This file goes away with the last of them.
 #include "hud/HUD.h"
 
-namespace BeltBarWindow { void UpdateContents() {} }
 namespace BottomBattleWindow {
 void Hide() {}
 void EnableNet(uint32_t) {}

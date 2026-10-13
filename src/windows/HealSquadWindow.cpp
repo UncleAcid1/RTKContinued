@@ -191,6 +191,8 @@ void OnUseItem(uint32_t id) {
     UpdateContents();
 }
 
+}  // namespace
+
 // @0x2cc24c: one of item `id` flies from its slot to the hero's figure.
 void UseItem(uint32_t id) {
     Items::ItemInfo* info = Items::GetItemInfo(id);
@@ -221,6 +223,8 @@ void UseItem(uint32_t id) {
     g_flying.push_back(f);
     UpdateContents();
 }
+
+namespace {
 
 // @0x2cc644 "Heal now!": a healing item (0x211, else 0x250) if he has one, else for crystals (the
 // hero's "char_revivecost"; confirmed: after the purchase prompt).
