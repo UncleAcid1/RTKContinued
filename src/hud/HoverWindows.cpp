@@ -1614,3 +1614,101 @@ void HealthbarTinyHoverWindow::SetPosition(int x, int y) {
     root->SetPosition(x - root->w / 2, y);
 }
 
+// --------------------------------------------------------------------- PlayerHintHoverWindow
+
+PlayerHintHoverWindow::~PlayerHintHoverWindow() { delete root; }
+
+void PlayerHintHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Dialog_hint_hd.xml", "Dialog_hint_hd.png",
+                           GUI::GetHoverScaleFactor(1.f, 1.25f), 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    frame = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_hint_window_9s");
+    arrowSW = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_sw");
+    GUI::Window* se = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_se");
+    GUI::Window* nw = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_nw");
+    GUI::Window* ne = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_ne");
+    arrowSW->SetVisibility(false);
+    se->SetVisibility(false);
+    ne->SetVisibility(false);
+    (void)nw;
+    text = GUI::GetWindowTypedF<GUI::Textfield>(root, "dialog_text");
+    next = GUI::GetWindowTypedF<GUI::Window>(root, "button_dialog_hint_next");
+    root->SetOnClick([this] { OnClose(); });
+    root->SetActionSound("ui_click", 1);
+    GUI::GetWindowTypedF<GUI::Textfield>(root, "button_dialog_hint_next.text_give_job")
+        ->SetText(StringTable::GetString("DIALOG_NEXT"));
+}
+
+// Over everything while no window is open, else at the HUD's depth.
+void PlayerHintHoverWindow::SetZ(float z) { root->SetZ(WindowManager::GetShownWindowCount() != 0 ? z : 0.001f); }
+
+bool PlayerHintHoverWindow::Click(int x, int y, bool pressed) { return shownHover && root->Click(x, y, pressed, false); }
+
+void PlayerHintHoverWindow::Show() {
+    if (shownHover) return;
+    BuildingHoverWindow::Show();
+    root->SetVisibility(true);
+}
+
+void PlayerHintHoverWindow::Hide() {
+    if (!shownHover) return;
+    arrowLock = false;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+void PlayerHintHoverWindow::Update(float) {
+    if (!shownHover) {
+        arrowLock = false;
+    } else if (arrowLock) {
+        BuildingHovers::ArrowAt((float)(next->x + root->x + next->w / 2), (float)(next->y + root->y + next->h), false,
+                                false, false, true, true, false, false);
+        if (!GUI::CanInteractWith(nullptr)) BuildingHovers::PreventArrowAutoHide();
+    }
+    // A window opened over it closes it.
+    unsigned shown = (unsigned)WindowManager::GetShownWindowCount();
+    if (windowCount < shown) OnClose();
+    else if (shown < windowCount) windowCount = shown;
+}
+
+void PlayerHintHoverWindow::SetPosition(int x, int y) { root->SetPosition(x, y); }
+
+void PlayerHintHoverWindow::SetParameters(const char32_t* str, uint32_t task_) {
+    // Back to the laid-out size, then as much taller as the text needs.
+    root->SetSize((unsigned)root->w, (unsigned)(root->h - grown));
+    frame->SetSize((unsigned)frame->w, (unsigned)(frame->h - grown));
+    next->MoveWindow(0, -grown);
+    arrowSW->MoveWindow(0, -grown);
+    grown = 0;
+    text->SetAlignment(0, 0);
+    text->SetText(str);
+    grown = text->sprite ? (int)(std::fabs(text->sprite->h) - (float)text->h) - 6 : -6;
+    root->SetSize((unsigned)root->w, (unsigned)(grown + root->h));
+    frame->SetSize((unsigned)frame->w, (unsigned)(frame->h + grown));
+    next->MoveWindow(0, grown);
+    arrowSW->MoveWindow(0, grown);
+    task = task_;
+    arrowLock = false;
+    windowCount = (unsigned)WindowManager::GetShownWindowCount();
+    next->SetVisibility(GameState::secondTutorial != 0xa1);
+}
+
+void PlayerHintHoverWindow::ShowArrowAndLock() {
+    arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnClose(); }));
+    GUI::SetInteractionObjectLock(root, nullptr);
+    arrowLock = true;
+}
+
+void PlayerHintHoverWindow::HideNextButton() { next->SetVisibility(false); }
+
+void PlayerHintHoverWindow::OnClose() {
+    if (task != 0) Tasks::CompleteTask(task, true, true, false);
+    task = 0;
+    if (GameState::secondTutorial == 0xa2) GameState::secondTutorial = 0xa3;
+    if (arrowCallback == BuildingHovers::GetArrowClickCallbackID()) {
+        BuildingHovers::HideArrow();
+        GUI::SetInteractionLock(false);
+    }
+    Hide();
+}
+

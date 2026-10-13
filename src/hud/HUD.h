@@ -69,6 +69,11 @@ void OnDamage(Entity* e);            // @0x327814 the hurt portrait
 void RefreshHP();                    // @0x327564
 // @0x3276c4: an item's icon flies into the portrait and the item takes effect on arrival.
 void RaiseAndMoveIntoPlayer(float z, Render::Sprite* sprite, uint32_t item);
+// The hero's own speech bubble (PlayerHintHoverWindow).
+void SetParameters(const char32_t* text, uint32_t task, bool unused, bool lockNext);   // @0x3278e0
+bool IsPlayerDialogVisible();        // @0x327520
+void HideDialog();                   // @0x327890
+void ShowArrowAndLock();             // @0x3278cc
 }
 namespace BattleBarWindow {
 void OnDamage(Entity* e);            // @0x24b114

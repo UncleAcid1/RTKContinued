@@ -142,6 +142,38 @@ public:
     int baseY = 0;                     // +0x40
 };
 
+// The hero's own speech bubble, next to his portrait (PlayerTopWindow::SetParameters): a quest's
+// text without a giver, tutorial hints. Port of PlayerHintHoverWindow (@0x390ee4..0x3917b0,
+// Dialog_hint_hd.xml, 0x68 bytes).
+class PlayerHintHoverWindow : public BuildingHoverWindow {
+public:
+    PlayerHintHoverWindow() { name = "PlayerHintHoverWindow"; }   // @0x391750
+    ~PlayerHintHoverWindow() override;           // @0x39168c
+    void Init() override;                        // +0x08 @0x391458
+    void SetZ(float z) override;                 // +0x10 @0x39139c
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x390ee4
+    void Show() override;                        // +0x1c @0x391424
+    void Hide() override;                        // +0x20 @0x3913e4
+    void Update(float dt) override;              // +0x24 @0x3910d0
+    void SetPosition(int x, int y) override;     // +0x3c @0x390f20
+    // +0x54 @0x3911c8: the text (the bubble grows to fit it) and the quest its Next completes.
+    virtual void SetParameters(const char32_t* text, uint32_t task);
+    virtual void ShowArrowAndLock();             // +0x58 @0x391044 only its Next can be tapped
+    void HideNextButton();                       // @0x390f3c
+    void OnClose();                              // @0x390fb4 Next (or any tap on it)
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* arrowSW = nullptr;    // +0x38 (the others, +0x3c..+0x44, are hidden)
+    GUI::Window* frame = nullptr;      // +0x48 dialog_hint_window_9s
+    GUI::Textfield* text = nullptr;    // +0x4c
+    GUI::Window* next = nullptr;       // +0x50 button_dialog_hint_next
+    uint32_t task = 0;                 // +0x54
+    int grown = 0;                     // +0x58 the extra height the text needed
+    bool arrowLock = false;            // +0x5c the helper arrow sits on Next
+    int arrowCallback = 0;             // +0x60
+    unsigned windowCount = 0;          // +0x64 the windows shown when it opened (one more closes it)
+};
+
 // The small health bar over a fighter (hover type 0xe): a wounded monster in view, every fighter of
 // the arenas. Port of HealthbarTinyHoverWindow (@0x38253c..0x382ad4, Battle_info_hp_tiny.xml). The
 // larger HealthbarHoverWindow (type 0xd, @0x381da0..0x38229c) is never asked for in 5.11.

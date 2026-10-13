@@ -15,6 +15,7 @@
 #include "game/MetaExpression.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "hud/HoverWindows.h"
 #include "windows/Windows.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
@@ -54,6 +55,7 @@ Window* g_hpRestore = nullptr;        // "Hp_hero_restore" (shown when the hero 
 GUI::MovementEffect* g_hpRestoreEffect = nullptr;
 Textfield* g_hpRestore1 = nullptr;
 Textfield* g_hpRestore2 = nullptr;
+PlayerHintHoverWindow* g_dialog = nullptr;   // 0x62a688 the hero's speech bubble, at dialog_popup_player
 int g_restoreHideX = 0, g_restoreHideY = 0;   // 0x62a714 0x62a718 the popup tucked under the panel
 int g_restoreShowX = 0, g_restoreShowY = 0;   // 0x62a71c 0x62a720
 bool g_legend = false;                // 0x62a680 the bars show their names instead of numbers
@@ -68,6 +70,7 @@ float g_rep = 0.f, g_xp = 0.f, g_hp = 0.f;   // 0x62a6fc 0x62a700 0x62a704 the v
 struct Incoming { uint32_t item; float time; };
 std::vector<Incoming> g_incoming;     // 0x62a6c4
 float g_savedZ = 0.f;                 // 0x62a6dc the panel's depth before it was raised
+float g_raisedZ = 0.f;                // 0x62a6e0 the depth it is raised to
 
 float Clamp01(float f) { return f >= 1.f ? 1.f : (f < 0.f ? 0.f : f); }
 
@@ -116,12 +119,14 @@ bool Click(int x, int y, bool pressed) {
         if ((BuildingMovement::Activated() || BuildingPlacement::Activated()) && !pressed) over = false;
         return over;
     }
-    // UNVERIFIED (4g, PlayerHintHoverWindow): while the hero's dialog shows on map 0x70 a tap on
-    // the helper arrow comes first, and the dialog gets the taps the panel does not take.
+    // (While his dialog shows on the arena's map 0x70 a tap on the helper arrow comes first.)
+    if (g_dialog->shownHover && GameState::GetCurrentMapID() == 0x70 && BuildingHovers::ClickOnArrow(x, y, pressed))
+        return true;
     Entity* player = EntityManager::GetPlayer();
     if (player && player->GetHP() != player->GetHpMax() && g_hpRestore && g_hpRestore->Click(x, y, pressed, false))
         return true;
-    return g_root->Click(x, y, pressed, false);
+    if (g_root->Click(x, y, pressed, false)) return true;
+    return g_dialog->Click(x, y, pressed);
 }
 
 }  // namespace
@@ -212,8 +217,8 @@ void Init() {
     g_restoreHideX = g_restoreShowX = restoreAt->x;
     g_restoreHideY = (int)(g_rootScale * -28.f) + restoreAt->y;
     g_restoreShowY = g_restoreHideY + (int)(g_rootScale * 25.f);
-    // UNVERIFIED: the small-screen adjustments of text_hp_2. The PlayerHintHoverWindow (the hero's
-    // own dialog) is created here: 4g's last HUD part.
+    // UNVERIFIED: the small-screen adjustments of text_hp_2.
+    g_dialog = new PlayerHintHoverWindow();
 }
 
 // @0x32954c: slide in from the left
@@ -230,12 +235,39 @@ void Hide() {
     if (g_root && g_root->visibleSelf) g_effect->Animate(g_x, g_y, -g_root->w, g_y, false);
 }
 
-// @0x32964c (the hint hover window's depth and position follow with milestone 4)
+// @0x32964c
 void SetZ(float) {
     if (!g_root) return;
-    g_root->SetZ(HUDWindow::GetZ());
+    g_root->SetZ(g_incoming.empty() ? HUDWindow::GetZ() : g_raisedZ);
+    g_dialog->SetZ(WindowManager::GetShownWindowCount() == 0 ? 0.01f : HUDWindow::GetZ());
     if (g_hpRestore) g_hpRestore->SetZ(HUDWindow::GetZ() + 0.002f);
-    if (g_root->visibleSelf) g_root->SetPosition(g_x, g_y);
+    if (g_root->visibleSelf) {
+        g_root->SetPosition(g_x, g_y);
+        g_dialog->SetPosition(g_dialogPopup->x, g_dialogPopup->y);
+    }
+}
+
+bool IsPlayerDialogVisible() { return g_dialog && g_dialog->shownHover; }   // @0x327520
+
+// @0x327890
+void HideDialog() {
+    if (!g_dialog || !g_dialog->shownHover) return;
+    g_dialog->OnClose();
+    g_dialog->Hide();
+}
+
+void ShowArrowAndLock() { g_dialog->ShowArrowAndLock(); }   // @0x3278cc
+
+// @0x3278e0: the hero says `text` in his bubble; `task` (a quest, 0: none) is completed by its
+// Next. The same quest's text is not started again. lockNext: the helper arrow sits on Next.
+void SetParameters(const char32_t* text, uint32_t task, bool, bool lockNext) {
+    if (task != 0 && g_dialog->task == task) return;
+    if (g_dialog->shownHover) g_dialog->OnClose();
+    BuildingHovers::HideWorldDialog(nullptr);
+    // SoundsManager::PlaySound("interact_entity_MN3talks" / "..FN3talks"): milestone 6.
+    g_dialog->Show();
+    g_dialog->SetParameters(StringTable::GetUndecoratedString(text, 0x200).c_str(), task);
+    if (lockNext) g_dialog->ShowArrowAndLock();
 }
 
 // @0x327814: the hurt portrait flashes in.
@@ -252,6 +284,7 @@ void RefreshHP() { g_lastHp = 0.f; }   // @0x327564 the HP text is written again
 void RaiseAndMoveIntoPlayer(float z, Render::Sprite* sprite, uint32_t item) {
     if (g_incoming.empty()) {
         g_savedZ = g_root->z;
+        g_raisedZ = z;
         g_root->SetZ(z);
         Render::SortRenderLayer(0xe, 1);
     }

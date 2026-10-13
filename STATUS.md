@@ -973,6 +973,45 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    map was saved: LoadSavedGame, 4h; a map switch back to a visited map uses the same code but was
    not run); camera paths and shakes (no test map triggered one); enemy zones (no fight yet).
    4f IS CLOSED (inventory: 0 functions). NEXT: 4g (combat as used by the campaign).
+
+**4g IN PROGRESS (2026-10-13; parts 1-8 committed, part 9 half done). Resume here.**
+   User decision (death / revive): health comes back by itself, a full bar in at most 4 minutes
+   (GameState::HpRegenSeconds, used everywhere; the original: 3-5 minutes per point); "Heal now!"
+   costs earned crystals; potions heal. Recorded in memory (rtk-freemium-removal).
+   Done: the fight core (Combat.h/.cpp: BaseCombat, AggroCombat, RangeAggroCombat; AICombat.cpp:
+   AIWarrior attack / hit / block / death, AIEnemy::CheckAggro; EntityCombat.cpp: damage, dying,
+   death with drops / gold / xp / quest steps / broken gear; BRand.h), arrows (Projectile.cpp,
+   projectiles.xml), enemy lookups, the hero's tap on a monster, PlayerTopWindow's live update,
+   the army bar (BattleBarWindow), health bars over fighters (HealthbarTinyHoverWindow),
+   HUDWindow::OnDamage, the Heal Hero window (windows/HealSquadWindow.cpp), the belt's core
+   (BeltBarWindow: slots, item card, drink, orb switch, UpdateBeltItems), path helpers
+   (GetDistanceToTarget, SetBlockedPathTarget, Map::Remove/RestoreBlockedTiles), AIPlayer::Retreat.
+   Found dead in 5.11 (plan updated): the whole siege system (CombatManager, EasyCombat, EasyAI,
+   SiegeCombat, AIWarrior_v2, EventManager, tower attacks), HealthbarHoverWindow, TapHoverWindow.
+   Moved to milestone 5: spells' fighter side (AIWarrior::Magic*), boss / arena switches, the rage
+   bar (BottomBattleWindow: spells, fury, taming net), PlayerBattleInOutWindow (PvP), HealHoverWindow
+   (soldier healing), the belt's crafting / inventory / buff parts, PlayerWeakWindow (ASK THE USER
+   FIRST: it advertises chests). To 4h: Shared::PlayerHolder (the hero's figure with equipment; the
+   heal window shows a plain figure until then).
+   PORT guard until milestone 5: a boss neither attacks nor can be attacked (AIEnemy::CheckAggro,
+   AIPlayer::ClickedEntity), since BossCombat is not ported.
+   Part 9 (UNCOMMITTED WORK WAS COMMITTED AS-IS, builds): PlayerHintHoverWindow (the hero's speech
+   bubble) and PlayerTopWindow::SetParameters / HideDialog / ShowArrowAndLock / IsPlayerDialogVisible
+   are written. STILL TO DO for part 9: call g_dialog->Update(dt) from PlayerTopWindow::Update; wire
+   the two hooks in Tasks.cpp (search "PlayerHintHoverWindow") and the IsPlayerDialogVisible notes
+   in Game.cpp, HUDWindow.cpp, main.cpp; test it.
+   Then to close 4g: BeltBarWindow::OnTweenMove / OnTweenIn and HealSquadWindow::SortItemsByMetaSort /
+   Move / ZRange (trivial, add their @ comments), run `python3 tools/inventory.py --functions 4g`
+   until empty, resolve the "UNVERIFIED (milestone 4g)" notes left in src (grep), write the full 4g
+   entry here, mark the roadmap.
+   Verified by test runs (temporary hook, scratch storage): a fight on map 15 (walk up, blows,
+   kill), the hero's death -> Heal Hero window, health back in under 4 minutes, health bar over
+   the monster, army bar, belt layout. NOT verified: archers' arrows, aggro fights, potions
+   actually drunk, orbs, retreat, the blocked-way hint, the speech bubble.
+   Test hook: scratchpad hook.py is gone with the session; the hook was a block in main.cpp's frame
+   loop (env RTK_FIGHT=2: taps at frames 5 and 14 to close the opening windows, at frame 30 the
+   hero's AI ClickedEntity(EntityManager::GetNearestEnemy(player, false, true)), pause reset every
+   frame; RTK_HP=1 made him die). Always --storage and --screenshot.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
