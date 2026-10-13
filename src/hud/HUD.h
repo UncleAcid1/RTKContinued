@@ -59,7 +59,10 @@ RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
 
 // The fight's HUD hooks (4g). Each is called by the fight code whenever an entity loses HP.
-namespace HUDWindow { void OnDamage(Entity* e); }          // @0x2c69f8
+namespace HUDWindow {
+void OnDamage(Entity* e);            // @0x2c69f8
+inline void ShowMainUI(bool) {}      // @0x2c6658 (empty in 5.11)
+}
 namespace PlayerTopWindow {
 void OnDamage(Entity* e);            // @0x327814 the hurt portrait
 void RefreshHP();                    // @0x327564

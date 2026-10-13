@@ -142,6 +142,32 @@ public:
     int baseY = 0;                     // +0x40
 };
 
+// The small health bar over a fighter (hover type 0xe): a wounded monster in view, every fighter of
+// the arenas. Port of HealthbarTinyHoverWindow (@0x38253c..0x382ad4, Battle_info_hp_tiny.xml). The
+// larger HealthbarHoverWindow (type 0xd, @0x381da0..0x38229c) is never asked for in 5.11.
+class HealthbarTinyHoverWindow : public BuildingHoverWindow {
+public:
+    HealthbarTinyHoverWindow() { name = "HealthbarTinyHoverWindow"; }
+    ~HealthbarTinyHoverWindow() override;
+    void Init() override;                        // +0x08 @0x382ad4
+    void SetZ(float z) override;                 // +0x10 @0x382588
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x3825a4
+    void Show() override;                        // +0x1c @0x38253c
+    void Hide() override;                        // +0x20 @0x382a9c
+    void Update(float dt) override;              // +0x24 @0x3825e0
+    void SetPosition(int x, int y) override;     // +0x3c @0x382a3c
+    void SetBuilding(Map::Building* b) override { building = b; }   // +0x40 @0x382a34
+    void SetEntity(Entity* e) override { entity = e; }              // +0x44 @0x382a38
+    void SetDecoration(Map::Decor* d) override { decor = d; }       // +0x48 @0x382a30
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* bar = nullptr;        // +0x38 "hp_bar_hp_bar", clipped to the health left
+    GUI::Textfield* text = nullptr;    // +0x3c "text_hp_bar"
+    GUI::ClipRect clip{};              // +0x40
+    bool started = false;              // +0x50
+    float shown = 0.f, time = 0.f;     // +0x54 +0x58 the share shown glides to the real one
+};
+
 // The bobbing round button over somebody with something to say (blue; green for a side quest; still
 // for a repeated task), showing the quest's icon. A tap sends the hero to talk. Port of
 // TalkHoverWindow (0x58 bytes).

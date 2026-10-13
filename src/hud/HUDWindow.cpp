@@ -92,6 +92,7 @@ struct TimerHolder {
 WindowManager::FunctionalWindow* g_queue = nullptr;
 float g_z = 0.03f;                    // 0x60f278
 LocatorHolder g_playerLocator;        // +0x00
+float g_badTime = 0.f;                // 0x620a10 the hurt portrait's flash
 LocatorHolder g_taskLocator;          // +0x30
 TimerHolder g_farmTimer;              // +0x60
 Window* g_mapName = nullptr;          // +0x70 Text_map_name_popup (centred)
@@ -597,8 +598,34 @@ void SoftMapReset() {
 // tutorial's steps 0x93..0x96 and the tame tutorial, a HUD that is not at the top of the queue
 // comes back: the hovers go to the bottom and the panels are shown again.
 // UNVERIFIED (milestone 4g): the player's damage locator pulse (male/female portrait).
+// @0x2c69f8: the hero was hurt: the locator's hurt portrait flashes.
+void OnDamage(Entity* e) {
+    if (e != EntityManager::GetPlayer()) return;
+    (GameState::IsMalePlayer() ? g_playerLocator.maleBad : g_playerLocator.femaleBad)->SetVisibility(true);
+    g_badTime = 0.f;
+}
+
 void Update(float dt) {
-    if (!EntityManager::GetPlayer()) return;
+    Entity* player = EntityManager::GetPlayer();
+    if (!player) return;
+    // The locator's hurt portrait, as PlayerTopWindow's: it springs in, then fades (not while he
+    // is dead); the other gender's stays hidden.
+    {
+        Window* bad = GameState::IsMalePlayer() ? g_playerLocator.maleBad : g_playerLocator.femaleBad;
+        Window* other = GameState::IsMalePlayer() ? g_playerLocator.femaleBad : g_playerLocator.maleBad;
+        if (bad->visibleSelf) {
+            g_badTime += dt + dt;
+            if (g_badTime < 0.75f) {
+                float f = g_badTime / 0.75f - 1.f;
+                bad->SetAlpha(1.f + f * f * (1.70158f + f * 2.70158f) + 0.f, false);
+            } else if (g_badTime < 1.f && player->GetHP() != 0) {
+                bad->SetAlpha(1.f - (g_badTime - 0.75f) * 4.f, false);
+            } else if (player->GetHP() != 0) {
+                bad->SetVisibility(false);
+            }
+        }
+        other->SetVisibility(false);
+    }
     Render::Sprite* s = g_mapNameText->sprite;
     if (g_mapName->visibleSelf && s) UpdateMapName(s, dt);
     UpdatePlayerLocator();

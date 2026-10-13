@@ -15,6 +15,8 @@
 #include "game/BuildingPlacement.h"
 #include "game/AIState.h"
 #include "game/Contracts.h"
+#include "game/Combat.h"
+#include "game/Fog.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -197,8 +199,10 @@ void HoverInfo::SetHoverType(int t) {
         w = new TaxesHoverWindow();
     else if (t == kTalk)
         w = new TalkHoverWindow();
-    // UNVERIFIED (milestones 4g/5): HealthbarHoverWindow (0xd), HealthbarTinyHoverWindow (0xe) and
-    // BossTimeHoverWindow (0x10) come before the sleeping window; PlayerNameHoverWindow (0x11),
+    else if (t == kHealthbarTiny)
+        w = new HealthbarTinyHoverWindow();
+    // (HealthbarHoverWindow, 0xd, is never asked for in 5.11.) UNVERIFIED (milestone 5):
+    // BossTimeHoverWindow (0x10) comes before the sleeping window; PlayerNameHoverWindow (0x11),
     // FriendInfoHoverWindow (0x13) after it.
     else if (t == kUseItem)
         w = new UseItemHoverWindow();
@@ -747,9 +751,27 @@ void UpdateHovers() {
                     e->AssignSpecialTalk(e->GetTalkTask() == 0 && GameState::GetTaskBeginTime(0x43f) != 0 ? 0x1d7 : 0);
                     goto checked;
                 }
-                // UNVERIFIED (milestones 4g/5): battle health bars (0xe: PvP fights, g_Combat, a
-                // wounded or fighting enemy in view), boss timers (0x10) and player names (0x11) come
-                // before the farm's.
+                // The health bar: everyone in a PvP arena fight (type 6); a monster that is fighting
+                // or wounded, if the fog does not hide it (in the arenas: always).
+                BaseCombat* combat = GameState::GetActiveCombat();
+                if ((e->IsEnemy() || e->IsPlayer()) && e->IsActive() && !e->IsDead() && combat && combat->GetType() == 6) {
+                    h->SetHoverType(kHealthbarTiny);
+                    goto checked;
+                }
+                // (While GameState::g_Combat is set, the siege, every living entity has one.)
+                if (e->IsEnemy() &&
+                    (e->f36 || (e->GetHP() != 0 && e->GetHP() != e->GetHpMax() && e->IsActive()))) {
+                    if (combat && (combat->GetType() == 5 || combat->GetType() == 6)) {
+                        h->SetHoverType(kHealthbarTiny);
+                    } else if (Render::Sprite* sp = e->GetSprite()) {
+                        h->SetHoverType(Fog::IsVisible((int)sp->x, (int)(sp->y - sp->h), (int)(sp->x + sp->w), (int)sp->y)
+                                            ? kHealthbarTiny
+                                            : kNone);
+                    }
+                    goto checked;
+                }
+                // UNVERIFIED (milestone 5): a boss's timer (0x10) and, for an entity with a GUID in
+                // view, the player's name (0x11) come before the farm's.
                 // A ripe soil patch on the farm view shows its crop.
                 if (e->GetAI() && e->GetAI()->GetState() == 0x19 && Map::GetCurrentFarm()) {
                     h->SetHoverType(kFarmReady);

@@ -1542,3 +1542,75 @@ bool UseItemHoverWindow::Click(int x, int y, bool pressed) {
     if (decor && !pressed) BuildingHovers::OnDecorClick(decor, wx, wy);
     return true;
 }
+
+// ------------------------------------------------------------------ HealthbarTinyHoverWindow
+
+HealthbarTinyHoverWindow::~HealthbarTinyHoverWindow() { delete root; }
+
+void HealthbarTinyHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Battle_info_hp_tiny.xml", "Battle_info_hp_tiny.png", 1.f,
+                           0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    root->SetScreenSpace(false);
+    // (Render::Texture::SetMagnifyFilter(true) on its sheet: the port's textures are always linear.)
+    bar = GUI::GetWindowTypedF<GUI::Window>(root, "hp_bar_hp_bar");
+    text = GUI::GetWindowTypedF<GUI::Textfield>(root, "text_hp_bar");
+    text->SetWorldOverscale(true);
+    text->SetVisibility(!(GameState::IsPvPCombatActive() && Setting("show_hp_value").GetInt() != 1));
+    clip = {bar->x, bar->y - 5, bar->w + bar->x, bar->y + bar->h + 5};
+    bar->SetClipRect(&clip);
+}
+
+void HealthbarTinyHoverWindow::SetZ(float z) { root->SetZ(z); }
+
+bool HealthbarTinyHoverWindow::Click(int x, int y, bool pressed) {
+    return shownHover && root->Click(x, y, pressed, false);
+}
+
+void HealthbarTinyHoverWindow::Show() {
+    if (shownHover) return;
+    shownHover = true;
+    root->SetVisibility(true);
+    started = false;
+    time = 0.f;
+    shown = 0.f;
+}
+
+void HealthbarTinyHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+void HealthbarTinyHoverWindow::Update(float dt) {
+    // (In a PvP fight against a chosen opponent the numbers hide unless "show_hp_value" is 1:
+    // PlayerCompetitionWindow, milestone 5.)
+    text->SetVisibility(true);
+    int hp = 0, max = 0;
+    if (entity) {
+        if (entity->IsDisappearing()) BuildingHovers::ScheduleUpdate();
+        hp = entity->IsActuallyDying() ? 0 : entity->GetHP();
+        max = entity->GetHpMax();
+    }
+    // (A building's or a decoration's health, +0x1a8 / +0xb8: the siege fights, dead in 5.11.)
+    text->SetText(SWPrintf(0x100, U"%d/%d", {hp, max}).c_str());
+    if (!entity && !building && !decor) return;
+    float f = (float)hp / (float)max;
+    f = f < 0.f ? 0.f : (f > 1.f ? 1.f : f);
+    if (!started) shown = f;
+    started = true;
+    time += dt;
+    if (time > 0.03333333507180214f) {
+        time = 0.f;
+        shown = (float)((double)shown + (double)-(f - shown) * -0.1339745962155614);
+    }
+    clip.right = (int)((float)clip.left + (float)bar->w * shown);
+    root->UpdatePosition();
+}
+
+void HealthbarTinyHoverWindow::SetPosition(int x, int y) {
+    if (entity) y += entity->GetEntityData()->iconY;
+    BuildingHoverWindow::SetPosition(x, y);
+    root->SetPosition(x - root->w / 2, y);
+}
+

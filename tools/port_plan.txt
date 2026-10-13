@@ -107,6 +107,7 @@ online  ^GameState::GetBIS$   # only PvP::GetBISItems
 5  ^PlayerBattleInOutWindow::   # the PvP arena's versus intro / outro (Map::Load for an opponent's map, Entity::OnDeath in a PvP fight, FoundItemsWindow's arena branches)
 util  ^ProjectileData::FUN_   # the Splitter's allocator and string copy for "anims"
 dead  ^AI::GetangleBetweenWPs$   # no caller in 5.11
+dead  ^HealthbarHoverWindow::   # hover type 0xd: BuildingHovers::Update never asks for it (only HoverInfo::SetHoverType's factory names it)
 util  ^App::   # the App singleton's accessors: the port's managers are namespaces
 util  ^AIWarrior::FUN_000f3b4c$   # std::string::find
 
