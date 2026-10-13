@@ -195,8 +195,7 @@ void Init() {
     g_root->SetPosition(W, H - g_root->h);
     // OnTweenMove (+8) is empty; OnTweenIn (+0xc) re-reads the belt (milestone 3).
     g_effect = GUI::CreateMovementEffect(g_root, [] {}, [] {});
-    // UNVERIFIED: GameState::GetBeltSlotCount() (3 on a new game) decides which background shows.
-    const int beltSlots = 3;
+    const int beltSlots = (int)GameState::GetBeltSlotCount();
     g_bg2Slots = GUI::GetWindowTyped<Window>(g_root, "battle_bar_main_bg_2_slots_right");
     g_bg2Slots->SetVisibility(beltSlots != 3);
     g_bgRight = GUI::GetWindowTyped<Window>(g_root, "bottom_bar_bg_right");
