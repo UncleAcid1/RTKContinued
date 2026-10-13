@@ -1835,8 +1835,8 @@ void Update(double dt) {
     if (g_visibilityTimer >= 0.1f) {
         AllowBuildingVisibilityUpdate(true);
         AllowDecorationVisibilityUpdate(true);
-        // UNVERIFIED (milestone 4f): away from the city each sprite of the list 0x613844 is shown
-        // only where the fog is open (Fog::IsVisible).
+        // (Away from the city the sprites of the list 0x613844 would show only where the fog is
+        // open; nothing in 5.11 ever adds to that list.)
         g_visibilityTimer = 0.f;
     }
     if (g_fogTimer >= 0.05f) {
@@ -1986,7 +1986,7 @@ void Free() {
     } else if (GameState::tutorial == 0x17) {
         GUI::SetInteractionLock(true);
     }
-    // UNVERIFIED (milestone 4f): the sprites of the list 0x613844 (shown away from the city) are removed.
+    // (The sprite list 0x613844, never filled in 5.11, is emptied here.)
     for (Bird& b : g_birds) b.sprite = Render::RemoveSprite(b.sprite);
     g_birds.clear();
     ClearFog();
@@ -2059,8 +2059,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         raw->areaId = id;
         raw->owned = pc->data.size() > 1 && pc->data[1] != 0;
         raw->bordered = pc->data.size() > 2 && pc->data[2] != 0;
-        // UNVERIFIED (milestone 4f): a patch with a pending replacement block (0x613800, quest map
-        // fixes) is marked owned and loads from that block instead.
+        // UNVERIFIED (milestone 4h): a patch with a pending replacement block (0x613800, filled by
+        // Map::UpdateCityMap) is marked owned and loads from that block instead.
         // Patch::Load: LoadDecors (5 + n*0xb), LoadBuidings (6 + n*0xc), then mask (7)
         if (const SaveManager::Chunk* dc = next(SaveManager::kDecorCount)) {
             int cnt = SaveManager::Reader(*dc).s16();
@@ -2246,8 +2246,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     TaskListWindow::RunLastHelpItem();
     Tasks::RunLastSubTaskHelp();
     FoundItemsWindow::RunPostAction();
-    // UNVERIFIED (milestone 5): SultanArrivingWindow::RunLastHelp. (4f, windows):
-    // ChoosePathWindow::RunShowOnLoad.
+    // UNVERIFIED (milestone 5): SultanArrivingWindow::RunLastHelp, ChoosePathWindow::RunShowOnLoad.
     g_mapTimer = missionMap ? 360.f : 0.f;
     GameState::ResetTimeModifier();
     CreateBirds();

@@ -340,7 +340,7 @@ void OnClick(int x, int y) {
             return;
         }
         std::printf("EntityManager::OnClick() Ignoring click on inactive entity (active = %d, dead = %d) (spawn ID = %d)\n",
-                    e->IsActive(), e->IsDead(), 0);   // (spawn points: milestone 4f)
+                    e->IsActive(), e->IsDead(), (int)e->GetSpawnPointID());
     }
     int tx = x, ty = y;
     Map::WorldCoordinatesToTile(tx, ty);

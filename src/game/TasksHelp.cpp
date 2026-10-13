@@ -16,6 +16,7 @@
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
+#include "game/AIState.h"
 #include "game/Fog.h"
 #include "game/GameState.h"
 #include "game/Items.h"
@@ -58,6 +59,17 @@ void ArrowAtDecor(Map::Decor* d) {
     BuildingHovers::FollowDecor(d);
 }
 
+// The arrow over an entity's head; its tap sends the hero to it (AIPlayer::ClickedEntity).
+void ArrowAtEntity(Entity* e) {
+    float wx = 0.f, wy = 0.f;
+    e->GetWorldPos(wx, wy);
+    BuildingHovers::SetArrowClickCallback(
+        new GUI::Callback([e] { EntityManager::GetPlayer()->GetAI()->ClickedEntity(e); }));
+    float h = e->GetSprite() ? e->GetSprite()->h : 0.f;
+    HelpWithLocation((int)wx, (int)((wy - h) - 10.f), 0, 0);
+    BuildingHovers::FollowEntity(e);
+}
+
 void ShopOn(uint32_t building) {
     ShopWindow::Show();
     ShopWindow::OnSelectItemID(building);
@@ -96,7 +108,6 @@ void HelpWithMapSwitchToContinuation() {
 
 // @0x235964 Tasks::HelpWithMapSwitchTo: the way to another map (item: what is looked for there).
 void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
-    (void)arrow;
     (void)item;
     if (GameState::IsCombatActive()) {
         PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
@@ -108,8 +119,19 @@ void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
         PopupWindow::Show(text.c_str(), HelpWithMapSwitchToContinuation, PopupWindow::Hide, nullptr);
         return;
     }
-    // UNVERIFIED (milestone 4f): a portal to the map on this map (Map::GetPortalToMap): the camera
-    // goes to it and, with `arrow`, the arrow points at it (its tap: OnDecorClick).
+    // A portal to the map on this map: the camera goes to it and the arrow points at it.
+    if (Map::Decor* d = Map::GetPortalToMap(map)) {
+        int x, y;
+        DecorPoint(d, x, y);
+        Render::CenterOn((float)x, (float)y);   // (animated in the original: 0.4 s)
+        if (arrow) {
+            BuildingHovers::SetArrowVisibleWindowLimit(1);
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([d] { BuildingHovers::OnDecorClick(d, 0, 0); }));
+            BuildingHovers::ArrowAt((float)x, (float)y, false, false, false, false, false, false, false);
+            BuildingHovers::FollowDecor(d);
+        }
+        return;
+    }
     // UNVERIFIED (milestone 5): else the world map: home (map 0) switches there at once
     // (EnableLastSubTaskHelp, GlobalMapWindow::SwitchMap(0)); another map gets the world map with
     // its arrow (ArrowAtMap), or with an item its campaign / raid window showing the item.
@@ -131,7 +153,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         int x = (int)assistX, y = (int)assistY;
         Map::TileCoordinatesToWorld(x, y);
         HelpWithLocation(x, y, (int)assistX, (int)assistY);
-        // UNVERIFIED (milestone 4f): step 0x36c also points an arrow at each of its decorations
+        // UNVERIFIED (milestone 5, with that quest's map): step 0x36c also points an arrow at each of its decorations
         // still to be used (the tile list 0x58c6ec).
         return true;
     }
@@ -396,8 +418,10 @@ bool TaskSubtask::OnHelp(bool arrow) {
             }
             return true;
         }
-        // UNVERIFIED (milestone 4f): an enemy that drops it (EntityManager::GetEntityWithDrop)
-        // gets the arrow first.
+        if (Entity* e = EntityManager::GetEntityWithDrop(value)) {   // somebody who drops it
+            if (arrow) ArrowAtEntity(e);
+            return true;
+        }
         if (Map::Decor* d = Map::GetDecorationWithDrop(value)) {   // a decoration that drops it
             if (arrow) ArrowAtDecor(d);   // (the original also hides GlobalMapWindow, milestone 5)
             return true;
@@ -443,9 +467,23 @@ bool TaskSubtask::OnHelp(bool arrow) {
         if (arrow) ArrowAtDecor(d);
         return true;
     }
-    // UNVERIFIED (milestone 4f): the campaign's people and places.
-    case kTalkToPerson:        // the arrow at the person of spawn point `value` (its tap: walk and talk)
-    case kCompleteCompaign:    // the arrow at the person with a talk task (EntityManager::GetEntityWithTalkTask)
+    case kTalkToPerson: {   // the arrow at the person (its tap: walk there and talk)
+        Entity* e = EntityManager::GetEntityBySpawnPoint(value);
+        if (!e) {
+            std::fprintf(stderr,
+                         "Tasks::TaskSubtask::OnHelp() cannot help with SUBTASK_TALK_TO_PERSON - no spawn point %d\n",
+                         (int)value);
+            return false;
+        }
+        if (arrow) ArrowAtEntity(e);
+        return true;
+    }
+    case kCompleteCompaign: {   // the arrow at whoever has something to say
+        Entity* e = EntityManager::GetEntityWithTalkTask();
+        if (!e) return false;
+        if (arrow) ArrowAtEntity(e);
+        return true;
+    }
     // UNVERIFIED (milestone 4g): the arrow at an enemy (its tap: attack).
     case kKillMob:             // EntityManager::GetNearestEnemyTo(player, value)
     case kKillAllOnMap:        // EntityManager::GetNearestEnemy

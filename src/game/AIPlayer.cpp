@@ -148,8 +148,7 @@ void AIWarrior::RemoveFromJob() {
 void AIWarrior::StopMovement() {
     if (path.empty()) return;
     entity->GetAI()->Reset(true);
-    // UNVERIFIED (milestone 4f): an entity walking its patrol (Entity::IsWalkingOnPatrol) also gets
-    // Entity::OnWalkComplete.
+    if (entity->IsWalkingOnPatrol()) entity->OnWalkComplete();
 }
 
 void AIWarrior::AnimEnded() {
@@ -264,7 +263,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
         // UNVERIFIED (milestone 4h): BuildingHovers::HideWorldDialog(nullptr).
         BuildingHovers::HideArrow();
     }
-    // UNVERIFIED (milestones 4f/4g): the PvP-tutorial steps on an enemy tap (secondTutorial 0x203 ->
+    // UNVERIFIED (milestones 4g/5): the PvP-tutorial steps on an enemy tap (secondTutorial 0x203 ->
     // 0x204, 0x206 -> 0x207, 0x20e -> 0x20f; 0x21a on a boss -> 0x9f) need Entity::IsEnemy/IsBoss;
     // (4c) an entity with a meta expression of type 0x98 (a PvP shadow) starts action 8; (4g) in
     // combat a monster tap selects the target; (4b/4g) a corpse with an item is searched (action 6).
@@ -414,7 +413,7 @@ void AIPlayer::WalkCompleted() {
     ProcessAction();
     entity->GetSquad()->SetReady(entity);
     if (entity->IsRetreating()) {
-        // UNVERIFIED (milestone 4f): while an enemy still has the player in its aggro range
+        // UNVERIFIED (milestone 4g): while an enemy still has the player in its aggro range
         // (EntityManager::IsPlayerInAggroRange) the squad keeps retreating away from it.
         entity->f38 = false;
         entity->SetRetreating(false);
@@ -780,7 +779,7 @@ void AIPlayer::ProcessAction() {
         action = 7;
         return;
     case 7:
-        // UNVERIFIED (milestones 4b/4f): the corpse's item drops by chance (EntityData corpse_drop) and
+        // UNVERIFIED (milestone 4g): the corpse's item drops by chance (EntityData corpse_drop) and
         // the corpse goes.
         break;
     case 8:

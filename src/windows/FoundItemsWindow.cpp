@@ -10,7 +10,7 @@
 // UNVERIFIED (later milestones):
 //  - the PvP arena path (PlayerBattleInOutWindow, 4g; its buttons "Attack again", "Profile",
 //    "Restock", PlayerWeakWindow, PvPArenaCombat restarts) is left out: that window is never shown;
-//  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with Locations (4f);
+//  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with the global map's windows (5);
 //  - RunPostAction's windows (item shop, hire troops: 5; level info: 5) and OnClose's owners
 //    (raid / campaign / boss / chest windows) are named in comments only.
 // PORT (online removed): the share ticks (Shared::ShareButtonsHolder, the Facebook / Twitter
@@ -82,7 +82,7 @@ Textfield* g_tapText = nullptr;        // 0x61f768 text_tap_to_continue (with a 
 float g_pulse = 0.f;                   // 0x61f76c its blink timer
 ItemHoverWindow* g_hover = nullptr;    // 0x61f770
 int g_offsetY = 0;                     // 0x61f774 how far the window sinks below the screen edge
-const void* g_location = nullptr;      // 0x61f778 Locations::LocationInfo* (4f; for the share)
+const void* g_location = nullptr;      // 0x61f778 Locations::LocationInfo* (5; for the share)
 const void* g_task = nullptr;          // 0x61f77c Tasks::TaskInfo* (4c; for the share)
 uint32_t g_boss = 0;                   // 0x61f780 the boss entity (for the share)
 Window* g_shareHolder = nullptr;       // 0x61f784 lvl_up_share_holder (the Ok button)
@@ -326,7 +326,7 @@ void Hide() {
 
 // @0x2b98e4: the loot dialogs it closes with it are RaidCompleteWindow, CampaignPerfectedWindow,
 // CampaignCompleteWindow, BossIntroWindow, BossOutroWindow, ChestOpenedWindow and
-// PlayerBattleInOutWindow (UNVERIFIED, milestones 4f-5: none is ported).
+// PlayerBattleInOutWindow (UNVERIFIED, milestones 4g-5: none is ported).
 void OnClose() { Hide(); }
 
 // @0x2bbf5c (with its tail _INIT_91 @0x2bbf44; the PvP arena's path: see the top of the file)

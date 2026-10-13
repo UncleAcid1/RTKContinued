@@ -878,7 +878,7 @@ void ItemDrop::Collect(bool automatic, bool) {
             ShowTextHoverWithStyle(x, y, text.c_str(), (int)item->itemLevel + 0xe, 2.f, 50.f, false, false);
         }
         // SoundsManager::PlaySound("collect_item", 1, false): sounds are not ported yet.
-        // UNVERIFIED (milestone 4f): on other maps GameState::AddMapItemCollectionInfo (not item 0x88
+        // UNVERIFIED (milestone 5, with the windows that list a map's loot): on other maps GameState::AddMapItemCollectionInfo (not item 0x88
         // in the city tutorial).
         // UNVERIFIED (milestone 4h): item 0x6b at second-tutorial step 0xa0 hides the arrow and moves
         // to 0xa1; item 0x88 at step 0x94 locks the interaction; map 0xb hides the arrow.
@@ -1058,7 +1058,7 @@ void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigne
             // CheckForSpecialDrops (see DropResource). SoundsManager::PlaySound("chest_opened" for
             // type 8, else item_level 0 "item_dropped_light" / "item_dropped_special"): no sounds yet.
             // UNVERIFIED (milestone 4h): tutorial step 0x56 locks the interaction to the drop.
-            // UNVERIFIED (milestone 4f): on map 0xb an arrow callback for the item (FUN_002643e8) and
+            // UNVERIFIED (milestone 5, the emperor's map): on map 0xb an arrow callback for the item (FUN_002643e8) and
             // the first arrow's +0x24.
             return;
         }
@@ -1284,7 +1284,7 @@ void HideWorldDialog(Entity* e) {
         g_worldDialog->OnClose();
         g_worldDialog->Hide();
     }
-    // UNVERIFIED (milestone 4f, PlayerHintHoverWindow): for the hero (or nullptr)
+    // UNVERIFIED (milestone 4g, PlayerHintHoverWindow): for the hero (or nullptr)
     // PlayerTopWindow::HideDialog.
 }
 

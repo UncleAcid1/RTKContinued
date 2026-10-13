@@ -616,9 +616,8 @@ uint32_t TaskInfo::GetFirstLockedTaskInChain(bool skipHidden) const {
 namespace Tasks {
 namespace {
 
-// UNVERIFIED (milestone 4f): EntityManager::GetEntityBySpawnPoint (0x16606c): quest givers and
-// "talk to" persons are entities of spawn points, which the campaign maps bring.
-Entity* EntityBySpawnPoint(uint32_t) { return nullptr; }
+// Quest givers and "talk to" persons are entities of spawn points.
+Entity* EntityBySpawnPoint(uint32_t id) { return EntityManager::GetEntityBySpawnPoint(id); }
 
 // Every non-zero numeric entry of a step's "req_stId" list must be a completed step of the task.
 bool RequiredStepsDone(const TaskInfo* t, const TaskSubtask& s) {
@@ -870,7 +869,7 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
                 std::printf("Tasks::CompleteTask() Cannot show next dialog %d - it was already completed\n", t->postQuest);
             } else {
                 if (next->dialogGiver == 0) {
-                    // UNVERIFIED (milestone 4f, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
+                    // UNVERIFIED (milestone 4g, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
                     // next's pre-quest text, its id, !showButton, showButton).
                 } else {
                     Entity* giver = EntityManager::GetEntityBySpawnPoint(next->dialogGiver);
@@ -1328,7 +1327,7 @@ void Update(bool force) {
         // A pop-up to show: said by its giver, else in the hero's own panel.
         if (t->f_1df) {
             if (t->dialogGiver == 0) {
-                // UNVERIFIED (milestone 4f, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
+                // UNVERIFIED (milestone 4g, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
                 // pre-quest text, id, !showButton, showButton).
             } else if (Entity* giver = EntityManager::GetEntityBySpawnPoint(t->dialogGiver)) {
                 BuildingHovers::ShowWorldDialog(giver, t->preQuest, t->id, false, !t->showButton, false, 0, false, false);

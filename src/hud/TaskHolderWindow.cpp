@@ -3,8 +3,8 @@
 // quick task description line. Port of TaskHolderWindow (libkingdom.so 5.11), 0x354364..0x359d68.
 // HUDWindow::UpdateTasks @0x2c7ba8 is a jump to UpdateTasks here.
 //
-// Not ported, marked where they happen: the campaign / raid / arena state of a task (Locations:
-// milestone 4f; the arena event: milestone 5), the expansion download task 0x5eb (online),
+// Not ported, marked where they happen: the arena event (milestone 5), the expansion download
+// task 0x5eb (online),
 // TaskInfoWindow (4d part 2), BattleBarWindow's quest lines and ExecuteFirstHelp (4d part 4).
 #include <algorithm>
 #include <cmath>
@@ -733,7 +733,7 @@ void Update(float dt) {
     g_scroller.Update(dt);
     g_quick.Update(dt);
     bool newTaskSound = false;
-    // UNVERIFIED (milestone 4f): PlayerTopWindow::IsPlayerDialogVisible also holds the banners back.
+    // UNVERIFIED (milestone 4g): PlayerTopWindow::IsPlayerDialogVisible also holds the banners back.
     bool dialog = BuildingHovers::IsWorldDialogVisible();
     for (int i = 0; i < kCount; ++i) {
         Shared::TaskWindow& w = g_windows[i];

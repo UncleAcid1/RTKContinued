@@ -9,7 +9,7 @@ namespace {
 Render::Sprite* g_land = nullptr;     // +0x2c
 Render::Sprite* g_horizon = nullptr;  // +0x04 (0x611630) the sky strip
 // The mission maps' mountains and front strips (0x611634, 0x611638; CreateLand's mission-map
-// branch, milestone 4f): null in the city.
+// branch, milestone 5 with the raids): null elsewhere.
 Render::Sprite* g_mountains = nullptr;
 Render::Sprite* g_front = nullptr;
 // The farm view (CreateFarm): its ground, the farm's building (and the animal farm's fence) and

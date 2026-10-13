@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-12, 4f in progress (parts 1-4 of campaign maps: see the 4f entry below); 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e done (decoration jobs); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-13, 4f done (campaign maps: locations, spawn points, portals and map travel, fog, NPC talk and dialogs, cameras; see the 4f entry below); 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e done (decoration jobs); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -899,7 +899,7 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    or an expression, so the job flow itself (tap, walk, search, rewards) first runs on a campaign
    map (4f) or in the tutorial (4h). Test it there before trusting it.
    4e IS CLOSED. NEXT: 4f (campaign maps).
-   4f IN PROGRESS (2026-10-12), parts 1-4 committed (3f8d6b9 .. 177df70):
+   4f (2026-10-12/13), parts 1-4 (3f8d6b9 .. 177df70), then 5 and 6:
    - part 1: src/game/Locations.* (locations.xml: campaigns, missions, their maps; the city is
      location 0x400), GameState's map / campaign state (visit, start, end times, completions,
      monster kills, campaign status, map versions), EntityManager::GetEntityByEnemyClassID, and
@@ -958,9 +958,21 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    (spawn points now saved with it; task 1182 completed on load). A copy of that save loads fine;
    a backup copy is in the session scratch dir (realcopy_keep). Always pass --storage AND
    --screenshot; there is no --help.
-   STILL TO DO IN 4f (inventory: 61 functions): ChoosePathWindow (25; Entity::OnTalkTo's 0x1d7
-   and Map::Load's RunShowOnLoad wait for it), CampaignInfoWindow (30; Tasks::HelpWithMapSwitchTo's
-   travel window) with HintHoverWindow (8). Then close 4f: STATUS, roadmap [x].
+   - close-out: ChoosePathWindow, CampaignInfoWindow and HintHoverWindow moved to milestone 5: every
+     ChoosePathWindow answer ends in GlobalMapWindow (Show / ArrowAtMap / SwitchMapAnimated) and
+     CampaignInfoWindow's Start is GlobalMapWindow::SwitchMap, so they are unusable before the
+     global map. Until then travel between maps is by portals only, and the guide's "where to
+     next" talk (special talk 0x1d7) does nothing. Leftover "4f" notes in older code were resolved:
+     done now (Tasks' spawn point lookups, help arrows at portals / talk persons / enemies that
+     drop an item, Decor::TeleportPlayerMap, AIWarrior::StopMovement's patrol end) or relabelled
+     to their real milestone (4g: PlayerTopWindow's dialog, retreat, corpses; 4h: UpdateCityMap's
+     patch blocks; 5: map loot lists, mission backgrounds and timer, the emperor's map).
+   NOT VERIFIED in 4f: a quest played through on a campaign map (talk -> dialog -> task done ->
+   blocked path opens -> portal), which needs the new game start (4h) or combat (4g) to reach
+   naturally; reloading a campaign map from the save (the port still starts in the city whatever
+   map was saved: LoadSavedGame, 4h; a map switch back to a visited map uses the same code but was
+   not run); camera paths and shakes (no test map triggered one); enemy zones (no fight yet).
+   4f IS CLOSED (inventory: 0 functions). NEXT: 4g (combat as used by the campaign).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
@@ -1293,10 +1305,13 @@ Milestones:
               decoration actions (SearchDecoration, ClickedDecoration, AssignToJob, ProcessAction,
               AutoInteraction), SendGoblinToWork, Decor::UpdateOfflineState, Map::OfflineUpdate's
               decoration half, the job parts of DecorationHoverWindow/OnDecorClick.
-       4f [ ] campaign maps: spawn points (LoadSpawnPoints, Save::Spawnpoint, Map::Person), portals
-              (ClickedPortal, map travel, LoadEntitiesFromCopy), fog (Fog), NPCs with meta idle
-              animations and talk tasks, AIEnemy wandering/aggro, PersonHoverWindow,
-              RefreshOfflineGoblins (class 0x10).
+       4f [x] (done 2026-10-13) campaign maps: Locations, spawn points (LoadSpawnPoints,
+              Store/Restore), portals and the map switch (EnqueueLoadMap, ClickedPortal), fog (Fog),
+              NPCs with talk tasks (TalkHoverWindow, OnTalkTo, the world dialog), AIEnemy's aggro
+              zone, scripted cameras, offline goblins, ChapterWindow, the HUD's darkening and map
+              resets. Moved out: the global map's windows (ChoosePath, CampaignInfo,
+              CampaignComplete / Perfected, LoadingScreen) -> 5; CheckAggro, EventManager,
+              PlayerHintHoverWindow, TapHoverWindow -> 4g; LoadEntitiesFromCopy -> online.
        4g [ ] combat as used by the campaign: CombatManager, BaseCombat with EasyCombat/AggroCombat/
               RangeAggroCombat, AIWarrior/AIEnemy fight states, damage (CalcDamage, Hit, Block,
               Death, drops), BattleBarWindow, BeltBarWindow (potions), PlayerBattleInOutWindow, HP

@@ -462,9 +462,7 @@ bool Decor::TeleportAction(unsigned i) {
 
 // @0x1339cc Map::Decor::TeleportPlayerMap
 void Decor::TeleportPlayerMap(int map) {
-    // UNVERIFIED (milestone 4f): unless a map load is queued (Map::IsMapLoadQueued 0x1b5fb8),
-    // Map::EnqueueLoadMap(map, false, true, 0) (0x1b5f7c).
-    (void)map;
+    if (!IsMapLoadQueued()) EnqueueLoadMap(map, false, true, 0.f);
 }
 
 // @0x1339f8 Map::Decor::HandleTeleportTile

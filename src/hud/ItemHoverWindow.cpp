@@ -944,7 +944,7 @@ void ItemHoverWindow::OnEnable() {
             PopupWindow::Show(StringTable::GetString("MAGNIFYING_GLASS_TOWN"), PopupWindow::Hide, nullptr, nullptr);
             return;
         }
-        // UNVERIFIED (milestone 4f): away from the city: CharacterInfoWindow::Hide, the glass is
+        // UNVERIFIED (milestone 5, with CharacterInfoWindow): away from the city: CharacterInfoWindow::Hide, the glass is
         // used up (RemoveUniqueItem), Map::GetDecorationWithAnyDrop -> "MAGNIFYING_GLASS_NONE" or
         // the camera / arrow on that decoration (Fog::IsVisible, Map::AddCameraPoint). Only the city
         // is loaded so far.
@@ -1121,7 +1121,7 @@ void ItemHoverWindow::OnDismiss() { Hide(); }
 void ItemHoverWindow::OnFeed() {
     if (GameState::GetCurrentMapID() == 0xd && !GameState::TaskCompleted(0x771)) {
         unit->AddHP(unit->GetHpMax() - unit->GetHP());
-        // UNVERIFIED (milestones 4f/4h): BuildingHovers::HideWorldDialog(null), HideArrow,
+        // UNVERIFIED (milestone 4h): BuildingHovers::HideWorldDialog(null), HideArrow,
         // BattleBarWindow::UpdateContents, the arrow on decoration (10, 0x12) with its callback
         // (the player's AI +0x58) and Fog::Open there, Tasks::CompleteTask(0x771).
         Hide();

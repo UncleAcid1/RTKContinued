@@ -105,7 +105,7 @@ Render::Sprite* g_frameBorder = nullptr;   // +0xa4 the 8 sprites of the screen 
 
 // The task locator's state.
 bool g_locatorPending = false;        // +0x74 ShowTaskLocaterTo: shows once no window is up
-bool g_locatorGoing = false;          // +0x75 set by Update's once-a-second locator of a campaign map (4f)
+bool g_locatorGoing = false;          // +0x75 set by Update's once-a-second locator of a campaign map
 bool g_quickLocatorForce = false;     // +0x76 SetQuickLocatorForce (the game bot)
 bool g_quickLocator = false;          // +0x7c the target is a quick task's: found at once, without the tap
 int g_targetX = 0, g_targetY = 0;     // +0x8c +0x90 the target in world pixels
@@ -216,7 +216,7 @@ void UpdatePlayerLocator() {
     const int x = (int)player->worldX, y = (int)player->worldY;
     int sx = x, sy = y;
     Map::WorldCoordinatesToScreen(sx, sy);
-    // UNVERIFIED (milestone 4f): PlayerTopWindow::IsPlayerDialogVisible also hides it.
+    // UNVERIFIED (milestone 4g): PlayerTopWindow::IsPlayerDialogVisible also hides it.
     if (GameState::GetCurrentMapID() == 0 || (0 < sx && sx < W && 0x32 < sy && sy <= H + 0x31) ||
         WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible() || GameState::IsTutorial()) {
         g_playerLocator.root->SetVisibility(false);
@@ -243,7 +243,7 @@ void UpdateTaskLocator() {
     int sx = x, sy = y;
     Map::WorldCoordinatesToScreen(sx, sy);
     const bool seen = FogIsVisible(x - 0x1e, y - 0x1e, x + 0x1e, y + 0x1e);
-    // UNVERIFIED (milestone 4f): PlayerTopWindow::IsPlayerDialogVisible also hides it (both branches).
+    // UNVERIFIED (milestone 4g): PlayerTopWindow::IsPlayerDialogVisible also hides it (both branches).
     if (!g_locatorGoing) {
         if (seen || WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible()) {
             g_taskLocator.root->SetVisibility(false);
