@@ -562,4 +562,14 @@ bool IsInMeleeRange(Waypoint* a, Waypoint* b) {
     return false;
 }
 
+// @0xe1e98: the direction from (x1, y1) to (x2, y2) as an angle (3.14 and 6.28 as its pi and 2 pi).
+float GetRadianBetweenPoints(float x1, float y1, float x2, float y2) {
+    double dx = (double)(x1 - x2), dy = (double)(y1 - y2);
+    double d = dx == 0.0 ? 0.009999999776482582 : dx;
+    float a = std::atan(std::fabs((float)(dy / d)));
+    if (dx < 0.0) return dy >= 0.0 ? 3.14f - a : a + 3.14f;
+    if (d >= 0.0 && dy <= 0.0) return 6.27999f - a;
+    return a;
+}
+
 }  // namespace AI

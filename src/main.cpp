@@ -42,6 +42,7 @@
 #include "game/Contracts.h"
 #include "engine/Timer.h"
 #include "game/Combat.h"
+#include "game/Projectile.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/AIState.h"
@@ -688,9 +689,11 @@ int main_Loop_Init() {
     // UNVERIFIED (their milestones): PresentsContainer::LoadPresentPacks "shop_packs.xml" (16/46),
     // Collections::Init "collections.xml" (17/46).
     if (!LoadSystemConfiguration(Tasks::Init, "tasks.xml", "L", "Tasks::Init", 18.0 / 46.0, 0x15, 0x15)) return 1;
-    // UNVERIFIED (their milestones): Professions::Init "professions.xml" (19/46), Chests::Init "chests.xml" (20/46),
-    // ProjectileData::Init "projectiles.xml" (21/46), Tavern::Init "tavern.xml" (22/46) and
-    // Tavern::InitSpecial.
+    // UNVERIFIED (their milestones): Professions::Init "professions.xml" (19/46), Chests::Init "chests.xml" (20/46).
+    if (!LoadSystemConfiguration(ProjectileData::Init, "projectiles.xml", "L", "ProjectileData::Init", 21.0 / 46.0,
+                                 0x18, 0x18))
+        return 1;
+    // UNVERIFIED (milestone 5): Tavern::Init "tavern.xml" (22/46) and Tavern::InitSpecial.
     Render::zoom = Render::GetDefaultZoom();
     // Korean and Japanese use Android's fallback font. PORT: it only exists on Android; without it
     // the game's own font is used (it has no such glyphs; milestone 7).

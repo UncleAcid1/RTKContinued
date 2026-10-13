@@ -92,11 +92,21 @@ dead  @e2efc   # AI::GetNearestReachableWPZeroWeight (recursive form): only Easy
 dead  @1ea1f8  # Projectile::SetOwner(Building*): only Building::DoAttack
 dead  @1ea554  # Projectile::MoveTo(x, y): only Building::DoAttack and Entity::LaunchProjectile
 dead  ^(GameState::GetAvailableSoldierCountByID|EntityManager::(EnumEntitiesByID|GetEnemySoldier)|HUDWindow::SetActiveButton)$   # no caller in 5.11
+dead  ^TargetedAI::(GetClosestReachableWPTo|GetClosestReachableWPToBuilding|GetClosestReachableWPToDecor)$   # vtable +0x40..+0x48: only EasyAI::DoRangedAttackIfReady calls them
 5  @e309c   # AI::GetNearestReachableWPZeroWeight: the arena and async combats' UpdateAttackPosition
 5  ^AI::EnemyInMeleeRange$   # only ArenaCombat::WaitingForContinue
 5  ^(CmdIgnoreDamage|CmdDebugCombat|CmdGodMode|CmdAddSoldier)$   # EditorConsole commands (the admin mode)
 5  ^GameState::AddSoldiersToSquad$   # only HireTroopsWindow
 online  ^GameState::GetBIS$   # only PvP::GetBISItems
+
+# ---- moved out of 4g while porting it (2026-10-13) ----
+5  ^AIWarrior::(StartedMagicAttackArea|FindEpicenterPos|StartedMagicAttack|MagicDeath|MagicBlock|MagicHit|MagicAttackAreaFinished|MagicAttack|MagicAttackArea)$   # the fighters' side of spells (with Spells / AISpell)
+5  ^AIPlayer::PlayBuffAnimation$   # a buff's particles and cast animation (spells, potions' effects)
+5  ^BaseCombat::(SwitchToBossFight|SwitchToArenaFight|SwitchToPvPArenaFight)$   # hand the fight to BossCombat / ArenaCombat / PvPArenaCombat
+5  ^TaskInfoWindow::(SkipBossTask|OnFight)$   # the boss form of the quest window
+5  ^PlayerBattleInOutWindow::   # the PvP arena's versus intro / outro (Map::Load for an opponent's map, Entity::OnDeath in a PvP fight, FoundItemsWindow's arena branches)
+util  ^App::   # the App singleton's accessors: the port's managers are namespaces
+util  ^AIWarrior::FUN_000f3b4c$   # std::string::find
 
 4g  ^AIEnemy::CheckAggro$   # starts the AggroCombat (GameState::SetCombat, Entity::OnAggro, the boss task window)
 4g  ^EventManager::   # timed combat events (Entity::DoMeleeAttack / DoRangedAttack, Building::ProjectileLanded)

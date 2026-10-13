@@ -418,6 +418,6 @@ public:
     bool movingSquad = false;           // +0xf8 a tap is moving the squad (UnableToWalk retries)
 };
 
-// AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,
+// @0xf1f08 AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,
 // 5 AIFarmerBig, 6 AIPatch, 7 AIGoblin, 8 AIFarmerSmall, 9 AIEnemy, 10 AISpell, 11 AIPlayerBot.
 AIBaseState* CreateAIState(int state, Entity* e);

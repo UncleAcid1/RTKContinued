@@ -18,6 +18,7 @@
 #include "game/Locations.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Projectile.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
@@ -80,7 +81,7 @@ Entity::~Entity() {
         // (EntityManager::AssertNoReferencesToSquad @0x165510 is empty)
     }
     if (player) g_removingPlayer = false;
-    // UNVERIFIED (milestone 4g): the projectile (+0x1ac) is deleted here.
+    delete projectile;
     glow = Render::RemoveSprite(glow);
     if (data && ownsData) delete data;
     data = nullptr;
@@ -275,7 +276,18 @@ void Entity::Update(float dt) {
         Render::SetAlpha(sprite, alpha);
     }
     if (greyed && sprite) Render::SetShaderType(sprite, 3);
-    // UNVERIFIED (milestone 4): the player's squad update, ConsumeHpOverlimit and projectiles.
+    if (player) {
+        if (squad) squad->Update(dt);
+        ConsumeHpOverlimit(true);
+    }
+    if (projectile) {
+        if (!projectile->HasLanded()) {
+            projectile->Update(dt);
+        } else {
+            delete projectile;
+            projectile = nullptr;
+        }
+    }
     if (ai) ai->Update(dt);
     if (anim) {
         if (anim->anim) anim->Update(dt * speedScale);

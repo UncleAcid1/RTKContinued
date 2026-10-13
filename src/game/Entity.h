@@ -21,6 +21,7 @@ class BaseSquad;
 struct SpawnPoint;
 class MetaExpression;
 class MetaData;
+class Projectile;
 namespace Tags { struct Tag; }
 
 class Entity {
@@ -295,6 +296,7 @@ public:
     void OnDying(Entity* attacker);              // @0x15d28c the death animation starts
     void OnDeath(Entity* attacker);              // @0x153388 the death animation ended
     void OnProjectileFired(Entity* target, int kind);   // @0x15da30
+    void ProjectileLanded();                     // @0x150c70
     // PORT: the next value (0..0x7fff) of the generator PrepareForSetup seeds (0x6119c8); the drops
     // and the broken gear draw from it too.
     static unsigned NextSetupRandom();
@@ -401,6 +403,7 @@ public:
     bool removeSpriteOnEnd = false;  // +0x1a8
     bool walkAwayOnEnd = false;      // +0x1a9
     bool f1aa = true;                // +0x1aa
+    Projectile* projectile = nullptr;   // +0x1ac its arrow in flight
     int overrideAttack = 0, overrideDefense = 0;   // +0x1bc +0x1c0
     uint32_t uniqueId = 0;           // +0x1c4
 };

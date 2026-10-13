@@ -19,6 +19,7 @@
 #include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Projectile.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/SpawnPoint.h"
@@ -498,8 +499,16 @@ void Entity::OnDeath(Entity* attacker) {
 
 // @0x15da30: its arrow flies to `target`; when it lands the target's AI gets ProjectileLanded(kind).
 void Entity::OnProjectileFired(Entity* target, int kind) {
-    // UNVERIFIED (4g part 2, with Projectile): the Projectile (+0x1ac), its AI's state 0x23 and the
-    // bow sound. Until then the outcome lands at once.
-    (void)target;
-    if (GetAttackRanged() > 0 && target) target->GetAI()->ProjectileLanded(kind);
+    delete projectile;
+    projectile = nullptr;
+    if (GetAttackRanged() <= 0) return;
+    projectile = new Projectile(0, kind);
+    projectile->SetOwner(this);
+    projectile->MoveTo(target);
+    ai->ChangeState(0x23);
+    // SoundsManager::PlaySound("battle_attack_soldier_bow1" / "..2") for a "skinny" "archer":
+    // milestone 6.
 }
+
+// @0x150c70: its own arrow has landed. (An AISiegeAttacker is told too: dead in 5.11.)
+void Entity::ProjectileLanded() { ChangeState(0); }
