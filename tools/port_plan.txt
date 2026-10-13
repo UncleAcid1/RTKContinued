@@ -76,6 +76,28 @@ dead  ^GameState::GetBuildingCount$   # only BuildingMovement::Click's warehouse
 dead  ^Locations::ReportLocationTaskState$   # a debug print with no caller
 online  ^GameState::GiveAllChaptersTillCompleted$   # tells Android which downloadable chapter packs to fetch (FileManager::SetChapterNow, JNI)
 
+# ---- the unfinished siege ("Easy") combat: dead in 5.11 (found at the start of 4g, 2026-10-13) ----
+# Nothing constructs CombatManager, SiegeCombat, AISiegeAttacker or AIWarrior_v2 (no call of their
+# constructors in the disassembly; AIStateFactory has no case for them), so GameState::g_Combat is
+# always null and everything only they reach is dead. Checked with the call graph of out/asm_all.txt.
+dead  ^(CombatManager|EasyCombat|EasyAI|SiegeCombat|AISiegeAttacker|AIWarrior_v2|EventManager|Squad)::   # the siege system and its timed events; Squad (0x225de0..) is its squad, not PlayerSquad
+dead  ^Entity::(UpdateRangedAttackXY|IsEntityInRange|IsBuildingInRange|OnAttackedBy|AddAttacker|RemoveAttacker|GetClosestWPTo|IsInMeleeRangeWith|IsRangedUnit|IsMeleeUnit|ReceiveDamage|CalcDamage|DoRangedAttack|DoMeleeAttack|Die|OnHitByEnemy|ShowHitParticles|OnHitLanded|LaunchProjectile|GetCenterWorldXY)$   # only EasyAI / SiegeCombat / the towers' attack call them
+dead  ^Entity::(SetFuryBonus|SetAdditiveDamage|GetBAT)$   # no caller in 5.11
+dead  ^Map::Building::(IsDestroyed|OnAttackedBy|IsEntityInRange|OnCoolDown|GetCenterWorldXY|OnEnemyMoved|OnEnemyDied|CheckAggroRange|RemoveParticles|DoAttack|GetCenterPoint|RemoveAttacker|AddAttacker|ProjectileLanded|CreateParticles|UpdateDamageParticles|ReceiveDamage|OnHitByEnemy|Destroy)$   # towers shoot only while g_Combat is set (Building::Update); damage only from EasyAI / SiegeCombat
+dead  ^Map::Decor::(Destroy|OnHitByEnemy)$   # only EasyAI / SiegeCombat
+dead  ^AI::(IsInMeleeRangeWithBuildZone|IsInMeleeAttackRange)$   # only Entity::IsInMeleeRangeWith (dead)
+dead  @e414c   # AI::IsInMeleeRange(Entity, Building): only Entity::IsInMeleeRangeWith
+dead  @e41f0   # AI::IsInMeleeRange(Entity, Decor): only Entity::IsInMeleeRangeWith
+dead  @e2efc   # AI::GetNearestReachableWPZeroWeight (recursive form): only EasyAI
+dead  @1ea1f8  # Projectile::SetOwner(Building*): only Building::DoAttack
+dead  @1ea554  # Projectile::MoveTo(x, y): only Building::DoAttack and Entity::LaunchProjectile
+dead  ^(GameState::GetAvailableSoldierCountByID|EntityManager::(EnumEntitiesByID|GetEnemySoldier)|HUDWindow::SetActiveButton)$   # no caller in 5.11
+5  @e309c   # AI::GetNearestReachableWPZeroWeight: the arena and async combats' UpdateAttackPosition
+5  ^AI::EnemyInMeleeRange$   # only ArenaCombat::WaitingForContinue
+5  ^(CmdIgnoreDamage|CmdDebugCombat|CmdGodMode|CmdAddSoldier)$   # EditorConsole commands (the admin mode)
+5  ^GameState::AddSoldiersToSquad$   # only HireTroopsWindow
+online  ^GameState::GetBIS$   # only PvP::GetBISItems
+
 4g  ^AIEnemy::CheckAggro$   # starts the AggroCombat (GameState::SetCombat, Entity::OnAggro, the boss task window)
 4g  ^EventManager::   # timed combat events (Entity::DoMeleeAttack / DoRangedAttack, Building::ProjectileLanded)
 util  ^Locations::FUN_001b2494$   # the location vector's reallocation helper (std::vector in the port)
