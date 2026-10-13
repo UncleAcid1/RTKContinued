@@ -719,6 +719,7 @@ int main_Loop_Init() {
     LandWindow::Queue();
     LevelUpWindow::Queue();
     NeedItemWindow::Queue();
+    HealSquadWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();

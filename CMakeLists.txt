@@ -93,6 +93,7 @@ add_executable(rtk
   src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
+  src/windows/HealSquadWindow.cpp
   src/windows/NeedItemWindow.cpp
   src/windows/TaskCompleteWindow.cpp
   src/windows/TaskInfoWindow.cpp

@@ -4,12 +4,7 @@
 
 namespace BeltBarWindow { void UpdateContents() {} }
 namespace BottomBattleWindow {
+void Hide() {}
 void EnableNet(uint32_t) {}
 uint32_t GetNetTargetSpawnID() { return 0; }
-}
-namespace HealSquadWindow {
-void Show() {}
-bool IsVisible() { return false; }
-void SetAttacker(Entity*) {}
-void ResetRecentDeaths() {}
 }

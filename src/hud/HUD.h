@@ -1,6 +1,7 @@
 // The city HUD: HUDWindow (the driver) and its panels. Each panel is a set of static functions behind
 // a WindowManager::FunctionalWindow, as on the original.
 #pragma once
+#include <functional>
 #include <cstdint>
 
 namespace WindowManager { class FunctionalWindow; }
@@ -79,14 +80,21 @@ void UpdateContents();               // @0x24a750
 }
 namespace BeltBarWindow { void UpdateContents(); }         // (0x24dc20)
 namespace BottomBattleWindow {
+void Hide();                         // (0x2536e0)
 void EnableNet(uint32_t spawnId);    // (0x2577d4) the taming net's button, for a dying monster
 uint32_t GetNetTargetSpawnID();      // (0x253c1c)
 }
+// The "Heal Hero" window (windows/HealSquadWindow.cpp).
 namespace HealSquadWindow {
-void Show();                         // (0x2cd1d8)
-bool IsVisible();                    // (0x2c9f10)
-void SetAttacker(Entity* e);         // (0x2c9efc)
-void ResetRecentDeaths();           // (0x2c9f6c)
+WindowManager::FunctionalWindow* Queue();
+void Init();                         // @0x2cd3c0
+void Show();                         // @0x2cd1d8 (not in the arenas)
+void Hide();                         // @0x2cafa0
+void UpdateContents();               // @0x2cb3ec
+bool IsVisible();                    // @0x2c9f10
+void SetAttacker(Entity* e);         // @0x2c9efc who felled the hero
+void SetHealPostAction(std::function<void()> cb);   // @0x2c9f28 run when it closes with him alive
+void ResetRecentDeaths();            // @0x2c9f6c
 }
 
 namespace BattleBarWindow {

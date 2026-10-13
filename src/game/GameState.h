@@ -85,10 +85,9 @@ void UpdateHPRegen(float dt);                  // @0x19203c
 int GetTimeTillNextHP();                       // @0x190f14 seconds
 int GetVirtualHP();                            // @0x190f30 HP regenerated while he lay dead in a fight
 void ResetVirtualHP();                         // @0x190f44
-// PORT (freemium removal, user decision 2026-10-13): seconds per regenerated HP. The original's
-// rate (Entity::GetHPRegeneration, 180 s per HP) is kept during a fight; outside one a full bar
-// takes at most 4 minutes.
-float HpRegenSeconds(const Entity* player, bool inFight);
+// PORT (freemium removal, user decision 2026-10-13): seconds per regenerated HP. A full bar takes
+// at most 4 minutes (the original: Entity::GetHPRegeneration seconds per point, 3 to 5 minutes each).
+float HpRegenSeconds(const Entity* player);
 // The loot collected per map (FoundItemsWindow lists it when a map is left or finished).
 void AddMapItemCollectionInfo(uint32_t map, uint32_t id, int amount);
 void AddMapResourceCollectionInfo(uint32_t map, int type, int amount);

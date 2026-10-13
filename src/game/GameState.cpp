@@ -784,7 +784,7 @@ void SetupPlayerRegenerationState() {
     if (!player) return;
     // PORT: the rate is HpRegenSeconds (at most 4 minutes for a full bar) instead of
     // Entity::GetHPRegeneration's whole seconds.
-    double regen = HpRegenSeconds(player, false);
+    double regen = HpRegenSeconds(player);
     if (mHPTS == 0) mHPTS = (uint32_t)std::floor((double)Timer::GetGlobalTime() - (double)player->GetHpMax() * regen);
     int elapsed = Timer::GetGlobalTime() - (int)mHPTS;
     int hp = (int)std::floor((double)elapsed / regen);
@@ -808,9 +808,11 @@ void SetupPlayerRegenerationState() {
 void UpdatePlayerRegenerationState() {
     Entity* player = EntityManager::GetPlayer();
     if (!player) return;
-    double regen = HpRegenSeconds(player, false);   // PORT: see SetupPlayerRegenerationState
+    double regen = HpRegenSeconds(player);   // PORT: see SetupPlayerRegenerationState
     mHPTS = (uint32_t)std::floor((double)Timer::GetGlobalTime() - (double)player->GetHP() * regen);
-    if (mNextHP == 0.f) mNextHP = HpRegenSeconds(player, IsCombatActive());
+    // PORT: a wait started at the slower rate is cut to the current one (he has just fallen).
+    float rate = HpRegenSeconds(player);
+    if (mNextHP == 0.f || mNextHP > rate) mNextHP = rate;
 }
 uint32_t GetBeltItemAt(unsigned slot) { return g_belt[slot]; }
 
@@ -1798,9 +1800,9 @@ bool IsArenaCombatActive() { return g_currentCombat && g_currentCombat->GetType(
 bool IsPvPCombatActive() { return g_currentCombat && g_currentCombat->GetType() > 5; }
 bool IsVirtualTutorial() { return (unsigned)(secondTutorial - 0x200) < 0x1c; }
 
-float HpRegenSeconds(const Entity* player, bool inFight) {
+float HpRegenSeconds(const Entity* player) {
     float original = (float)player->GetHPRegeneration();
-    if (inFight || player->GetHpMax() < 1) return original;
+    if (player->GetHpMax() < 1) return original;
     return std::min(original, 240.f / (float)player->GetHpMax());
 }
 
@@ -1823,7 +1825,7 @@ void UpdateHPRegen(float dt) {
     if (mNextHP > 0.f) return;
     if (!IsCombatActive() || player->GetHP() != 0) player->AddHP(1);
     else ++g_virtualHealth;
-    mNextHP = player->GetHP() < player->GetHpMax() ? HpRegenSeconds(player, IsCombatActive()) : 0.f;
+    mNextHP = player->GetHP() < player->GetHpMax() ? HpRegenSeconds(player) : 0.f;
 }
 
 int GetTimeTillNextHP() { return (int)mNextHP; }
