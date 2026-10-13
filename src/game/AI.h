@@ -81,6 +81,7 @@ Waypoint* GetRandomFreeWPRect(int w, int h, int x, int y);
 // @0xe3af4: the nearest free waypoint on the four diagonals from (x, y), up to 10 steps (the third
 // argument is unused).
 Waypoint* GetNearestWPFromNonWP(int x, int y, Waypoint* unused);
+bool IsInMeleeRange(Waypoint* a, Waypoint* b);   // @0xe42c4 within the 3x3 tiles around a
 Waypoint* GetRandomWaypointInRange(int x, int y, int range, int inner, bool weightOne, Entity* e, bool reachable);
 
 }  // namespace AI

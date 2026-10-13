@@ -326,8 +326,8 @@ void AIBaseState::Reset(bool idle) {
     path.clear();
     linked = nullptr;
     ChangeState(0);
-    f98 = f84 = f80 = f88 = 0.f;
-    f9c = 1;
+    lastHpTimer = hitTimer = deathTimer = blockTimer = 0.f;
+    deathDamage = 1;
     if (idle) entity->SetAnimationP("idle_1", true, false, false);
     entity->SetPos(entity->tileX, entity->tileY);
     UpdateLastTarget();

@@ -67,14 +67,28 @@ int TutorialStep();
 int SecondTutorialStep();                      // GameState::secondTutorial
 bool IsCityTutorial();                         // @0x190af4
 int GetTutorialType();                         // @0x19067c (0x6129d4, saved in chunk 0x3d)
-// GameState::currentCombat (milestone 4g creates combats; until then it is always null).
+// The running fight (GameState::currentCombat, Combat.h). It is updated by GameState::Update and
+// deleted by EndActiveCombat.
 BaseCombat* GetActiveCombat();                 // @0x191050
 inline bool IsCombatActive() { return GetActiveCombat() != nullptr; }   // @0x190f74
-// @0x190f90: a combat whose type (vfunc +0x50) is above 2 is running. UNVERIFIED (milestone 4): no
-// combats are ported (GameState::currentCombat is always null), so it is false.
-inline bool IsBossCombatActive() { return false; }
-// @0x190fd0: an arena combat (type above 4) is running.
-bool IsArenaCombatActive();
+void SetCombat(BaseCombat* c);                 // @0x191ee0 (the PvP arena: no HP over-limit)
+// @0x191f10: the fight is deleted (end: BaseCombat::EndCombat first); the HP over-limit may be used again.
+void EndActiveCombat(bool end);
+bool IsBossCombatActive();                     // @0x190f90 its type is above 2 (boss, arena)
+bool IsArenaCombatActive();                    // @0x190fd0 above 4
+bool IsPvPCombatActive();                      // @0x191010 above 5
+bool IsVirtualTutorial();                      // @0x190b68 second-tutorial steps 0x200..0x21b
+extern int mBossSpawnID;                       // GameState::mBossSpawnID (boss fights: milestone 5)
+extern uint32_t mReturnMapID;                  // GameState::mReturnMapID the map a boss / arena fight was entered from
+// The hero's HP comes back by itself, one at a time (mNextHP counts down to the next).
+void UpdateHPRegen(float dt);                  // @0x19203c
+int GetTimeTillNextHP();                       // @0x190f14 seconds
+int GetVirtualHP();                            // @0x190f30 HP regenerated while he lay dead in a fight
+void ResetVirtualHP();                         // @0x190f44
+// PORT (freemium removal, user decision 2026-10-13): seconds per regenerated HP. The original's
+// rate (Entity::GetHPRegeneration, 180 s per HP) is kept during a fight; outside one a full bar
+// takes at most 4 minutes.
+float HpRegenSeconds(const Entity* player, bool inFight);
 // The loot collected per map (FoundItemsWindow lists it when a map is left or finished).
 void AddMapItemCollectionInfo(uint32_t map, uint32_t id, int amount);
 void AddMapResourceCollectionInfo(uint32_t map, int type, int amount);

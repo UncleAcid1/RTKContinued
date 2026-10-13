@@ -41,6 +41,7 @@
 #include "game/StringTable.h"
 #include "game/Contracts.h"
 #include "engine/Timer.h"
+#include "game/Combat.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/AIState.h"
@@ -213,6 +214,7 @@ const char* QueueName(WindowManager::WindowQueue* q) {
 // camera step (the camera tween, not ported, and ApplyViewportLimit), UpdateTagState and DestroyPendingWindows;
 // its drawing is Render::Frame.
 void Tick(float dt) {
+    if (!GameState::IsPaused()) GameState::UpdateHPRegen(dt);
     GameState::Update(dt);
     GameState::UpdateOfflineBuildings(dt);
     GameState::UpdateOfflineGoblins(dt);
@@ -231,6 +233,12 @@ void Tick(float dt) {
     if (!GameState::IsPaused()) {
         Entity::SetCurrentTime((uint32_t)Timer::GetGlobalTime());
         EntityManager::Update(dt);
+        // The running fight; a finished one is deleted here. (The battle-map music returns a few
+        // seconds later: milestone 6.)
+        if (GameState::IsCombatActive()) {
+            if (!GameState::GetActiveCombat()->IsCompleted()) GameState::GetActiveCombat()->Update(dt);
+            else GameState::EndActiveCombat(false);
+        }
         Map::Update(dt);
     }
     Render::ApplyViewportLimit();

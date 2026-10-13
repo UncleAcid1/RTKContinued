@@ -4,7 +4,7 @@
 // AIWorker (@0xf7d28..0xf8a60) and AIStateFactory::CreateNewState.
 //
 // Virtual functions are in the original's vtable order (slot offsets in the comments). Slots
-// +0x88..+0xc0 (attacks, hits, magic) are the combat interface (milestone 4g) and are not declared.
+// +0x88..+0xc0 and +0xcc are the combat interface: AIWarrior's attacks, hits, blocks and deaths.
 #pragma once
 #include <string>
 #include <vector>
@@ -18,6 +18,7 @@ namespace Render { struct Sprite; struct Texture; }
 class Entity;
 class HiddenObjects;
 namespace Map { struct Building; struct Decor; }
+namespace Spells { struct SpellInfo; }
 struct Portal;
 
 class BaseAI {
@@ -76,7 +77,7 @@ public:
     bool HasEntity(Entity* e) override;               // +0x10 @0xe83a0
     virtual void Update(float dt);                    // +0x4c @0xe9010
     virtual void ClickedEntity(Entity*) {}            // +0x50 @0xe81ec
-    virtual void ClickedTile(int, int, int, int) {}   // +0x54
+    virtual void ClickedTile(int, int, int, int) {}   // +0x54 @0xe81f0
     virtual void ClickedPortal(Portal*) {}            // +0x58 @0xe81f4
     virtual void ClickedDecoration(Map::Decor*) {}    // +0x5c @0xe81f8
     virtual void SearchDecoration(Map::Decor*) {}     // +0x60 @0xe81fc
@@ -89,18 +90,37 @@ public:
     virtual void TurnTo(AI::Waypoint* wp);            // +0x7c @0xe8498
     virtual void TurnTo(int x, int y, int tx, int ty);  // +0x80 @0xe83d0
     virtual void TurnTo(int x, int y, int bx, int by, int w, int h);  // +0x84 @0xe97f8
+    // The combat interface. `delay` > 0 arms a timer (AIWarrior::Update) that calls the same
+    // function again with 0 when the attacker's swing lands.
+    virtual void StartedAttack(Entity*) {}            // +0x88 @0xe8204
+    virtual void StartedMagicAttack(Entity*) {}       // +0x8c @0xe8208
+    virtual void StartedMagicAttackArea(AI::Waypoint*) {}   // +0x90 @0xe820c
+    virtual void AddedToCombat() {}                   // +0x94 @0xe8210
+    virtual void RemovedFromCombat() {}               // +0x98 @0xe8214
+    virtual void Attack(bool) {}                      // +0x9c @0xe8218
+    virtual void MagicAttack(Spells::SpellInfo*) {}   // +0xa0 @0xe821c
+    virtual void MagicAttackArea(Spells::SpellInfo*) {}   // +0xa4 @0xe8220
+    virtual void MagicAttackAreaFinished() {}         // +0xa8 @0xe8224
+    virtual void Hit(float) {}                        // +0xac @0xe8228
+    virtual void MagicHit(float, bool, float, bool, unsigned) {}     // +0xb0 @0xe822c
+    virtual void Block(float) {}                      // +0xb4 @0xe8230
+    virtual void MagicBlock(float, bool, float, bool, unsigned) {}   // +0xb8 @0xe8234
+    virtual void Death(float) {}                      // +0xbc @0xe8238
+    virtual void MagicDeath(float, bool, float, bool, unsigned) {}   // +0xc0 @0xe823c
     virtual void ChangeState(int s) { state = s; }    // +0xc4 @0xe8384
-    virtual void AnimEnded() {}                       // +0xc8
+    virtual void AnimEnded() {}                       // +0xc8 @0xe8240
+    // +0xcc @0xe8244: its attacker's projectile reached it (0 hit, 1 death, 2 block).
+    virtual void ProjectileLanded(int) {}
     virtual void ClearPath() { path.clear(); }        // +0xd0 @0xe8394
     virtual void Reset(bool idle);                    // +0xd4 @0xe898c
-    virtual void WalkCompleted() {}                   // +0xd8
-    virtual void PositionChanged() {}                 // +0xdc
+    virtual void WalkCompleted() {}                   // +0xd8 @0xe8248
+    virtual void PositionChanged() {}                 // +0xdc @0xe824c
     virtual void StartTraining() {}                   // +0xe0 @0xe8250
-    virtual void UnableToWalk(int, int) {}            // +0xe4
-    virtual void Retreat() {}                         // +0xe8
+    virtual void UnableToWalk(int, int) {}            // +0xe4 @0xe8254
+    virtual void Retreat() {}                         // +0xe8 @0xe8258
     virtual int GetFutureDirection();                 // +0xec @0xe82d8
     virtual int GetState() { return state; }          // +0xf0 @0xe838c
-    virtual void Clean() {}                           // +0xf4
+    virtual void Clean() {}                           // +0xf4 @0xe825c
     virtual void SpeedUp(int) {}                      // +0xf8 @0xe8260
     virtual bool SpeedUpProcess() { return false; }   // +0xfc @0xe8264
     // +0x100 @0xe826c: a farmer works order `contract` (0-based) on soil patch `patch`.
@@ -119,20 +139,26 @@ public:
     virtual int GetFarmPatchNum() { return 0; }       // +0x130 @0xe82ac
     virtual void SetFarmPatchNum(unsigned) {}         // +0x134 @0xe82b4
     virtual void ResetOrder(Map::Building*) {}        // +0x138 @0xe82b8
-    virtual void RemoveActionMarker() {}              // +0x13c
-    virtual void StopMovement() {}                    // +0x140
+    virtual void RemoveActionMarker() {}              // +0x13c @0xe82bc
+    virtual void StopMovement() {}                    // +0x140 @0xe82c0
     virtual void AutoInteraction() {}                 // +0x144 @0xe82c4
-    virtual void CheckAggro() {}                      // +0x148
+    virtual void CheckAggro() {}                      // +0x148 @0xe82c8
+    // +0x14c @0xe82cc: the waypoint of its aggro zone the hero has stopped on (AIEnemy), if any.
+    virtual AI::Waypoint* IsPlayerInAggroRange() { return nullptr; }
     virtual void OnMapUnload() {}                     // +0x150 @0xe82d4
     virtual void UpdateWalking(float dt, int depth);  // +0x154 @0xe8a24
 
     void SetCustomWalkAnimation(const char* name) { walkAnim = name; }   // @0xe9b88
     void SetCustomIdleAnimation(const char* name, int first, int last);  // @0xe9df0
 
-    Entity* linked = nullptr;     // +0x68 (HasEntity)
+    Entity* linked = nullptr;     // +0x68 the other fighter of its attack (HasEntity)
     bool arrived = false;         // +0x70 reached a waypoint this update
-    float f80 = 0.f, f84 = 0.f, f88 = 0.f, f98 = 0.f;   // +0x80 +0x84 +0x88 +0x98
-    int f9c = 1;                  // +0x9c
+    // Combat timers (AIWarrior::Update): each runs from its delay down past 0 at 1.8 per second.
+    float deathTimer = 0.f;       // +0x80 -> Death(0)
+    float hitTimer = 0.f;         // +0x84 -> Hit(0)
+    float blockTimer = 0.f;       // +0x88 -> Block(0)
+    float lastHpTimer = 0.f;      // +0x98 the killing blow lands: the hit sound, HP 1
+    int deathDamage = 1;          // +0x9c the HP the killing blow takes (the number shown)
     int state = 0;                // +0xa0
     float fa4 = 1.f;              // +0xa4
     std::string walkAnim;         // +0xa8 custom walk animation ("walk" when empty)
@@ -296,15 +322,25 @@ public:
 
 // The soldier (class 10) and the base of the hero's AI: walks with the squad ("run", 239.4 for
 // soldiers, 180 for others), reports to its squad when it arrives, trains at a city building.
-// Port of AIWarrior (@0xf208c..0xf4b78, vtable 0x6072a0). Its combat slots (+0x88..+0xcc: attacks,
-// hits, blocks, deaths, projectiles) and the combat timers in Update come with milestone 4g.
+// Port of AIWarrior (@0xf208c..0xf4b78, vtable 0x6072a0). In a fight BaseCombat calls StartedAttack
+// and Attack on the attacker; Attack rolls block / hit / death and tells the target's AI, which
+// plays it when the swing lands. The magic slots come with the spells (milestone 5).
 class AIWarrior : public AIBaseState {
 public:
     explicit AIWarrior(Entity* e);                    // @0xf39dc
     using AIBaseState::WalkTo;
     void Update(float dt) override;                   // +0x4c @0xf3660
     void WalkTo(int x, int y) override;               // +0x6c @0xf2328
+    void StartedAttack(Entity* target) override;      // +0x88 @0xf35cc
+    void AddedToCombat() override;                    // +0x94 @0xf27c8
+    void RemovedFromCombat() override;                // +0x98 @0xf2760
+    // +0x9c @0xf4b78: turns to the target, swings, gives the hero fury and rolls the outcome.
+    void Attack(bool forceBlock) override;
+    void Hit(float delay) override;                   // +0xac @0xf4400
+    void Block(float delay) override;                 // +0xb4 @0xf2c54
+    void Death(float delay) override;                 // +0xbc @0xf27d0
     void AnimEnded() override;                        // +0xc8 @0xf48c4
+    void ProjectileLanded(int kind) override;         // +0xcc @0xf2144
     void WalkCompleted() override;                    // +0xd8 @0xf240c
     void StartTraining() override;                    // +0xe0 @0xf2550 swings at its workplace (state 0x1e)
     void AssignToJob(Map::Building* b) override;      // +0x104 @0xf26cc walks to the work tile (state 0x1d)
@@ -315,7 +351,7 @@ public:
     float f74 = 1.f;              // +0x74 (magic hit argument)
     bool f78 = true, f79 = false; // +0x78 +0x79
     int f7c = 0;                  // +0x7c
-    float f8c = 0.f, f90 = 0.f, f94 = 0.f;   // +0x8c +0x90 +0x94 (combat timers with +0x80..+0x98)
+    float f8c = 0.f, f90 = 0.f, f94 = 0.f;   // +0x8c +0x90 +0x94 the magic death / hit / block timers
 };
 
 // A monster or a guard of a campaign map (AI state 9; AIEnemy @0xea184..0xea860). It keeps the
@@ -329,8 +365,9 @@ public:
     void Update(float dt) override;                   // +0x4c @0xea694
     void UpdateAggroZone() override;                  // +0x64 @0xea370
     void PositionChanged() override { UpdateAggroZone(); }   // +0xdc @0xea184
-    // +0x14c @0xea204: the zone waypoint the hero has stopped on, if any.
-    AI::Waypoint* IsPlayerInAggroRange();
+    // +0x148 @0xea444: the hero stands in its zone and it can reach him: the fight starts.
+    void CheckAggro() override;
+    AI::Waypoint* IsPlayerInAggroRange() override;    // +0x14c @0xea204
     void DebugZone(AI::Waypoint* wp);                 // @0xea2ac a red mark on a zone waypoint
 
     std::vector<AI::Waypoint*> zone;      // +0xe0

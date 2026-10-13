@@ -782,11 +782,13 @@ uint32_t GetItemAcquirementTime(uint32_t id) {
 void SetupPlayerRegenerationState() {
     Entity* player = EntityManager::GetPlayer();
     if (!player) return;
-    if (mHPTS == 0) mHPTS = (uint32_t)(Timer::GetGlobalTime() - player->GetHpMax() * player->GetHPRegeneration());
+    // PORT: the rate is HpRegenSeconds (at most 4 minutes for a full bar) instead of
+    // Entity::GetHPRegeneration's whole seconds.
+    double regen = HpRegenSeconds(player, false);
+    if (mHPTS == 0) mHPTS = (uint32_t)std::floor((double)Timer::GetGlobalTime() - (double)player->GetHpMax() * regen);
     int elapsed = Timer::GetGlobalTime() - (int)mHPTS;
-    int regen = player->GetHPRegeneration();
-    int hp = (int)std::floor((float)elapsed / (float)regen);
-    mNextHP = (float)(regen - elapsed % regen);
+    int hp = (int)std::floor((double)elapsed / regen);
+    mNextHP = (float)(regen - std::fmod((double)elapsed, regen));
     if (player->GetHpMax() < hp) {
         hp = player->GetHpMax();
         mNextHP = 0.f;
@@ -806,8 +808,9 @@ void SetupPlayerRegenerationState() {
 void UpdatePlayerRegenerationState() {
     Entity* player = EntityManager::GetPlayer();
     if (!player) return;
-    mHPTS = (uint32_t)(Timer::GetGlobalTime() - player->GetHP() * player->GetHPRegeneration());
-    if (mNextHP == 0.f) mNextHP = (float)player->GetHPRegeneration();
+    double regen = HpRegenSeconds(player, false);   // PORT: see SetupPlayerRegenerationState
+    mHPTS = (uint32_t)std::floor((double)Timer::GetGlobalTime() - (double)player->GetHP() * regen);
+    if (mNextHP == 0.f) mNextHP = HpRegenSeconds(player, IsCombatActive());
 }
 uint32_t GetBeltItemAt(unsigned slot) { return g_belt[slot]; }
 
@@ -1768,13 +1771,64 @@ Entity* GetFriendPlayer() {
 void SetSoldierReserveSlots(unsigned n) { SoldierPool::SetFreeSlotsCount(n); }
 unsigned GetSoldierReserveSlots() { return SoldierPool::GetTotalSlotsFree(); }
 
-BaseCombat* GetActiveCombat() { return nullptr; }   // UNVERIFIED (milestone 4g): currentCombat
-
-// @0x190fd0
-bool IsArenaCombatActive() {
-    BaseCombat* c = GetActiveCombat();
-    return c && c->GetType() > 4;
+namespace {
+BaseCombat* g_currentCombat = nullptr;   // GameState::currentCombat
+int g_virtualHealth = 0;                 // 0x613458 GameState::mVirtualHealth
 }
+int mBossSpawnID = 0;
+uint32_t mReturnMapID = 0;
+
+BaseCombat* GetActiveCombat() { return g_currentCombat; }
+
+void SetCombat(BaseCombat* c) {
+    g_currentCombat = c;
+    if (IsPvPCombatActive()) Entity::SetupPlayerHPOverlimit(false, false);
+}
+
+void EndActiveCombat(bool end) {
+    if (!g_currentCombat) return;
+    if (end) g_currentCombat->EndCombat();
+    delete g_currentCombat;
+    g_currentCombat = nullptr;
+    Entity::SetupPlayerHPOverlimit(false, true);
+}
+
+bool IsBossCombatActive() { return g_currentCombat && g_currentCombat->GetType() > 2; }
+bool IsArenaCombatActive() { return g_currentCombat && g_currentCombat->GetType() > 4; }
+bool IsPvPCombatActive() { return g_currentCombat && g_currentCombat->GetType() > 5; }
+bool IsVirtualTutorial() { return (unsigned)(secondTutorial - 0x200) < 0x1c; }
+
+float HpRegenSeconds(const Entity* player, bool inFight) {
+    float original = (float)player->GetHPRegeneration();
+    if (inFight || player->GetHpMax() < 1) return original;
+    return std::min(original, 240.f / (float)player->GetHpMax());
+}
+
+void UpdateHPRegen(float dt) {
+    Entity* player = EntityManager::GetPlayer();
+    // The HP that came back while he lay dead in a fight is his once he is up (or the fight over).
+    bool deadInFight = IsCombatActive() && player->GetHP() == 0;
+    if (!deadInFight && g_virtualHealth != 0) {
+        player->AddHP(g_virtualHealth);
+        g_virtualHealth = 0;
+    }
+    if (IsArenaCombatActive()) return;
+    if (GetCurrentMapID() == 0x70) return;
+    if (!(mNextHP > 0.f)) return;
+    if (player->GetHP() >= player->GetHpMax()) {
+        mNextHP = 0.f;
+        return;
+    }
+    mNextHP -= dt;
+    if (mNextHP > 0.f) return;
+    if (!IsCombatActive() || player->GetHP() != 0) player->AddHP(1);
+    else ++g_virtualHealth;
+    mNextHP = player->GetHP() < player->GetHpMax() ? HpRegenSeconds(player, IsCombatActive()) : 0.f;
+}
+
+int GetTimeTillNextHP() { return (int)mNextHP; }
+int GetVirtualHP() { return g_virtualHealth; }
+void ResetVirtualHP() { g_virtualHealth = 0; }
 
 // @0x1ad2c4 Items::ItemData::IsBroken
 bool PlayerItem::IsBroken() const { return info && info->durability != 0 && f0c == 0; }

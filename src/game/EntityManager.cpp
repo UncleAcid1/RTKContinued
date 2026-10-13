@@ -7,8 +7,10 @@
 
 #include "engine/Render.h"
 #include "engine/Timer.h"
+#include "game/AI.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
+#include "game/Combat.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
@@ -245,16 +247,21 @@ void Clean(bool keepPlayer) {
 }
 
 void Update(float dt) {
-    // UNVERIFIED (milestone 4): the active combat's update (+0x88) runs first.
-    for (size_t i = 0; i < g_entities.size(); ++i)
-        if (g_entities[i]->IsActive()) g_entities[i]->Update(dt);
+    // The fighters (hero, soldiers, monsters) run at the fight's speed.
+    float mult = GameState::IsCombatActive() ? GameState::GetActiveCombat()->GetCombatTimeMult() : 1.f;
+    for (size_t i = 0; i < g_entities.size(); ++i) {
+        Entity* e = g_entities[i];
+        if (!e->IsActive()) continue;
+        int clas = e->GetEntityData()->clas;
+        e->Update(clas == 10 || clas == 5 || clas == 9 ? mult * dt : dt);
+    }
     if (!GameState::IsPaused()) {
         for (size_t i = 0; i < g_entities.size(); ++i) {
             Entity* e = g_entities[i];
             if (e->IsActive() && e->GetAI()) e->GetAI()->CheckAggro();
         }
     }
-    // UNVERIFIED (milestone 4): Entity::UpdateSafePos on the player.
+    Entity::UpdateSafePos(GetPlayer());
     for (size_t i = 0; i < g_entities.size();) {
         Entity* e = g_entities[i];
         if (e->NeedRemove()) {
@@ -424,6 +431,74 @@ void AssignSoldiersToPlayerSquad() {
 void GetPlayerAndSoldiers(std::vector<Entity*>& out) {
     for (Entity* e : g_entities)
         if (e->GetEntityData()->clas == 10 || e->GetEntityData()->clas == 5) out.push_back(e);
+}
+
+}  // namespace EntityManager
+
+// ----------------------------------------------------------------------------- enemies (combat)
+namespace EntityManager {
+
+namespace {
+bool Alive(Entity* e) { return e->IsActive() && !e->IsDead(); }
+bool NpcSpawn(Entity* e) { return e->GetSpawnPoint() && e->GetSpawnPoint()->npc; }
+// The nearer of best and e to `to` (best when equally far).
+Entity* Nearer(Entity* best, Entity* e, const Entity* to) {
+    if (!best) return e;
+    float bx = best->worldX - to->worldX, by = best->worldY - to->worldY;
+    float ex = e->worldX - to->worldX, ey = e->worldY - to->worldY;
+    return by * by + bx * bx <= ey * ey + ex * ex ? best : e;
+}
+}  // namespace
+
+Entity* GetEnemy() {
+    for (Entity* e : g_entities)
+        if (Alive(e) && e->IsEnemy()) return e;
+    return nullptr;
+}
+
+Entity* GetNearestEnemy(Entity* to, bool noBoss, bool reachable) {
+    Entity* best = nullptr;
+    for (Entity* e : g_entities) {
+        if (!Alive(e) || !e->IsEnemy() || (noBoss && e->IsBoss())) continue;
+        if (reachable) {
+            AI::Waypoint* wp = AI::GetWaypoint(e->tileX, e->tileY, false);
+            if (!wp || !GetPlayer()->GetAI()->SetTarget(wp, true)) continue;
+        }
+        best = Nearer(best, e, to);
+    }
+    return best;
+}
+
+Entity* GetNearestEnemyTo(Entity* to, uint32_t id) {
+    Entity* best = nullptr;
+    for (Entity* e : g_entities) {
+        if (!Alive(e) || e->GetEntityData()->id != id || NpcSpawn(e)) continue;
+        best = Nearer(best, e, to);
+    }
+    return best;
+}
+
+Entity* GetNearestEnemyWithClassTo(Entity* to, uint32_t enemyClass) {
+    if (enemyClass == 0x49 && GameState::GetCurrentMapID() == 0x74) return nullptr;
+    Entity* best = nullptr;
+    for (Entity* e : g_entities) {
+        if (!Alive(e) || (uint32_t)e->GetEntityData()->enemyClass != enemyClass || NpcSpawn(e)) continue;
+        if (e->GetSquad() && e->GetSquad() == to->GetSquad()) continue;
+        best = Nearer(best, e, to);
+    }
+    return best;
+}
+
+Entity* GetEnemyAtXY(int x, int y) {
+    for (Entity* e : g_entities)
+        if (e->GetEntityData()->clas == 9 && Alive(e) && e->tileX == x && e->tileY == y) return e;
+    return nullptr;
+}
+
+Entity* IsPlayerInAggroRange() {
+    for (Entity* e : g_entities)
+        if (Alive(e) && e->GetAI() && e->GetAI()->IsPlayerInAggroRange()) return e;
+    return nullptr;
 }
 
 }  // namespace EntityManager

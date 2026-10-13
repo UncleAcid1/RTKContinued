@@ -1,0 +1,505 @@
+// Entity: the fight side. Damage (OnHit, WillDie), blocks, dying and death (drops, gold and
+// experience, quest steps, the dead hero's broken gear), the belt orbs' bonuses, aggro.
+// Port of the combat functions of Entity (libkingdom.so 5.11, @0x14ffb4..0x15e7ac).
+#include <cstdio>
+
+#include "engine/IconManager.h"
+#include "engine/Render.h"
+#include "engine/Timer.h"
+#include "game/AIState.h"
+#include "game/Animation.h"
+#include "game/BuildingHovers.h"
+#include "game/Combat.h"
+#include "game/Entity.h"
+#include "game/EntityData.h"
+#include "game/EntityManager.h"
+#include "game/GameState.h"
+#include "game/Items.h"
+#include "game/Locations.h"
+#include "game/Map.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
+#include "game/Rand48.h"
+#include "game/Setting.h"
+#include "game/SpawnPoint.h"
+#include "game/Squad.h"
+#include "game/StringTable.h"
+#include "game/Tasks.h"
+#include "gui/GUI.h"
+#include "hud/HUD.h"
+#include "windows/Windows.h"
+
+namespace {
+
+bool g_deathAnimation = false;       // 0x6119ac a boss is dying: the game waits for it
+Entity* g_dyingBoss = nullptr;       // 0x6119d0
+float g_dyingBossTime = 0.f;         // 0x6119d4
+
+// The attacker's damage before bonuses: its magic attack if it has one, else ranged, else melee.
+int BaseDamage(const Entity* attacker) {
+    int d = attacker->GetAttackMelee();
+    if (attacker->GetAttackRanged() > 0) d = attacker->GetAttackRanged();
+    if (attacker->GetAttackMagic() > 0) d = attacker->GetAttackMagic();
+    return d;
+}
+
+// e's absorption against the attacker's kind of attack (0 for an attacker without any attack).
+int Absorb(const Entity* e, const Entity* attacker) {
+    if (attacker->GetAttackMagic() > 0) return e->GetAbsorbMagic();
+    if (attacker->GetAttackRanged() > 0) return e->GetAbsorbRanged();
+    if (attacker->GetAttackMelee() > 0) return e->GetAbsorbMelee();
+    return 0;
+}
+
+// A drop of `count` items: on the ground next to e, or (collect: boss and arena fights) straight
+// into the map's collection.
+void Drop(Entity* e, uint32_t item, bool collect) {
+    if (collect) GameState::AddMapItemCollectionInfo(GameState::GetCurrentMapID(), item, 1);
+    else BuildingHovers::DropItem(e->worldX, e->worldY, Items::GetItemInfo(item), 0, 1);
+}
+
+int Int(const MetaData* d, unsigned i) { return d->GetChild(i)->GetInt(); }
+
+// One line of "items_drop" / "starN_items": item=chance:count[:every]. With `every` the item drops
+// on every every-th kill of this monster instead of by chance (chance out of `scale`).
+void DropByChance(Entity* e, uint32_t item, int chance, int scale, int count, const MetaData* params, bool collect) {
+    int every = params->GetChildrenCount() < 3 ? 0 : Int(params, 2);
+    if (every == 0) {
+        for (int i = 0; i < count; ++i)
+            if ((int)(Entity::NextSetupRandom() % (unsigned)scale) < chance) Drop(e, item, collect);
+        return;
+    }
+    int kills = (int)GameState::GetMonsterKilledCount(e->GetEntityData()->id);
+    if (kills > 0 && (unsigned)kills % (unsigned)every == 0)
+        for (int i = 0; i < count; ++i) Drop(e, item, collect);
+}
+
+// The belt's active orbs: the sum of `value` over them. With `use` each orb that counted loses a
+// charge and is used up at its last (its price is added to the fight's spent money).
+int OrbBonus(Entity* e, int (Items::ItemInfo::*value)() const, bool use) {
+    if (!e->OrbsCanBeUsed()) return 0;
+    int sum = 0;
+    for (unsigned slot = 0; slot < GameState::GetBeltSlotCount(); ++slot) {
+        Items::ItemInfo* info = Items::GetItemInfo(GameState::GetBeltItemAt(slot));
+        if (!info || GameState::GetBeltItemActivationTimeAt(slot) == 0 || GameState::GetItemAmount(info->id, true) == 0)
+            continue;
+        int v = (info->*value)();
+        sum += v;
+        if (v == 0 || !use) continue;
+        GameState::PlayerItem* it = GameState::GetFirstItemByID(GameState::GetBeltItemAt(slot), true);
+        ++it->f0c;
+        if (it->f0c >= (uint32_t)info->GetUseCount()) {
+            if (BaseCombat* c = GameState::GetActiveCombat()) c->AddSpentMoney((int)info->cost, (int)info->cost2);
+            GameState::RemoveUniqueItem(it->uniqueId);
+        }
+        BeltBarWindow::UpdateContents();
+    }
+    return sum;
+}
+
+}  // namespace
+
+bool Entity::IsDeathAnimationRunning() { return g_deathAnimation; }
+
+void Entity::SetItemDrop(MetaData* drop) {
+    delete data->itemsDrop;
+    data->itemsDrop = drop;
+}
+
+void Entity::SetWarriorCost(int v) { data->warriorCost = v; }
+
+int Entity::GetDamage() const {
+    int d = attackRanged < 1 ? attackMelee : attackRanged;
+    return attackMagic < 1 ? d : attackMagic;
+}
+
+void Entity::SetAggro(int range) {
+    if (!spawnPoint) spawnPoint = new SpawnPoint();
+    spawnPoint->aggroRange = range;
+}
+
+int Entity::GetInitiative(int level) const {
+    if (level == 0) return initiative;
+    if (!player) {
+        int d = std::abs(data->level - level);
+        if (d == 2) return (int)((float)initiative * 1.25f);
+        if (d == 3) return (int)((float)initiative * 1.5f);
+        if (d > 3) return (int)((float)initiative * 1.75f);
+    } else {
+        int d = std::abs(GameState::GetLevel() - level);
+        if (d == 2) return (int)((float)initiative * 0.75f);
+        if (d == 3) return (int)((float)initiative * 0.5f);
+        if (d > 3) return (int)((float)initiative * 0.3f);
+    }
+    return initiative;
+}
+
+void Entity::ShowGlowAnimation() {
+    glow = Render::RemoveSprite(glow);
+    float x = (float)(int)sprite->x, y = (float)(int)sprite->y;
+    glow = Render::CreateSprite(IconManager::GetIcon("Pickup_item_glow", false), 8, false, false);
+    Render::SetShaderType(glow, 8);
+    Render::SetPosition(glow, x, y, sprite->z + 0.001f);
+    glowAlpha = 0.f;
+    glowTime = 1.25f;
+    Render::SortRenderLayer(8, 1);
+}
+
+bool Entity::IsBoss() const {
+    MetaExpression* m = GetMetaExpression();
+    return m && m->FindChildData(0x86) != nullptr;
+}
+
+void Entity::OnAggro() {
+    int sx = (int)worldX, sy = (int)worldY;
+    Map::WorldCoordinatesToScreen(sx, sy);
+    if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
+        Render::CenterOn(worldX, worldY);   // (animated over 0.4 s on the original)
+    std::printf("Entity::OnAggro() - %d\n", (int)data->id);
+    if (workplaceDecor) {
+        workplaceDecor->ReturnCost();
+        workplaceDecor->RemoveWorker();
+    }
+    f38 = true;
+    if (player) BuildingHovers::HideWorldDialog(nullptr);
+}
+
+void Entity::OnAddedToCombat() {
+    f36 = true;
+    RemovePatrol();
+    if (GameState::tutorial == 0xb || GameState::tutorial == 0xd) BuildingHovers::HideArrow();
+    BuildingHovers::Update(0.f, true);
+}
+
+void Entity::OnRemovedFromCombat() {
+    if (anim) anim->mult = 1.f;
+    f36 = false;
+    f38 = false;
+    f1aa = true;
+}
+
+bool Entity::OrbsCanBeUsed() {
+    Entity* p = EntityManager::GetPlayer();
+    if (p == this) return true;
+    if (SquadUsesOrbs() && GetSquad()) return p == GetSquad()->GetOwner();
+    return false;
+}
+
+int Entity::GetItemAttackHealthReturn(bool use) { return OrbBonus(this, &Items::ItemInfo::GetAttackHealthReturn, use); }
+int Entity::GetItemCriticalChanceBonus(bool use) { return OrbBonus(this, &Items::ItemInfo::GetCriticalChanceBonus, use); }
+int Entity::GetItemDamageAbsorption(bool use) { return OrbBonus(this, &Items::ItemInfo::GetDamageAbsorption, use); }
+int Entity::GetItemDamageBoost(bool use) { return OrbBonus(this, &Items::ItemInfo::GetDamageBoost, use); }
+
+int Entity::GetCritChance() { return critChance + f8c + GetItemCriticalChanceBonus(true); }
+
+void Entity::OnBlock(Entity* attacker) {
+    attacker->GetItemDamageBoost(true);
+    // SoundsManager::PlaySound: "battle_block_player" (entities 0xc, 0xd), "battle_block_soldier"
+    // (final class 10), else "battle_block_monster": milestone 6.
+}
+
+bool Entity::WillDie(Entity* attacker) {
+    int damage = attacker ? BaseDamage(attacker) : 0;
+    if (f15c) damage <<= 1;
+    if (!attacker) damage -= GetItemDamageAbsorption(false);
+    else damage = (attacker->GetItemDamageBoost(false) + damage) - GetItemDamageAbsorption(false) - Absorb(this, attacker);
+    if (damage < 0) damage = 0;
+    if (player) {
+        if (hp <= damage && GameState::IsTameTutorial()) damage = 0;
+        if (HpOverlimitConsumable()) return (hp - damage) + ffc < 1;
+    }
+    return hp - damage < 1;
+}
+
+// The side effects of any lost HP: the HUD's bars, and for a monster hit outside a boss fight its
+// gold and experience start to spill (a share by the HP lost, each with an even chance per hit;
+// the spawn point remembers what already dropped, OnDeath gives the rest).
+void Entity::Hit() {
+    if (player) GameState::UpdatePlayerRegenerationState();
+    BattleBarWindow::OnDamage(this);
+    PlayerTopWindow::OnDamage(this);
+    HUDWindow::OnDamage(this);
+    bool bossFight = GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 2;
+    if (GameState::secondTutorial <= 0x82 || GameState::IsFirstVirtualTutorial() || GameState::IsTameTutorial() ||
+        bossFight || !data || data->clas != 9 || !spawnPoint || spawnPoint->npc)
+        return;
+    if (GetHP() >= GetHpMax()) return;
+    uint32_t map = GameState::GetCurrentMapID();
+    int stars = Locations::GetMissionStarCount(map, 0);
+    float goldMult = Locations::GetMapGoldMult(map, (uint32_t)stars);
+    float xpMult = Locations::GetMapXPMult(map, (uint32_t)stars);
+    float starMult = Setting("raid_star_gold_mult").GetChild((unsigned)stars).GetFloat();
+    float xpAll = (float)(int)(xpMult * (float)data->xp * 0.4f);
+    float lost = (float)(GetHpMax() - GetHP()) / (float)(GetHpMax() - 1);
+    float goldAll = (float)(int)(goldMult * (float)data->warriorCost * starMult * 0.4f);
+    int gold = (int)(goldAll * lost - (float)spawnPoint->f40);
+    int xp = (int)(xpAll * lost - (float)spawnPoint->f44);
+    if (gold > 0 && Rand48::lrand48() % 100 > 0x32) {
+        BuildingHovers::DropResource(worldX, worldY, 8, (unsigned)gold, false, false);
+        spawnPoint->f40 += gold;
+    }
+    if (xp > 0 && Rand48::lrand48() % 100 > 0x32) {
+        BuildingHovers::DropResource(worldX, worldY, 10, (unsigned)xp, false, false);
+        spawnPoint->f44 += xp;
+    }
+    // SoundsManager::PlaySound("item_dropped_light") when either amount was above 0: milestone 6.
+}
+
+int Entity::OnHit(Entity* attacker, int* absorbed) {
+    // (Entity::PlayHitSound(attacker): milestone 6. The arena bot and the combat test keep a
+    // non-enemy at 50 HP: milestone 5 / the admin mode.)
+    int damage = attacker ? BaseDamage(attacker) : 0;
+    if (f15c) damage <<= 1;
+    if (!attacker) {
+        int a = GetItemDamageAbsorption(true);
+        damage -= a;
+        *absorbed = a;
+    } else {
+        if (int back = attacker->GetItemAttackHealthReturn(false)) attacker->AddHP(back);
+        int boost = attacker->GetItemDamageBoost(true);
+        *absorbed = GetItemDamageAbsorption(true);
+        damage = (boost + damage) - *absorbed;
+        int a = Absorb(this, attacker);
+        *absorbed += a;
+        damage -= a;
+    }
+    if (player && damage >= hp && GameState::IsTameTutorial()) return 0;
+    if (damage < 1) return 0;
+    if (IsEnemy() && GameState::IsPvPCombatActive()) Tasks::CompleteSubtask(Tasks::kDealDamage, 1, damage);
+    // In a boss or arena fight of the second tutorial (steps 0x8a..0x9f) soldiers take no damage.
+    if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 2 &&
+        GameState::secondTutorial > 0x89 && GameState::secondTutorial < 0xa0 && data && data->clas == 10)
+        damage = 0;
+    hp -= damage;
+    if (hp < 1) {
+        ConsumeHpOverlimit(false);
+        if (hp < 1) hp = 1;
+    }
+    Hit();
+    return damage;
+}
+
+void Entity::OnDying(Entity* attacker) {
+    // SoundsManager::PlaySound: the hero's, the soldier's (fat / skinny, male / female) or the
+    // monster's death sound (EntityData::GetSoundDeath, else "battle_death_monster"): milestone 6.
+    if ((data->clas == 10 || player) && GameState::IsCombatActive()) GameState::GetActiveCombat()->Pause(this);
+    if (IsBoss()) {
+        Render::CenterOn(worldX, worldY);   // (animated over 0.4 s on the original)
+        g_dyingBossTime = 0.f;
+        g_dyingBoss = this;
+        g_deathAnimation = true;
+        GUI::SetInteractionLock(true);
+    }
+    if (IsEnemy()) {
+        dying = true;
+        speedScale = 1.f;
+    }
+    actuallyDying = true;
+    // An enemy killed by magic of an attacker with "spell_fx" dissolves
+    // (Particles::DesintegrateImageParticleSystem, its sprite goes transparent): milestones 5-6.
+    (void)attacker;
+}
+
+void Entity::OnDeath(Entity* attacker) {
+    if (IsEnemy()) dying = false;
+    actuallyDying = false;
+    // The overkill damage: how badly the dead hero's gear breaks.
+    int penalty = attacker ? BaseDamage(attacker) : 1;
+    if (f15c) penalty <<= 1;
+    if (!attacker) {
+        penalty -= GetItemDamageAbsorption(true);
+    } else {
+        if (int back = attacker->GetItemAttackHealthReturn(false)) attacker->AddHP(back);
+        int boost = attacker->GetItemDamageBoost(true);
+        penalty = (boost + penalty) - GetItemDamageAbsorption(true) - Absorb(this, attacker);
+    }
+    hp = 0;
+    if (player) GameState::UpdatePlayerRegenerationState();
+    BattleBarWindow::OnDamage(this);
+    PlayerTopWindow::OnDamage(this);
+    HUDWindow::OnDamage(this);
+    Render::ChangeLayer(sprite, 6);
+
+    // In a boss or arena fight the drops go to the map's collection (shown when the fight ends).
+    bool collect = false, theBoss = false;
+    if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() >= 3) {
+        collect = true;
+        theBoss = this == GameState::GetActiveCombat()->GetEnemySquad()->GetOwner();
+    }
+    if (!theBoss) {
+        Tasks::CompleteSubtask(Tasks::kKillMob, data->id, 1);
+        Tasks::CompleteSubtask(Tasks::kKillSpawn, GetSpawnPointID(), 1);
+        if (!player && !(GetSquad() && GetSquad()->GetOwner() && GetSquad()->GetOwner()->player))
+            Tasks::CompleteSubtask(Tasks::kKillEnemyClass, (uint32_t)data->enemyClass, 1);
+    }
+
+    // Its quest drops: (task, item, count) once the task is done (0x90), else until it is done
+    // (0x91), else the plain (item, count) list (0x3e).
+    if (MetaExpression* meta = GetMetaExpression()) {
+        bool dropped = false;
+        for (int kind : {0x90, 0x91}) {
+            const MetaData* d = dropped ? nullptr : meta->FindChildData(kind);
+            if (!d) continue;
+            for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+                const MetaData* c = d->GetChild(i);
+                if (GameState::TaskCompleted((unsigned)Int(c, 0)) != (kind == 0x90)) continue;
+                for (int n = 0; n < Int(c, 2); ++n) Drop(this, (uint32_t)Int(c, 1), collect);
+                dropped = true;
+            }
+        }
+        const MetaData* d = dropped ? nullptr : meta->FindChildData(0x3e);
+        if (d) {
+            for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+                const MetaData* c = d->GetChild(i);
+                if (c->GetChild(0)->type != 1) continue;
+                for (int n = 0; n < Int(c, 1); ++n) Drop(this, (uint32_t)Int(c, 0), collect);
+            }
+        }
+    }
+
+    // "items_drop": item=chance:count[:every], the chance in percent with two decimals.
+    if (const MetaData* d = data->itemsDrop) {
+        for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+            const MetaData* c = d->GetChild(i);
+            if (c->GetChild(0)->type != 1) {
+                std::printf("ERROR: Entity::OnDeath() Entity %d has incorrect item drop configuration - no item ID\n",
+                            (int)data->id);
+                continue;
+            }
+            const MetaData* p = c->GetChild(1);
+            if (p->GetChild(0)->type != 1 || p->GetChild(1)->type != 1) {
+                std::printf("ERROR: Entity::OnDeath() Entity %d has incorrect item drop configuration\n", (int)data->id);
+                continue;
+            }
+            int chance = (int)(0.5f + p->GetChild(0)->GetFloat() * 100.f);
+            DropByChance(this, (uint32_t)Int(c, 0), chance, 10000, Int(p, 1), p, collect);
+        }
+    }
+
+    // The mission's star drops ("star1_items".. by the map's stars; the arena: by its difficulty).
+    uint32_t map = collect ? GameState::mReturnMapID : GameState::GetCurrentMapID();
+    uint32_t stars = (uint32_t)Locations::GetMissionStarCount(map, 0);
+    if (GameState::IsArenaCombatActive()) stars = GameState::GetEventDifficulty(2);
+    if (const MetaData* d = data->starItems[stars > 1 ? 2 : stars]) {
+        for (unsigned i = 0; i < d->GetChildrenCount(); ++i) {
+            const MetaData* c = d->GetChild(i);
+            const MetaData* p = c->GetChild(1);
+            DropByChance(this, (uint32_t)Int(c, 0), Int(p, 0), 100, Int(p, 1), p, collect);
+        }
+    }
+
+    // A monster's gold ("warrior_cost") and experience, less what its hits already spilled.
+    if (data && data->clas == 9 && (!spawnPoint || !spawnPoint->npc)) {
+        GameState::MonsterKilled(data->id);
+        float goldMult = Locations::GetMapGoldMult(map, stars);
+        float xpMult = Locations::GetMapXPMult(map, stars);
+        int gold = (int)(goldMult * (float)data->warriorCost * Setting("raid_star_gold_mult").GetChild(stars).GetFloat());
+        if (collect) {
+            GameState::AddMapResourceCollectionInfo(GameState::GetCurrentMapID(), 8, gold);
+            GameState::AddMapResourceCollectionInfo(GameState::GetCurrentMapID(), 10, (int)data->xp);
+        } else if (GameState::secondTutorial < 0x83 || GameState::IsVirtualTutorial() || GameState::IsTameTutorial()) {
+            GameState::ChangeResourceAmount(8, data->warriorCost);
+            GameState::ChangeResourceAmount(10, (int)data->xp);
+        } else if (spawnPoint) {
+            gold -= spawnPoint->f40;
+            if (gold > 0) BuildingHovers::DropResource(worldX, worldY, 8, (unsigned)gold, false, false);
+            int xp = (int)(xpMult * (float)data->xp) - spawnPoint->f44;
+            if (xp > 0) BuildingHovers::DropResource(worldX, worldY, 10, (unsigned)xp, false, false);
+            // SoundsManager::PlaySound("item_dropped_light") when anything dropped: milestone 6.
+        }
+    }
+
+    if (player) {
+        // Each of the ten worn items may lose "death_penalty" durability: the chance is the overkill
+        // (capped to the table) times "repair_chance_to_break"[overkill] percent.
+        if (penalty < 0) penalty = 0;
+        for (unsigned slot = 0; slot < 10; ++slot) {
+            Setting table("repair_chance_to_break");
+            if ((int)table.GetChildrenCount() <= penalty) penalty = (int)table.GetChildrenCount() - 1;
+            int roll = (int)(NextSetupRandom() % 100);
+            int chance = table.GetChild((unsigned)penalty).GetInt();
+            if (roll >= penalty * chance) continue;
+            GameState::PlayerItem* it = GameState::GetItemAt(slot);
+            if (!it || it->f0c == 0) continue;
+            uint32_t loss = it->info->deathPenalty;
+            it->f0c = loss < it->f0c ? it->f0c - loss : 0;
+        }
+        CharacterInfoWindow::UpdateContents();
+        // UNVERIFIED (milestone 5): the PvP arena's defeat (PvP::GetPlayerInfoByGID,
+        // PlayerBattleInOutWindow's outro) and map 0x70's BossIntroWindow (reputation 1 in the
+        // arena, 2 outside) replace the heal window; those two tell the combat (Pause, PlayerDied).
+        if (attacker) {
+            HealSquadWindow::Show();
+            HealSquadWindow::SetAttacker(attacker);
+        }
+        greyed = true;
+    }
+
+    if (data->clas == 10) {
+        // A dead soldier leaves the squad (not in the PvP arena, type 6); an ordinary one is gone
+        // for good.
+        if (!GameState::IsCombatActive() || GameState::GetActiveCombat()->GetType() != 6) {
+            EntityManager::GetPlayer()->GetSquad()->RemoveSoldier(this);
+            if (!IsEliteSoldier()) temporary = true;
+        }
+        if (GameState::IsCombatActive() && GameState::IsTaskStarted(0x3d3) && !GameState::IsArenaCombatActive())
+            BuildingHovers::ShowTextHoverWithStyle(worldX, worldY, StringTable::GetString("WARRIOR_DIED"), 0xe, 4.f,
+                                                   25.f, true, false);
+        // The first soldier lost: the "hire soldiers" quest and its hint.
+        if (!GameState::TaskCompleted(0x3d3) && !GameState::IsArenaCombatActive()) {
+            GameState::StartTask(0x3d3);
+            Tasks::Update(true);
+            HUDWindow::UpdateTasks();
+            HUDWindow::RemoveTaskArrows();
+            BattleBarWindow::LaunchFirstDeathHelper();
+            BuildingHovers::ShowWorldDialog(EntityManager::GetPlayer(), StringTable::GetString("hint_first_warrior_death"),
+                                            0, false, false, false, 0, false, false);
+            if (!GameState::IsTaskStarted(0x4d7) && GameState::GetTaskBeginTime(0x4d7) == 0 &&
+                GameState::GetTaskEndTime(0x4d7) == 0 && !Tasks::IsTaskActive(0x4db, true) &&
+                !Tasks::IsTaskActive(0x4d9, true) && !Tasks::IsTaskActive(0x4da, false))
+                GameState::StartTask(0x4d7);
+        }
+    }
+
+    if (!EntityManager::GetEnemy()) Tasks::CompleteSubtask(Tasks::kKillAllOnMap, GameState::GetCurrentMapID(), 1);
+    if (spawnPoint) {
+        ++spawnPoint->f50;
+        spawnPoint->deathTime = (uint32_t)Timer::GetGlobalTime();
+    }
+    uint32_t spawnId = GetSpawnPointID();
+    if ((spawnId == 0x2d5 || (spawnId == 0x450 && GameState::GetMapCompletionCount(0x6d) == 0)) &&
+        GameState::GetItemRecentTime(0x2b6) == 0)
+        BuildingHovers::DropItem(worldX, worldY, Items::GetItemInfo(0x2b6), 0, 1);
+
+    // The tutorials' fights.
+    if (GameState::tutorial == 0xb) GameState::tutorial = 0xc;
+    else if (GameState::tutorial == 0xd) GameState::tutorial = 0xe;
+    int& st = GameState::secondTutorial;
+    if (st == 0x8e) {
+        st = 0x8f;
+    } else if (st == 0x91) {
+        BuildingHovers::DropItem(worldX, worldY, Items::GetItemInfo(0x88), 0, 1);
+        st = 0x92;
+    } else if (st == 0x204) {
+        st = 0x205;
+    } else if (st == 0x207) {
+        Entity* hero = EntityManager::GetPlayer();
+        if (Entity* next = EntityManager::GetNearestEnemy(hero, false, false)) {
+            AIBaseState* heroAI = hero->GetAI();
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([heroAI, next] { heroAI->ClickedEntity(next); }));
+            BuildingHovers::ArrowAt(next->worldX + 20.f, next->worldY + next->GetIdleHeight() * -0.5f, false, true, false,
+                                    false, false, false, false);
+        }
+        st = 0x208;
+    } else if (st == 0x20f) {
+        st = 0x210;
+    }
+}
+
+// @0x15da30: its arrow flies to `target`; when it lands the target's AI gets ProjectileLanded(kind).
+void Entity::OnProjectileFired(Entity* target, int kind) {
+    // UNVERIFIED (4g part 2, with Projectile): the Projectile (+0x1ac), its AI's state 0x23 and the
+    // bow sound. Until then the outcome lands at once.
+    (void)target;
+    if (GetAttackRanged() > 0 && target) target->GetAI()->ProjectileLanded(kind);
+}

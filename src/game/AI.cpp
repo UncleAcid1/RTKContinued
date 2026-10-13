@@ -540,4 +540,26 @@ Waypoint* GetNearestWPFromNonWP(int x, int y, Waypoint*) {
     return nullptr;
 }
 
+// @0xe42c4: b is one of the nine waypoints of the 3x3 block of tiles around a (itself included).
+bool IsInMeleeRange(Waypoint* a, Waypoint* b) {
+    int x = a->x, y = a->y;
+    if (std::abs(y) & 1) ++x;
+    int row = y - 2;
+    if ((y - 1) % 2 != 1) --x;
+    for (;;) {
+        int xx = x, yy = row;
+        for (;;) {
+            if (b == GetWaypoint(xx, yy, false)) return true;
+            if (yy % 2 == 1) ++xx;
+            if (yy == row + 2) break;
+            ++yy;
+        }
+        if (std::abs(row) & 1) ++x;
+        if (row == y) break;
+        --x;
+        ++row;
+    }
+    return false;
+}
+
 }  // namespace AI

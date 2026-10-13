@@ -68,6 +68,18 @@ void GotoMarkerAt(int tx, int ty) {
     g_markerTime = 1.5f;
 }
 
+// The attack marker on a tile (AIPlayer::ClickedEntity): three quarters of its size, layer 7.
+void AttackMarkerAt(int tx, int ty) {
+    Map::TileCoordinatesToWorld(tx, ty);
+    Render::RemoveSprite(g_marker);
+    Render::Sprite* s = Render::CreateSprite(IconManager::GetPlayerMarkerAttack(), 7, false, false);
+    g_marker = s;
+    s->w *= 0.75f;
+    s->h *= 0.75f;
+    Render::SetPosition(s, (float)tx + s->w * -0.5f + 42.f, ((float)ty + s->h * 0.5f) - 21.f, 0.2f);
+    g_markerTime = 1.5f;
+}
+
 }  // namespace
 
 // --------------------------------------------------------------------------------------- AIWarrior
@@ -75,20 +87,47 @@ void GotoMarkerAt(int tx, int ty) {
 AIWarrior::AIWarrior(Entity* e) : AIBaseState(e) {
     SetCustomWalkAnimation("run");
     f78 = true;
-    f9c = 1;
+    deathDamage = 1;
     float s = entity->GetEntityData()->clas == 10 ? 239.4f : 180.f;
     f7c = 0;
     speed = s;
     baseSpeed = s;
     f79 = false;
-    f98 = f84 = f80 = f88 = f90 = f8c = f94 = 0.f;
+    lastHpTimer = hitTimer = deathTimer = blockTimer = f90 = f8c = f94 = 0.f;
     f74 = 1.f;
 }
 
 void AIWarrior::Update(float dt) {
-    // UNVERIFIED (milestone 4g): the combat timers +0x80..+0x98 (set by StartedAttack and the magic
-    // attacks) count down at 1.8 per second and fire Hit/Death/Block, their magic forms or a
-    // projectile when they pass 0; outside combat they stay 0.
+    // The combat timers: what the attacker's swing does to this fighter when it lands. An archer's
+    // target gets it from the arrow instead (Entity::OnProjectileFired).
+    auto ran = [dt](float& t) {
+        if (!(t > 0.f)) return false;
+        t += dt * -1.8f;
+        return t < 0.f;
+    };
+    auto land = [this](int kind) {
+        if (linked->GetAttackRanged() > 0) {
+            linked->OnProjectileFired(entity, kind);
+            return false;
+        }
+        return true;
+    };
+    if (ran(hitTimer) && land(0)) Hit(0.f);
+    if (deathTimer > 0.f) {
+        // (A monster the taming net is aimed at waits for the throw.)
+        if (entity->GetSpawnPointID() == 0 || entity->GetSpawnPointID() != BottomBattleWindow::GetNetTargetSpawnID())
+            deathTimer += dt * -1.8f;
+        if (deathTimer < 0.f && land(1)) Death(0.f);
+    }
+    if (ran(lastHpTimer)) {
+        // (Entity::PlayHitSound unless IsTameTutorial: milestone 6.)
+        entity->SetHP(1);
+        lastHpTimer = 0.f;
+    }
+    if (ran(blockTimer) && land(2)) Block(0.f);
+    if (ran(f90)) MagicHit(0.f, f78, f74, f79, (unsigned)f7c);
+    if (ran(f8c)) MagicDeath(0.f, f78, f74, f79, (unsigned)f7c);
+    if (ran(f94)) MagicBlock(0.f, f78, f74, f79, (unsigned)f7c);
     AIBaseState::Update(dt);
 }
 
@@ -163,7 +202,7 @@ void AIWarrior::AnimEnded() {
     }
     if (st == 4) {
         state = 0;
-        // UNVERIFIED (milestone 4g): Entity::OnDeath(entity, the attacker +0x68).
+        entity->OnDeath(linked);
         st = state;
     }
     if (st != 0x1e) return;
@@ -244,7 +283,7 @@ void AIPlayer::Update(float dt) {
 }
 
 void AIPlayer::ClickedEntity(Entity* e) {
-    // UNVERIFIED (milestone 4g): while a CombatManager exists (GameState::g_Combat) it takes the tap.
+    // (While a CombatManager exists, GameState::g_Combat, it takes the tap: never in 5.11.)
     if (!GameState::IsPlayerCity()) return;
     if (entity->IsRetreating()) return;
     if (!GUI::CanInteractWith(e)) return;
@@ -254,43 +293,103 @@ void AIPlayer::ClickedEntity(Entity* e) {
     if (!TryToInterruptJob()) return;
     if ((unsigned)(action - 6) < 2) return;
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0 && GameState::GetCurrentMapID() != 0xb) {
-        // UNVERIFIED (milestone 4g): HealSquadWindow::Show.
+        HealSquadWindow::Show();
         return;
     }
     Entity::UpdateSafePos(entity);
-    // (the tame tutorial, GameState::IsTameTutorial, is never on)
-    if (GameState::secondTutorial == 0x91 || GameState::secondTutorial == 0x8e) {
-        // UNVERIFIED (milestone 4h): BuildingHovers::HideWorldDialog(nullptr).
+    // UNVERIFIED (milestone 4h): the tame tutorial (GameState::IsTameTutorial) hides the arrow and
+    // reports spawn point 0x1e to TutorialSender.
+    int& st = GameState::secondTutorial;
+    if (st == 0x91 || st == 0x8e) {
+        BuildingHovers::HideWorldDialog(nullptr);
         BuildingHovers::HideArrow();
     }
-    // UNVERIFIED (milestones 4g/5): the PvP-tutorial steps on an enemy tap (secondTutorial 0x203 ->
-    // 0x204, 0x206 -> 0x207, 0x20e -> 0x20f; 0x21a on a boss -> 0x9f) need Entity::IsEnemy/IsBoss;
-    // (4c) an entity with a meta expression of type 0x98 (a PvP shadow) starts action 8; (4g) in
-    // combat a monster tap selects the target; (4b/4g) a corpse with an item is searched (action 6).
-    // Somebody with something to say: the hero walks up to it (action 2 on arrival).
-    if (!entity->f36 && (e->GetTalkTask() != 0 || e->GetSpecialTalk() != 0) && !GameState::IsCombatActive()) {
-        if (GameState::GetCurrentMapID() == 0) {
-            Map::Patch* p = Map::GetPatchForCoordinates(e->tileX, e->tileY, false);
-            if (p && !p->owned) return;
-        }
-        AI::Waypoint* near = AI::GetNearestWP(e->tileX, e->tileY, entity->worldX, entity->worldY, arrivalDir);
-        if (!near) return;
-        actionWP = near;
-        action = 2;
+    if (st == 0x203 && e->IsEnemy()) st = 0x204;
+    else if (st == 0x206 && e->IsEnemy()) st = 0x207;
+    else if (st == 0x20e && e->IsEnemy()) st = 0x20f;
+    if (st == 0x21a && e->IsBoss()) st = 0x9f;
+
+    MetaExpression* meta = e->GetMetaExpression();
+    if (meta && meta->FindByType(kExpPvpSpawn)) {
+        // A PvP opponent's stand-in: the hero walks next to it (action 8 on arrival).
+        int dir = 0;
+        AI::Waypoint* wp = AI::GetNearestFreeWP(e->tileX, e->tileY, entity->worldX, entity->worldY, dir, entity);
+        if (!wp) return;
+        ChangeState(0x20);
         actionTarget = e;
-        if (GameState::tutorial == 0x51) near = AI::GetWaypoint(0x1b, 0x15, false);
-        GotoMarkerAt(e->tileX, e->tileY);
-        // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+        actionArg = 0;
+        action = 8;
+        // "interact_(fe)male_player_move(_run)": milestone 6.
+        entity->GetSquad()->MoveTo(wp);
         BuildingHovers::HideWorldDialog(nullptr);
-        entity->GetSquad()->MoveTo(near);
         return;
     }
+    if (GameState::IsCombatActive()) {
+        // A tap on a monster in a fight: the fight goes on (the arenas: against that monster).
+        if (e->GetEntityData()->clas != 9) return;
+        BuildingHovers::HideWorldDialog(entity);
+        BaseCombat* c = GameState::GetActiveCombat();
+        if (c->GetType() == 5 || c->GetType() == 6) {
+            if (!entity->GetAI()->SetTarget(AI::GetWaypoint(e->tileX, e->tileY, false), true)) return;
+            c->GetEnemySquad()->SetActiveSoldier(e);
+            c->Continue();
+        } else {
+            // (A boss fight: BottomBattleWindow::SetSelectedButton(0), milestone 5.)
+            c->Continue();
+        }
+    }
+    if (!entity->f36) {
+        // Somebody with something to say: the hero walks up to it (action 2 on arrival).
+        if ((e->GetTalkTask() != 0 || e->GetSpecialTalk() != 0) && !GameState::IsCombatActive()) {
+            if (GameState::GetCurrentMapID() == 0) {
+                Map::Patch* p = Map::GetPatchForCoordinates(e->tileX, e->tileY, false);
+                if (p && !p->owned) return;
+            }
+            AI::Waypoint* near = AI::GetNearestWP(e->tileX, e->tileY, entity->worldX, entity->worldY, arrivalDir);
+            if (!near) return;
+            actionWP = near;
+            action = 2;
+            actionTarget = e;
+            // (OG2::MakeRequest for its spawn point: online statistics.)
+            if (GameState::tutorial == 0x51) near = AI::GetWaypoint(0x1b, 0x15, false);
+            GotoMarkerAt(e->tileX, e->tileY);
+            // "interact_(fe)male_player_move(_run)": milestone 6.
+            BuildingHovers::HideWorldDialog(nullptr);
+            entity->GetSquad()->MoveTo(near);
+            return;
+        }
+        // A corpse that still holds something: the hero walks onto it (action 6 on arrival).
+        if (e->HasCorpseItem() && !GameState::IsCombatActive()) {
+            AI::Waypoint* wp = AI::GetWaypoint(e->tileX, e->tileY, false);
+            if (!wp) return;
+            ChangeState(0x20);
+            actionTarget = e;
+            action = 6;
+            actionArg = 0;
+            GotoMarker();
+            entity->GetSquad()->MoveTo(wp);
+            BuildingHovers::HideWorldDialog(nullptr);
+            return;
+        }
+    }
     AI::Waypoint* wp = AI::GetWaypoint(e->tileX, e->tileY, false);
-    if (!e->IsDead() && !GameState::IsCombatActive() && wp && SetTarget(wp, true)) {
+    if (!e->IsDead() && !GameState::IsCombatActive() && wp && entity->GetAI()->SetTarget(wp, true)) {
         e->OnClick();
-        if (e->GetEntityData()->clas == 9) {
-            // UNVERIFIED (milestone 4g): a monster (not an NPC spawn) is attacked: the attack marker,
-            // a new BaseCombat with the two squads.
+        if (e->GetEntityData()->clas == 9 && (!e->GetSpawnPoint() || !e->GetSpawnPoint()->npc)) {
+            // PORT (until milestone 5's BossCombat): a boss cannot be attacked, see AIEnemy::CheckAggro.
+            if (e->IsBoss()) return;
+            // A monster: the attack marker on its tile, and the fight begins.
+            // "interact_(fe)male_player_attack": milestone 6.
+            AttackMarkerAt(e->tileX, e->tileY);
+            GameState::SetCombat(new BaseCombat());
+            if (e->IsOnPatrol()) {
+                e->RemovePatrol();
+                e->GetAI()->Reset(true);
+            }
+            e->CreateSquad();
+            if (!current) UpdateLastTarget();
+            BuildingHovers::HideWorldDialog(nullptr);
+            GameState::GetActiveCombat()->BeginCombat(entity->GetSquad(), e->GetSquad());
             return;
         }
         BlockedMarker();

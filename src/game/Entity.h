@@ -3,9 +3,8 @@
 // its AI (AIState.h). Port of Entity (libkingdom.so 5.11, 0x1c8 bytes; constructor @0x15ca70).
 // Offsets are the original's.
 //
-// Not ported yet (milestone 4, marked UNVERIFIED where they would run): combat (attacks, damage,
-// projectiles, fury), spawn points, patrols' combat side, meta expressions, quests (talk tasks),
-// particles, glow effects, hover dialogs and sounds.
+// The fight side (damage, death, drops, aggro) is in EntityCombat.cpp. Not ported yet (marked
+// UNVERIFIED where they would run): projectiles, spells, particles, glow effects and sounds.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -21,6 +20,7 @@ class AIBaseState;
 class BaseSquad;
 struct SpawnPoint;
 class MetaExpression;
+class MetaData;
 namespace Tags { struct Tag; }
 
 class Entity {
@@ -244,6 +244,63 @@ public:
     bool IsEmperor() const;                      // @0x152bf0
     bool HasCorpseItem() const;                  // @0x1504ec its corpse still holds its "corpse_drop" item
 
+    // ---- fights (EntityCombat.cpp) ----
+    void SetUpdateSpeedScale(float s) { speedScale = s; }        // @0x14ffb4
+    void SetAttackMelee(int v) { attackMelee = v; }              // @0x150330
+    void SetAttackRanged(int v) { attackRanged = v; }            // @0x150348
+    void SetDefenseMelee(int v) { defenseMelee = v; }            // @0x150350
+    void SetDefenseRanged(int v) { defenseRanged = v; }          // @0x150378
+    void SetCritChance(int v) { critChance = v; }                // @0x150738
+    void SetInitiative(int v) { initiative = v; }                // @0x150740
+    void SetAdditiveDefence(int v) { f84 = v; }                  // @0x150938
+    void SetAdditiveCrit(int v) { f8c = v; }                     // @0x150948
+    void SetAdditiveFuryGain(float v) { f90 = v; }               // @0x150950
+    float GetAdditiveFuryGain() const { return f90; }            // @0x150958
+    void SetWarriorCost(int v);                                  // @0x150974 its gold (its data's)
+    void SetItemDrop(MetaData* drop);                            // @0x150988 replaces its data's "items_drop"
+    int GetDamage() const;                                       // @0x1509c0 magic, else ranged, else melee
+    int GetDefense() const { return defenseMagic + defenseMelee + defenseRanged; }   // @0x1509e0
+    void SetCrit(bool on) { f15c = on; }                         // @0x15081c
+    bool CriticalHit() const { return f15c; }                    // @0x150814 the blow it deals or takes is critical
+    void SetCurrentTarget(Entity* e) { currentTarget = e; }      // @0x150928
+    Entity* GetCurrentTarget() const { return currentTarget; }   // @0x150930
+    void OnAttack() {}                                           // @0x150448
+    void OnDefend() {}                                           // @0x150450
+    void OnRetreat() {}                                          // @0x1504c0
+    void CheckAggro() {}                                         // @0x150af8
+    void MoveAwayAfterAnimation() { walkAwayOnEnd = true; }      // @0x1508a8
+    static bool IsDeathAnimationRunning();                       // @0x1508d4 a boss is dying
+    void SetAggro(int range);                    // @0x151558 its spawn point's range (one is made if needed)
+    // @0x1515a0: against an opponent of `level` (0: as it is). Three or more levels apart the hero's
+    // falls (x0.75 / 0.5 / 0.3 at 2 / 3 / more) and a monster's rises (x1.25 / 1.5 / 1.75).
+    int GetInitiative(int level) const;
+    void ShowGlowAnimation();                    // @0x1516f8
+    bool IsBoss() const;                         // @0x151974 its meta expression has BOSS (0x86)
+    void OnAggro();                              // @0x151fa8 (the hero) a monster noticed him
+    void OnAddedToCombat();                      // @0x15d248
+    void OnRemovedFromCombat();                  // @0x152908
+    bool OrbsCanBeUsed();                        // @0x152308 the hero (his squad too while its flag is on)
+    // The belt's active orbs (OrbBonus in EntityCombat.cpp); `use` spends a charge of each.
+    int GetItemAttackHealthReturn(bool use);     // @0x1531b4
+    int GetItemCriticalChanceBonus(bool use);    // @0x153204
+    int GetItemDamageAbsorption(bool use);       // @0x153278
+    int GetItemDamageBoost(bool use);            // @0x1532c8
+    int GetCritChance();                         // @0x153254 percent (spends the crit orbs' charges)
+    bool WillDie(Entity* attacker);              // @0x154bfc the attacker's blow would kill it
+    void OnBlock(Entity* attacker);              // @0x154b58
+    // @0x15e7ac: takes the attacker's blow (never the last HP: Death does that); returns the damage
+    // and what it absorbed.
+    int OnHit(Entity* attacker, int* absorbed);
+    void Hit();                                  // @0x157ce8 the HUD and the spilled gold / experience
+    void OnDying(Entity* attacker);              // @0x15d28c the death animation starts
+    void OnDeath(Entity* attacker);              // @0x153388 the death animation ended
+    void OnProjectileFired(Entity* target, int kind);   // @0x15da30
+    // PORT: the next value (0..0x7fff) of the generator PrepareForSetup seeds (0x6119c8); the drops
+    // and the broken gear draw from it too.
+    static unsigned NextSetupRandom();
+    static bool SquadUsesOrbs();                 // PORT: reads 0x6119cd
+    static bool HpOverlimitConsumable();         // PORT: reads 0x6119b5
+
     struct QueuedAnim { std::string name; float time; };   // 0x1c bytes
 
     std::vector<Entity*> observers;  // +0x00 told OnMoved (their AI's +0x178)
@@ -321,7 +378,8 @@ public:
     Map::Building* workplace = nullptr;  // +0x14c
     Map::Decor* workplaceDecor = nullptr;  // +0x150
     Entity* linked = nullptr;        // +0x154
-    bool f15c = false;               // +0x15c
+    Entity* currentTarget = nullptr; // +0x158 whom it attacks this turn (BaseCombat::EnemyTurn)
+    bool f15c = false;               // +0x15c the blow is critical (SetCrit)
     bool active = false;             // +0x15d
     const char32_t* firstName = U""; // +0x160
     const char32_t* surname = U"";   // +0x164

@@ -62,6 +62,17 @@ void ResetOrders(Map::Building* b);              // @0x1669dc every AI forgets i
 Entity* GetEntityAtXY(int x, int y);             // @0x16613c (active, alive)
 // @0x166448: an active, living monster of this enemy class (not an NPC's spawn point).
 Entity* GetEntityByEnemyClassID(uint32_t enemyClass);
+// Enemies (class 9 with no NPC spawn point), for fights and the quest helper.
+Entity* GetEnemy();                              // @0x1663bc any active living enemy
+// @0x166e3c: the nearest active living enemy to `to` (noBoss: no boss; reachable: only ones the
+// hero has a path to).
+Entity* GetNearestEnemy(Entity* to, bool noBoss, bool reachable);
+Entity* GetNearestEnemyTo(Entity* to, uint32_t id);              // @0x166cf4 by entity id
+// @0x166fd4: by "enemy_class", not of to's own squad (never class 0x49 on map 0x74).
+Entity* GetNearestEnemyWithClassTo(Entity* to, uint32_t enemyClass);
+Entity* GetEnemyAtXY(int x, int y);              // @0x166288 a living class-9 entity on the tile
+// @0x165ea4: an entity whose aggro zone the hero stands in (AIBaseState::IsPlayerInAggroRange).
+Entity* IsPlayerInAggroRange();
 Entity* GetNonPlayerEntityAtXY(int x, int y);    // @0x1661dc (active, alive, not the player)
 // @0x1673f4: a world tap (world coordinates) goes to the player's AI: a living entity there
 // (ClickedEntity), else the tile on the grid (ClickedTile).

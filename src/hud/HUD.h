@@ -6,6 +6,7 @@
 namespace WindowManager { class FunctionalWindow; }
 
 namespace Render { struct Texture; }
+class Entity;
 
 namespace HUDWindow {
 void Init();                  // @0x2c9a7c
@@ -56,6 +57,24 @@ RTK_HUD_PANEL(BattleBarWindow)
 RTK_HUD_PANEL(BottomCityWindow)
 RTK_HUD_PANEL(TaskHolderWindow)
 #undef RTK_HUD_PANEL
+
+// The fight's HUD hooks (4g). Each is called by the fight code whenever an entity loses HP.
+namespace HUDWindow { void OnDamage(Entity* e); }          // @0x2c69f8
+namespace PlayerTopWindow { void OnDamage(Entity* e); }    // (0x327ad8)
+namespace BattleBarWindow {
+void OnDamage(Entity* e);            // (0x249ba8)
+void LaunchFirstDeathHelper();       // (0x24b7b4) the helper arrow after the first soldier died
+}
+namespace BeltBarWindow { void UpdateContents(); }         // (0x24dc20)
+namespace BottomBattleWindow {
+void EnableNet(uint32_t spawnId);    // (0x2577d4) the taming net's button, for a dying monster
+uint32_t GetNetTargetSpawnID();      // (0x253c1c)
+}
+namespace HealSquadWindow {
+void Show();                         // (0x2cd1d8)
+bool IsVisible();                    // (0x2c9f10)
+void SetAttacker(Entity* e);         // (0x2c9efc)
+}
 
 namespace BattleBarWindow {
 // The "all quests" button above the army bar: shown from tutorial step 0x66 on, outside the

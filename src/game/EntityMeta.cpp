@@ -63,6 +63,11 @@ MetaExpression* Entity::GetMetaExpression() const {
 // @0x151230 Entity::PrepareForSetup
 void Entity::PrepareForSetup() { g_setupSeed = Timer::GetGlobalTime(); }
 
+unsigned Entity::NextSetupRandom() {
+    g_setupSeed = g_setupSeed * 0x343fd + 0x269ec3;
+    return (g_setupSeed & 0x7fffffff) >> 0x10;
+}
+
 // @0x15854c Entity::AddPatrolPoint
 void Entity::AddPatrolPoint(const std::string& name, int x, int y, int wait, int direction,
                             const std::string& animation, int times, int pause) {
@@ -331,8 +336,7 @@ void Entity::OnSetup() {
         }
         // RANDOM (x:y|x:y|...): the first time on this map it stands at one of the places.
         if ((d = e->GetDataWithType(kExpRandom)) && GameState::GetMapStartTime(GameState::GetCurrentMapID()) == 0) {
-            g_setupSeed = g_setupSeed * 0x343fd + 0x269ec3;
-            const MetaData* place = d->GetChild(((g_setupSeed & 0x7fffffff) >> 0x10) % d->GetChildrenCount());
+            const MetaData* place = d->GetChild(NextSetupRandom() % d->GetChildrenCount());
             SetPos(Int(place, 0), Int(place, 1));
             GetAI()->UpdateLastTarget();
         }

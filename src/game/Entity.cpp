@@ -40,6 +40,9 @@ const char* const kRingImages[8] = {   // 0x6012a4
     "images/Rings/under_rings_boss_idle"};
 }  // namespace
 
+bool Entity::SquadUsesOrbs() { return g_squadUsesOrbs; }
+bool Entity::HpOverlimitConsumable() { return g_hpConsume; }
+
 void Entity::SetCurrentTime(uint32_t t) { g_entityTime = t; }
 uint32_t Entity::GetCurrentTime() { return g_entityTime; }
 

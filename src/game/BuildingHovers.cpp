@@ -259,6 +259,10 @@ bool ArrowVisible() {
 
 bool CanAutoHideArrow() { return g_canHideArrow; }
 
+void PreventArrowAutoHide() { g_canHideArrow = false; }
+
+GUI::Callback* GetClickCallback() { return g_arrows.back()->onClick; }
+
 int GetArrowClickCallbackID() { return g_arrowCallbackID; }
 
 void SetArrowVisibleWindowLimit(unsigned limit) { g_arrowVisibleWindowLimit = limit; }

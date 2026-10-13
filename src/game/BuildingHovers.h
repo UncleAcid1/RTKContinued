@@ -146,6 +146,8 @@ void MoveWindowDown();
 void UpdateArrow();                         // @0x264df8 the bobbing
 bool ArrowVisible();                        // @0x264a54
 bool CanAutoHideArrow();                    // @0x26324c
+void PreventArrowAutoHide();                // @0x263234 until the arrow is placed again
+GUI::Callback* GetClickCallback();          // @0x2631cc the last arrow's (not owned by the caller)
 int GetArrowClickCallbackID();              // @0x2631e8
 void SetArrowVisibleWindowLimit(unsigned limit);   // @0x26330c the arrow hides above this many windows
 // @0x264270: the last arrow calls `cb` (owned) when tapped; returns the new callback id.

@@ -49,6 +49,10 @@ add_executable(rtk
   src/game/Animation.cpp
   src/game/AI.cpp
   src/game/AIState.cpp
+    src/game/AICombat.cpp
+    src/game/Combat.cpp
+    src/game/EntityCombat.cpp
+    src/hud/CombatHudPending.cpp
     src/game/AIEnemy.cpp
     src/game/AIFarm.cpp
   src/game/AIPlayer.cpp
