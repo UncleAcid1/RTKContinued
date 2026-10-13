@@ -5,7 +5,7 @@
 
 namespace WindowManager { class FunctionalWindow; }
 
-namespace Render { struct Texture; }
+namespace Render { struct Texture; struct Sprite; }
 class Entity;
 
 namespace HUDWindow {
@@ -60,7 +60,12 @@ RTK_HUD_PANEL(TaskHolderWindow)
 
 // The fight's HUD hooks (4g). Each is called by the fight code whenever an entity loses HP.
 namespace HUDWindow { void OnDamage(Entity* e); }          // @0x2c69f8
-namespace PlayerTopWindow { void OnDamage(Entity* e); }    // (0x327ad8)
+namespace PlayerTopWindow {
+void OnDamage(Entity* e);            // @0x327814 the hurt portrait
+void RefreshHP();                    // @0x327564
+// @0x3276c4: an item's icon flies into the portrait and the item takes effect on arrival.
+void RaiseAndMoveIntoPlayer(float z, Render::Sprite* sprite, uint32_t item);
+}
 namespace BattleBarWindow {
 void OnDamage(Entity* e);            // (0x249ba8)
 void LaunchFirstDeathHelper();       // (0x24b7b4) the helper arrow after the first soldier died
@@ -74,6 +79,7 @@ namespace HealSquadWindow {
 void Show();                         // (0x2cd1d8)
 bool IsVisible();                    // (0x2c9f10)
 void SetAttacker(Entity* e);         // (0x2c9efc)
+void ResetRecentDeaths();           // (0x2c9f6c)
 }
 
 namespace BattleBarWindow {

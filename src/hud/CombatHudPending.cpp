@@ -3,7 +3,6 @@
 #include "hud/HUD.h"
 
 namespace HUDWindow { void OnDamage(Entity*) {} }
-namespace PlayerTopWindow { void OnDamage(Entity*) {} }
 namespace BattleBarWindow {
 void OnDamage(Entity*) {}
 void LaunchFirstDeathHelper() {}
@@ -17,4 +16,5 @@ namespace HealSquadWindow {
 void Show() {}
 bool IsVisible() { return false; }
 void SetAttacker(Entity*) {}
+void ResetRecentDeaths() {}
 }
