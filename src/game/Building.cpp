@@ -351,8 +351,12 @@ void Building::WorkEnded(int p) {
     int st = ai->GetState();
     if (st == 0x12) {
         ai->SetItem((int)data->delivery->id, patchContract[p] - 1, p);
-        // UNVERIFIED (tutorial): at step 0x45 the camera glides to (600, 2795) and the farmer
-        // (EntityManager::GetEntityByClass(0xdf)) says "DESC412" in a world dialog.
+        if (GameState::tutorial == 0x45) {   // the first crop is planted: the farmer explains
+            Render::CenterOn(600.f, 2795.f);   // (animated on the original)
+            if (Entity* farmer = EntityManager::GetEntityByClass(0xdf, false, true))
+                BuildingHovers::ShowWorldDialog(farmer, StringTable::GetString("DESC412"), 0, false, false, true, 0, true,
+                                                false);
+        }
     } else if (st == 0x1a) {
         if (ai->GetItem()) {
             ai->Clean();

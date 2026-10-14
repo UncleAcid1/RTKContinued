@@ -28,6 +28,7 @@
             }
             if (const char* tl = getenv("RTK_TILE")) { int f, x, y; if (std::sscanf(tl, "%d:%d:%d", &f, &x, &y) == 3 && f == i) { std::printf("[t] tap tile %d,%d\n", x, y); pl->GetAI()->ClickedTile(x, y, 0, 0); } }
             if (i == envi("RTK_SLEEP", -1)) SDL_Delay(2100);
+            if (const char* sl = getenv("RTK_SLEEPS")) { int f = 0, n = 0; while (std::sscanf(sl, "%d%n", &f, &n) == 1) { if (f == i) SDL_Delay(1100); sl += n; if (*sl == ',') ++sl; } }
             if (i == envi("RTK_RETREAT", -1)) { std::printf("[t] retreat\n"); pl->GetAI()->Retreat(); }
             if (i % 20 == 0) {
                 std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v);

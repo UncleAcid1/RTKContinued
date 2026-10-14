@@ -123,6 +123,7 @@ struct HelperArrow {
     bool mirror = false, flip = false; // +0x05 +0x06
     float x = 0.f, y = 0.f;            // +0x08 +0x0c the anchor, world space unless screenSpace
     GUI::Callback* onClick = nullptr;  // +0x10 SetArrowClickCallback (owned)
+    bool itemArrow = false;            // +0x24 it waits for the item dropped on the emperor's map (0xb)
     Entity* entity = nullptr;          // +0x28 the entity it follows (FollowEntity)
     Map::Decor* decor = nullptr;       // +0x2c the decoration it points at (FollowDecor)
     ~HelperArrow() { delete onClick; }
@@ -355,6 +356,9 @@ bool ClickOnArrow(int x, int y, bool pressed) {
         // SoundsManager::PlaySound("ui_arrow_click", 1, false): sounds are milestone 5.
         for (HelperArrow* o : g_arrows)
             if (o && o->sprite) Render::SetVisibility(o->sprite, false);
+        a->decor = nullptr;
+        a->itemArrow = false;
+        a->entity = nullptr;
         (*a->onClick)();
         ++g_arrowCallbackID;
         return true;
@@ -371,6 +375,7 @@ void HideArrow() {
     g_arrows.resize(1);
     HelperArrow* a = g_arrows[0];
     if (a->sprite) Render::SetVisibility(a->sprite, false);
+    a->itemArrow = false;
     ++g_arrowCallbackID;
 }
 
@@ -393,6 +398,27 @@ void UpdateArrow() {
     for (HelperArrow* a : g_arrows) {
         Render::Sprite* s = a->sprite;
         if (!s || !s->visible) continue;
+        // An arrow that follows somebody (FollowEntity) keeps over their head; when they die it
+        // goes, with its callback.
+        if (Entity* e = a->entity) {
+            if (e->IsDead()) {
+                Render::SetVisibility(s, false);
+                delete a->onClick;
+                a->onClick = nullptr;
+                continue;
+            }
+            float ex = 0.f, ey = 0.f;
+            e->GetWorldPos(ex, ey);
+            a->x = ex;
+            a->y = (ey - (e->GetSprite() ? e->GetSprite()->h : 0.f)) - 20.f;
+            if (a->left) {
+                if (a->mirror) a->x = ex - s->w;
+                a->y += s->h * 0.5f;
+            } else {
+                if (a->flip) a->y = s->h + ey;
+                a->x += s->w * -0.5f;
+            }
+        }
         double bob = std::cos(Timer::GetTime() * 15.0) * 8.0;
         if (!a->left) Render::SetPosition(s, a->x, (float)((double)a->y + bob), s->z);
         else Render::SetPosition(s, (float)((double)a->x + bob), a->y, s->z);
@@ -484,7 +510,7 @@ bool SetHoverWindowPosition(void* w, int x, int y) {
 void ShowFarmHover(bool fake, unsigned patch, unsigned count) {
     if (GameState::tutorial == 0x42) {
         GameState::tutorial = 0x43;
-        // UNVERIFIED (tutorial): HideWorldDialog(nullptr) (the world dialog is not ported).
+        HideWorldDialog(nullptr);
         HideArrow();
     }
     Map::Building* farm = Map::GetCurrentFarm();
@@ -585,6 +611,172 @@ void AddDeliveryContractToFinishOnLastItem(unsigned id) {
 }
 bool HasDroppedItems() { return !g_itemDrops.empty(); }
 
+// The tutorial's end as its last drop is picked up in the short tutorial (type 1): both
+// tutorials are over. (FileManager::SendTutorialFinished2: online.)
+static void AfterDropCollected() {
+    int& step = GameState::tutorial;
+    if (step == 0x15) {
+        if (!g_itemDrops.empty()) step = 0x14;
+    } else if (step == 0x57) {
+        HideArrow();
+        Tasks::Update(true);
+        HUDWindow::UpdateTasks();
+        if (!g_itemDrops.empty()) {
+            step = 0x56;
+        } else if (GameState::GetTutorialType() == 1) {
+            GUI::SetInteractionLock(false);
+            step = 0x80;
+            GameState::secondTutorial = 0x100;
+            TutorialSender::AddTutorialStep(0x100);
+            GameState::lastSentStep = 0x100;
+        } else {
+            step = 0x58;
+        }
+    }
+}
+
+// @0x26e1a0: the drop of that item (the last such; 0: the first drop) is picked up as by a tap,
+// and the tutorial steps that wait for it move on.
+void CollectOne(uint32_t item) {
+    if (!g_itemDrops.empty()) {
+        size_t at = 0;
+        if (item != 0)
+            for (size_t i = 0; i < g_itemDrops.size(); ++i)
+                if (g_itemDrops[i].item && g_itemDrops[i].item->id == item) at = i;
+        g_itemDrops[at].Collect(false, true);
+        g_itemDrops[at].sprite = Render::RemoveSprite(g_itemDrops[at].sprite);
+        g_itemDrops[at].glow = Render::RemoveSprite(g_itemDrops[at].glow);
+        g_itemDrops[at] = g_itemDrops.back();
+        g_itemDrops.pop_back();
+    }
+    if (GameState::tutorial == 0x49) {
+        HideWorldDialog(nullptr);
+        HideArrow();
+    }
+    AfterDropCollected();
+    int& second = GameState::secondTutorial;
+    if (second == 0x85) {
+        HideWorldDialog(nullptr);
+        HideArrow();
+        second = g_itemDrops.empty() ? 0x86 : 0x84;
+        return;
+    }
+    if (second != 0x94) return;
+    GUI::SetInteractionLock(true);
+    HideArrow();
+    second = 0x95;
+    BeltBarWindow::UpdateContents();
+}
+
+// FUN_002643e8: the arrow callback that picks up one drop.
+static GUI::Callback* CollectOneCallback(uint32_t item) {
+    return new GUI::Callback([item] { CollectOne(item); });
+}
+
+static void ArrowAtDrop(const ItemDrop& d) {
+    ArrowAt(d.sprite->x + d.sprite->w * 0.5f, d.sprite->y - d.sprite->h, false, false, false, false, false, false, false);
+}
+
+// BuildingHovers::Update's first part: the tutorial steps that wait for a drop to be picked up
+// keep the drops from being collected by themselves (128 s to live) and point the arrow at one.
+static void UpdateTutorialDrops() {
+    auto keep = [] { for (ItemDrop& d : g_itemDrops) d.lifetime = 128.f; };
+    int& step = GameState::tutorial;
+    if (step == 0x48 || step == 0x49) {
+        keep();
+        if (!g_itemDrops.empty()) ArrowAtDrop(g_itemDrops[0]);
+        if (step == 0x48 && !g_itemDrops.empty()) {
+            SetArrowClickCallback(CollectOneCallback(0));
+            GUI::SetInteractionObjectLock(g_itemDrops[0].sprite, nullptr);
+            step = 0x49;
+        }
+    } else if (step == 0x21) {
+        // The castle's first taxes: after 28 s the arrow's tap takes them all.
+        if (!g_itemDrops.empty()) {
+            if (g_itemDrops[0].lifetime < 100.f) SetArrowClickCallback(new GUI::Callback(CollectAll));
+            ArrowAtDrop(g_itemDrops[0]);
+            keep();
+        }
+    } else {
+        if (step == 0x14 || step == 0x15) {
+            keep();
+            // The key (item 0x254) is picked up last.
+            if (!g_itemDrops.empty()) {
+                const ItemDrop& last = g_itemDrops.back();
+                if (!last.item || last.item->id != 0x254) {
+                    for (size_t i = 0; i < g_itemDrops.size(); ++i) {
+                        if (!g_itemDrops[i].item || g_itemDrops[i].item->id != 0x254) continue;
+                        std::swap(g_itemDrops[i], g_itemDrops.back());
+                        break;
+                    }
+                }
+            }
+            if (!g_itemDrops.empty() && !CharacterInfoWindow::IsVisible()) {
+                GUI::SetInteractionObjectLock(g_itemDrops[0].sprite, nullptr);
+                ArrowAtDrop(g_itemDrops[0]);
+            }
+            if (step == 0x14 && !g_itemDrops.empty()) {
+                SetArrowClickCallback(CollectOneCallback(0));
+                step = 0x15;
+            }
+        }
+        if (step == 0x56 || step == 0x57) {
+            keep();
+            if (!g_itemDrops.empty()) ArrowAtDrop(g_itemDrops[0]);
+            if (step == 0x56 && !g_itemDrops.empty()) {
+                SetArrowClickCallback(CollectOneCallback(0));
+                step = 0x57;
+            }
+        }
+    }
+    int& second = GameState::secondTutorial;
+    if (second >= 0x83 && second <= 0x85) {
+        keep();
+        if (second != 0x83 && !g_itemDrops.empty()) {
+            ArrowAtDrop(g_itemDrops[0]);
+            PreventArrowAutoHide();
+        }
+        if (second == 0x84 && !g_itemDrops.empty()) {
+            SetArrowClickCallback(CollectOneCallback(0));
+            GUI::SetInteractionObjectLock(g_itemDrops[0].sprite, g_itemDrops.back().sprite);
+            second = 0x85;
+        }
+    } else if (second >= 0x8a && second <= 0x9e) {
+        keep();
+        if ((second == 0x93 || second == 0x94) && !g_itemDrops.empty() && !g_itemDrops[0].animating)
+            CollectOne(g_itemDrops[0].item->id);
+        if (second == 0x93 && !g_itemDrops.empty()) {
+            GUI::SetInteractionObjectLock(g_itemDrops[0].sprite, nullptr);
+            second = 0x94;
+        }
+    } else if (second == 0x9f || second == 0xa0) {
+        // The dropped item 0x6b gets the arrow.
+        for (size_t i = 0; i < g_itemDrops.size(); ++i) {
+            if (!g_itemDrops[i].item || g_itemDrops[i].item->id != 0x6b) continue;
+            g_itemDrops[i].lifetime = 128.f;
+            ArrowAtDrop(g_itemDrops[i]);
+            if (second == 0x9f) {
+                SetArrowClickCallback(CollectOneCallback(0x6b));
+                GUI::SetInteractionObjectLock(g_itemDrops[i].sprite, nullptr);
+                second = 0xa0;
+            }
+        }
+    }
+    // The emperor's map: its one dropped item keeps its arrow (DropItem sets it up).
+    if (GameState::GetCurrentMapID() == 0xb && WindowManager::GetShownWindowCount() == 0 && g_itemDrops.size() == 1) {
+        g_itemDrops[0].lifetime = 128.f;
+        if (!g_arrows.empty() && g_arrows[0]->onClick && g_arrows[0]->itemArrow) ArrowAtDrop(g_itemDrops[0]);
+    }
+    if (GameState::IsTameTutorial()) {
+        keep();
+        if (!g_itemDrops.empty()) {
+            GUI::SetInteractionObjectLock(g_itemDrops[0].sprite, nullptr);
+            if (!ArrowVisible()) SetArrowClickCallback(CollectOneCallback(0));
+            ArrowAtDrop(g_itemDrops[0]);
+        }
+    }
+}
+
 void CollectAll() {
     for (size_t i = 0; i < g_itemDrops.size(); ++i) {
         g_itemDrops[i].Collect(true, false);
@@ -639,7 +831,11 @@ void UnregisterDecoration(Map::Decor* d) {
         RemoveHover(i);   // only the first match
         break;
     }
-    // UNVERIFIED (tutorial): arrows pointing at d are hidden.
+    for (HelperArrow* a : g_arrows) {
+        if (a->decor != d) continue;
+        a->decor = nullptr;
+        if (a->sprite) Render::SetVisibility(a->sprite, false);
+    }
 }
 
 void UnregisterEntity(Entity* e) {
@@ -821,7 +1017,13 @@ void ItemDrop::Animate(float dt) {
     if (delay > 0.f) return;
     t += dt;
     if (t > 0.6f && y - groundY > (float)bounce) {
-        // UNVERIFIED (tutorial): at second-tutorial step 0x94 the camera centres on the drop.
+        // The second tutorial's orb (step 0x94) is brought into view where it lands.
+        if (GameState::secondTutorial == 0x94) {
+            int sx = (int)(x + sprite->w * 0.5f), sy = (int)(y + sprite->h * -0.5f);
+            Map::WorldCoordinatesToScreen(sx, sy);
+            if (!(0x4a < sx && sx < Render::ScreenWidth() - 0x4a && 0x4a < sy && sy < Render::ScreenHeight() - 0x4a))
+                Render::CenterOn(x + sprite->w * 0.5f, y - 180.f);   // (animated on the original)
+        }
         animating = false;
     }
     float s = dt * 10.f;
@@ -857,7 +1059,10 @@ void ItemDrop::Collect(bool automatic, bool) {
             s = sprite;
         }
         OnCollect(0, s, false, false, type, false);
-        // UNVERIFIED (tutorial): step 0x21 hides the arrow and moves to 0x22.
+        if (GameState::tutorial == 0x21) {
+            HideArrow();
+            GameState::tutorial = 0x22;
+        }
         std::u32string text;
         if (bonus) {
             text = StringTable::GetString("ITEM_BONUS");   // "%s +%%d %%s"
@@ -906,8 +1111,12 @@ void ItemDrop::Collect(bool automatic, bool) {
         // SoundsManager::PlaySound("collect_item", 1, false): sounds are not ported yet.
         // UNVERIFIED (milestone 5, with the windows that list a map's loot): on other maps GameState::AddMapItemCollectionInfo (not item 0x88
         // in the city tutorial).
-        // UNVERIFIED (milestone 4h): item 0x6b at second-tutorial step 0xa0 hides the arrow and moves
-        // to 0xa1; item 0x88 at step 0x94 locks the interaction; map 0xb hides the arrow.
+        if (item->id == 0x6b && GameState::secondTutorial == 0xa0) {
+            HideArrow();
+            GameState::secondTutorial = 0xa1;
+        }
+        if (item->id == 0x88 && GameState::secondTutorial == 0x94) GUI::SetInteractionLock(true);
+        if (GameState::GetCurrentMapID() == 0xb) HideArrow();
         return;
     }
     if (kind != 2) return;
@@ -965,7 +1174,7 @@ void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* 
     for (int& s : d.subtasks)
         if (s == 0) s = (int)dropId;
     // SoundsManager::PlaySound("farm_item_dropped", 1, false): sounds are not ported yet.
-    // UNVERIFIED (tutorial): step 0x48 locks the interaction to the drop's sprite.
+    if (GameState::tutorial == 0x48) GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
 }
 
 void DropResource(float x, float y, int type, unsigned amount, bool collectNow, bool bonus) {
@@ -1024,7 +1233,9 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
     // SoundsManager::PlaySound("item_dropped_light", 1, false): sounds are not ported yet.
     // CheckForSpecialDrops (0x26fafc): ruby finds while the quests 0x4d7/0x4d9 are active
     // (Tasks::IsTaskActive). UNVERIFIED (milestone 4): quests are not ported, so it drops nothing.
-    // UNVERIFIED (tutorial): steps 0x14 (unlock) and 0x21 (lock on the gold drop).
+    if (GameState::tutorial == 0x14) GUI::SetInteractionLock(false);
+    if (GameState::tutorial == 0x21 && type == GameState::kGold)
+        GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
 }
 
 void ItemDrop::StartAnimation(float px, float py, float pvx, float pdelay, int h) {
@@ -1083,9 +1294,12 @@ void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigne
             Render::SetVisibility(d.glow, false);
             // CheckForSpecialDrops (see DropResource). SoundsManager::PlaySound("chest_opened" for
             // type 8, else item_level 0 "item_dropped_light" / "item_dropped_special"): no sounds yet.
-            // UNVERIFIED (milestone 4h): tutorial step 0x56 locks the interaction to the drop.
-            // UNVERIFIED (milestone 5, the emperor's map): on map 0xb an arrow callback for the item (FUN_002643e8) and
-            // the first arrow's +0x24.
+            if (GameState::tutorial == 0x56) GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
+            // The emperor's map: the arrow's tap picks the item up (see UpdateTutorialDrops).
+            if (GameState::GetCurrentMapID() == 0xb) {
+                SetArrowClickCallback(CollectOneCallback(info->id));
+                if (!g_arrows.empty()) g_arrows[0]->itemArrow = true;
+            }
             return;
         }
         std::puts("BuildingHovers::DropItem() Cannot drop item - no image");
@@ -1164,8 +1378,11 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
     }
     else {
         // UNVERIFIED (milestone 5): profession point items fly to the badge (235 x the HUD scale).
-        // UNVERIFIED (milestone 4h): item 0xaf at tutorial step 0x15, or step 0x57, flies to (18, 18).
-        if (!noBelt) {
+        if ((item == 0xaf && GameState::tutorial == 0x15) || GameState::tutorial == 0x57) {
+            // The tutorial's piece flies to the hero's portrait.
+            m.endX = 18.f;
+            m.endY = sprite->h + 18.f;
+        } else if (!noBelt) {
             int slot = -1;
             for (unsigned i = 0; i < GameState::GetBeltSlotCount() && slot == -1; ++i)
                 if (GameState::GetBeltItemAt(i) == item) slot = (int)i;
@@ -1212,7 +1429,28 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
         g.endY = m.endY + (m.endH - g.endH) * -0.5f;
         Render::SortRenderLayer(Render::kLayer15, 1);
     }
-    // UNVERIFIED (tutorial, items): steps 0x15/0x17 and the tame tutorial react to item 0xaf/0x254.
+    // The chest's loot of the opening tutorial: the resource bar comes with the first piece, the
+    // belt with the net (item 0x254), which starts the taming lesson (step 0x17).
+    if (item != 0xaf && GameState::tutorial == 0x15) TopCityWindow::Show();
+    if (item == 0x254 && GameState::tutorial == 0x15) {
+        BeltBarWindow::Show();
+        GameState::tutorial = 0x17;
+    }
+    if (GameState::IsTameTutorial() && item == 0x254) {
+        // UNVERIFIED (4h, the taming lesson): BottomBattleWindow::Show.
+        Entity* wolf = EntityManager::GetEntityAtXY(7, 0x10);
+        if (GameState::tutorial != 0x17) wolf = EntityManager::GetEntityAtXY(5, 0xb);
+        if (wolf) {
+            GUI::SetInteractionObjectLock(wolf, nullptr);
+            AIBaseState* ai = EntityManager::GetPlayer()->GetAI();
+            SetArrowClickCallback(new GUI::Callback([ai, wolf] { ai->ClickedEntity(wolf); }));
+            ArrowAt(wolf->worldX, wolf->worldY - wolf->GetIdleHeight(), false, false, false, false, false, false, false);
+            Render::CenterOn(wolf->worldX - 100.f, wolf->worldY);   // (animated over 0.4 s on the original)
+        }
+        if (GameState::tutorial == 0x17) PlayerTopWindow::SetParameters(StringTable::GetString("DESC1911"), 0, false, true);
+    }
+    // UNVERIFIED (milestone 5, the character window): item 0x21d picked up on map 0x52 before task
+    // 0x5a5 is done opens CharacterInfoWindow on it.
 }
 
 // ---- text popups ----
@@ -1268,8 +1506,7 @@ void ShowIconHover(float x, float y, Render::Texture* tex) {
 // @0x263218 BuildingHovers::FollowDecor
 void FollowDecor(Map::Decor* d) { g_arrows.back()->decor = d; }
 
-// @0x2631fc BuildingHovers::FollowEntity. UNVERIFIED (milestone 4h): UpdateArrow moving the arrow
-// with the entity (and dropping it when the entity dies) comes with the tutorial that uses it.
+// @0x2631fc BuildingHovers::FollowEntity (UpdateArrow keeps the arrow over the entity)
 void FollowEntity(Entity* e) { g_arrows.back()->entity = e; }
 
 // ---- the world dialog ----
@@ -1377,9 +1614,7 @@ int ShowTextHoverWithStyle(float x, float y, const char32_t* text, int style, fl
 
 void Update(double dtIn, bool force) {
     double dt = dtIn > 0.5 ? 0.5 : dtIn;
-    // UNVERIFIED (tutorial): the city tutorial steps 0x48/0x49, 0x21, 0x14/0x15, 0x56/0x57, the
-    // second tutorial 0x83..0x85, 0x8a..0x9e and 0x9f/0xa0, map 0xb and the tame tutorial keep the
-    // drops alive (lifetime 128) and point the arrow at them.
+    UpdateTutorialDrops();
     float fdt = (float)dt;
     if (!GameState::IsPaused() && !g_updatingDrops) {
         g_updatingDrops = true;
@@ -1442,7 +1677,7 @@ void Update(double dtIn, bool force) {
             Render::SortRenderLayer(Render::kLayer15, 1);
             g_itemMoves[i] = g_itemMoves.back();
             g_itemMoves.pop_back();
-            // UNVERIFIED (tutorial): at second-tutorial step 0x95 BeltBarWindow::UpdateContents.
+            if (GameState::secondTutorial == 0x95) BeltBarWindow::UpdateContents();
         } else {
             m.t = fdt + m.t;
             ++i;
@@ -1476,7 +1711,8 @@ bool Click(int x, int y, bool pressed) {
     if (!GameState::IsPlayerCity() || BuildingMovement::Activated() || BuildingPlacement::Activated() ||
         ShopWindow::IsVisible())
         return false;
-    // UNVERIFIED (tutorial): ClickOnArrow, and hiding the arrow on a release.
+    if (ClickOnArrow(x, y, pressed)) return true;
+    if (ArrowVisible() && !GameState::IsTutorial() && GUI::CanInteractWith(nullptr) && !pressed) HideArrow();
     if (g_currentHover) {
         if (g_currentHover->Click(x, y, pressed)) return true;
         int step = GameState::TutorialStep();
@@ -1503,7 +1739,25 @@ bool Click(int x, int y, bool pressed) {
                 Render::RemoveSprite(d.glow);
                 g_itemDrops[i] = g_itemDrops.back();
                 g_itemDrops.pop_back();
-                // UNVERIFIED (tutorial): steps 0x49, 0x15, 0x57, 0x85 and 0x94 advance here.
+                if (GameState::tutorial == 0x49) HideArrow();
+                AfterDropCollected();
+                if (GameState::secondTutorial == 0x85) {
+                    HideWorldDialog(nullptr);
+                    HideArrow();
+                    if (!g_itemDrops.empty()) {
+                        GameState::secondTutorial = 0x84;
+                    } else {
+                        GameState::secondTutorial = 0x86;
+                        BeltBarWindow::UpdateContents();
+                    }
+                }
+                if (GameState::secondTutorial == 0x94) {
+                    GUI::SetInteractionLock(true);
+                    HideArrow();
+                    HideWorldDialog(nullptr);
+                    GameState::secondTutorial = 0x95;
+                    BeltBarWindow::UpdateContents();
+                }
                 Hide();
                 UpdateHovers();
                 return true;
@@ -1573,8 +1827,12 @@ bool Click(int x, int y, bool pressed) {
 // the hero; a job is checked for its price and given to the hero (away) or a worker (at home);
 // Decor::OnClick handles the rest; in the city one that pays taxes shows its info window.
 bool OnDecorClick(Map::Decor* d, int x, int y) {
-    // UNVERIFIED (milestone 4h): steps 0x13 and 0x3a hide the world dialog (HideWorldDialog).
-    if (GameState::tutorial == 0x14 || GameState::tutorial == 0x3a) HideArrow();
+    if (GameState::tutorial == 0x13) HideWorldDialog(nullptr);
+    if (GameState::tutorial == 0x14) HideArrow();
+    if (GameState::tutorial == 0x3a) {
+        HideWorldDialog(nullptr);
+        HideArrow();
+    }
     Entity* player = EntityManager::GetPlayer();
     bool passes = g_skipCombatCheck;
     g_skipCombatCheck = false;
@@ -1735,7 +1993,7 @@ bool OnBuildingClick(Map::Building* b, int, int) {
     // UNVERIFIED (milestone 4): in a city battle CombatManager::OnBuildingClicked takes the tap.
     if (GameState::tutorial == 0x3a) {
         HideArrow();
-        // UNVERIFIED (tutorial): HideWorldDialog.
+        HideWorldDialog(nullptr);
         GUI::SetInteractionLock(true);
         GameState::tutorial = 0x3d;
         return false;

@@ -412,8 +412,7 @@ void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents)
     int x, y;
     ScreenCentreTile(x, y);
     if (GameState::tutorial == 0x5c) {
-        // UNVERIFIED (tutorial): BuildingHovers::HideWorldDialog(nullptr) (the world dialog is not
-        // ported).
+        BuildingHovers::HideWorldDialog(nullptr);
         x = 0x1a;
         y = 0x11;
     }

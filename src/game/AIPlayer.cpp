@@ -297,8 +297,10 @@ void AIPlayer::ClickedEntity(Entity* e) {
         return;
     }
     Entity::UpdateSafePos(entity);
-    // UNVERIFIED (milestone 4h): the tame tutorial (GameState::IsTameTutorial) hides the arrow and
-    // reports spawn point 0x1e to TutorialSender.
+    if (GameState::IsTameTutorial()) {
+        BuildingHovers::HideArrow();
+        if (e->GetSpawnPointID() == 0x1e) TutorialSender::AddTutorialStep(0x464);
+    }
     int& st = GameState::secondTutorial;
     if (st == 0x91 || st == 0x8e) {
         BuildingHovers::HideWorldDialog(nullptr);
@@ -730,7 +732,7 @@ void AIPlayer::ClickedDecoration(Map::Decor* d) {
     else BlockedMarker();
     // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
     entity->GetSquad()->MoveTo(wp);
-    // UNVERIFIED (milestone 4h): BuildingHovers::HideWorldDialog(nullptr).
+    BuildingHovers::HideWorldDialog(nullptr);
 }
 
 // @0xef3ec AIPlayer::AssignToJob
@@ -739,7 +741,7 @@ bool AIPlayer::AssignToJob(Map::Decor* d) {
         HealSquadWindow::Show();
         return false;
     }
-    // UNVERIFIED (milestone 4h): tutorial step 0x14 hides the world dialog (HideWorldDialog).
+    if (GameState::tutorial == 0x14) BuildingHovers::HideWorldDialog(nullptr);
     int ax = 0, ay = 0;
     d->GetActionPoint(ax, ay, (int)GetBestDecorationActionPoint(d));
     AI::Waypoint* wp = AI::GetWaypoint(ax, ay, false);

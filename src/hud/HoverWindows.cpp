@@ -114,7 +114,27 @@ void BubbleHoverWindow::Update(float dt) {
             SetPosition((int)((building->minX + building->maxX) * 0.5f), (int)(building->minY + (float)iconY));
     }
     root->SetPosition(root->x, (int)((float)baseY + std::cos(t * 8.f) * 4.f));
-    // UNVERIFIED (tutorial): step 0x55 points the tutorial arrow at the bubble.
+    // The first finished order (tutorial step 0x55): the arrow points at the bubble and its tap
+    // collects. (Server setting 0xb3 would go on to 0x58, or end the short tutorial: online.)
+    if (GameState::tutorial == 0x55) {
+        GUI::SetInteractionObjectLock(root, building);
+        Map::Building* b = building;
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([b] { BuildingHovers::OnBuildingFinishedClick(b); }));
+        BuildingHovers::SetArrowVisibleWindowLimit(1);
+        BuildingHovers::ArrowAt((float)(root->w + root->x), (float)(root->y + root->h / 2), false, true, false, false, false,
+                                false, false);
+        if (GameState::GetServerSetting(0xb3) == 0) {
+            GameState::tutorial = 0x56;
+        } else if (GameState::GetTutorialType() == 1) {
+            GUI::SetInteractionLock(false);
+            GameState::tutorial = 0x80;
+            GameState::secondTutorial = 0x100;
+            TutorialSender::AddTutorialStep(0x100);
+            GameState::lastSentStep = 0x100;
+        } else {
+            GameState::tutorial = 0x58;
+        }
+    }
 }
 
 // A ready soil patch (AI state 0x19, only AIPatch has it) shows its crop.
@@ -496,7 +516,16 @@ void TaxesHoverWindow::SetPosition(int x, int y) {
     if (building) y += building->data->iconY;
     BuildingHoverWindow::SetPosition(x, y);
     root->SetPosition(x - root->w / 2, y - root->h / 2);
-    // UNVERIFIED (tutorial): step 0x21 locks the interaction on this button and points the arrow at it.
+    // The castle's first taxes (tutorial step 0x21): only this button can be tapped, the arrow
+    // points at it and its tap collects.
+    if (GameState::tutorial == 0x21) {
+        if (!GUI::CanInteractWith(building) || !GUI::CanInteractWith(clickArea) || GUI::CanInteractWith(nullptr)) {
+            GUI::SetInteractionObjectLock(building, clickArea);
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnCollect(); }));
+        }
+        BuildingHovers::ArrowAt((float)(root->x + root->w / 2), (float)root->y, false, false, false, false, false, false,
+                                false);
+    }
 }
 
 bool TaxesHoverWindow::Click(int x, int y, bool pressed) {
@@ -917,7 +946,10 @@ bool BuildProgressHoverWindow::Click(int x, int y, bool pressed) {
         Relayout(canSpeedUp);
         return true;
     }
-    // UNVERIFIED (tutorial): at step 0x54 the click goes to the tutorial arrow.
+    if (GameState::tutorial == 0x54) {   // only the tutorial's arrow can be tapped
+        BuildingHovers::ClickOnArrow(wx, wy, pressed);
+        return true;
+    }
     if (expanded && hideSpeedup != 0) {
         expanded = false;
         Relayout(false);
@@ -1104,8 +1136,16 @@ void BuildProgressHoverWindow::Update(float dt) {
             OnSpeedUpFinished();
         }
     }
-    // UNVERIFIED (tutorial): at steps 0x53/0x5e (hurry button shown, no speed-up running) the arrow
-    // points at the hurry button.
+    // The tutorial's two speed-ups (steps 0x53 and 0x5e): with the hurry button shown and no
+    // speed-up running, the arrow points at the button and its tap hurries.
+    if (hurry->visibleSelf && !speedingUp && (GameState::tutorial == 0x53 || GameState::tutorial == 0x5e)) {
+        ++GameState::tutorial;
+        GUI::SetInteractionObjectLock(hurry, nullptr);
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnSpeedUp(true); }));
+        BuildingHovers::SetArrowVisibleWindowLimit(1);
+        BuildingHovers::ArrowAt((float)(hurry->w + hurry->x + root->x), (float)(root->y + hurry->y + hurry->h / 2), false,
+                                true, false, false, screen, false, false);
+    }
     secondFrac += dt / (float)1;   // HUDWindow::GetDeltaTimeMultiplier() is 1
     uint32_t now = Timer::GetGlobalTime();
     if (now == second) {
@@ -1330,8 +1370,14 @@ void PlaceBuildingHoverWindow::SetPosition(int, int) {
     if (!shownHover) return;
     if (building) {
         accept.root->SetEnabled(building->CanBePlaced(true));
-        // UNVERIFIED (tutorial): at step 0x5c with confirm enabled, the arrow points at it and its
-        // click confirms (BuildingHovers::SetArrowClickCallback(OnAccept), arrowCallback).
+        // Placing the barracks (tutorial step 0x5c): once it may stand there the arrow points at
+        // the green button and its tap confirms.
+        if (accept.root->enabled && GameState::tutorial == 0x5c) {
+            if (arrowCallback != BuildingHovers::GetArrowClickCallbackID())
+                arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnAccept));
+            BuildingHovers::ArrowAt((float)(root->x + accept.root->x + accept.root->w / 2),
+                                    (float)(root->y + accept.root->y), false, false, true, false, true, false, false);
+        }
         if (!shownHover) return;
     }
     if (decor) accept.root->SetEnabled(decor->CanBePlaced(true));

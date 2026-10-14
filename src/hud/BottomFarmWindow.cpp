@@ -142,7 +142,7 @@ void OnFarmLeft() {
 void OnFarmSpeedUpActual() {
     if (GameState::secondTutorial == 0x100) GUI::SetInteractionLock(false);
     if (GameState::tutorial == 0x45) {
-        // UNVERIFIED (tutorial): BuildingHovers::HideWorldDialog(nullptr).
+        BuildingHovers::HideWorldDialog(nullptr);
         BuildingHovers::HideArrow();
         GameState::tutorial = 0x46;
     }

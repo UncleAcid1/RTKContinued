@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-13, 4g DONE (campaign combat: fights, death and healing, potion belt, speech bubble, traps; see the 4g entry below). NEXT: 4h. 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
+## Handoff (last updated 2026-10-13, 4h IN PROGRESS: search "RESUME HERE" below. 4g done (campaign combat); 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -1062,6 +1062,54 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    grep it; check a doubtful branch in out/asm_all.txt (both bugs above were inverted conditions);
    a class nobody constructs is dead: check before porting.
    NEXT: 4h (the new game and the opening tutorial).
+
+**4h IN PROGRESS - RESUME HERE (written 2026-10-13).**
+   DONE AND COMMITTED:
+   part 1: the new game (LoadSavedGame's branch; "--map N" keeps the old test start past the
+     tutorial), hud/TutorialWindow.cpp (Update steps 0..0x17, UpdateCity 0x18..0x66, UpdateSecond;
+     TutorialSender's bookkeeping), windows/SelectHQWindow.cpp (name and gender; figures are bare
+     bodies), game/PlayerEquipmentInfo.*, Shared::PlayerHolder::LoadFrom (hud/PlayerHolder.cpp),
+     shader type 10 (grey fade), Render::GetSymbolCountInWidth, EntityManager::GetEntityByClass,
+     Entity::SwitchEntityData, OnTutorialFarmerWomanAction, BottomFarmWindow::GetPlantButton.
+     TOOL: tools/ghidra_scripts/SwitchDecomp.java restores ARM jump tables Ghidra lost
+     (`addls pc,pc,rN,lsl #2`): args <out.c> <entry> <size> (<switch insn> <cases>)...; output kept
+     in out/switch/. Run: tools/ghidra_headless.sh "$PWD/ghidra" rtk511 -process libkingdom.so
+     -readOnly -noanalysis -scriptPath "$PWD/tools/ghidra_scripts" -postScript SwitchDecomp.java ...
+   part 2: the tutorial hooks left as notes in older code: BuildingHovers (UpdateTutorialDrops =
+     Update's first part, CollectOne, the steps on a tapped drop, ClickOnArrow in Click, the arrow
+     following an entity, OnCollect's chest loot / net / step 0x17, ItemDrop::Collect and Animate,
+     DropItem / DropResource / DropFarmFood locks, UnregisterDecoration), the hover windows (taxes
+     0x21, ready bubble 0x55, build progress 0x53/0x54/0x5e, placement 0x5c, factory 0x53/0x54),
+     Building's farm step 0x45, Map::Update's farm arrow 0x3a, AIPlayer's taming click.
+   VERIFIED (screenshots, scratch storage): new game -> Chapter 1 -> SelectHQWindow (gender
+     greys the other figure, the default name follows) -> Stoutbeard's greeting with the chosen
+     name -> arrow at the signpost -> map 13 -> the wolf fight -> the miner's thanks -> the chest
+     opens and drops its loot with the arrow on the first piece (step 0x15).
+   TO DO, in this order:
+   1. Play on from step 0x15 in the test loop (collect the drops; the net 0x254 gives step 0x17).
+   2. THE TAMING LESSON (step 0x17, map 0xd): it needs BottomBattleWindow (Show, EnableNet,
+      TameNext, the net button; 24 KB, planned for milestone 5 as "the rage bar"). Bring forward
+      what taming needs; without it a new game cannot reach the city. Then ItemHoverWindow::OnFeed
+      (note at "UNVERIFIED (milestone 4h)") and the note in BuildingHovers OnCollect.
+   3. BeltBarWindow's second-tutorial notes (2), HealSquadWindow's figure.
+   4. Shared::PlayerHolder::PlacePlayerEquipment / PlaceItemInHolder / PlaceObjectInHolder
+      (0x34572c, 0x345058, 0x344d78: read with care, Ghidra mixes their float and int arguments;
+      check each call's registers in out/asm_all.txt).
+   5. ReloadSavedGame 0x1889a0, HUDWindow::GameReset 0x2c8e44 / GameReload 0x2c989c (SettingsWindow's
+      restart), GameState::RemoveWorkersFromOrders 0x190c74. To milestone 5 in the plan:
+      FirstCityEnterEffect::Run (global map animation), CmdReloadGame (console). Dead (no caller):
+      TutorialWindow::StartTutorialSkip / StartGameBot / GetResource / BotShouldTame / Show and so
+      SkipTutorialStep's body, SelectHQWindow::OnContinue / SetOnContinue.
+   6. The city tutorial (steps 0x18..0x66) has not been run yet: play it in the test loop and fix
+      what breaks. Tablet attention rings (BuildingHovers notes): check whether a desktop build
+      ever shows them, else re-label.
+   7. `python3 tools/inventory.py --functions 4h` and `--unplanned` empty; the notes gone; this
+      block replaced by the finished entry; roadmap line; commit; short update to the user.
+   TEST LOOP: tools/test_hook.py on|off tools/test_hook.txt (see the 4g entry). New: prints
+   tut=<tutorial>/<secondTutorial>; RTK_NOCLOSE=1 (no automatic window-closing taps),
+   RTK_SLEEPS=f1,f2,... (1.1 real seconds each: jobs run on real time). The new game's taps so
+   far (1280x800): RTK_CLICK=40:640:400,100:640:630,200:758:418,240:725:235,340:555:215,
+   560:842:262,640:768:215 with RTK_SLEEPS=720,730,...,830 reaches step 0x15 at frame 760.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.

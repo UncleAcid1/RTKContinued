@@ -309,4 +309,5 @@ namespace CharacterInfoWindow {
 // customisations (1..9), the complete sets and the running buffs. Map::Load runs it, as do the
 // item windows.
 void UpdateContents();
+inline bool IsVisible() { return false; }   // (0x27aeb4) the window itself: milestone 5
 }

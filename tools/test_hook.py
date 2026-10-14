@@ -7,4 +7,4 @@ if sys.argv[1]=='off':
 else:
     h=open(save).read(); k='    for (int i = 0; i < opt.frames; ++i) frame();\n'; assert s.count(k)==1
     s=s.replace(k,h+k); s=s.replace('#include <cstdio>','#include <array>\n#include <cstdio>',1)
-open(p,'w').write(s)
+open(p,"w").write(s); import os,time; os.utime(p,(time.time()+2,time.time()+2))

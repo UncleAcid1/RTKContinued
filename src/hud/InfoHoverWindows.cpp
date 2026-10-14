@@ -273,8 +273,11 @@ void FactoryHoverWindow::OnSpeedUpFinished() {
         }
         speedingUp = false;
     } else {
-        // UNVERIFIED (tutorial): at step 0x54 the camera centres on the building (Render::CenterOn)
-        // and the step moves to 0x55.
+        if (GameState::tutorial == 0x54) {   // the tutorial's hurried order: back to the building
+            Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);   // (animated on the original)
+            BuildingHovers::Hide();
+            GameState::tutorial = 0x55;
+        }
         int cost = 0;
         if (b->data->buildingClass == 2 && b->contract != 0)
             cost = (int)Mission(b, (unsigned)(b->contract - 1)).speedupCost2;
@@ -624,8 +627,17 @@ void FactoryHoverWindow::OnLaunchContract() {
         BuildingHovers::SetArrowVisibleWindowLimit(0);
     }
     BuildingHovers::HideArrow();
-    // UNVERIFIED (tutorial): at step 0x53 the tutorial opens the building at (0x1c, 0x13), moves to
-    // 0x54 and points the arrow at its speed-up button.
+    // The tutorial's first order (step 0x53): the sawmill on (0x1c, 0x13) is opened again and the
+    // arrow points at its speed-up button; its tap hurries.
+    if (GameState::tutorial != 0x53) return;
+    BuildingHovers::HideWorldDialog(nullptr);
+    BuildingHovers::OnBuildingClick(Map::GetBuilding(0x1c, 0x13), 0, 0);
+    GameState::tutorial = 0x54;
+    BuildingHovers::SetArrowClickCallback(new GUI::Callback([this] { OnSpeedUp(true); }));
+    BuildingHovers::SetArrowVisibleWindowLimit(1);
+    BuildingHovers::ArrowAt((float)(speedup->w + speedup->x + root->x), (float)(root->y + speedup->y + speedup->h / 2), false,
+                            true, false, false, true, false, false);
+    GUI::SetInteractionObjectLock(speedup, nullptr);
 }
 
 void FactoryHoverWindow::ShowArrowAt(unsigned i) {
@@ -872,7 +884,7 @@ void CenterOnWorker(Entity* e) {
     if (!e->IsActive()) return;
     if (Render::Sprite* s = e->GetSprite()) {
         BuildingHovers::ArrowAt(x, (y - s->h) - 20.f, false, false, false, false, false, false, false);
-        // UNVERIFIED (tutorial arrows): BuildingHovers::FollowEntity(e) keeps the arrow over them.
+        BuildingHovers::FollowEntity(e);
     }
     // UNVERIFIED: the original animates the camera there at zoom 0.4 (Render::CenterOn's animated path).
     Render::CenterOn(x, y);
@@ -1152,7 +1164,7 @@ void StorageHoverWindow::OnHireGoblinGold() {
         // SoundsManager::PlaySound("ui_buy_with_gold", 1, false): sounds are milestone 5.
         GameState::ChangeResourceAmount(GameState::kGold, -100);
         building->HireGolbin();
-        // UNVERIFIED (tutorial): BuildingHovers::HideWorldDialog.
+        BuildingHovers::HideWorldDialog(nullptr);
         BuildingHovers::Hide();
         GameState::tutorial = 0x2f;
         BuildingHovers::SetArrowVisibleWindowLimit(0);
@@ -1266,7 +1278,7 @@ void StorageHoverWindow::Show() {
     size_t n = (size_t)GameState::GetGoblinCount();
     const GoblinCost& c = goblinCost[n < goblinCost.size() ? n : goblinCost.size() - 1];
     hirePrice->SetText(SWPrintf(0x100, U"%d", {c.gold}).c_str());
-    // UNVERIFIED (tutorial): at step 0x2d the price text is formatted a second time.
+    // (At tutorial step 0x2d the original formats the same price text a second time.)
     hireCrystalsPrice->SetText(ToWideString(GameState::AdjustCrystalCost(c.crystals)));
     if (tutorialHire) {
         GameState::tutorial = 0x2e;
@@ -1591,7 +1603,7 @@ void ResourceHoverWindow::OnBoost() {
     // SoundsManager::PlaySound("ui_on_speedup", 1, false): sounds are milestone 5.
     boosting = true;
     boostT = 0.f;
-    // UNVERIFIED (tutorial): at step 0x29 BuildingHovers::HideWorldDialog.
+    if (GameState::tutorial == 0x29) BuildingHovers::HideWorldDialog(nullptr);
 }
 
 void ResourceHoverWindow::OnCollect() {

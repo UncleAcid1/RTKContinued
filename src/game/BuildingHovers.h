@@ -95,6 +95,7 @@ void ConvertDroppedFoodToResource(Map::Building* b);
 void SetHoverVisiblity(bool visible, bool arg);  // @0x2630bc
 bool HasDroppedItems();                     // @0x2631b0
 void CollectAll();                          // @0x26e0e8 every drop collected at once (before a save)
+void CollectOne(uint32_t item);              // @0x26e1a0 one drop picked up (0: the first), with the tutorial steps
 bool IsItemMoving();                        // @0x26333c
 
 // @0x2707ac: drop `amount` of a resource at a world point as bouncing pickups (gold as piles of up

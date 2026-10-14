@@ -1910,7 +1910,12 @@ void Update(double dt) {
         b->stateTime = Timer::GetGlobalTime() - (uint32_t)b->data->collectTime;   // (its taxes are ready)
         g_placements.front() = g_placements.back();
         g_placements.pop_back();
-        // UNVERIFIED (milestone 4h): in tutorial step 0x3a a callback on this building is queued.
+        // The farm the farmer's wife asked for (tutorial step 0x3a): the arrow points at it.
+        if (GameState::tutorial == 0x3a) {
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([b] { BuildingHovers::OnBuildingClick(b, 0, 0); }));
+            Tasks::HelpWithLocation((int)b->baseX, (int)b->minY, 0, 0);
+            GUI::SetInteractionObjectLock(b, nullptr);
+        }
     }
     UpdateCamera(fdt);
     g_resortTimer += fdt;
@@ -2084,8 +2089,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         raw->areaId = id;
         raw->owned = pc->data.size() > 1 && pc->data[1] != 0;
         raw->bordered = pc->data.size() > 2 && pc->data[2] != 0;
-        // UNVERIFIED (milestone 4h): a patch with a pending replacement block (0x613800, filled by
-        // Map::UpdateCityMap) is marked owned and loads from that block instead.
+        // UNVERIFIED (milestone 7, map versions): a patch with a pending replacement block (0x613800,
+        // filled by Map::UpdateCityMap) is marked owned and loads from that block instead.
         // Patch::Load: LoadDecors (5 + n*0xb), LoadBuidings (6 + n*0xc), then mask (7)
         if (const SaveManager::Chunk* dc = next(SaveManager::kDecorCount)) {
             int cnt = SaveManager::Reader(*dc).s16();
@@ -2221,9 +2226,9 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     }
     UpdateResources();
     if (GameState::GetCurrentMapID() == 0) Tasks::CompleteSubtask(Tasks::kEnterMap, 0x2f, 1);
-    // UNVERIFIED (milestone 4h): the tutorial types' task fixes (type 1: task 0xbe's flag +0x104;
-    // type 2 after task 0xd5: locks of 0x449/0x429/0x438/0x43a/0x43c, 0x120's next task, tasks
-    // 0xbe/0xfe/0x434/0x433 completed).
+    // (Online: the short tutorials the server can choose, GameState::GetTutorialType 1 and 2, fix
+    // their tasks here: type 1 task 0xbe's flag +0x104; type 2 after task 0xd5 the locks of
+    // 0x449/0x429/0x438/0x43a/0x43c, 0x120's next task, tasks 0xbe/0xfe/0x434/0x433 completed.)
     Tasks::Update(true);   // (not while Game::skipGameLoad, the online profile choice)
     HUDWindow::RemoveTaskArrows();
     BuildingHovers::Update(0.0, true);
@@ -2289,7 +2294,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         } else if (GameState::GetMapVersion(map) < GameState::GetGameMapVersion()) {
             std::printf("Map::Load() Updating user map %d from version %d to %d\n", (int)map,
                         (int)GameState::GetMapVersion(map), (int)GameState::GetGameMapVersion());
-            // UNVERIFIED (milestone 4h): the city's update (Map::UpdateCityMap 0x1c49a8: every owned
+            // UNVERIFIED (milestone 7, map versions): the city's update (Map::UpdateCityMap 0x1c49a8: every owned
             // patch's content is carried into the map file's new version).
             if (map != 0) UpdateBattleMap();
             if (GameState::GetMapVersion(GameState::GetCurrentMapID()) == GameState::GetGameMapVersion())
