@@ -20,6 +20,7 @@ void UpdateTasks();            // @0x2c7ba8 (a jump to TaskHolderWindow::UpdateT
 void RemoveTaskArrows();       // @0x2c7bac
 int UpdateNumberToTarget(int current, int target);   // @0x2c6560 (animated counters)
 inline int GetDeltaTimeMultiplier() { return 1; }    // @0x2c6664
+inline bool GetDebugState() { return false; }       // @0x2c665c (always 0 in 5.11)
 WindowManager::FunctionalWindow* Queue();
 // @0x2c6948: a line of text under the top bar (the second map-name popup), or none.
 void SetInfoText(const char32_t* text);
@@ -93,10 +94,18 @@ void HideHoverWindow();              // @0x24c63c
 // UNVERIFIED (milestone 5, with the spells): the rage bar (BottomBattleWindow, Rage_bar.xml: spell
 // slots, fury buttons, the arena's stances, the taming net). Until then it never shows, nothing is
 // tamed and no net is aimed.
+// The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net part so far).
 namespace BottomBattleWindow {
-inline void Hide() {}                               // (0x259338)
-inline void EnableNet(uint32_t) {}                  // (0x258f30) a dying monster may be tamed
-inline uint32_t GetNetTargetSpawnID() { return 0; } // (0x257090)
+WindowManager::FunctionalWindow* Queue();
+void Init();                        // @0x25d4a8
+void Show();                        // @0x25cfd8
+void Hide();                        // @0x259338
+void SetZ(float z);
+bool IsVisible();
+void EnableNet(uint32_t spawn);     // @0x258f30 a dying monster may be tamed
+void TameNext();                    // @0x25710c
+uint32_t GetNetTargetSpawnID();     // @0x257090
+void OnCenter();                    // @0x2588b4 the centre button (the net)
 }
 // The "Heal Hero" window (windows/HealSquadWindow.cpp).
 namespace HealSquadWindow {

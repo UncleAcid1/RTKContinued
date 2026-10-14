@@ -2562,6 +2562,24 @@ int GetUsedWorkerCount() {
     return n > 4 ? (int)(n - 4) : 0;
 }
 
+// @0x1b8d30: the (last found) open tavern, building 0x8f.
+Building* GetTavern() {
+    Building* found = nullptr;
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->id == 0x8f && b->IsOpened()) found = b.get();
+    return found;
+}
+
+// @0x1b8dd4: the (last found) open barracks, a building of class 0xc.
+Building* GetBarracks() {
+    Building* found = nullptr;
+    for (auto& p : g_patches)
+        for (auto& b : p->buildings)
+            if (b->data->buildingClass == 0xc && b->IsOpened()) found = b.get();
+    return found;
+}
+
 Building* GetBuildingWithID(uint32_t id) {
     for (auto& p : g_patches)
         for (auto& b : p->buildings)

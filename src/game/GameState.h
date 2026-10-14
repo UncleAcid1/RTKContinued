@@ -255,7 +255,9 @@ void LoadEntities(SaveManager::SaveBlock* block);   // @0x1930bc
 unsigned GetSoldierSlotCount();
 Entity* GetFriendPlayer();                      // @0x1919ec the first class-0x16 entity (a visited friend)
 void SetSoldierReserveSlots(unsigned n);  // @0x191d90 SoldierPool::SetFreeSlotsCount
-unsigned GetSoldierReserveSlots();        // @0x191d94 SoldierPool::GetTotalSlotsFree
+unsigned GetSoldierReserveSlots();
+void HireSoldier(Entity* e, bool spawn, int where);    // @0x19a15c where: 0 by the hero, 1 tavern, 2 barracks
+void HireSoldier(int id);                              // @0x19a5d8        // @0x191d94 SoldierPool::GetTotalSlotsFree
 void AddOfflineBuilding(const OfflineBuilding& b);   // @0x194928
 void ClearOfflineBuildings();                  // @0x19bda8
 OfflineBuilding* GetOfflineBuilding(unsigned i);       // @0x190f5c (unchecked)

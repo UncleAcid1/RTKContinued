@@ -122,6 +122,7 @@ bool LoadData(const char* file);                  // @0x162828
 void Init();                                      // @0x161a1c InitNames: the worker/farmer name lists (Init @0x162820 only branches to it)
 EntityData* GetEntityByID(int id);                // @0x15f7b4
 void GetEntitiesForBuilding(unsigned building, unsigned* out, unsigned count);   // @0x160680
+EntityData* GetTamedEntityForID(uint32_t id);    // @0x160720
 EntityData* EnumEntity(unsigned i);               // @0x1608a8 (file order)
 int GetEntityIDByName(const std::string& name);   // @0x1605c8 (-1 if none)
 // The worker/farmer name lists (female: EntityData::female, farmer: 1 for farmers). An index out of

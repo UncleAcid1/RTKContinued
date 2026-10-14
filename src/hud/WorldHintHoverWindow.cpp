@@ -214,7 +214,7 @@ void WorldHintHoverWindow::OnClose() {
         next->SetVisibility(false);
         Entity* soldier = EntityManager::GetPlayer()->GetSquad()->GetSoldier(1);
         BuildingHovers::DropItem(soldier->worldX, soldier->worldY, Items::GetItemInfo(0x254), 0, 1);
-        // UNVERIFIED (milestone 5): BottomBattleWindow::EnableNet(0).
+        BottomBattleWindow::EnableNet(0);
     }
     if (task != 0) {
         uint32_t then = nextTask;

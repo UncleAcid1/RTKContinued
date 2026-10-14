@@ -309,6 +309,8 @@ Decor* GetDecorationIgnoringBuildzones(int x, int y);  // @0x1c1a98 the one plac
 Patch* GetPatchForCoordinates(int x, int y, bool quiet);
 // @0x1c19cc: every tile of a w x h zone starting at (x, y) lies on owned land.
 bool IsValidAreaForBuildZone(int x, int y, int w, int h);
+Building* GetTavern();                                 // @0x1b8d30
+Building* GetBarracks();                               // @0x1b8dd4
 Building* GetHQ();                                     // @0x1b6c94 the castle (99, else 100)
 // @0x1c1b00 (city only): road tiles in the rectangle switch to the tile matching their neighbours.
 void UpdateRoadConnections(int x0, int y0, int x1, int y1);

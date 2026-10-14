@@ -410,8 +410,7 @@ void MetaExpression::OnApplyItemEffect(Entity* e) {
         case kExpBeltSlots: GameState::SetBeltSlotCount((uint32_t)Value(d)); break;
         case kExpBeltSize: GameState::SetBeltSize((uint32_t)Value(d)); break;
         case kExpGiveTroops:
-            // UNVERIFIED (milestone 5, hiring): EntityManager::CreateEntity(id, false, true) and
-            // GameState::HireSoldier(entity, true, 2).
+            GameState::HireSoldier(EntityManager::CreateEntity(Value(d), false, true), true, 2);
             break;
         case kExpLuck:
             if (e->GetLuck() < Value(d)) e->SetLuck(Value(d));

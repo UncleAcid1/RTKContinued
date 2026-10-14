@@ -1437,7 +1437,7 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
         GameState::tutorial = 0x17;
     }
     if (GameState::IsTameTutorial() && item == 0x254) {
-        // UNVERIFIED (4h, the taming lesson): BottomBattleWindow::Show.
+        BottomBattleWindow::Show();
         Entity* wolf = EntityManager::GetEntityAtXY(7, 0x10);
         if (GameState::tutorial != 0x17) wolf = EntityManager::GetEntityAtXY(5, 0xb);
         if (wolf) {

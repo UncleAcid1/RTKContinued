@@ -82,6 +82,7 @@ add_executable(rtk
   src/hud/ContentScroller.cpp
   src/hud/TopCityWindow.cpp
   src/hud/TutorialWindow.cpp
+  src/hud/BottomBattleWindow.cpp
   src/hud/PlayerHolder.cpp
   src/windows/CityRenameWindow.cpp
   src/windows/ConfirmPurchaseWindow.cpp

@@ -467,7 +467,7 @@ void SetZ(float z) {
     CastleTopWindow::SetZ(z);
     BeltBarWindow::SetZ(z);
     BattleBarWindow::SetZ(z);
-    // BottomBattleWindow::SetZ (campaign maps)
+    BottomBattleWindow::SetZ(z);
     TaskHolderWindow::SetZ(z);
     BottomCityWindow::SetZ(z);
     TopCityWindow::SetZ(z);

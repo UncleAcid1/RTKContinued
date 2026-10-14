@@ -14,7 +14,9 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
+#include "game/Fog.h"
 #include "game/GameState.h"
+#include "game/Tasks.h"
 #include "game/Items.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
@@ -1121,10 +1123,22 @@ void ItemHoverWindow::OnDismiss() { Hide(); }
 void ItemHoverWindow::OnFeed() {
     if (GameState::GetCurrentMapID() == 0xd && !GameState::TaskCompleted(0x771)) {
         unit->AddHP(unit->GetHpMax() - unit->GetHP());
-        // UNVERIFIED (milestone 4h): BuildingHovers::HideWorldDialog(null), HideArrow,
-        // BattleBarWindow::UpdateContents, the arrow on decoration (10, 0x12) with its callback
-        // (the player's AI +0x58) and Fog::Open there, Tasks::CompleteTask(0x771).
+        BuildingHovers::HideWorldDialog(nullptr);
+        BuildingHovers::HideArrow();
+        BattleBarWindow::UpdateContents();
+        // The lesson is over: the arrow at the way out, the portal on (10, 0x12).
+        if (Map::Decor* d = Map::GetDecoration(10, 0x12)) {
+            AIBaseState* ai = EntityManager::GetPlayer()->GetAI();
+            Portal* portal = d->portal;
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([ai, portal] { ai->ClickedPortal(portal); }));
+            Render::Sprite* sp = d->sprite;
+            BuildingHovers::ArrowAt(sp->x + sp->w * 0.5f, sp->y - sp->h, false, false, false, false, false, false, false);
+            GUI::SetInteractionObjectLock(d->portal, d);
+            Fog::Open(sp->x + sp->w * 0.5f, sp->y - sp->h, 200.f, 0.3f);
+        }
         Hide();
+        Tasks::CompleteTask(0x771, true, true, false);
+        return;
     }
     Hide();
 }

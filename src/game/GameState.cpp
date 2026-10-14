@@ -1774,6 +1774,81 @@ Entity* GetFriendPlayer() {
 void SetSoldierReserveSlots(unsigned n) { SoldierPool::SetFreeSlotsCount(n); }
 unsigned GetSoldierReserveSlots() { return SoldierPool::GetTotalSlotsFree(); }
 
+// @0x19a15c: a new soldier joins: its first and latest acquisition times and its count are noted;
+// it takes a free army slot (a dead soldier of the same kind, or any dead one when all slots are
+// taken, gives up its slot), else it goes to the reserve, inactive. With `spawn` it appears beside
+// the hero (where: 0 there, 1 at the tavern, 2 at the barracks; away from the city always beside
+// him) and walks a step. (OG / OG2 requests: online.)
+void HireSoldier(Entity* e, bool spawn, int where) {
+    Entity* player = EntityManager::GetPlayer();
+    e->temporary = false;
+    const uint32_t id = e->GetEntityData()->id;
+    const uint32_t now = (uint32_t)Timer::GetGlobalTime();
+    if (g_soldierAcquireTime.find(id) == g_soldierAcquireTime.end()) g_soldierAcquireTime[id] = now;
+    g_soldierRecentTime[id] = now;
+    auto c = g_soldierAcquireCount.find(id);
+    if (c == g_soldierAcquireCount.end()) g_soldierAcquireCount[id] = 1;
+    else ++c->second;
+    if (GetCurrentMapID() != 0) where = 0;
+    Entity* old = SoldierSlots::GetFirstSoldierByID(id);
+    bool free = false;
+    if (!old || !old->IsDead()) {
+        if (SoldierSlots::GetOccupiedSlotCount() == GetSoldierSlotCount()) {
+            old = nullptr;
+            for (unsigned i = 0; i < SoldierSlots::GetOccupiedSlotCount(); ++i) {
+                Entity* s = SoldierSlots::GetSoldierBySlot(i);
+                if (s->IsDead()) {
+                    old = s;
+                    break;
+                }
+            }
+            if (old) {
+                SoldierSlots::RemoveSoldier(old, true);
+                if (old->IsEliteSoldier()) SoldierPool::AddSoldier(old);
+            }
+        }
+        free = SoldierSlots::GetOccupiedSlotCount() < GetSoldierSlotCount();
+    } else {
+        SoldierSlots::RemoveSoldier(old, true);
+        if (old->IsEliteSoldier()) SoldierPool::AddSoldier(old);
+        free = SoldierSlots::GetOccupiedSlotCount() < GetSoldierSlotCount();
+    }
+    if (free && !SoldierSlots::GetFirstSoldierByID(id)) {
+        SoldierSlots::AddSoldier(e);
+        if (spawn) {
+            AI::Waypoint* wp = nullptr;
+            if (where == 0) {
+                wp = AI::GetRandomWaypointInRange(player->tileX, player->tileY, 1, 0, false, player, true);
+            } else {
+                Map::Building* b = where == 1 ? Map::GetTavern() : Map::GetBarracks();
+                if (!b) {
+                    wp = AI::GetRandomWaypointInRange(player->tileX, player->tileY, 1, 0, false, nullptr, false);
+                } else {
+                    int tx = 0, ty = 0;
+                    b->GetSpawnTile(tx, ty);
+                    wp = AI::GetWaypoint(tx, ty, false);
+                }
+            }
+            if (wp) EntityManager::SpawnEntityAt(e, (unsigned)wp->x, (unsigned)wp->y, true, true);
+            else EntityManager::SpawnEntityAt(e, (unsigned)player->tileX, (unsigned)player->tileY, true, true);
+            if (where > 0)
+                if (AI::Waypoint* to = AI::GetRandomWaypointInRange(player->tileX, player->tileY, 2, 1, false, player, true))
+                    e->GetAI()->WalkTo(to);
+        }
+        player->GetSquad()->AddSoldier(e);
+        return;
+    }
+    SoldierPool::AddSoldier(e);
+    e->SetActive(false, true);
+}
+
+// @0x19a5d8
+void HireSoldier(int id) {
+    Entity* e = EntityManager::CreateEntity(id, false, true);
+    AddEntity(e);
+    HireSoldier(e, true, 2);
+}
+
 namespace {
 BaseCombat* g_currentCombat = nullptr;   // GameState::currentCombat
 int g_virtualHealth = 0;                 // 0x613458 GameState::mVirtualHealth

@@ -709,6 +709,7 @@ int main_Loop_Init() {
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
+    BottomBattleWindow::Queue();
     BottomCityWindow::Queue();
     BottomFarmWindow::Queue();
     BuildingHovers::Queue();

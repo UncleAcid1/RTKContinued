@@ -212,7 +212,7 @@ void UpdateSecond(float) {
         if (map == 0x91) {
             if (who != player) who->SetAttackMelee(2);
             GUI::SetInteractionLock(true);
-            // UNVERIFIED (milestone 5, the rage bar): BottomBattleWindow::Show.
+            BottomBattleWindow::Show();
             BuildingHovers::HideWorldDialog(nullptr);
             BuildingHovers::HideArrow();
         }
