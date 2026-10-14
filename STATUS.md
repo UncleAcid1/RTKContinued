@@ -1084,13 +1084,45 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    VERIFIED (screenshots, scratch storage): new game -> Chapter 1 -> SelectHQWindow (gender
      greys the other figure, the default name follows) -> Stoutbeard's greeting with the chosen
      name -> arrow at the signpost -> map 13 -> the wolf fight -> the miner's thanks -> the chest
-     opens and drops its loot with the arrow on the first piece (step 0x15).
+     opens and drops its loot with the arrow on the first piece (step 0x15) -> the loot picked
+     up -> step 0x17, "Look, a wild boar!" with Next.
    TO DO, in this order:
-   1. Play on from step 0x15 in the test loop (collect the drops; the net 0x254 gives step 0x17).
-   2. THE TAMING LESSON (step 0x17, map 0xd): it needs BottomBattleWindow (Show, EnableNet,
-      TameNext, the net button; 24 KB, planned for milestone 5 as "the rage bar"). Bring forward
-      what taming needs; without it a new game cannot reach the city. Then ItemHoverWindow::OnFeed
-      (note at "UNVERIFIED (milestone 4h)") and the note in BuildingHovers OnCollect.
+   1. DONE: the chest's loot is picked up (the test loop's RTK_COLLECT=frames calls
+      BuildingHovers::CollectOne(0), as the arrow's tap does); the net (0x254) gives step 0x17 and
+      the hero says "Look, a wild boar! ..." (DESC1911) with the resource bar and the belt shown.
+   2. THE TAMING LESSON (step 0x17, on the same map 0xd; the boar is on tile (7, 0x10), spawn
+      point 0x1e). Flow on the original: Next -> arrow at the boar -> fight -> as it dies
+      BottomBattleWindow::EnableNet(spawn) -> "TAME_TUT2" in the hero's bubble and the arrow at
+      the bar's centre button -> OnCenter throws the net (a sprite flying from the hero to the
+      boar) -> BottomBattleWindow::Update lands it: in the tutorial always a catch -> the boar
+      joins the army (GameState::HireSoldier) -> arrow at the portal decoration (10, 0x12), fog
+      opened there, task 0x771 done -> the city (step 0x18). ItemHoverWindow::OnFeed (feeding it)
+      has its own note.
+      WHAT TO PORT (new file src/hud/BottomBattleWindow.cpp, replacing the inline stubs in
+      hud/HUD.h; the rest of the bar stays milestone 5): Init 0x25d4a8 (Rage_bar.xml, scale
+      GetHudScaleFactor; offsets 0x60f110 = 0x17 and 0x60f10c = 0, both times the root's scale;
+      usesZRange false; MovementEffect with OnTweenOut = hide; ButtonFuryLarge x3:
+      button_fury_large_01 / _02 (OnRight) / _03 (OnCenter); fn.zRange ReturnSmallZRange,
+      fn.update, fn.show), ButtonFuryLarge::LoadFrom 0x259748 (root "%s", fury_button_active_state,
+      button_bg_orange / _blue / _green_circle / _red, icon_60 with takesZ) and SetColor(i) (only
+      background i shows), Show 0x25cfd8 (only from tutorial step 0x17 on; slides up from the
+      bottom, centred), Hide 0x259338, SetZ, IsVisible, Click 0x259564 (the spell-drag part is
+      milestone 5; the rest is root->Click), EnableNet 0x258f30, TameNext, GetNetTargetSpawnID,
+      OnCenter 0x2588b4 (its net branch), and of Update 0x259c70: the net timer (0x61842c,
+      frozen in the tame tutorial; target 0x1f is dropped there), the centre button's net look
+      (blue, pulsing glow 0.5 + cos(t * 8) * 0.6, the best net's icon, text_stance "TAME_HINT"),
+      the flying net (0x618414 sprite, shader 8; t 0x618418 from 0 to 1 at 1.5 per second; size
+      (0.2 + 0.8 t) of the icon; from the hero's (x, y + idle height * -0.5) to the monster) and
+      the catch (chance: the net's meta 0x25 times the tamed EntityData's +0x158, out of 10000;
+      Disappear, RemoveItem(net), CompleteSubtask(0x43, enemy class), HireSoldier or the item
+      whose meta 0x27 names the tamed entity when the reserve is full, else "effect_text_resist").
+      EnableNet: target = spawn only if EntityFactory::GetTamedEntityForID(entity id) exists (the
+      EntityData of class 0x11 with the same enemy class, +0x28) and its unlock quest (+0x12c) is
+      not a locked task; timer = 0.5 + rand48 % 1000 / 1000 * 0.5; for spawn 0x1e / 0x6e9 first
+      the camera to (616, 260), the bubble, the arrow at the centre button with OnCenter as its
+      tap. Missing helpers: EntityFactory::GetTamedEntityForID 0x160720, GameState::HireSoldier
+      0x19a15c (1124 bytes: the hire-time and hire-count maps 0x6132fc / 0x613314 / 0x61332c,
+      then the free slot or the reserve; milestone 5 planned it with hiring).
    3. BeltBarWindow's second-tutorial notes (2), HealSquadWindow's figure.
    4. Shared::PlayerHolder::PlacePlayerEquipment / PlaceItemInHolder / PlaceObjectInHolder
       (0x34572c, 0x345058, 0x344d78: read with care, Ghidra mixes their float and int arguments;
@@ -1109,7 +1141,8 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    tut=<tutorial>/<secondTutorial>; RTK_NOCLOSE=1 (no automatic window-closing taps),
    RTK_SLEEPS=f1,f2,... (1.1 real seconds each: jobs run on real time). The new game's taps so
    far (1280x800): RTK_CLICK=40:640:400,100:640:630,200:758:418,240:725:235,340:555:215,
-   560:842:262,640:768:215 with RTK_SLEEPS=720,730,...,830 reaches step 0x15 at frame 760.
+   560:842:262,640:768:215 with RTK_SLEEPS=720,730,740,750 reaches step 0x15 at frame 760;
+   RTK_COLLECT=800,830,860,890 then gives step 0x17 at frame 900. RTK_COLLECT=frames is new.
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
