@@ -48,6 +48,44 @@ void BottomSlotInfo::LoadFrom(Window* root, const char* p) {
 }
 
 // @0x343634
+void EndscreenProgressBar::LoadFrom(Window* r, const char* p, const char* holder, const char* fillName) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    bg = GUI::GetWindowTypedF<Window>(r, "%s.raid_progress_bar_bg", p);
+    bg->SetBorders((unsigned)bg->border[0], 1, (unsigned)bg->border[2], (unsigned)bg->border[3]);
+    textUnder = GUI::GetWindowTypedF<Textfield>(r, "%s.%s.text_progress_under_02", p, holder);
+    textOver = GUI::GetWindowTypedF<Textfield>(r, "%s.%s.text_progress_over_02", p, holder);
+    fill = GUI::GetWindowTypedF<Window>(r, "%s.%s.%s", p, holder, fillName);
+    endLeft = GUI::GetWindowTypedF<Window>(r, "%s.raid_progress_bar_end_left", p);
+    endRight = GUI::GetWindowTypedF<Window>(r, "%s.raid_progress_bar_end_right", p);
+    hanger = GUI::GetWindowTypedF<Window>(r, "%s.decor_bottom_hanger", p);
+    clip.bottom = 0x800;
+    clip.top = 0;
+    clip.left = fill->x;
+    clip.right = fill->w + fill->x;
+    textOver->SetClipRect(&clip);
+    fill->SetClipRect(&clip);
+}
+
+void EndscreenProgressBar::Rescale(float scale) {
+    const int w = root->w;
+    root->RestorePosition();
+    const int W = GUI::ScreenWidth();
+    const int off = (int)(scale * 5.f);
+    root->MoveWindow((w - W) / 2 - off, 0);
+    const float wide = scale * 12.f;
+    bg->SetSize((unsigned)((int)wide + W), (unsigned)bg->h);
+    fill->SetSize((unsigned)W, (unsigned)fill->h);
+    fill->SetTexture(fill->texture, false, 0, 0, true, 0);
+    clip.right = W;
+    clip.left = (w - W) / 2;
+    endRight->MoveWindow((W - w) + (int)wide, 0);
+    hanger->MoveWindow(off + (W - w) / 2, 0);
+    textUnder->MoveWindow(off + (W - w) / 2, 0);
+    textOver->MoveWindow(off + (W - w) / 2, 0);
+}
+
+void EndscreenProgressBar::SetProgress(float f) { clip.right = (int)((float)clip.left + (float)fill->w * f); }
+
 void ButtonBuildingControls::LoadFrom(Window* r, const char* p) {
     if (!p) {
         root = r;

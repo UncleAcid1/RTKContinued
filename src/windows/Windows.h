@@ -311,3 +311,77 @@ namespace CharacterInfoWindow {
 void UpdateContents();
 inline bool IsVisible() { return false; }   // (0x27aeb4) the window itself: milestone 5
 }
+
+// The world map (windows/GlobalMapWindow.cpp).
+class MetaData;
+namespace GlobalMapWindow {
+struct CoreLocation;
+extern bool unlockAll;                      // GlobalMapWindow::unlockAll (debug; false)
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "GlobalMapWindow" (FUN_002bdf48)
+void Init();                                // @0x2c4f00
+void Deinit();                              // @0x2bf438
+void Show();                                // @0x2c448c
+void Hide();                                // @0x2c0f70
+bool IsVisible();                           // @0x2bdd28
+void SetZ(float z);                         // @0x2c37b8
+bool Click(int x, int y, bool pressed);     // @0x2c23f4
+void Move(int x, int y);                    // @0x2c227c
+void Wheel(bool up);                        // @0x2bdb7c
+void Update(float dt);                      // @0x2c2728
+void OnReturn();                            // @0x2c1440
+void SwitchMap(uint32_t map, bool keep, bool animated);                             // @0x2c14b4
+void SwitchMapAnimated(uint32_t map, bool keep, float pixelsPerSecond, bool ambush);   // @0x2c1734
+void ShowTutorialAnimation(float unused, bool ambush, float t);                    // @0x2be6b8
+void ShowPvPAnimation();                    // @0x2c4038
+void ShowSultanMovement();                  // @0x2bdb80
+void CenterOnMap(uint32_t map);             // @0x2c3ed0
+void CenterOnSultan();                      // @0x2c3dc8
+void CenterOnArrows();                      // @0x2c2324
+void HandleMove(int dx, int dy, bool moveMarker);   // @0x2c1e08
+void ArrowAtMap(uint32_t map, bool keep, bool center);   // @0x2c414c
+void ArrowAt(int x, int y, bool keep);      // @0x2c6234
+void HideArrow();                           // @0x2c0eb0
+bool ExecuteArrowCallback();                // @0x2c0f14
+unsigned GetCurrentArrowTarget();           // @0x2bdd54
+void PreventArrowHide();                    // @0x2bdd10
+void SetArrowVisibleWindowLimit(unsigned n);   // @0x2bdb98
+void ExecuteFirstHelp();                    // @0x2be2f8
+void AnimateSepiaIn();                      // @0x2be4f8
+void AnimateSepiaOut();                     // @0x2be3c8
+void GetMarkerLocationForMap(uint32_t map, int& x, int& y);   // @0x2bda40
+uint32_t GetNearestMapToMap(uint32_t map);  // @0x2bdbac
+bool ShowCampaignWindowForMap(uint32_t map);   // @0x2bdc4c
+uint32_t GetMapForCraftItem(uint32_t item, uint32_t current);     // @0x2be7c0
+uint32_t GetMissionMapForItem(uint32_t item, uint32_t current);   // @0x2be9ec
+void FinishCampaign(uint32_t map);          // @0x2bedd0
+void ResetCampaign(uint32_t map);           // @0x2c4944
+unsigned GetCampaignTasks(Tasks::TaskInfo** out, unsigned max);   // @0x2bef14
+bool LocationHasBeenCompletedByTask(const MetaData* endTasks, uint32_t task);   // @0x2befa4
+void OnTaskCompleted(uint32_t task);        // @0x2bf168
+void EnqueueArenaEventWindow(unsigned event);   // @0x2bdd78
+CoreLocation* GetCoreLocation(unsigned i);  // @0x2bda0c
+CoreLocation* GetSideLocation(unsigned i);  // @0x2bda24
+}
+
+// The banner before a boss, an arena wave or the tutorial's ambush (windows/BossIntroWindow.cpp).
+namespace BossIntroWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "BossIntroWindow" (FUN_00251830)
+void Init();                                // @0x253720
+void Deinit();                              // @0x2536bc
+void Show();                                // @0x252c3c
+void Hide();                                // @0x2532e0
+void SetZ(float z);                         // @0x253474
+bool Click(int x, int y, bool pressed);     // @0x25360c
+void Update(float dt);                      // @0x252028
+bool IsVisible();                           // @0x251770
+bool IsBlackVisible();                      // @0x251784
+void SetBossName(const char32_t* name);     // @0x2517ac
+void SetWave(int wave, int total);          // @0x2517ec
+int GetTotalWaves();                        // @0x251804
+void SetAmbush();                           // @0x251818
+}
+
+namespace GameState { struct PlayerItem; }
+namespace SetInfoWindow {
+GameState::PlayerItem* GetPlayerItemOrBetter(uint32_t id);   // @0x33b3d4
+}

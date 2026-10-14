@@ -288,7 +288,8 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 //   0 main/main  1 text/text  2 main/main  3 text/grayscale  4 mask/mask  5 ring/ring
 //   6 boss_intro  7 ?/ghostly  8 rotated/text  9 ?/sepia  10 ?/grayscaleTransition  11 color/color
 //   12 overlay/overlay  13 rotatedYVS/?  14 scaledVS/?  15 buildingAnimate/buildingAnimate
-//   UNVERIFIED: the VS/PS that stay in the sprintf buffers for types 7, 9, 10, 13, 14.
+//   Types 9 and 10 take textVS (the buffer kept from type 2's sprintf). UNVERIFIED: the VS/PS that
+//   stay in the sprintf buffers for types 7, 13, 14.
 // @0x1f8654 (InitMain @0x1f7bd4 loads the shaders): the GL state, the vertex buffer, the shaders.
 bool Init(int screenW, int screenH) {
     g_screenW = screenW;
@@ -301,6 +302,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
     ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
     ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
+    ok = LoadShader(9, "textVS.txt", "sepiaPS.txt") && ok;      // GlobalMapWindow's screen capture
     ok = LoadShader(10, "textVS.txt", "grayscaleTransitionPS.txt") && ok;   // alpha fades to grey
     // Render::Update: no depth test, premultiplied alpha blending (ONE, ONE_MINUS_SRC_ALPHA).
     glDisable(GL_DEPTH_TEST);
@@ -701,6 +703,31 @@ size_t SpriteCount() {
     return n;
 }
 
+int minLayer = 0;
+bool clearColor = true;
+void (*presentHook)() = nullptr;
+
+void Update() {
+    Frame();
+    if (presentHook) presentHook();
+}
+
+Texture* CreateScreenTexture() {
+    auto t = std::make_unique<Texture>();
+    t->w = g_screenW;
+    t->h = g_screenH;
+    t->name = "screen";
+    glGenTextures(1, &t->glId);
+    glBindTexture(GL_TEXTURE_2D, t->glId);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, g_screenW, g_screenH, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    g_textures.push_back(std::move(t));
+    return g_textures.back().get();
+}
+
 void Frame() {
     glViewport(0, 0, g_screenW, g_screenH);
     glClearColor(0.635f, 0.667f, 0.176f, 1.0f);  // Render::Update clear colour (0x3f22a2a3,...)
@@ -715,7 +742,7 @@ void Frame() {
     glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (void*)0x24);
 
     std::vector<float> verts;
-    for (int li = 0; li < kLayerCount; ++li) {
+    for (int li = minLayer; li < kLayerCount; ++li) {
         Layer& L = g_layers[li];
         if (L.sortPending && !L.sprites.empty()) {
             StlportSort(L.sprites.data(), L.sprites.data() + L.sprites.size(),

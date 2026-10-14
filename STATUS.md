@@ -1081,6 +1081,23 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
      DropItem / DropResource / DropFarmFood locks, UnregisterDecoration), the hover windows (taxes
      0x21, ready bubble 0x55, build progress 0x53/0x54/0x5e, placement 0x5c, factory 0x53/0x54),
      Building's farm step 0x45, Map::Update's farm arrow 0x3a, AIPlayer's taming click.
+   part 4: the taming lesson (hud/BottomBattleWindow.cpp's net, GameState::HireSoldier, OnFeed).
+   part 5: windows/GlobalMapWindow.cpp (the whole world map: locations, nodes, scrolling and fling,
+     travel, arrows, sepia frames, the sultan's caravan; its milestone-5 windows are notes),
+     windows/BossIntroWindow.cpp (the ambush banner; reputation screens are milestone 5),
+     Shared::EndscreenProgressBar, FirstCityEnterEffect::Run (in Map.cpp), Map::Update's queued load
+     (world map on the way home, sepia, Hide), AIPlayer's portal (Show + ShowTutorialAnimation),
+     Render::Update / minLayer / clearColor / CreateScreenTexture / shader 9 (textVS + sepiaPS),
+     Timer::AddDeltaTimeCompensation, SetInfoWindow::GetPlayerItemOrBetter (windows/SetInfoWindow.cpp;
+     Tasks uses it), GameState::ResetBossFightsOnMap / GetEventCompletionCount.
+     VERIFIED: the exit after the boar opens the world map; the marker walks from the start node
+     and "Ambush!" shows halfway (the view follows the marker; the map image has its own frame).
+   USER DECISIONS (2026-10-14): the world map is 4h (its info windows stay 5). The ambush is a
+     turn-based PvP arena fight against a fake rival (tasks 0x772 / 0x773) and is ported in 4h too:
+     BossIntroWindow's fade-out starts it (PlayerCompetitionWindow's player -1, PvP::GetPlayerInfoByGID,
+     the rival's gear from items of type 0x11 by slot, a hero 0xc / 0xd, SetPvPTutorial, AggroCombat
+     -> ForceBossFight(6, 0x91)); then PvPArenaCombat / ArenaCombat (turns), ArenaTurnWindow,
+     PlayerBattleInOutWindow, PvP::CreatePvPTutorialPlayer(s) (main_Loop_Init). NEXT: port that.
    VERIFIED (screenshots, scratch storage): new game -> Chapter 1 -> SelectHQWindow (gender
      greys the other figure, the default name follows) -> Stoutbeard's greeting with the chosen
      name -> arrow at the signpost -> map 13 -> the wolf fight -> the miner's thanks -> the chest

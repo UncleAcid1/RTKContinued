@@ -113,6 +113,19 @@ float GetBaseZoomFactor();         // @0x1f61d4
 int ScreenWidth();
 int ScreenHeight();
 void Frame();                               // sort dirty layers, build vertices, draw all layers
+// Render::Update's first layer (0x614048): the layers below it are not drawn (GlobalMapWindow and
+// the loading screen set 0xe). clearColor (0x60f054): with minLayer set, the screen is cleared first
+// (the port clears every frame).
+extern int minLayer;
+extern bool clearColor;
+// @0x1f92c0 Render::Update: one frame drawn and shown (blocking loops such as the world map's sepia
+// call it). PORT: Frame, then the platform's presentHook (main sets SDL_GL_SwapWindow).
+void Update();
+extern void (*presentHook)();
+// @0x1f79d4: a screen-sized texture holding what was drawn last (glCopyTexImage2D, RGB, clamped).
+Texture* CreateScreenTexture();
+// @0x1f67c8 (Context::IsLowPerformanceDevice asks Android's Java side). PORT: a desktop is not.
+inline bool IsLowPerformanceDevice() { return false; }
 // @0x1fe378 (Render::Update, before drawing): sprites whose texture is a frame chain step to the
 // next texture every frameTime seconds (a timer past 12.5 frame times restarts at 0).
 void UpdateAnimatedSprites(float dt);

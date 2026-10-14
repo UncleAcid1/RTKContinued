@@ -442,6 +442,7 @@ uint32_t GetEventStartTime(unsigned event) { return MapGet(g_eventStartTime, eve
 void SetEventStartTime(unsigned event, uint32_t t) { g_eventStartTime[event] = t; }
 // @0x197f74 GameState::GetEventDifficulty
 uint32_t GetEventDifficulty(unsigned event) { return MapGet(g_eventDifficulty, event); }
+uint32_t GetEventCompletionCount(unsigned event) { return g_eventCompletion[event]; }
 
 // @0x1963bc GameState::AddAutocompleteTask
 void AddAutocompleteTask(unsigned id) {
@@ -1951,6 +1952,15 @@ bool HasMapVisitTime(uint32_t map) { return g_mapVisitTime.count(map) != 0; }
 bool HasMapStartTime(uint32_t map) { return g_mapStartTime.count(map) != 0; }
 uint32_t GetMapEndTime(uint32_t map) { return g_mapEndTime[map]; }
 void SetMapEndTime(uint32_t map, uint32_t t) { g_mapEndTime[map] = t; }
+
+// @0x19ba8c: the boss fights (and their timers) recorded on `map` (the key's high half) are
+// forgotten.
+void ResetBossFightsOnMap(uint32_t map) {
+    for (auto it = g_bossFights.begin(); it != g_bossFights.end();)
+        it = ((uint32_t)it->first >> 16) == map ? g_bossFights.erase(it) : std::next(it);
+    for (auto it = g_bossFightsTimers.begin(); it != g_bossFightsTimers.end();)
+        it = ((uint32_t)it->first >> 16) == map ? g_bossFightsTimers.erase(it) : std::next(it);
+}
 int GetMapCompletionCount(uint32_t map) { return (int)g_mapCompletion[map]; }
 void AddMapCompletion(uint32_t map) { ++g_mapCompletion[map]; }
 

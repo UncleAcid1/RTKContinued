@@ -548,6 +548,7 @@ int SDL_baseInit() {
     SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
     if (!Render::Init(fbw, fbh)) return 1;
+    Render::presentHook = [] { SDL_GL_SwapWindow(win); };   // Render::Update's buffer swap
     Render::aspect = (float)fbw / (float)fbh;
     // The device screen decides the UI configuration; the port's "device screen" is the window's
     // framebuffer in pixels.
@@ -709,6 +710,7 @@ int main_Loop_Init() {
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
+    BossIntroWindow::Queue();
     BottomBattleWindow::Queue();
     BottomCityWindow::Queue();
     BottomFarmWindow::Queue();
@@ -719,6 +721,7 @@ int main_Loop_Init() {
     ConfirmPurchaseWindow::Queue();
     ExchangeWindow::Queue();
     FoundItemsWindow::Queue();
+    GlobalMapWindow::Queue();
     HUDWindow::Queue();
     LandExpandedWindow::Queue();
     LandWindow::Queue();

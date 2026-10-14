@@ -448,3 +448,9 @@ void InterruptCamera();
 bool IsCameraMoving();                                 // @0x1b82c4
 
 }  // namespace Map
+
+// The world map's walk home at the end of the opening tutorial (Map::Update's queued load).
+namespace FirstCityEnterEffect {
+extern double time, lastTime;   // 0x6138e8 0x6138f0
+void Run();                     // @0x1bae50
+}

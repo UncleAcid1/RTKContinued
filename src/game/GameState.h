@@ -103,6 +103,7 @@ bool HasMapVisitTime(uint32_t map);               // @0x195798
 bool HasMapStartTime(uint32_t map);               // @0x195814
 uint32_t GetMapEndTime(uint32_t map);             // @0x198414
 void SetMapEndTime(uint32_t map, uint32_t t);     // @0x198448
+void ResetBossFightsOnMap(uint32_t map);          // @0x19ba8c
 int GetMapCompletionCount(uint32_t map);          // @0x199590 how often a mission was finished
 void AddMapCompletion(uint32_t map);              // @0x1995c4
 uint32_t GetMonsterKilledCount(uint32_t id);      // @0x197a6c
@@ -155,6 +156,7 @@ void SetFeaturedTaskClickTime(unsigned id, uint32_t t);   // @0x198f24
 uint32_t GetEventStartTime(unsigned event);    // @0x198054 (0: never)
 void SetEventStartTime(unsigned event, uint32_t t);   // @0x198018
 uint32_t GetEventDifficulty(unsigned event);   // @0x197f74
+uint32_t GetEventCompletionCount(unsigned event);   // @0x197f04 (std::map operator[])
 // @0x1963bc / @0x1a9548: the tasks to complete / reset automatically (0 empties the list).
 void AddAutocompleteTask(unsigned id);
 void AddAutoresetTask(int id);

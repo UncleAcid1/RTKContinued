@@ -18,6 +18,8 @@ extern bool languageHasBeenSelected;
 // 0x6123f9: the app is in the background (Android's SDLMain.mcPauseEvent; the port: SDL's
 // background/foreground events). main_Loop_Func then only sleeps and counts the time paused.
 extern bool paused;
+// 0x6123fc: Android's render surface is suspended (blocking frame loops stop). PORT: never set.
+extern bool renderSuspendEvent;
 extern float pauseTime;    // 0x61236c: seconds paused, given to Map::OfflineUpdate on resume
 void MainExit();           // @0x184eec
 void MainExitNoSave();     // @0x184f04: leave without saving and start again

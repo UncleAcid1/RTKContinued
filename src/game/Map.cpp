@@ -20,6 +20,7 @@
 #include "game/BuildingHovers.h"
 #include "game/BuildingPlacement.h"
 #include "game/BuildingMovement.h"
+#include "game/Combat.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/Fog.h"
@@ -1824,14 +1825,24 @@ void Update(double dt) {
             g_loadQueuedMap = 0;
         }
         if (GameState::tutorial == 0x17 && g_loadQueuedMap == 0) {
+            // The way home: the world map opens and the marker walks to the castle first.
             BuildingHovers::HideArrow();
-            // UNVERIFIED (milestones 4h/5): GlobalMapWindow::Show / CenterOnMap(0) and
-            // FirstCityEnterEffect::Run.
+            GlobalMapWindow::Show();
+            GlobalMapWindow::CenterOnMap(0);
+            FirstCityEnterEffect::Run();
         }
-        // UNVERIFIED (milestone 5): the screen turns sepia over the switch
-        // (GlobalMapWindow::AnimateSepiaIn / Out) unless the tutorial is at 0x17 or the device is
-        // slow; (milestone 5) a boss combat (state 0x11) hides the arrow and runs BossIntroEffect
-        // instead, continued after the load.
+        bool sepia = false;
+        BaseCombat* combat = GameState::GetActiveCombat();
+        if (!combat || combat->GetState() != 0x11) {
+            if (GameState::tutorial != 0x17 && !Render::IsLowPerformanceDevice()) {
+                GlobalMapWindow::AnimateSepiaIn();
+                sepia = true;
+            }
+        } else {
+            // A boss fight: UNVERIFIED (milestone 5) BossIntroEffect::Prepare and Run
+            // (FastBossIntroEffect on a slow device) instead of the sepia.
+            BuildingHovers::HideArrow();
+        }
         BuildingHovers::CollectAll();
         Tasks::CompleteSubtask(Tasks::kEnterMap, (uint32_t)g_loadQueuedMap, 1);
         Tasks::Update(true);
@@ -1840,7 +1851,7 @@ void Update(double dt) {
             else Save(0);
         }
         GameState::SetCurrentMapID((uint32_t)g_loadQueuedMap);
-        // (GlobalMapWindow::Hide when it is open: milestone 5)
+        if (GlobalMapWindow::IsVisible()) GlobalMapWindow::Hide();
         const int map = g_loadQueuedMap;
         const bool cached = save->HasMapInCache((uint32_t)map);
         SaveManager::SaveBlock* block = SaveManager::GetMapData((uint32_t)map);
@@ -1848,6 +1859,14 @@ void Update(double dt) {
         // (the tutorial's soldier does not come to the city)
         if (GameState::tutorial == 0x17 && map == 0) EntityManager::RemoveEntitiesByID(0x1a2, true);
         Load(block, (uint32_t)Timer::GetGlobalTime(), false, cached);
+        BaseCombat* c = GameState::GetActiveCombat();
+        if (c && 2 < c->GetType()) {
+            // UNVERIFIED (milestone 5): BossIntroEffect::Continue and Run (FastBossIntroEffect).
+        } else if (sepia) {
+            g_visibilityTimer += 1.f;
+            Update(0.0);
+            GlobalMapWindow::AnimateSepiaOut();
+        }
         if (GameState::tutorial == 0x17) {
             BuildingHovers::HideArrow();
             if (firstCity) GameState::tutorial = 0x18;
@@ -3085,3 +3104,27 @@ void SafeSave() {
 
 
 }  // namespace Map
+
+namespace FirstCityEnterEffect {
+
+double time = 0.0;       // FirstCityEnterEffect::time 0x6138e8
+double lastTime = 0.0;   // FirstCityEnterEffect::lastTime 0x6138f0
+
+// @0x1bae50 FirstCityEnterEffect::Run: the world map's tutorial walk to the castle runs as a
+// blocking loop of frames for 2 s (1 s when the next map is 0x91), unless the app is suspended.
+void Run() {
+    time = 0.0;
+    lastTime = Timer::GetTime();
+    GlobalMapWindow::CenterOnMap(0);
+    GlobalMapWindow::ShowTutorialAnimation(2.f, false, Map::g_loadQueuedDelay);
+    while ((Map::g_loadQueuedMap == 0x91 ? 1.0 : 2.0) > time && !renderSuspendEvent) {
+        double dt = Timer::GetTime() - lastTime;
+        dt = (double)HUDWindow::GetDeltaTimeMultiplier() * dt;
+        time += dt;
+        lastTime = Timer::GetTime();
+        GlobalMapWindow::Update((float)dt);
+        Render::Update();
+    }
+}
+
+}  // namespace FirstCityEnterEffect

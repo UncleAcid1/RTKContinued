@@ -794,9 +794,11 @@ void AIPlayer::ProcessAction() {
             // The way out of the tutorial's last map leads to the world map.
             entity->SetHP(entity->GetHpMax());
             GameState::UpdatePlayerRegenerationState();
-            // UNVERIFIED (milestone 5): GlobalMapWindow::Show, then its tutorial animation (until
-            // task 0x773 is done) or SwitchMapAnimated(0); the player gets item 0x5b, bound to
-            // slot 8, unless it has one or better (SetInfoWindow::GetPlayerItemOrBetter).
+            GlobalMapWindow::Show();
+            if (!GameState::TaskCompleted(0x773)) GlobalMapWindow::ShowTutorialAnimation(2.f, true, 0.f);
+            else GlobalMapWindow::SwitchMapAnimated(0, false, 500.f, false);
+            if (!SetInfoWindow::GetPlayerItemOrBetter(0x5b))
+                if (GameState::PlayerItem* it = GameState::AddItem(0x5b, 1, false, false, false)) GameState::BindItemTo(8, it);
         } else {
             Map::EnqueueLoadMap(p->map, false, true, 0.f);
         }

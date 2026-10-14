@@ -943,17 +943,6 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
 
 namespace {
 
-// The player's item `id`, or a better one of its improvement chain: worn, else in the bag.
-// UNVERIFIED (milestone 5): SetInfoWindow::GetPlayerItemOrBetter (0x33b3d4) also follows the
-// chain of improved items (Collections::GetCollectionWithSource, 0x12d778); here the item itself.
-bool PlayerHasItemOrBetter(uint32_t id) {
-    for (unsigned i = 0; i < 10; ++i) {
-        GameState::PlayerItem* it = GameState::GetItemAt(i);
-        if (it && it->id == id) return true;
-    }
-    return GameState::GetItemAmount(id, false) != 0;
-}
-
 // CheckOverlimit's monster lists ("mob_id" spawn points): true when all `amount` of them are dead.
 // kind: "kill_mob" or "get_item" (the original's messages).
 bool AllMobsDead(const TaskInfo* t, const TaskSubtask& s, const char* kind) {
@@ -1017,7 +1006,7 @@ void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
                 }
                 if (any) break;
                 if (Items::ItemInfo* item = Items::GetItemInfo(s.value)) {
-                    if (item->type == 8 && s.amount == 1 && PlayerHasItemOrBetter(s.value)) direct = true;
+                    if (item->type == 8 && s.amount == 1 && SetInfoWindow::GetPlayerItemOrBetter(s.value)) direct = true;
                     else if (item->type == 1 && (unsigned)s.amount <= (unsigned)GameState::GetItemAmount(s.value, false))
                         direct = true;
                     if (direct) break;

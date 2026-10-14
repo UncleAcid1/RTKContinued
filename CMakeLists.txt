@@ -104,6 +104,9 @@ add_executable(rtk
   src/windows/TaskListWindow.cpp
   src/windows/NotEnoughWindow.cpp
   src/windows/CharacterInfoWindow.cpp
+  src/windows/GlobalMapWindow.cpp
+  src/windows/BossIntroWindow.cpp
+  src/windows/SetInfoWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp
   src/hud/BeltBarWindow.cpp

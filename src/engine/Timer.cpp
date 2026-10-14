@@ -16,6 +16,8 @@ double ApplyDeltaTimeCompensation(double dt) {
     return d;
 }
 
+void AddDeltaTimeCompensation(double seconds) { g_compensation += seconds; }
+
 void AdvanceGlobalTime(uint32_t seconds) {
     timeAdvance += (int)seconds;
     if (!Map::IsLoaded()) return;

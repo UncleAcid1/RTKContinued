@@ -2,13 +2,30 @@
 #pragma once
 #include <cstdint>
 
-namespace GUI { class Window; class Textfield;  class Button; }
+#include "gui/GUI.h"
 namespace Render { struct Texture; }
 namespace Items { struct ItemInfo; }
 
 namespace PvP { struct PlayerEquipmentInfo; }
 
 namespace Shared {
+
+// Shared::EndscreenProgressBar (0x30 bytes): the long bar of the end screens (BossIntroWindow's
+// reputation, milestone 5's raid / boss results). The fill is clipped at clip.right.
+struct EndscreenProgressBar {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* bg = nullptr;           // +0x04 raid_progress_bar_bg (9-sliced, top inset 1)
+    GUI::Textfield* textUnder = nullptr; // +0x08 <fill holder>.text_progress_under_02
+    GUI::Textfield* textOver = nullptr;  // +0x0c <fill holder>.text_progress_over_02 (clipped)
+    GUI::Window* fill = nullptr;         // +0x10 <fill holder>.<fill> (clipped)
+    GUI::Window* endLeft = nullptr;      // +0x14 raid_progress_bar_end_left
+    GUI::Window* endRight = nullptr;     // +0x18 raid_progress_bar_end_right
+    GUI::Window* hanger = nullptr;       // +0x1c decor_bottom_hanger
+    GUI::ClipRect clip{0, 0, 0, 0};      // +0x20
+    void LoadFrom(GUI::Window* r, const char* prefix, const char* holder, const char* fillName);   // @0x3437f8
+    void Rescale(float scale);           // @0x34067c the bar spans the screen
+    void SetProgress(float f);           // @0x34082c
+};
 
 // Shared::BottomSlotInfo (0x68 bytes): one slot of the army bar or the belt.
 // LoadFrom @0x3445f0 fetches the slot's windows by "%s.<name>" and sets the fixed icons.

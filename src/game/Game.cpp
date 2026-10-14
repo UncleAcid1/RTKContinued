@@ -32,6 +32,7 @@ std::string gMusicName;
 unsigned languageID = 0, availableLanguageID = 0;
 bool languageHasBeenSelected = false;
 bool paused = false;
+bool renderSuspendEvent = false;   // 0x6123fc
 float pauseTime = 0.f;
 
 void MainExit() { done = true; }
