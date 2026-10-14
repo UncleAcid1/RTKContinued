@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-13, 4g IN PROGRESS: search "RESUME HERE" below. 4f done (campaign maps: locations, spawn points, portals and map travel, fog, NPC talk and dialogs, cameras; see the 4f entry below); 4c done (quests core: data, saved state, engine, the world's reactions, overrides; balance plan confirmed); 4e done (decoration jobs); 4d done (HUD quest list, quest window, the Go button, the quest-complete window, the full quest list, edge locators, quest hooks in older windows; the level window moved to 5)) — read this first in a new conversation
+## Handoff (last updated 2026-10-13, 4g DONE (campaign combat: fights, death and healing, potion belt, speech bubble, traps; see the 4g entry below). NEXT: 4h. 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -974,99 +974,94 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    not run); camera paths and shakes (no test map triggered one); enemy zones (no fight yet).
    4f IS CLOSED (inventory: 0 functions). NEXT: 4g (combat as used by the campaign).
 
-**4g IN PROGRESS - RESUME HERE (written 2026-10-13; last pushed commit: "4g resume notes").**
-   Everything below is committed and pushed (GitHub main). The build is clean. src/main.cpp holds
-   no test hook. Nothing is half-edited on disk.
-
-   A. USER DECISION (death / revive, 2026-10-13; also in memory rtk-freemium-removal):
-      health comes back by itself, a full bar in at most 4 minutes; "Heal now!" costs earned
-      crystals (the user says emeralds); potions heal. Implemented as GameState::HpRegenSeconds
-      (min(original, 240 s / HpMax)), used everywhere, also during fights.
-
-   B. DONE AND COMMITTED (parts 1-8):
-      1 fight core: Combat.h/.cpp (BaseCombat, AggroCombat, RangeAggroCombat), AICombat.cpp
-        (AIWarrior StartedAttack / Attack / Hit / Block / Death / ProjectileLanded, combat timers in
-        AIWarrior::Update, AIEnemy::CheckAggro), EntityCombat.cpp (OnHit, Hit, WillDie, OnDying,
-        OnDeath with drops / gold / xp / quest steps / broken gear, orb bonuses), BRand.h,
-        GameState SetCombat / EndActiveCombat / UpdateHPRegen, the fight's update in main.cpp Tick,
-        AIPlayer::ClickedEntity (attack a monster), EntityManager enemy lookups.
-      2 arrows: Projectile.h/.cpp, projectiles.xml loaded in main_Loop_Init.
-      3 PlayerTopWindow::Update (live bars, hurt portrait, "+1 HP" popup, items flying in).
-      4 BattleBarWindow (army bar slots, health fill, red flash, soldier card).
-      5 HealthbarTinyHoverWindow + its rule in BuildingHovers::Update; HUDWindow::OnDamage.
-      6 windows/HealSquadWindow.cpp (the Heal Hero window).
-      7 BeltBarWindow core (slots, item card, OnUseSlot, OnActivateSlot, UpdateBeltItems).
-      8 TargetedAI::GetDistanceToTarget / SetBlockedPathTarget, Map::RemoveBlockedTiles /
-        RestoreBlockedTiles, AIPlayer::Retreat, GetBestDecorationActionPoint.
-
-   C. PART 9, HALF DONE (committed, compiles, NOT wired, NOT tested):
-      PlayerHintHoverWindow (hud/HoverWindows.h/.cpp: the hero's speech bubble) and
-      PlayerTopWindow::SetParameters / HideDialog / ShowArrowAndLock / IsPlayerDialogVisible exist.
-      TO DO, in this order:
-      1. PlayerTopWindow::Update: call g_dialog->Update(dt) (check the original 0x327bf0 / the
-         window queue for where it is updated; without it a new window does not close the bubble).
-      2. src/game/Tasks.cpp: two notes "UNVERIFIED (milestone 4g, PlayerHintHoverWindow)" ->
-         PlayerTopWindow::SetParameters(next->preQuest, next->id, !next->showButton,
-         next->showButton) and the same with t-> in the second place.
-      3. Replace the "PlayerTopWindow::IsPlayerDialogVisible" UNVERIFIED notes in Game.cpp,
-         HUDWindow.cpp (4 places), main.cpp with the real call; HUDWindow::EnterFarm calls HideDialog.
-      4. Test with a screenshot (temporary call of PlayerTopWindow::SetParameters).
-
-   D. THEN, TO CLOSE 4g:
-      1. Trivial leftovers, add code + "// @0x..." comments: BeltBarWindow::OnTweenMove (0x24c674,
-         empty), OnTweenIn (0x24cb9c, read it), HealSquadWindow::SortItemsByMetaSort (0x2c9ee0),
-         Move (0x2c9ef8, empty), ZRange (0x2c9f90, empty).
-      2. `python3 tools/inventory.py --functions 4g` must print nothing; `--unplanned` too.
-      3. `grep -rn "milestone 4g" src` : resolve or re-label every note that is left.
-      4. Test what is unverified (list F), fix what breaks.
-      5. Replace this block by the normal finished-step entry, set the header to "4g done", mark
-         the roadmap line 4g [x], commit, short plain-language update to the user. Next is 4h.
-
-   E. PLAN CHANGES MADE IN 4g (all in tools/port_plan.txt):
-      dead in 5.11: the siege system (CombatManager, EasyCombat, EasyAI, SiegeCombat,
-      AISiegeAttacker, AIWarrior_v2, EventManager, the "Squad" class at 0x225de0, tower attacks,
-      Entity::CalcDamage / ReceiveDamage / Die and the other Easy-only Entity functions),
-      HealthbarHoverWindow (type 0xd never asked for), TapHoverWindow (never shown),
-      TargetedAI::GetClosestReachableWPTo*.
-      to milestone 5: AIWarrior::Magic* (spells), BaseCombat::SwitchTo{Boss,Arena,PvPArena}Fight,
-      TaskInfoWindow boss form, BottomBattleWindow (the rage bar: spells, fury, taming net; stubs
-      are inline in hud/HUD.h), PlayerBattleInOutWindow (PvP), HealHoverWindow +
-      BattleBarWindow::ShowHealSoldier (soldier healing), the belt's crafting / inventory / buff /
-      MoveIntoBelt parts, Shared::BuffHolder(Manager), EndscreenProgressBar, ProgressBarLarge,
-      WarriorSlotInfo, PlayerWeakWindow (ASK THE USER FIRST: it advertises chests), Cmd* console
-      commands. to 4h: Shared::PlayerHolder (hero figure with equipment; the heal window shows a
-      plain bald figure until then). to 6: Render::CreateCustomTexture.
-      PORT guard until milestone 5: a boss neither attacks nor can be attacked
-      (AIEnemy::CheckAggro and AIPlayer::ClickedEntity return for Entity::IsBoss).
-
-   F. TEST STATE:
-      Verified (screenshots, scratch storage): a fight on map 15 (walk up, blows, kill, fight
-      ends), the hero's death -> Heal Hero window ("Wait 03:59"), health bar over the monster,
-      hurt portrait, army bar, belt layout for 2 slots, hero panel numbers.
-      NOT verified: archers' arrows, a fight started by a monster's aggro, potions drunk from the
-      belt and in the heal window, orbs, "Heal now!" for crystals, flee to castle, retreat, the
-      blocked-way hint, the speech bubble, soldier death.
-      Known oddity of the PORT test city only: the hero has 10 HP with a maximum of 9.
-
-   G. HOW TO TEST A FIGHT (the helper scripts lived in the session's scratch dir and are gone):
-      back up src/main.cpp, then replace `for (int i = 0; i < opt.frames; ++i) frame();` by a loop
-      that, when getenv("RTK_FIGHT"): every frame GameState::ResetGamePauseState(); at i == 5 and
-      i == 14 MouseDown(640, 60, true); frame(); MouseUp(640, 60, true); (closes the chapter and
-      quest windows); at i == 30 optionally pl->SetHP(1) (to make him die), then
-      pl->GetAI()->ClickedEntity(EntityManager::GetNearestEnemy(pl, false, true)); print the
-      combat state every 20 frames. Run:
-      RTK_FIGHT=2 ./build/rtk --root .. --storage <scratch> --screenshot out.png
-        --second-tutorial 256 --map 15 --frames 300
-      Restore main.cpp before committing. ALWAYS --storage and --screenshot; there is no --help.
-
-   H. WORKFLOW REMINDERS FOUND IN 4g:
-      - Read one function with: awk '/^\/\/ ==== /{ if (p) exit; p=($3==ADDR) } p' out/decomp.c
-        piped through tools/picsym.py (the older "print until the next match" form dumps dozens
-        of functions for some addresses).
-      - Drop printf-argument noise (lines starting local_ / uStack_ / *local_) before reading
-        window code; get wide format strings with tools/wstr.py, float constants with elfread.
-      - Call graph for "who calls X": parse out/asm_all.txt (`bl 0x...` under `==== ADDR name`).
-        A class nobody constructs is dead; check before porting a class.
+**4g DONE (combat as used by the campaign; closed 2026-10-13, inventory: 0 functions, no "milestone 4g" note left in src).**
+   USER DECISION (death / revive, 2026-10-13; also in memory rtk-freemium-removal): health comes
+   back by itself, a full bar in at most 4 minutes; "Heal now!" costs earned crystals; potions heal.
+   Implemented as GameState::HpRegenSeconds (min(original, 240 s / HpMax)), used everywhere.
+   Parts:
+   1 fight core: Combat.h/.cpp (BaseCombat, AggroCombat, RangeAggroCombat), AICombat.cpp (AIWarrior
+     StartedAttack / Attack / Hit / Block / Death / ProjectileLanded, combat timers, AIEnemy::
+     CheckAggro), EntityCombat.cpp (OnHit, Hit, WillDie, OnDying, OnDeath with drops / gold / xp /
+     quest steps / broken gear, orb bonuses), BRand.h, GameState SetCombat / EndActiveCombat /
+     UpdateHPRegen, the fight's update in main.cpp Tick, AIPlayer::ClickedEntity.
+   2 arrows: Projectile.h/.cpp, projectiles.xml.
+   3 PlayerTopWindow::Update (live bars, hurt portrait, "+1 HP" popup, items flying in).
+   4 BattleBarWindow (army bar slots, health fill, red flash, soldier card).
+   5 HealthbarTinyHoverWindow and its rule in BuildingHovers::Update; HUDWindow::OnDamage.
+   6 windows/HealSquadWindow.cpp (the Heal Hero window).
+   7 BeltBarWindow core (slots, item card, OnUseSlot, OnActivateSlot, UpdateBeltItems).
+   8 TargetedAI::GetDistanceToTarget / SetBlockedPathTarget, Map::RemoveBlockedTiles /
+     RestoreBlockedTiles, AIPlayer::Retreat, GetBestDecorationActionPoint.
+   9 the hero's speech bubble: PlayerHintHoverWindow, PlayerTopWindow::SetParameters / HideDialog /
+     ShowArrowAndLock / IsPlayerDialogVisible; said by Tasks::CompleteTask and Tasks::Update for a
+     quest without a giver (only with a hero on the map); consulted by the HUD locators, quest
+     banners, LevelUpWindow, the window queue, the settings key and the language question; closed
+     by HideWorldDialog and EnterFarm. It is updated like every WindowQueue (ProcessUpdate), not by
+     PlayerTopWindow::Update. The window queue and TaskCompleteWindow also wait for
+     Entity::IsDeathAnimationRunning.
+   10 traps (Decor::TrapDamage / TrapPattern: Update's TRAP_DAMAGE, TRAP_PATTERN, TRAP_ANIMATED
+     parts; used on maps 71, 82, 83, 84, 87, 92, 96, 121, 132), the corpse search's result
+     (AIPlayer::ProcessAction case 7: corpse_drop's second number is the chance in percent), quest
+     help for kill / kill-all / kill-class / tame-class / heal-hero steps, HealSquadWindow::ZRange,
+     HealSquadWindow::Show on taps while the hero is dead, CharacterInfoWindow::UpdateContents
+     from the squad and its belt refresh, EndCombat from the map resets and the camera path,
+     GameState::EndActiveCombat at exit.
+   FIXED WHILE TESTING: HealSquadWindow::SetZ returned while shown instead of while hidden (the
+   window sat behind the dark cover); BaseCombat::Pause ended the turn for a null entity instead of
+   a non-null one (the hero's death now ends the turn, as the asm at 0x10c3f8 says).
+   PLAN CHANGES (tools/port_plan.txt). Dead in 5.11: the siege system (CombatManager, EasyCombat,
+   EasyAI, SiegeCombat, AISiegeAttacker, AIWarrior_v2, EventManager, the "Squad" class at 0x225de0,
+   tower attacks, Decor::Destroy, GameState::g_Combat's branches, Entity::CalcDamage /
+   ReceiveDamage / Die), HealthbarHoverWindow, TapHoverWindow, TargetedAI::GetClosestReachableWPTo*,
+   HealSquadWindow::SortItemsByMetaSort. To milestone 5: AIWarrior::Magic* (spells), BaseCombat::
+   SwitchTo{Boss,Arena,PvPArena}Fight and everything "boss" (ResetBossFightsOnMap, the victory
+   pose flag 0x6138cc, TaskInfoWindow's boss form), BottomBattleWindow (rage bar), PlayerBattleInOut
+   Window (PvP), HealHoverWindow + BattleBarWindow::ShowHealSoldier, the belt's crafting /
+   inventory (OnTweenIn's flag 0x617dbc) / buff / MoveIntoBelt parts, Shared::BuffHolder(Manager),
+   EndscreenProgressBar, ProgressBarLarge, WarriorSlotInfo, PlayerWeakWindow (ASK THE USER FIRST:
+   it advertises chests), Cmd* console commands, taming (the net check in quest help). To 4h:
+   Shared::PlayerHolder (the heal window shows a plain bald figure until then). To 6:
+   Render::CreateCustomTexture, all fight sounds (TRAP_SOUND too).
+   PORT guard until milestone 5: a boss neither attacks nor can be attacked (AIEnemy::CheckAggro
+   and AIPlayer::ClickedEntity return for Entity::IsBoss).
+   VERIFIED (screenshots, scratch storage, map 15 unless said): a fight by tapping the monster
+   and one started by its aggro range; the hero's death -> Heal Hero window; "Heal now!" (50 -> 40
+   crystals, full health, the arrow at the attacker, its tap resumes the fight to the kill);
+   "Flee to castle" (fight ended, back in the city); a potion drunk from the belt (3 -> 4 HP, 3 ->
+   2 potions) and from the heal window while dead (0 -> 1 HP); an attack orb on the belt (card
+   with Deactivate / Remove, +1 damage, the charge bar drains); the blocked-way hint ("We need to
+   talk to the hostage" after walking up to the blockage); the speech bubble with the real quest
+   line and its Next; a trap on map 71 (-1 HP, the hero steps aside); a spawned skeleton archer
+   (id 46) shooting at point-blank range (-2 per shot).
+   NOT VERIFIED: an arrow's flight over a distance (the melee hero always walks up to an archer;
+   needs own archers, milestone 5 hiring); a soldier's death (the lone monsters of the test maps
+   always pick the hero); AIPlayer::Retreat in its real use (its only callers are the boss quest
+   window's buttons, milestone 5; called by hand in a fight it walks off and the fight goes on).
+   SEEN, NOT 4g: (a) "profession_spawn" decorations (id 1507, CRAFT=...: the crafting spots of
+   milestone 5) are drawn as pink tiles on campaign maps; milestone 5 must find how the original
+   hides or replaces them. (b) In a fast headless run a dead monster's health bar stays until the
+   hover rules run again (once per real second, as on the original): not a bug. (c) Fleeing in the
+   test save meets "Chapter 2" in the city and the bars come on top of it (the original's Show
+   functions do the same; a real save has seen that window long before). (d) The PORT test city's
+   hero has 10 HP with a maximum of 9.
+   HOW TO TEST A FIGHT: `python3 tools/test_hook.py on tools/test_hook.txt` puts a test loop into
+   src/main.cpp (take it out with `off` before committing). It runs when RTK_T is set: RTK_T=fight
+   (tap the nearest monster at frame 30), aggro (walk to RTK_DX, RTK_DY beside it), list (print
+   the map's entities), trap (stand on trap RTK_N), bubble, none. Extras: RTK_HP, RTK_SHP
+   (soldiers), RTK_LEVEL, RTK_CRYSTALS, RTK_ITEM (3 of it, bound to the belt), RTK_FOE (entity
+   id), RTK_CLICK=frame:x:y,... (screen taps), RTK_TILE=frame:x:y (tile tap), RTK_RETREAT=frame,
+   RTK_SLEEP=frame (2 real seconds). Example:
+   RTK_T=fight RTK_HP=1 RTK_CRYSTALS=50 RTK_CLICK=200:735:352 ./build/rtk --root .. --storage
+   <scratch> --screenshot out.png --second-tutorial 256 --map 15 --frames 300
+   ALWAYS --storage and --screenshot; there is no --help. Level-2 items (potion 354, orb 133) need
+   RTK_LEVEL=3. Heal window at 1280x800: Heal now 735,352; Flee 851,352; item cells from 720,500;
+   belt slots 1185,765 and 1245,765.
+   WORKFLOW REMINDERS: read one function with
+   awk '/^\/\/ ==== /{ if (p) exit; p=($3==ADDR) } p' out/decomp.c | tools/picsym.py; for "who
+   uses this global" run picsym once over the whole of out/decomp.c into a scratch file (18 s) and
+   grep it; check a doubtful branch in out/asm_all.txt (both bugs above were inverted conditions);
+   a class nobody constructs is dead: check before porting.
+   NEXT: 4h (the new game and the opening tutorial).
    Input test aids (from the bug hunt): RTK_TRACE_INPUT=1 (prints where each press/release lands) and --move X Y. Also fixed: the test
    city's GameState::tutorial is 0x80 (finished opening tutorial; was 0x100). Saves made by older
    builds carry 0x100.
@@ -1406,10 +1401,12 @@ Milestones:
               resets. Moved out: the global map's windows (ChoosePath, CampaignInfo,
               CampaignComplete / Perfected, LoadingScreen) -> 5; CheckAggro, EventManager,
               PlayerHintHoverWindow, TapHoverWindow -> 4g; LoadEntitiesFromCopy -> online.
-       4g [ ] combat as used by the campaign: CombatManager, BaseCombat with EasyCombat/AggroCombat/
-              RangeAggroCombat, AIWarrior/AIEnemy fight states, damage (CalcDamage, Hit, Block,
-              Death, drops), BattleBarWindow, BeltBarWindow (potions), PlayerBattleInOutWindow, HP
-              regeneration and death. Freemium rule: ask how death/revive should work offline.
+       4g [x] combat as used by the campaign: BaseCombat with AggroCombat / RangeAggroCombat,
+              AIWarrior/AIEnemy fight states, damage (Hit, Block, Death, drops), arrows,
+              BattleBarWindow, BeltBarWindow (potions, orbs), HealSquadWindow, the hero's speech
+              bubble, traps, HP regeneration and death (user decision: free regeneration, crystals
+              to heal at once). Moved out: the siege system (dead in 5.11); bosses, arenas, PvP,
+              spells, the rage bar, soldier healing -> 5.
        4h [ ] the new game: LoadSavedGame's new-game branch (hero 0xc + squad + soldier 0x1a2 on map
               0x15, location 2; replaces the PORT test city), TutorialWindow::Update steps 0..0x17
               (a jump table Ghidra lost: read from the asm), BuildingHovers::ShowWorldDialog,

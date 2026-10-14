@@ -122,7 +122,7 @@ void BaseCombat::BeginCombat(BaseSquad* player, BaseSquad* enemy) {
 
 void BaseCombat::Pause(Entity* e) {
     paused = true;
-    if (!e) EndTurn();
+    if (e) EndTurn();
 }
 
 void BaseCombat::Continue() {

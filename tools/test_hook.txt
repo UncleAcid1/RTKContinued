@@ -1,0 +1,43 @@
+    if (const char* T = getenv("RTK_T")) {   // TEMPORARY TEST HOOK
+        std::string t = T;
+        auto envi = [](const char* n, int d) { const char* v = getenv(n); return v ? std::atoi(v) : d; };
+        std::vector<std::array<int, 3>> clicks;
+        if (const char* c = getenv("RTK_CLICK")) {
+            int f, x, y, n;
+            while (std::sscanf(c, "%d:%d:%d%n", &f, &x, &y, &n) == 3) { clicks.push_back({f, x, y}); c += n; if (*c == ',') ++c; }
+        }
+        Entity* foe = nullptr;
+        for (int i = 0; i < opt.frames; ++i) {
+            GameState::ResetGamePauseState();
+            Entity* pl = EntityManager::GetPlayer();
+            if (i == 5 || i == 14) { MouseDown(640, 60, true); frame(); MouseUp(640, 60, true); }
+            for (auto& c : clicks) if (c[0] == i) { firstMove = true; MouseMove(c[1], c[2]); MouseDown(c[1], c[2], true); frame(); frame(); MouseUp(c[1], c[2], true); }
+            if (i == 30) {
+                if (t == "list")
+                    for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k)
+                        std::printf("[t] ent id=%u %s at %d,%d hp=%d/%d ranged=%d enemy=%d boss=%d\n", e->GetEntityData()->id, e->GetEntityData()->name.c_str(), e->tileX, e->tileY, e->GetHP(), e->GetHpMax(), e->GetAttackRanged(), (int)e->IsEnemy(), (int)e->IsBoss());
+                if (envi("RTK_LEVEL", 0)) GameState::SetResourceAmountValidated(GameState::kLevel, (uint32_t)envi("RTK_LEVEL", 0));
+                if (envi("RTK_HP", 0)) pl->SetHP(envi("RTK_HP", 0));
+                if (envi("RTK_CRYSTALS", 0)) GameState::SetResourceAmountValidated(GameState::kCrystal, (uint32_t)envi("RTK_CRYSTALS", 0));
+                if (envi("RTK_ITEM", 0)) { GameState::AddItem((uint32_t)envi("RTK_ITEM", 0), 3, false, false, false); BeltBarWindow::AutoBind((uint32_t)envi("RTK_ITEM", 0)); BeltBarWindow::UpdateBeltItems(); BeltBarWindow::UpdateContents(); }
+                if (envi("RTK_SHP", 0)) { std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v); for (Entity* e : v) if (e != pl && e->GetHpMax() > 0) e->SetHP(envi("RTK_SHP", 0)); }
+                foe = envi("RTK_FOE", 0) ? EntityManager::GetNearestEnemyTo(pl, (uint32_t)envi("RTK_FOE", 0)) : EntityManager::GetNearestEnemy(pl, false, true);
+                if (foe) std::printf("[t] foe %s at %d,%d hp=%d ranged=%d; hero at %d,%d\n", foe->GetEntityData()->name.c_str(), foe->tileX, foe->tileY, foe->GetHP(), foe->GetAttackRanged(), pl->tileX, pl->tileY);
+                if (t == "fight" && foe) pl->GetAI()->ClickedEntity(foe);
+                if (t == "aggro" && foe) pl->GetAI()->ClickedTile(foe->tileX + envi("RTK_DX", 2), foe->tileY + envi("RTK_DY", 0), 0, 0);
+            }
+            if (const char* tl = getenv("RTK_TILE")) { int f, x, y; if (std::sscanf(tl, "%d:%d:%d", &f, &x, &y) == 3 && f == i) { std::printf("[t] tap tile %d,%d\n", x, y); pl->GetAI()->ClickedTile(x, y, 0, 0); } }
+            if (i == envi("RTK_SLEEP", -1)) SDL_Delay(2100);
+            if (i == envi("RTK_RETREAT", -1)) { std::printf("[t] retreat\n"); pl->GetAI()->Retreat(); }
+            if (i % 20 == 0) {
+                std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v);
+                std::printf("[t] f=%d dlg=%d shown=%d combat=%d hero=%d@%d,%d", i, (int)PlayerTopWindow::IsPlayerDialogVisible(), (int)WindowManager::GetShownWindowCount(), (int)GameState::IsCombatActive(), pl ? pl->GetHP() : -1, pl ? pl->tileX : -1, pl ? pl->tileY : -1);
+                for (Entity* e : v) if (e != pl && e->GetHpMax() > 0) std::printf(" sold=%d", e->GetHP());
+                if (foe) std::printf(" foe=%d f36=%d act=%d dead=%d dis=%d app=%d", foe->GetHP(), (int)foe->f36, (int)foe->IsActive(), (int)foe->IsDead(), (int)foe->IsDisappearing(), (int)foe->IsAppeared());
+                std::printf(" crystals=%u head=%s range=%.4f:", (unsigned)GameState::GetResourceAmount(GameState::kCrystal), WindowManager::Head()->name.c_str(), WindowManager::GetTopWindowRange());
+                { int k = 0; for (WindowManager::WindowQueue* w = WindowManager::Head(); w && k < 4; w = w->next, ++k) std::printf(" %s(%d,%.4f)", w->name.c_str(), (int)w->IsVisible(), w->ZRange()); }
+                std::printf("\n");
+            }
+            frame();
+        }
+    } else

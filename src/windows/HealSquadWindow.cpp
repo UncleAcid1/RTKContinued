@@ -371,7 +371,7 @@ bool OnBack() {
 
 // @0x2ca4c8
 void SetZ(float z) {
-    if (g_queue->shown) return;
+    if (!g_queue->shown) return;
     g_root->SetZ(z);
     g_root->SetPosition(g_tween->GetCenteredX(), g_tween->GetCenteredY());
 }
