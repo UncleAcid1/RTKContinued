@@ -709,8 +709,8 @@ void UpdateHovers() {
             }
         } else if (GameState::IsPlayerCity()) {
             if (d) {
-                // UNVERIFIED (milestone 4g): in a city battle (g_Combat) a damaged decoration shows the
-                // health bar (0xe) instead.
+                // (In a city battle (g_Combat: the siege system, dead in 5.11) a damaged decoration
+                // would show the health bar (0xe) instead.)
                 // A decoration being searched by a worker shows the progress; one that wants an item
                 // the cogs.
                 if (d->meta && d->WorkerIsWorking() && !d->GetPlayerSearchAnimation(nullptr)) {
@@ -888,7 +888,7 @@ void ItemDrop::Collect(bool automatic, bool) {
         } else {
             GameState::AddItem(id, (int)amount, false, timesOnly, false);
             BeltBarWindow::AutoBind(id);
-            // UNVERIFIED (milestone 4g): BeltBarWindow::UpdateContents.
+            BeltBarWindow::UpdateContents();
         }
         Render::Sprite* s = nullptr;
         if (!automatic) {

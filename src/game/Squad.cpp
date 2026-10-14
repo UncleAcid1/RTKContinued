@@ -14,6 +14,7 @@
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/SoldierSlots.h"
+#include "windows/Windows.h"
 
 namespace {
 
@@ -52,8 +53,8 @@ void StepToCorner(int& x, int& y, int col, int row) {
     }
 }
 
-// The active combat's type (vtable +0x50). PORT: no combat exists until milestone 4g; some callers
-// read it without checking IsCombatActive on the original.
+// The active combat's type (vtable +0x50). PORT: 0 without a combat; some callers read it without
+// checking IsCombatActive on the original.
 int CombatType() {
     BaseCombat* c = GameState::GetActiveCombat();
     return c ? c->GetType() : 0;
@@ -493,14 +494,14 @@ void PlayerSquad::RearrangeSoldiers() {
         replacements.push_back(r);
         SoldierPool::RemoveSoldier(r);
         SoldierSlots::AddSoldier(r);
-        // UNVERIFIED (milestone 4g): CharacterInfoWindow::UpdateContents.
+        CharacterInfoWindow::UpdateContents();
     }
     ClearDeadSoldiers();
     for (Entity* r : replacements) {
         AI::Waypoint* p = AI::GetRandomWaypointInRange(owner->tileX, owner->tileY, 1, 0, false, nullptr, false);
         EntityManager::SpawnEntityAt(r, (unsigned)p->x, (unsigned)p->y, true, false);
         AddSoldier(r);
-        // UNVERIFIED (milestone 4g): CharacterInfoWindow::UpdateContents.
+        CharacterInfoWindow::UpdateContents();
     }
 }
 
@@ -539,7 +540,7 @@ void PlayerSquad::RemoveSoldier(Entity* e) {
     SoldierPool::RemoveSoldier(r);
     SoldierSlots::AddSoldier(r);
     if (e->IsEliteSoldier()) SoldierPool::AddSoldier(e);
-    // UNVERIFIED (milestone 4g): CharacterInfoWindow::UpdateContents.
+    CharacterInfoWindow::UpdateContents();
 }
 
 void PlayerSquad::AddSoldier(Entity* e) {
@@ -547,7 +548,7 @@ void PlayerSquad::AddSoldier(Entity* e) {
         GameState::GetActiveCombat()->AddGoodGuy(e);
     if (owner->IsSpeedRunning()) e->EnableSpeedRun();
     BaseSquad::AddSoldier(e);
-    // UNVERIFIED (milestone 4g): CharacterInfoWindow::UpdateContents.
+    CharacterInfoWindow::UpdateContents();
 }
 
 void PlayerSquad::OnAggro() {
@@ -583,8 +584,7 @@ void PlayerSquad::ClearDeadSoldiers() {
 }
 
 void PlayerSquad::ResetRangedWPs() {
-    // UNVERIFIED (milestone 4g): each soldier's +0x5c (its ranged-attack waypoint) is cleared; the
-    // port's Entity has no such field yet (+0x54/+0x58 are the spawn tile).
+    for (Entity* e : soldiers) e->f5c = 0;
 }
 
 void PlayerSquad::AddToCombat(Entity* e) {

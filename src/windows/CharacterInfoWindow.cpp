@@ -6,6 +6,7 @@
 #include "game/MetaExpression.h"
 #include "game/Squad.h"
 #include "windows/Windows.h"
+#include "hud/HUD.h"
 
 namespace CharacterInfoWindow {
 
@@ -17,8 +18,7 @@ void ApplyEquipment(GameState::PlayerItem* it, Entity* player) {
 
 // UNVERIFIED (milestone 5): the window's contents (tabs, item holders, the player picture, the
 // stat texts) and its mode 7 (another player's equipment); Sets::FindActiveSetState and the
-// complete sets' effects (no sets yet). UNVERIFIED (milestone 4g): BeltBarWindow::UpdateContents
-// and UpdateBeltItems (outside arena combats) after the buffs.
+// complete sets' effects (no sets yet).
 void UpdateContents() {
     Entity* player = EntityManager::GetPlayer();
     player->ResetStats(true);
@@ -42,6 +42,8 @@ void UpdateContents() {
         info->meta->OnApplyItemEffect(player);
         info->meta->OnApplyItemBuffEffect(player);
     }
+    BeltBarWindow::UpdateContents();
+    if (!GameState::IsArenaCombatActive()) BeltBarWindow::UpdateBeltItems();
 }
 
 }  // namespace CharacterInfoWindow

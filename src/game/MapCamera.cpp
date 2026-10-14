@@ -14,6 +14,7 @@
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/Fog.h"
+#include "game/Combat.h"
 #include "game/GameState.h"
 #include "game/MetaData.h"
 #include "game/Setting.h"
@@ -192,7 +193,7 @@ void UpdateCamera(float dt) {
                 Entity* player = EntityManager::GetPlayer();
                 if (player && !player->IsOnPatrol()) {
                     player->GetAI()->StopMovement();
-                    // UNVERIFIED (milestone 4g): a running combat is told too (BaseCombat +0x3c).
+                    if (GameState::IsCombatActive()) GameState::GetActiveCombat()->EndCombat();
                 }
             }
             g_state = 1;

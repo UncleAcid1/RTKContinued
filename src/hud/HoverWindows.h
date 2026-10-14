@@ -147,8 +147,8 @@ public:
 // Dialog_hint_hd.xml, 0x68 bytes).
 class PlayerHintHoverWindow : public BuildingHoverWindow {
 public:
-    PlayerHintHoverWindow() { name = "PlayerHintHoverWindow"; }   // @0x391750
-    ~PlayerHintHoverWindow() override;           // @0x39168c
+    PlayerHintHoverWindow() { name = "PlayerHintHoverWindow"; }   // @0x391750 (also @0x3917b0)
+    ~PlayerHintHoverWindow() override;           // @0x39168c (deleting @0x3916e0, @0x3916fc)
     void Init() override;                        // +0x08 @0x391458
     void SetZ(float z) override;                 // +0x10 @0x39139c
     bool Click(int x, int y, bool pressed) override;   // +0x14 @0x390ee4

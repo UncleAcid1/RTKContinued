@@ -132,7 +132,7 @@ void AIWarrior::Update(float dt) {
 }
 
 void AIWarrior::WalkTo(int x, int y) {
-    // UNVERIFIED (milestone 4g): in an arena combat (types 5, 6) the waypoint under the entity gets
+    // UNVERIFIED (milestone 5, arenas): in an arena combat (types 5, 6) the waypoint under the entity gets
     // weight 1 first (no waypoint: an error, SetPos(x, y) and UpdateLastTarget).
     AIBaseState::WalkTo(x, y);
 }
@@ -151,7 +151,7 @@ void AIWarrior::WalkCompleted() {
         Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
         GameState::tutorial = 0x65;
     }
-    // UNVERIFIED (milestone 4g): in an arena combat (types 5, 6) the waypoint under it gets weight 1000.
+    // UNVERIFIED (milestone 5, arenas): in an arena combat (types 5, 6) the waypoint under it gets weight 1000.
 }
 
 void AIWarrior::StartTraining() {
@@ -404,7 +404,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
 }
 
 void AIPlayer::ClickedTile(int x, int y, int, int) {
-    // UNVERIFIED (milestone 4g): while a CombatManager exists it takes the tap (OnTileClicked).
+    // (A CombatManager would take the tap, OnTileClicked: the siege system, dead in 5.11.)
     if (entity->IsRetreating()) return;
     // (BottomScreenshotWindow, not ported, is never visible)
     int tut = GameState::tutorial;
@@ -419,7 +419,7 @@ void AIPlayer::ClickedTile(int x, int y, int, int) {
     if (!TryToInterruptJob()) return;
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0 && GameState::GetCurrentMapID() != 0xb &&
         GameState::GetCurrentMapID() != 0x74) {
-        // UNVERIFIED (milestone 4g): HealSquadWindow::Show.
+        HealSquadWindow::Show();
         return;
     }
     Entity* e = EntityManager::GetEntityAtXY(x, y);
@@ -685,7 +685,7 @@ void AIPlayer::ClickedPortal(Portal* p) {
     if (!TryToInterruptJob()) return;
     if (GameState::IsCombatActive()) return;
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
-        // UNVERIFIED (milestone 4g): HealSquadWindow::Show (0x2cd1d8).
+        HealSquadWindow::Show();
         return;
     }
     if (GameState::tutorial < 8) return;
@@ -702,13 +702,13 @@ void AIPlayer::ClickedPortal(Portal* p) {
 }
 
 void AIPlayer::ClickedDecoration(Map::Decor* d) {
-    // UNVERIFIED (milestone 4g): in a combat the tap goes to CombatManager::OnDecorClicked (0x12e494).
+    // (A CombatManager would take the tap, OnDecorClicked 0x12e494: the siege system, dead in 5.11.)
     if (entity->IsRetreating()) return;
     // (BottomScreenshotWindow, the screenshot mode: not in the port.)
     if (!TryToInterruptJob()) return;
     if (GameState::IsCombatActive()) return;
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
-        // UNVERIFIED (milestone 4g): HealSquadWindow::Show (0x2cd1d8).
+        HealSquadWindow::Show();
         return;
     }
     unsigned point = GetBestDecorationActionPoint(d);
@@ -736,7 +736,7 @@ void AIPlayer::ClickedDecoration(Map::Decor* d) {
 // @0xef3ec AIPlayer::AssignToJob
 bool AIPlayer::AssignToJob(Map::Decor* d) {
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
-        // UNVERIFIED (milestone 4g): HealSquadWindow::Show (0x2cd1d8).
+        HealSquadWindow::Show();
         return false;
     }
     // UNVERIFIED (milestone 4h): tutorial step 0x14 hides the world dialog (HideWorldDialog).
@@ -910,8 +910,19 @@ void AIPlayer::ProcessAction() {
         action = 7;
         return;
     case 7:
-        // UNVERIFIED (milestone 4g): the corpse's item drops by chance (EntityData corpse_drop) and
-        // the corpse goes.
+        // The search is over: the corpse's item drops (corpse_drop's second number is the chance
+        // in percent), the spawn point remembers it as taken and the corpse goes.
+        if (Entity* corpse = (Entity*)actionTarget) {
+            const EntityData* data = corpse->GetEntityData();
+            SpawnPoint* sp = corpse->GetSpawnPoint();
+            if (sp && data) {
+                if (Rand48::lrand48() % 100 < data->corpseDropCount)
+                    BuildingHovers::DropItem(corpse->worldX, corpse->worldY, Items::GetItemInfo((uint32_t)data->corpseDropId),
+                                             0, 1);
+                sp->corpseTaken = data->corpseDropId;
+                corpse->SetActive(false, true);
+            }
+        }
         break;
     case 8:
         // PORT: a PvP shadow (PlayerCompetitionWindow, online); milestone 5 decides its offline form.

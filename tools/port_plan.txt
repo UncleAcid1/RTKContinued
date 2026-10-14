@@ -117,6 +117,7 @@ dead  ^HealthbarHoverWindow::   # hover type 0xd: BuildingHovers::Update never a
 5  ^Shared::(BuffHolder|BuffHolderManager)::   # the row of running buffs (timed potions): BeltBarWindow, HealSquadWindow, CharacterInfoWindow
 5  ^BottomBattleWindow::   # the rage bar (Rage_bar.xml): the spell slots and their fury buttons, auto-cast, the mana bar, the arena's stances and the taming net. It is the spells' HUD; the fight itself does not need it
 dead  ^TapHoverWindow::   # BeltBarWindow::Init creates it and Deinit deletes it; nothing shows it (no caller of Show / SetAction / Hide, direct or through its vtable slots)
+dead  ^HealSquadWindow::SortItemsByMetaSort$   # no caller, no address taken (UpdateContents keeps the setting's order)
 6  ^Render::CreateCustomTexture$   # a texture made from pixels: Particles::ImageParticleSystem, Render::Layer::Draw's effect, the buff row
 5  ^(HealHoverWindow::|BattleBarWindow::ShowHealSoldier$)   # healing a wounded soldier (the roadmap's "hiring / healing the army"): BattleBarWindow and HireTroopsWindow create it, ItemHoverWindow::OnHeal shows it
 5  ^BeltBarWindow::(Move|MoveIntoBelt|HasMovedIntoBelt|ArrowAtSlot)$   # an item put on the belt from the character window, the belt moved aside for the big windows, the rage bar's mana potion hint

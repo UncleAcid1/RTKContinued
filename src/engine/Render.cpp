@@ -273,7 +273,7 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 //     (the transforms are set in Frame).
 //   Sprites: @0x1fded0 Sprite::SetShader and @0x1fdef0 GetShaderType (Sprite::shaderType),
 //     @0x1fdee0 MarkDirty (nothing to mark), @0x1fe4d8 AllocateSprite / @0x1fe29c DeallocateSprite
-//     (the pool), @0x1fe5a0 SetColorMask (Sprite::colorMask). UNVERIFIED (4g/5): the mask shader
+//     (the pool), @0x1fe5a0 SetColorMask (Sprite::colorMask). UNVERIFIED (milestone 5): the mask shader
 //     path (GUI::Window::ApplyMask, the colour mask on texture unit 1) waits for its callers.
 //   Textures: @0x201450 IsLoaded / @0x2027e0 ForceLoad (always loaded), @0x20149c AddRef /
 //     @0x2014d8 ReleaseRef, @0x201550 EnumTexture, @0x201654 AllocateTexture / @0x201998

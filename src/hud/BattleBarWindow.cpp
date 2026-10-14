@@ -80,7 +80,7 @@ bool Click(int x, int y, bool pressed) {
         // (BottomScreenshotWindow, not ported, is never visible)
         return (g_slider && g_slider->GetWindowAtPosition(x, y, false)) || g_root->GetWindowAtPosition(x, y, false);
     }
-    // UNVERIFIED (4g, HealHoverWindow 0x617a30): the heal card gets the tap first.
+    // UNVERIFIED (milestone 5, HealHoverWindow 0x617a30): the heal card gets the tap first.
     if (g_hover->Click(x, y, pressed)) return true;
     if (g_slider && g_slider->Click(x, y, pressed, false)) return true;
     return g_root->Click(x, y, pressed, false);
@@ -158,7 +158,7 @@ void Init() {
     g_sliderX = (int)((float)g_sliderX * g_scale);
     g_sliderDY = (int)((float)g_sliderDY * g_scale);
     g_hover = new ItemHoverWindow();
-    // UNVERIFIED (4g, last HUD part): the HealHoverWindow (0x617a30).
+    // UNVERIFIED (milestone 5): the HealHoverWindow (0x617a30).
 }
 
 // @0x24b8ac: shown in the city during tutorial steps 10..24 and after 54

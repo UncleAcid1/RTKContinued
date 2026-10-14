@@ -5,7 +5,7 @@
 // vtable 0x608400). Virtual functions are in the original's vtable order.
 //
 // Combat parts (the active combat's type and state, AddToCombat, active soldiers, turns) only run
-// while GameState::IsCombatActive, which is false until milestone 4g.
+// while GameState::IsCombatActive.
 #pragma once
 #include <vector>
 

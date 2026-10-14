@@ -321,6 +321,7 @@ public:
     int tileX = 0, tileY = 0;        // +0x44 +0x48
     int prevX = 0, prevY = 0;        // +0x4c +0x50
     int spawnX = 0, spawnY = 0;      // +0x54 +0x58 (constructor tile)
+    int f5c = 0;                     // +0x5c cleared by PlayerSquad::ResetRangedWPs; nothing reads it in 5.11
     int homeX = 0, homeY = 0;        // +0x60 +0x64
     int workX = 0, workY = 0;        // +0x68 +0x6c
     int workType = 0;                // +0x70 1 building, 2 decoration

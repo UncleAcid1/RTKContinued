@@ -47,7 +47,7 @@ struct Decor {
     bool visible = true;               // +0x1d
     std::string metaText;              // the text of its MetaExpression (kept for the save)
     MetaExpression* meta = nullptr;    // +0x20 its quest behaviour (see OnSetup), null without one
-    bool destroyed = false;            // +0x40 Destroy (milestone 4g): Map::Update removes it
+    bool destroyed = false;            // +0x40 Destroy (only the siege system, dead in 5.11, calls it): Map::Update removes it
     bool disabled = false;             // +0x41 DISABLE_AFTER_* happened: no longer interactive
     mutable const GameData::DecorData* data = nullptr;  // +0x3c (GetData fills it on first use)
     bool fake = false;                 // +0x43 random decoration (Patch::AddRandomDecors)
@@ -194,6 +194,8 @@ struct Decor {
     // @0x1339f8: the hero stands on one of TELEPORT_TILE's tiles and the decoration is unlocked:
     // to its map, or to its tile.
     void HandleTeleportTile(const MetaData* d);
+    void TrapDamage(const MetaData* d);              // PORT: Update's TRAP_DAMAGE part
+    void TrapPattern();                              // PORT: Update's TRAP_PATTERN part
 };
 
 struct Patch {

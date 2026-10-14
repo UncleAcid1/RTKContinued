@@ -4,7 +4,7 @@
 // (libkingdom.so 5.11), 0x359dc8..0x35e9xx. Statics at 0x62f9e4.
 //
 // Not ported, marked where they happen: the boss form of the window (a boss's portrait, fight /
-// shop buttons, OnFight: milestone 4g), the task locator icon (4d part 4), ExecuteFirstHelp
+// shop buttons, OnFight: milestone 5), the task locator icon (4d part 4), ExecuteFirstHelp
 // (0x35d3dc, the autoplay bot: 4d part 4), the windows Show opens for a few special tasks (chests,
 // PvP, item shop: milestone 5), sounds (6).
 #include <cstdio>
@@ -168,7 +168,7 @@ void OnHelpActual(unsigned step) {
             return;
         }
     }
-    // UNVERIFIED (milestone 4g): with a boss set, a "kill" step for it starts the fight (OnFight).
+    // UNVERIFIED (milestone 5): with a boss set, a "kill" step for it starts the fight (OnFight).
     if (GameState::GetSubTaskDone(s.id) < s.amount && s.OnHelp(!t->dnAssist)) {
         if (g_resetArrowLimit) BuildingHovers::SetArrowVisibleWindowLimit(1);
         return;
@@ -196,7 +196,7 @@ void OnContinue() {
     void (*cb)() = g_onContinue;
     g_onContinue = nullptr;
     if (cb) cb();
-    // UNVERIFIED (milestone 4g): with a boss set (not task 0x5b7) the hero's AI is told (vfunc +0xe8).
+    // UNVERIFIED (milestone 5): with a boss set (not task 0x5b7) the hero's AI is told (vfunc +0xe8).
     if (g_task == 0x49f) {
         TaskCompleteWindow::Complete(0x49f);
         TaskCompleteWindow::Show();
@@ -409,7 +409,7 @@ void Init() {
     g_shopIcon = GUI::GetWindowTypedF<Window>(g_root, "button_boss_boss_%02d.button_boss_task_button.icon_60_boss", 2);
     g_shopIcon->takesZ = true;
     g_shopText = GUI::GetWindowTypedF<Textfield>(g_root, "button_boss_boss_%02d.button_boss_task_button.text_upgrade", 2);
-    g_fight->SetOnClick([] {});   // UNVERIFIED (milestone 4g): OnFight (0x35a548)
+    g_fight->SetOnClick([] {});   // UNVERIFIED (milestone 5): OnFight (0x35a548)
     g_shop->SetOnClick([] {});    // UNVERIFIED (milestone 5): OnShop (0x35a4f8) (the item shop's tab 3)
     g_fight->MoveWindow(0, (int)(g_scale * 20.f));
     g_shop->MoveWindow(0, (int)(g_scale * 20.f));
@@ -510,7 +510,7 @@ void SetTask(uint32_t id, bool boss) {
         HideWindow();
         return;
     }
-    // UNVERIFIED (milestone 4g): task 0x5b7 takes the boss at spawn point 0x4e4 and the boss form.
+    // UNVERIFIED (milestone 5): task 0x5b7 takes the boss at spawn point 0x4e4 and the boss form.
     g_giverMale->SetVisibility(!g_bossMode && GameState::IsMalePlayer());
     g_giverFemale->SetVisibility(!g_bossMode && !GameState::IsMalePlayer());
     g_title->SetText(t->name);
@@ -520,7 +520,7 @@ void SetTask(uint32_t id, bool boss) {
     g_bossInfo->SetVisibility(g_bossMode);
     g_bossText->SetVisibility(g_bossMode);
     UpdateDescription();
-    // UNVERIFIED (milestone 4g): with a boss set its portrait (the "idle_1" animation) and the
+    // UNVERIFIED (milestone 5): with a boss set its portrait (the "idle_1" animation) and the
     // time left of its fight ("MISSION_TIME_LEFT", GameState::GetBossFightStartTime).
 
     // The step boxes; the window is shorter by one box for every step the task does not have.
@@ -664,7 +664,7 @@ void SetTask(uint32_t id, bool boss) {
             r.quantity->SetText(ToWideString((int)a.amount));
         }
     }
-    // UNVERIFIED (milestone 4g): task 0x5b7 with its first step done hides the fight and shop buttons.
+    // UNVERIFIED (milestone 5): task 0x5b7 with its first step done hides the fight and shop buttons.
     g_fightIcon->SetTexture(IconManager::GetIcon("gold_attack", false), true, 0, 0, false, 0);
     g_fightText->SetText(StringTable::GetString("BOSS_FIGHT"));
     g_shopIcon->SetTexture(IconManager::GetIcon("gold_buy", false), true, 0, 0, false, 0);
@@ -744,7 +744,7 @@ void Show() {
 // @0x35cee4 TaskInfoWindow::Update
 void Update(float dt) {
     if (!g_root->visibleSelf) return;
-    // (the boss portrait's animation frames, 0.1 s each: milestone 4g)
+    // (the boss portrait's animation frames, 0.1 s each: milestone 5)
     g_scroller.Update(dt);
     g_left->SetEnabled(g_scroller.CanMoveLeft());
     g_right->SetEnabled(g_scroller.CanMoveRight());

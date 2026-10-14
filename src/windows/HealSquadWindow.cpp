@@ -312,6 +312,9 @@ void OnShop() {}
 // broken item.
 void OnRepair() {}
 
+// @0x2c9f90 (Move @0x2c9ef8 is empty and never registered.)
+float ZRange() { return g_queue->shown ? 0.02f : 0.0001f; }
+
 // @0x2ca358. UNVERIFIED (milestone 5, PlayerWeakWindow): the "too weak" advice on maps 0x71, 0x73,
 // 0x75 below level 12, or after the third death within 5 minutes (the death times are kept).
 void OnTweenIn() {
@@ -442,10 +445,11 @@ void Init() {
     g_repairText = GUI::GetWindowTypedF<Textfield>(g_root, "button_hp_items_broken.text_repairs");
     g_buffHolder = GUI::GetWindowTypedF<Window>(g_root, "buff_holder_01");
     g_buffHolder->takesZ = true;
-    // UNVERIFIED (4g, the belt part): the row of running buffs (Shared::BuffHolderManager(0x18, 1,
+    // UNVERIFIED (milestone 5): the row of running buffs (Shared::BuffHolderManager(0x18, 1,
     // 0, 1)) at buff_holder_01.
     g_queue->fn.show = Show;
     g_queue->fn.update = Update;
+    g_queue->fn.zRange = ZRange;
     g_queue->fn.back = OnBack;
     g_hover = new ItemHoverWindow();
     ResetRecentDeaths();

@@ -1053,7 +1053,7 @@ void ItemHoverWindow::OnFind() {
         // RaidInfoWindow for its location) or a crafting map (GlobalMapWindow::ArrowAtMap).
         if (!GetMissionMapForItem(id) && !GetMapForCraftItem(id)) NeedItemWindow::OnProduce(id);
     }
-    // UNVERIFIED (milestone 4g): in the city, HealSquadWindow::Hide.
+    if (GameState::GetCurrentMapID() == 0) HealSquadWindow::Hide();
     Hide();
 }
 

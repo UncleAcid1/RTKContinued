@@ -16,6 +16,7 @@
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/Fog.h"
+#include "game/Combat.h"
 #include "game/GameState.h"
 #include "game/Locations.h"
 #include "game/SaveManager.h"
@@ -556,7 +557,7 @@ void HardMapReset(uint32_t map) {
     if (GameState::GetCurrentMapID() == map) return;
     SaveManager::GetMainSave()->ResetMap(map);
     Tasks::ResetMap(map);
-    // UNVERIFIED (milestone 4g): GameState::ResetBossFightsOnMap(map).
+    // UNVERIFIED (milestone 5, boss fights): GameState::ResetBossFightsOnMap(map).
     Tasks::Update(true);
     UpdateTasks();
 }
@@ -567,8 +568,8 @@ void MapReset() {
     const uint32_t map = GameState::GetCurrentMapID();
     SaveManager::GetMainSave()->ResetMap(map);
     Tasks::ResetMap(map);
-    // UNVERIFIED (milestone 4g): GameState::ResetBossFightsOnMap(map); a running combat is told
-    // (BaseCombat +0x3c).
+    // UNVERIFIED (milestone 5, boss fights): GameState::ResetBossFightsOnMap(map).
+    if (GameState::IsCombatActive()) GameState::GetActiveCombat()->EndCombat();
     Map::Load(SaveManager::GetMapData(GameState::GetCurrentMapID()), (uint32_t)Timer::GetGlobalTime(), false, false);
     Map::UpdateOfflineResources();
     Tasks::Update(true);
@@ -584,7 +585,8 @@ void SoftMapReset() {
     Map::StorePlayerPosition();
     Map::StoreFogInfo();
     SaveManager::GetMainSave()->ResetMap(GameState::GetCurrentMapID());
-    // UNVERIFIED (milestone 4g): GameState::ResetBossFightsOnMap; a running combat is told.
+    // UNVERIFIED (milestone 5, boss fights): GameState::ResetBossFightsOnMap(map).
+    if (GameState::IsCombatActive()) GameState::GetActiveCombat()->EndCombat();
     Map::Load(SaveManager::GetMapData(GameState::GetCurrentMapID()), (uint32_t)Timer::GetGlobalTime(), false, false);
     Map::UpdateOfflineResources();
     Tasks::Update(true);
@@ -598,7 +600,7 @@ void SoftMapReset() {
 // Last, the HUD's return: with no window shown after the city tutorial (0x80), outside the second
 // tutorial's steps 0x93..0x96 and the tame tutorial, a HUD that is not at the top of the queue
 // comes back: the hovers go to the bottom and the panels are shown again.
-// UNVERIFIED (milestone 4g): the player's damage locator pulse (male/female portrait).
+// The locator's hurt portrait pulses like the hero panel's.
 // @0x2c69f8: the hero was hurt: the locator's hurt portrait flashes.
 void OnDamage(Entity* e) {
     if (e != EntityManager::GetPlayer()) return;

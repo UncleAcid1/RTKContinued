@@ -29,6 +29,7 @@
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "hud/HUD.h"
 #include "game/Items.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -107,7 +108,7 @@ Window* g_tavernClick = nullptr;       // 0x61f7dc
 bool g_tablet = false;                 // 0x60f224
 float g_scale = 1.f;                   // 0x60f228
 
-// UNVERIFIED (milestone 4g): PlayerBattleInOutWindow::IsVisible, the PvP arena's result window.
+// UNVERIFIED (milestone 5): PlayerBattleInOutWindow::IsVisible, the PvP arena's result window.
 bool BattleInOutVisible() { return false; }
 // UNVERIFIED (milestone 5): BossIntroWindow::IsVisible.
 bool BossIntroVisible() { return false; }
@@ -209,7 +210,7 @@ void OnTavern() {
 // @0x2b99c4: the band is 30% of the screen; a window lower than that sinks into it halfway.
 void SetZ(float z) {
     if (!g_queue->shown) return;
-    // UNVERIFIED (milestone 4g): over PlayerBattleInOutWindow, z = its GetZ() + 0.0002.
+    // UNVERIFIED (milestone 5): over PlayerBattleInOutWindow, z = its GetZ() + 0.0002.
     float h = ScreenH();
     g_dark->h = h * 0.3f;
     g_dark->w = ScreenW();
@@ -300,7 +301,7 @@ void RunPostAction() {
     } else if (g_postAction == 2) {
         // UNVERIFIED (milestone 5): HireTroopsWindow::Show.
     } else if (g_postAction == 3) {
-        // UNVERIFIED (milestone 4g / online): PlayerCompetitionWindow (tab 4) unless the PvP
+        // UNVERIFIED (milestone 5 / online): PlayerCompetitionWindow (tab 4) unless the PvP
         // tutorial runs (it ends) or it returns without a window.
     } else if (g_postAction == 4) {
         // UNVERIFIED (milestone 5): LevelInfoWindow::Show on the tab of profession 7.
@@ -485,8 +486,8 @@ void Show() {
     Render::SetVisibility(g_goldLine, band);
     g_goldLine->w = ScreenW();
     Render::SetPosition(g_goldLine, 0.f, (float)h, 0.0279f);
-    // UNVERIFIED (milestone 4g): BattleBarWindow::HideHoverWindow and BeltBarWindow::HideHoverWindow
-    // (their item popups are not created yet).
+    BattleBarWindow::HideHoverWindow();
+    BeltBarWindow::HideHoverWindow();
     UpdateContents();
     g_root->PreloadTextures();   // GUI::PreloadWindow
 }

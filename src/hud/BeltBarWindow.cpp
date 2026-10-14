@@ -193,7 +193,9 @@ void Init() {
     Queue()->RegisterTopWindow(g_root);
     g_root->SetVisibility(false);
     g_root->SetPosition(W, H - g_root->h);
-    // OnTweenMove (+8) is empty; OnTweenIn (+0xc) re-reads the belt (milestone 3).
+    // OnTweenMove @0x24c674 is empty. OnTweenIn @0x24cb9c: an inventory asked for while the belt
+    // was away (ShowInventory's flag 0x617dbc, milestone 5) opens once the belt is in; nothing
+    // sets the flag before then.
     g_effect = GUI::CreateMovementEffect(g_root, [] {}, [] {});
     const int beltSlots = (int)GameState::GetBeltSlotCount();
     g_bg2Slots = GUI::GetWindowTyped<Window>(g_root, "battle_bar_main_bg_2_slots_right");
@@ -226,7 +228,7 @@ void Init() {
     g_craftLock->SetTexture(IconManager::GetIcon("gold_16_lock", false), true);
     g_barNameX = g_barName->x;
     g_hover = new ItemHoverWindow();
-    // UNVERIFIED (4g, last HUD part): the TapHoverWindow (the belt's tap hint).
+    // (The TapHoverWindow created here, the belt's tap hint, is never shown: dead in 5.11.)
 
     g_craftBar = GUI::RegisterUI("../resource/kingdom_ui/1Original/Crafting_p_bar.xml", "Crafting_p_bar.png",
                                  GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);

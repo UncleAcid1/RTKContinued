@@ -63,6 +63,8 @@
 #include "windows/Windows.h"
 #include "game/Game.h"
 #include "game/GameData.h"
+#include "game/MetaExpression.h"
+#include "game/MetaData.h"
 #include "game/Map.h"
 #include "game/Override.h"
 #include "game/MapMovement.h"
@@ -401,10 +403,10 @@ void KeyDown(int scancode) {
         return;
     }
     if (scancode == SDL_SCANCODE_AC_BACK || scancode == SDL_SCANCODE_Y) {
-        // Not taken by a window (and no death animation, milestone 4g, or camera move): an open
+        // Not taken by a window (and no death animation or camera move): an open
         // popup closes, else the exit question. UNVERIFIED: RaidComplete, CampaignComplete,
         // CampaignPerfected and BossOutro windows (not ported) also block the question.
-        if (WindowManager::ProcessBack() || Map::IsCameraMoving()) return;
+        if (WindowManager::ProcessBack() || Entity::IsDeathAnimationRunning() || Map::IsCameraMoving()) return;
         if (!GUI::IsAnyAnimationActive() && !GUI::CanInteractWith(nullptr) && PopupWindow::IsVisible()) {
             PopupWindow::Hide();
             return;
@@ -921,8 +923,9 @@ bool main_Loop_Func() {
 int main_Exit_Func() {
     // (EditorConsole::Deinit: milestone 5. ErrorReporter::Deinit: online.)
     gameLoaded = false;
-    // UNVERIFIED (their milestones): GameState::EndActiveCombat(true) (4g), RaidCompleteWindow and
-    // CampaignPerfectedWindow ForceHide (5), SpellMovement's Decline and Deinit (5).
+    GameState::EndActiveCombat(true);
+    // UNVERIFIED (their milestones): RaidCompleteWindow and CampaignPerfectedWindow ForceHide (5),
+    // SpellMovement's Decline and Deinit (5).
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();

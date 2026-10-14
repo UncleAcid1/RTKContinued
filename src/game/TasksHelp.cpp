@@ -20,6 +20,7 @@
 #include "game/Fog.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -450,7 +451,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         return true;
     case kCastSpell:
         if (city) PopupWindow::Show(StringTable::GetString("CAN_NOT_CAST"), PopupWindow::Hide, nullptr, nullptr);
-        // UNVERIFIED (milestone 4g): else BottomBattleWindow::HelpWithSpell(value, false).
+        // UNVERIFIED (milestone 5, spells): else BottomBattleWindow::HelpWithSpell(value, false).
         return true;
     case kBuyRealMoney:   // PORT: the exchange (the original opens its real-money tab 0)
         ExchangeWindow::Show();
@@ -484,15 +485,54 @@ bool TaskSubtask::OnHelp(bool arrow) {
         if (arrow) ArrowAtEntity(e);
         return true;
     }
-    // UNVERIFIED (milestone 4g): the arrow at an enemy (its tap: attack).
-    case kKillMob:             // EntityManager::GetNearestEnemyTo(player, value)
-    case kKillAllOnMap:        // EntityManager::GetNearestEnemy
-    case kKillEnemyClass:      // GetNearestEnemyWithClassTo, else the map with that class
-    case kTameEnemyClass:      // as kKillEnemyClass; without a net the item shop on item 0x24f
+    // The arrow at an enemy (its tap: the hero attacks it).
+    case kKillMob: {
+        Entity* e = EntityManager::GetNearestEnemyTo(EntityManager::GetPlayer(), value);
+        if (!e) {
+            std::fprintf(stderr,
+                         "Tasks::TaskSubtask::OnHelp() cannot help with SUBTASK_BATTLE_KILL_MOB - no mob is alive with class %d\n",
+                         (int)value);
+            return false;
+        }
+        if (arrow) ArrowAtEntity(e);
+        return true;
+    }
+    case kKillAllOnMap: {
+        Entity* e = EntityManager::GetNearestEnemy(EntityManager::GetPlayer(), false, false);
+        if (!e) return false;
+        if (arrow) ArrowAtEntity(e);
+        return true;
+    }
+    case kKillEnemyClass:
+    case kTameEnemyClass: {   // an enemy of the class here, else the map where one lives
+        // UNVERIFIED (milestone 5, taming): a tame step without a net (Items::GetPlayersBestNet)
+        // opens the item shop on item 0x24f instead.
+        Entity* e = EntityManager::GetNearestEnemyWithClassTo(EntityManager::GetPlayer(), value);
+        if (!e) {
+            uint32_t map = Locations::GetMapWithEntityOfClass(value, false);
+            if (map == 0) {
+                if (Locations::GetMapWithEntityOfClass(value, true) != 0) {
+                    PopupWindow::Show(StringTable::GetString("SERVER_ERROR"), PopupWindow::Hide, nullptr, nullptr);
+                    return true;
+                }
+            } else if (map != 0x74) {
+                HelpWithMapSwitchTo(map, true, false, 0);
+                return true;
+            }
+            std::fprintf(stderr, "Tasks::TaskSubtask::OnHelp() cannot help with %s - no mob is alive with class %d\n",
+                         type == kTameEnemyClass ? "tame_mob_class" : "kill_mob_class", (int)value);
+            return false;
+        }
+        if (arrow) ArrowAtEntity(e);
+        return true;
+    }
+    case kHealHero:
+        HealSquadWindow::Show();
+        HealSquadWindow::ResetRecentDeaths();
+        return true;
     // UNVERIFIED (milestone 5): other windows.
     case kBuyOnMarketTask:     // the item shop on the item (CastleTopWindow::OnBuyItem for steps 0x42e / 0x42f)
     case kEquip:               // CharacterInfoWindow on the item (or the arrow at it lying on the ground)
-    case kHealHero:            // HealSquadWindow
     case kCollectSet:          // SetInfoWindow on the set (a set already complete counts at once)
     case kImproveItem:         // CharacterInfoWindow on the item
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)

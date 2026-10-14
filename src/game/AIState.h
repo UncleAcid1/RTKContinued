@@ -360,7 +360,7 @@ public:
 
 // A monster or a guard of a campaign map (AI state 9; AIEnemy @0xea184..0xea860). It keeps the
 // waypoints within its spawn point's aggro range; the hero stopping on one of them starts the fight
-// (CheckAggro: milestone 4g, with AggroCombat).
+// (CheckAggro, with AggroCombat).
 class AIEnemy : public AIWarrior {
 public:
     explicit AIEnemy(Entity* e) : AIWarrior(e) {}     // @0xea810

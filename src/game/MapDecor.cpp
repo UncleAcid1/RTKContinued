@@ -19,6 +19,7 @@
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Setting.h"
+#include "game/SoldierSlots.h"
 #include "game/SpawnPoint.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
@@ -570,8 +571,8 @@ void ParticlesFrom(Decor* d, const MetaData* p) {
 
 // @0x134948 Map::Decor::OnClick
 bool Decor::OnClick() {
-    // UNVERIFIED (milestone 4g): in a combat a real decoration's tap goes to
-    // CombatManager::OnDecorClicked (0x12e494).
+    // (With a CombatManager a real decoration's tap goes to OnDecorClicked 0x12e494: the siege
+    // system, dead in 5.11.)
     if (meta) {
         const MetaData* d;
         if ((d = meta->FindChildData(kExpReqUnlockQuest)) && !GameState::TaskCompleted((unsigned)d->GetInt())) return false;
@@ -706,11 +707,11 @@ void Decor::Update(double dt) {
             Tasks::CompleteSubtaskDirect((uint32_t)step->GetChild(1)->GetInt(), 0x400);
     }
     if (visible && meta && player && (d = meta->FindChildData(kExpTeleportTile))) HandleTeleportTile(d);
-    // UNVERIFIED (milestone 4g): traps. TRAP_DAMAGE hurts the entity standing on it once per its
-    // delay while the trap is on (trapOn, not in a fight, not a reserve soldier): PARTICLE_TRAP,
-    // TRAP_SOUND, "gethit" or death, the damage in a popup; collectStart is the last hit.
-    // TRAP_PATTERN switches trapOn by the map time and fades its particles (or plays
-    // TRAP_ANIMATED's two animations).
+    // Traps.
+    if (!disabled) {
+        if (visible && meta && (d = meta->FindChildData(kExpTrapDamage))) TrapDamage(d);
+        if (!disabled && DecorationVisibilityUpdateAllowed() && visible && meta) TrapPattern();
+    }
     if (DecorationVisibilityUpdateAllowed() && sprite) {
         // (and only where the fog is open)
         sprite->visible = visible && Fog::IsVisible((int)sprite->x, (int)(sprite->y - sprite->h),
@@ -720,6 +721,101 @@ void Decor::Update(double dt) {
         for (Entity* p = particles; p; p = p->nextParticle)
             if (p->GetSprite()) p->GetSprite()->visible = visible;
     // (A debug overlay, off: the footprint as a bar with the id and depth, sprites +0xa4.)
+}
+
+// Update's TRAP_DAMAGE part (d: damage, then the seconds between two hits, 1 without): whoever
+// stands on a trap that is on is hurt, outside fights; collectStart is the time of the last hit.
+// Not people of the map (NPC), bosses or reserve soldiers.
+void Decor::TrapDamage(const MetaData* d) {
+    Entity* e = EntityManager::GetEntityAtXY(x, y);
+    Entity* player = EntityManager::GetPlayer();
+    if (!e || e->tileX != x || e->tileY != y || e->IsNPC() || e->IsBoss()) return;
+    const int delay = d->GetChildrenCount() < 2 ? 1 : d->GetChild(1)->GetInt();
+    const uint32_t now = Timer::GetGlobalTime();   // (0x6118c4, Map::Update's copy of it)
+    if (!trapOn || now <= (uint32_t)(delay + (int)collectStart) || GameState::IsCombatActive() || SoldierPool::HasSoldier(e))
+        return;
+    // PARTICLE_TRAP: the trap's own particles (name, play count, fixed start).
+    if (const MetaData* p = meta->FindChildData(kExpParticleTrap)) {
+        RemoveParticles();
+        if (data && !data->particlePoints.empty()) {
+            const char* name = p->GetChild(0)->GetString();
+            if (std::strcmp(name, "none") != 0) {
+                unsigned count = p->GetChildrenCount() > 1 ? (unsigned)p->GetChild(1)->GetInt() : 0;
+                bool randomStart = p->GetChildrenCount() < 3 || p->GetChild(2)->GetInt() == 0;
+                CreateParticles(name, count, randomStart);
+            }
+        }
+    }
+    // UNVERIFIED (milestone 6): TRAP_SOUND (0x70: the sound's name and a number).
+    // One of the player's own, hurt near the screen's edge or off it, is shown.
+    if (e->GetHP() > 0 && (e == player || e->GetSquad() == player->GetSquad())) {
+        int sx = (int)e->worldX, sy = (int)e->worldY;
+        WorldCoordinatesToScreen(sx, sy);
+        if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
+            Render::CenterOn(e->worldX, e->worldY);   // (animated over 0.4 s on the original)
+    }
+    const int damage = d->GetChild(0)->GetInt();
+    if (damage < e->GetHP()) {
+        e->AddHP(-damage);
+        e->GetAI()->StopMovement();
+        e->SetAnimationOnce("gethit", false, false, false, true);
+        if (!e->IsEnemy()) e->MoveAwayAfterAnimation();
+        if (e->GetSprite())
+            BuildingHovers::ShowTextHoverWithStyle(e->worldX, e->worldY - e->GetSprite()->h,
+                                                   ToWideString(-damage), 3, 1.5f, 50.f, false, false);
+    } else if (e->GetHP() > 0) {
+        e->AddHP(-e->GetHP());
+        e->GetAI()->StopMovement();
+        e->SetAnimationOnce("death", false, false, true, true);
+        e->OnDying(nullptr);
+        e->OnDeath(nullptr);
+        if (e->GetSprite())
+            BuildingHovers::ShowTextHoverWithStyle(e->worldX, e->worldY - e->GetSprite()->h,
+                                                   ToWideString(-damage), 5, 1.5f, 50.f, false, false);
+    }
+    collectStart = now;
+}
+
+// Update's TRAP_PATTERN part: the numbers are seconds, on and off in turn, repeating; negative ones
+// shift the start. The trap's particles fade with it, or play TRAP_ANIMATED's two animations (on,
+// off). In a fight a trap somebody stands on is off.
+void Decor::TrapPattern() {
+    const MetaData* pattern = meta->FindChildData(kExpTrapPattern);
+    const MetaData* c = pattern ? pattern->GetChild(0) : nullptr;
+    if (!c) return;
+    int period = 0, shift = 0;
+    for (; c; c = c->GetNext()) {
+        if (c->GetInt() < 0) shift = c->GetInt();
+        else period += c->GetInt();
+    }
+    if (period == 0) return;
+    bool on = true;
+    int t = (int)((uint32_t)(shift + (int)Timer::GetGlobalTime()) % (uint32_t)period);
+    for (c = pattern->GetChild(0); c; c = c->GetNext()) {
+        if (c->GetInt() < 0) continue;
+        if (t < c->GetInt()) break;
+        on = !on;
+        t -= c->GetInt();
+    }
+    if (GameState::IsCombatActive() && EntityManager::GetEntityAtXY(x, y)) on = false;
+    trapOn = on;
+    const MetaData* animated = meta->FindChildData(kExpTrapAnimated);
+    for (Entity* p = particles; p; p = p->nextParticle) {
+        if (!animated) {
+            p->SetUpdateSpeedScale(4.f);
+            if (!on) {
+                if (p->IsAppearing() || p->alpha >= 1.f) p->Disappear();
+            } else if (p->IsDisappearing() || p->alpha == 0.f) {
+                p->Appear(false, false);
+            }
+        } else {
+            const char* name = animated->GetChild(on ? 0 : 1)->GetString();
+            if (AnimationController* ac = p->GetAnimController()) {
+                if (!ac->anim || ac->anim->name != name) p->SetAnimationOnce(name, false, false, true, true);
+            }
+            if (p->GetSprite()) Render::ChangeLayer(p->GetSprite(), 3);
+        }
+    }
 }
 
 // The part of Update that runs when the last use of the decoration ends.

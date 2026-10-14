@@ -1472,8 +1472,8 @@ void Building::Update(double dt) {
         Render::Sprite* sp = mainSprite;
         Render::SetVisibility(sp, Fog::IsVisible((int)sp->x, (int)(sp->y - sp->h), (int)(sp->x + sp->w), (int)sp->y));
     }
-    // UNVERIFIED (milestone 4g): tower attacks (0x84/0x8c) in combat and the building's combat event
-    // list.
+    // (Tower attacks (0x84/0x8c) and the building's combat event list belong to the siege system,
+    // dead in 5.11.)
 }
 
 // @0x1200e0 Map::Building::RemoveHoldOfEntities

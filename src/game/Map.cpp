@@ -69,7 +69,7 @@ std::unique_ptr<Patch> g_farmPatch;             // 0x6136b4
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 std::vector<std::pair<uint8_t, uint8_t>> g_openedTiles;    // 0x613784 blocked tiles given a waypoint for a search
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
-bool g_victoryPose = false;   // 0x6138cc the player won a fight on the way here (milestone 4g sets it)
+bool g_victoryPose = false;   // 0x6138cc set by UpdateSpawns after a won boss fight (milestone 5)
 bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap)
 bool g_loadQueuedSave = false;                  // 0x613659
 bool g_bossReward = false;                      // 0x61365a a boss reward waits for the next map
@@ -1828,7 +1828,7 @@ void Update(double dt) {
         }
         // UNVERIFIED (milestone 5): the screen turns sepia over the switch
         // (GlobalMapWindow::AnimateSepiaIn / Out) unless the tutorial is at 0x17 or the device is
-        // slow; (milestone 4g) a boss combat (state 0x11) hides the arrow and runs BossIntroEffect
+        // slow; (milestone 5) a boss combat (state 0x11) hides the arrow and runs BossIntroEffect
         // instead, continued after the load.
         BuildingHovers::CollectAll();
         Tasks::CompleteSubtask(Tasks::kEnterMap, (uint32_t)g_loadQueuedMap, 1);
@@ -2180,7 +2180,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         player->GetAI()->RemoveActionMarker();
         int x = player->tileX, y = player->tileY;
         TileCoordinatesToWorld(x, y);
-        // (a boss combat centres on the boss position instead: milestone 4g)
+        // (a boss combat centres on the boss position instead: milestone 5)
         Render::CenterOn((float)x, (float)y);
         if (GameState::tutorial == 9) Render::CenterOn(392.f, 201.f);
     }
@@ -2259,7 +2259,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         GameState::lastSentStep = 0x80;
     }
     if (GameState::secondTutorial == 0x20e && GameState::GetCurrentMapID() != 0xf) BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 4g): outside the tutorial BottomBattleWindow shows on every map but the
+    // UNVERIFIED (milestone 5, the rage bar): outside the tutorial BottomBattleWindow shows on every map but the
     // city and the emperor's (0xb).
     // The help that was running when the map was left goes on.
     if (GameState::GetCurrentMapID() == 0) {
@@ -2434,7 +2434,7 @@ void UpdateSpawns() {
         }
         break;
     }
-    // The others spawn their entities. (Not while GameState::g_Combat, 0x613548, is set: milestone 4g.)
+    // The others spawn their entities. (Not while GameState::g_Combat, 0x613548, is set: the siege system, dead in 5.11.)
     for (unsigned i = 0; SpawnPoint* s = GetSpawnByIndex(i); ++i) {
         if (heros(s)) continue;
         Entity* e = EntityManager::SpawnEntityAt(s, false, false);
@@ -2444,7 +2444,7 @@ void UpdateSpawns() {
             if (e->GetSprite()) Render::ChangeLayer(e->GetSprite(), 6);
         }
         if (s->corpseTaken != 0) e->SetActive(false, true);
-        // UNVERIFIED (milestone 4g): a boss whose saved fight (GameState::mBossFights) has no HP left
+        // UNVERIFIED (milestone 5): a boss whose saved fight (GameState::mBossFights) has no HP left
         // dies here with its reward and subtasks (0x1f, 0x3d, 0x3f); a combat won against this spawn
         // point ends here (EndActiveCombat, the boss dead at mLastBossXY, the hero back at
         // mLastBossPlayerXY facing mLastPlayerDir). (milestone 5, PvP): a player shadow that was
@@ -2460,7 +2460,7 @@ void UpdateSpawns() {
         defX = 10;
         g_startX = g_startY = -1;
     }
-    // UNVERIFIED (milestone 4g): a boss combat (state 0x11) clears the start position too.
+    // UNVERIFIED (milestone 5): a boss combat (state 0x11) clears the start position too.
     if (g_nextSpawnX != 0 || g_nextSpawnY != 0) {   // PlayerNextSpawn's tile
         g_startX = g_nextSpawnX;
         g_startY = g_nextSpawnY;
@@ -2491,7 +2491,7 @@ void UpdateSpawns() {
         else if (defDir > 0) e->SetDirection(defDir);
         if (BaseSquad* sq = e->GetSquad()) sq->ClearDeadSoldiers();
     }
-    // UNVERIFIED (milestone 4g): a pending boss reward is dropped here (DropBossReward(player, 0x70)).
+    // UNVERIFIED (milestone 5): a pending boss reward is dropped here (DropBossReward(player, 0x70)).
 }
 
 // @0x1c0460: the player and its squad appear at the player's tile, whose waypoint gets weight 5 (the
@@ -2500,7 +2500,7 @@ void SpawnEntities() {
     Entity* player = EntityManager::GetPlayer();
     // PORT: the original has a player on every map; saves the port wrote before milestone 4 have none.
     if (!player) return;
-    // UNVERIFIED (milestone 4g): during a boss combat (state 0x11) the combat is ended and the boss,
+    // UNVERIFIED (milestone 5): during a boss combat (state 0x11) the combat is ended and the boss,
     // boss-wave or arena combat is set up instead.
     if (AI::Waypoint* wp = AI::GetWaypoint(player->tileX, player->tileY, false)) {
         wp->weight = 5.f;
