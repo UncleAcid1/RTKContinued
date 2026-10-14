@@ -143,6 +143,7 @@ void Show();                  // @0x2618e0
 void Hide();                  // @0x2617f4
 bool IsVisible();             // @0x25fb60
 void HelpWithUpgrade();       // @0x25fd30 the helper arrow at the Upgrade button
+void* GetPlantButton();       // @0x25fb74 the main button's click area
 void ShowPatchSpeedUp(unsigned patch);   // @0x26018c the patch's progress box in speed-up mode
 void OnFarmBack();            // @0x260cc0
 }
@@ -178,4 +179,18 @@ void EnableUndoButton(bool on);     // @0x25e514
 void EnableRotateButton(bool on);   // @0x25e528
 void EnableCancelButton(bool on);   // @0x25e53c
 void EnableOkButton(bool on);       // @0x25e550
+}
+
+// The tutorial's script (hud/TutorialWindow.cpp).
+namespace TutorialWindow {
+WindowManager::FunctionalWindow* Queue();
+void ResetState();                   // @0x366230
+void WaitUntil(uint32_t time);       // @0x366268
+}
+
+// The tutorial steps reported to the server (online: only the bookkeeping is kept).
+namespace TutorialSender {
+void SetTimeLimit(float seconds);    // @0x23ee5c
+void AddTutorialStep(int step);      // @0x23ee70
+void Update(float dt);               // @0x23ee90
 }

@@ -137,7 +137,7 @@ public:
     virtual void CancelWork() {}                      // +0x118 @0xe8290
     virtual void SetCurrentPatch(unsigned) {}         // +0x11c @0xe8294
     virtual void SetItem(int, int, int) {}            // +0x120 @0xe8298
-    virtual int GetItem() { return 0; }               // +0x124 @0xe829c
+    virtual Entity* GetItem() { return nullptr; }     // +0x124 @0xe829c
     virtual void Revive() {}                          // +0x128 @0xe82a4
     virtual void CleanFarm() {}                       // +0x12c @0xe82a8
     virtual int GetFarmPatchNum() { return 0; }       // +0x130 @0xe82ac
@@ -246,7 +246,7 @@ public:
     // +0x120 @0xedd30: the crop of order `contract` (0-based) of delivery list `deliveryId`, as the
     // farm's order on `patch`; it is planted if the patch is empty.
     void SetItem(int deliveryId, int contract, int patch) override;
-    int GetItem() override { return crop ? 1 : 0; }   // +0x124 @0xecfd0 (the crop entity)
+    Entity* GetItem() override { return crop; }       // +0x124 @0xecfd0 (the crop entity)
     void Revive() override;                           // +0x128 @0xed00c
     void CleanFarm() override;                        // +0x12c @0xed088
     int GetFarmPatchNum() override { return patchNum; }          // +0x130 @0xecfb0

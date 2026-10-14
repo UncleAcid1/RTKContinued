@@ -330,7 +330,7 @@ dead  ^FarmGrowHoverWindow::   # created, never shown in 5.11 (3f.4)
 dead  ^AI::(CreateWaypoint|CreateWaypointDebugOutput|GetShortPathFrom|GetRoadTo|RemoveWaypoint)$   # no caller, no address taken
 dead  ^BuildingHovers::(CanInvestAll|CanCollectAll|InvestAllResult|ColelctAllResult|BuildingsInvest|BuildingsCollect|CollectOne|ShowTextInvest|SetWorldDialogOffset|OnBack|MoveRectIntoView|ShowDroppedItem|RegisterEntity|ShowSprite)$   # no caller, no address taken
 dead  ^ExchangeWindow::(GetNameByID|LineToindex|GetCrystalBonus|GetCrystalMain|GetGoldBonus|GetGoldMain|GetProductIndexForButton)$   # no caller (the port's exchange reads the packs directly)
-dead  ^(IconManager::FitBuildingIntoUI|Shared::ButtonTripleInfo::ShowGold|WindowManager::DequeueWindow|AIPlayer::FUN_000eeb60|PlayerTopWindow::FUN_00327580|AnimationController::IsStopped|Resources::GetAnimatedImage|Render::(GetScreenData|CreateTextureReserved|GetSymbolCountInWidth|Sprite::SetSize|Texture::SetMipFilter))$   # no caller, no address taken
+dead  ^(IconManager::FitBuildingIntoUI|Shared::ButtonTripleInfo::ShowGold|WindowManager::DequeueWindow|AIPlayer::FUN_000eeb60|PlayerTopWindow::FUN_00327580|AnimationController::IsStopped|Resources::GetAnimatedImage|Render::(GetScreenData|CreateTextureReserved|Sprite::SetSize|Texture::SetMipFilter))$   # no caller, no address taken
 implicit  ^(WindowManager::WindowQueue::(Init|SetZ|Move|Show|Hide|Update|Wheel|Back|RemoveWindow)|MapObject::(Contains|IsLower|OnSetup))$   # empty base-class virtuals (4-12 bytes)
 lib  (^|::)(entry|RecursivelyCalculateShapeTree)$
 4b.5  ^Background::Update$   # Map::Update calls it every frame: a hole

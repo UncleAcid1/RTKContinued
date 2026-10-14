@@ -10,7 +10,7 @@
         for (int i = 0; i < opt.frames; ++i) {
             GameState::ResetGamePauseState();
             Entity* pl = EntityManager::GetPlayer();
-            if (i == 5 || i == 14) { MouseDown(640, 60, true); frame(); MouseUp(640, 60, true); }
+            if ((i == 5 || i == 14) && !getenv("RTK_NOCLOSE")) { MouseDown(640, 60, true); frame(); MouseUp(640, 60, true); }
             for (auto& c : clicks) if (c[0] == i) { firstMove = true; MouseMove(c[1], c[2]); MouseDown(c[1], c[2], true); frame(); frame(); MouseUp(c[1], c[2], true); }
             if (i == 30) {
                 if (t == "list")
@@ -31,7 +31,7 @@
             if (i == envi("RTK_RETREAT", -1)) { std::printf("[t] retreat\n"); pl->GetAI()->Retreat(); }
             if (i % 20 == 0) {
                 std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v);
-                std::printf("[t] f=%d dlg=%d shown=%d combat=%d hero=%d@%d,%d", i, (int)PlayerTopWindow::IsPlayerDialogVisible(), (int)WindowManager::GetShownWindowCount(), (int)GameState::IsCombatActive(), pl ? pl->GetHP() : -1, pl ? pl->tileX : -1, pl ? pl->tileY : -1);
+                std::printf("[t] f=%d tut=%d/%d wd=%d dlg=%d shown=%d combat=%d hero=%d@%d,%d", i, GameState::tutorial, GameState::secondTutorial, (int)BuildingHovers::IsWorldDialogVisible(), (int)PlayerTopWindow::IsPlayerDialogVisible(), (int)WindowManager::GetShownWindowCount(), (int)GameState::IsCombatActive(), pl ? pl->GetHP() : -1, pl ? pl->tileX : -1, pl ? pl->tileY : -1);
                 for (Entity* e : v) if (e != pl && e->GetHpMax() > 0) std::printf(" sold=%d", e->GetHP());
                 if (foe) std::printf(" foe=%d f36=%d act=%d dead=%d dis=%d app=%d", foe->GetHP(), (int)foe->f36, (int)foe->IsActive(), (int)foe->IsDead(), (int)foe->IsDisappearing(), (int)foe->IsAppeared());
                 std::printf(" crystals=%u head=%s range=%.4f:", (unsigned)GameState::GetResourceAmount(GameState::kCrystal), WindowManager::Head()->name.c_str(), WindowManager::GetTopWindowRange());

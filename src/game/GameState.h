@@ -67,6 +67,7 @@ int TutorialStep();
 int SecondTutorialStep();                      // GameState::secondTutorial
 bool IsCityTutorial();                         // @0x190af4
 int GetTutorialType();                         // @0x19067c (0x6129d4, saved in chunk 0x3d)
+void SetTutorialType(unsigned type);           // @0x190668
 // The running fight (GameState::currentCombat, Combat.h). It is updated by GameState::Update and
 // deleted by EndActiveCombat.
 BaseCombat* GetActiveCombat();                 // @0x191050

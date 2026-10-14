@@ -511,6 +511,11 @@ void Entity::OnClick() {
     std::printf("Clicked on entity: %d (spawn %d)\n", data->id, 0);
 }
 
+void Entity::SwitchEntityData(EntityData* d) {
+    data = d;
+    SetAnimationP("idle_1", true, false, false);
+}
+
 void Entity::SetWorkplace(Map::Building* b) {
     workplace = b;
     if (!b) {

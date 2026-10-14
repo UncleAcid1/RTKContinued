@@ -14,12 +14,16 @@
 #include "game/Animation.h"
 #include "game/Background.h"
 #include "game/Building.h"
+#include "game/BuildingHovers.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
+#include "game/StringTable.h"
+#include "game/Tasks.h"
+#include "gui/GUI.h"
 
 // ------------------------------------------------------------------- PatchAnimationController
 
@@ -499,11 +503,30 @@ void AIFarmerSmall::StartResting() {
     actionLeft = 5.f;
 }
 
+// @0xebd90: the farmer's wife has reached the castle (tutorial step 0x38): she asks for a farm.
+// The ruin on (0x1d, 0xe) becomes the farm (building 0x13); where it already stands the arrow
+// points at it.
+static void OnTutorialFarmerWomanAction(Entity* e) {
+    BuildingHovers::HideArrow();
+    BuildingHovers::ShowWorldDialog(e, StringTable::GetString("DESC1017"), 0, false, false, false, 0, true, false);
+    BuildingHovers::Update(0.f, true);
+    if (!Tasks::GetTask(0xbe)) return;
+    Render::CenterOn(2441.f, 97.f);   // (animated over 0.4 s on the original)
+    if (Map::GetDecoration(0x1d, 0xe)) {
+        Map::EnqueueBuildingPlacement(0x1d, 0xe, 0x13);
+        GUI::SetInteractionLock(true);
+    } else if (Map::Building* b = Map::GetBuilding(0x1d, 0xe)) {
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([b] { BuildingHovers::OnBuildingClick(b, 0, 0); }));
+        Tasks::HelpWithLocation((int)b->baseX, (int)b->minY, 0, 0);
+        GUI::SetInteractionObjectLock(b, nullptr);
+    }
+    GameState::tutorial = 0x3a;
+}
+
 void AIFarmerSmall::WalkCompleted() {
     if (GameState::tutorial == 0x38) {
         GameState::tutorial = 0x39;
-        // UNVERIFIED (milestone 4, tutorial): OnTutorialFarmerWomanAction (0xebd90) (the farmer's
-        // world dialog DESC1017, the camera and the arrow to the farm site, step 0x3a).
+        OnTutorialFarmerWomanAction(entity);
         if (GameState::tutorial == 0x3e) GameState::tutorial = 0x3f;
         return;
     }

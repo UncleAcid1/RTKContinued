@@ -323,6 +323,17 @@ Entity* GetEntityAtXY(int x, int y) {
     return nullptr;
 }
 
+// @0x167a34 (despite its name it compares the EntityData id)
+Entity* GetEntityByClass(uint32_t id, bool alive, bool anySpawn) {
+    for (Entity* e : g_entities) {
+        if (!e->IsActive() || e->data->id != id) continue;
+        if (alive && e->IsDead()) continue;
+        if (!anySpawn && e->GetSpawnPoint() && e->GetSpawnPoint()->npc) continue;
+        return e;
+    }
+    return nullptr;
+}
+
 Entity* GetEntityByEnemyClassID(uint32_t enemyClass) {
     for (Entity* e : g_entities)
         if (e->IsActive() && !e->IsDead() && (uint32_t)e->data->enemyClass == enemyClass &&

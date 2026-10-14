@@ -537,6 +537,7 @@ void CancelWork(int type) {
 }
 
 int GetTutorialType() { return (int)g_tutorialType; }
+void SetTutorialType(unsigned type) { g_tutorialType = type; }   // @0x190668
 
 // @0x1938f4 GameState::GetGoblin
 Entity* GetGoblin() {

@@ -53,6 +53,7 @@ Sprite* CreateTextInternal(Font* font, const char32_t* text, float r, float g, f
                            bool wrap, int width, int align, GlowFilter* glow, Sprite* reuse, int layer,
                            int lineSpacing, const TextPattern* pattern, unsigned style);
 // @0x2013b0 (wrapping, GUI layer) and @0x2013f4 (no wrap).
+unsigned GetSymbolCountInWidth(Font* font, const char32_t* text, unsigned width);   // @0x1fedd4
 Sprite* CreateTextWrapped(Font* font, const char32_t* text, float r, float g, float b, int width,
                           int align, bool screenSpace, GlowFilter* glow, Sprite* reuse, int lineSpacing,
                           const TextPattern* pattern, unsigned style);

@@ -427,6 +427,7 @@ void OfflineUpdate(double dt);
 float GetSpriteZ(float a, float b, int c);             // @0x1b6814
 // Extent (tiles) of the unowned patches that border owned land; the whole grid if there are none.
 void GetAreaBorders(int& minX, int& minY, int& maxX, int& maxY);   // @0x1b6a20
+void UpdateOwnedAreaBorders();                                     // @0x1b68f4
 // ---- the scripted camera (MapCamera.cpp)
 // @0x1c08cc: one more point for the view to visit: tile, seconds to stay and to travel, whether the
 // hero may go on walking, a world point for the help arrow (0, 0: none), zoom on the way, whether

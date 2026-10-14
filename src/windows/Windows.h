@@ -17,6 +17,18 @@ void Show();                                // @0x299248
 void Hide();                                // @0x2992ec
 }
 
+// "Who are you?": the hero's name and gender (windows/SelectHQWindow.cpp).
+namespace SelectHQWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "SelectHQWindow"
+void Init();                                // @0x33a3d0
+void Deinit();                              // @0x339b40
+void Show();                                // @0x33ab58
+void Hide();                                // @0x339694
+bool IsVisible();                           // @0x338c28
+void SetMode(int mode);                     // @0x338c3c 0 new game, 1 name, 2 name and gender
+void SetOnContinue(void (*fn)());           // @0x338c14
+}
+
 namespace PopupSelectionWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PopupSelectionWindow" (_INIT_ 0x32c688)
 void Init();                                // @0x32cc84

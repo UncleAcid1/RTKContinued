@@ -78,6 +78,7 @@ namespace {
 struct Options {
     std::string root = "..";  // the backup folder that contains "Android files", "files", "_extract"
     unsigned map = 0;
+    bool mapGiven = false;    // PORT test aid: without a save, start on that map past the tutorial
     long seed = 1;            // GameState::playerSeed of the test city (no save)
     std::string storage;      // the save folder (FileManager::GetStoragePath)
     bool save = false;        // PORT test aid: save at the end of a headless run
@@ -106,7 +107,7 @@ Options Parse(int argc, char** argv) {
         std::string a = argv[i];
         auto next = [&]() -> const char* { return i + 1 < argc ? argv[++i] : ""; };
         if (a == "--root") o.root = next();
-        else if (a == "--map") o.map = (unsigned)std::atoi(next());
+        else if (a == "--map") { o.map = (unsigned)std::atoi(next()); o.mapGiven = true; }
         else if (a == "--seed") o.seed = std::atol(next());
         else if (a == "--second-tutorial") o.secondTutorial = std::atoi(next());
         else if (a == "--screenshot") o.screenshot = next();
@@ -228,6 +229,7 @@ void Tick(float dt) {
     BuildingMovement::Update(dt);
     BuildingPlacement::Update(dt);
     MapMovement::Update(dt);
+    TutorialSender::Update(dt);
     BuildingHovers::Update(dt, false);
     if (!GameState::IsPaused()) {
         Tasks::Update(false);
@@ -726,6 +728,7 @@ int main_Loop_Init() {
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();
     PopupWindow::Queue();
+    SelectHQWindow::Queue();
     SettingsWindow::Queue();
     ShopWindow::Queue();
     TaskCompleteWindow::Queue();
@@ -733,6 +736,7 @@ int main_Loop_Init() {
     TaskInfoWindow::Queue();
     TaskListWindow::Queue();
     TopCityWindow::Queue();
+    TutorialWindow::Queue();
     TextStyleManager::Init();
     // The desktop window last (the bottom of the queue), then every window's Init.
     WindowManager::g_desktopWindow = new WindowManager::DesktopWindow();
@@ -741,7 +745,7 @@ int main_Loop_Init() {
     BuildingMovement::Init();
     // UNVERIFIED (milestone 5): SpellMovement::Init.
     MapMovement::Init();
-    // (TutorialSender::SetTimeLimit(20.0): online)
+    TutorialSender::SetTimeLimit(20.f);
     SaveManager::Init();
     SoldierPool::Init();
     SoldierSlots::Init();
@@ -757,10 +761,12 @@ int main_Loop_Init() {
     // not enabled), 1.41 otherwise.
     AI::SetWeight(1.41f);
     // (GameState::ResetGameLock, Game::skipGameLoad, profileChosen: the online profile choice)
-    if (!LoadSavedGame(false)) {
-        // PORT test path: without a save the original starts the tutorial on campaign map 0x15
-        // (milestone 4h); the port boots map opt.map with the finished city tutorial instead. The
-        // hero, its squad and the first soldier are made as LoadSavedGame's new game makes them.
+    if (!opt.mapGiven || SaveManager::GetGameStateData()) {
+        LoadSavedGame(false);
+    } else {
+        // PORT test path ("--map N" without a save): instead of the new game's tutorial, map N
+        // with the opening tutorial done. The hero, its squad and the first soldier are made as
+        // LoadSavedGame's new game makes them.
         GameState::Reset();
         GameState::playerSeed = (uint32_t)opt.seed;
         GameState::tutorial = 0x80;   // (the opening tutorial done; 0x100 is secondTutorial's end)

@@ -6,6 +6,8 @@ namespace GUI { class Window; class Textfield;  class Button; }
 namespace Render { struct Texture; }
 namespace Items { struct ItemInfo; }
 
+namespace PvP { struct PlayerEquipmentInfo; }
+
 namespace Shared {
 
 // Shared::BottomSlotInfo (0x68 bytes): one slot of the army bar or the belt.
@@ -242,6 +244,31 @@ struct ItemHolder {
     GUI::Textfield* quantityRed = nullptr;   // +0x80 text_quantity_red
     GUI::Window* lockTiny = nullptr;     // +0x84 icon_lock_tiny
     void LoadFrom(GUI::Window* root, const char* prefix, bool repOverlay);
+};
+
+// Shared::PlayerHolder (0x1bc bytes): the hero as a dressed figure. The body (the man's or the
+// woman's picture) and 20 layers over it: the ten equipment bindings, then the ten first
+// customisation bindings (hair, eyes, nose, ...), each with a window for the man and one for the
+// woman.
+struct PlayerHolder {
+    struct Layer {                       // 0x14 bytes
+        uint32_t item = 0;               // +0x00 the item id drawn (0: nothing or the default piece)
+        bool isDefault = false;          // +0x04 the default piece is drawn (basic sword, boots, face)
+        bool female = false;             // +0x05
+        GUI::Window* male = nullptr;     // +0x08
+        GUI::Window* femaleWindow = nullptr;   // +0x0c
+        float f10 = 0.f;                 // +0x10
+    };
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* body = nullptr;         // +0x08 inventory_character_male
+    int bodyX = 0, bodyY = 0;            // +0x0c +0x10 its place in the holder
+    GUI::Window* bodyFemale = nullptr;   // +0x14 inventory_character_female
+    int bodyFemaleX = 0, bodyFemaleY = 0;   // +0x18 +0x1c
+    Layer layers[20];                    // +0x20
+    void LoadFrom(GUI::Window* root, const char* name);   // @0x342470
+    // @0x34572c
+    void PlacePlayerEquipment(PvP::PlayerEquipmentInfo& info, float x, float y, GUI::Window* itemHolder, bool male,
+                              float scale, float dx, float dy, bool flag);
 };
 
 }  // namespace Shared

@@ -330,6 +330,7 @@ void AddRandomDecors(Patch* p) {
 // ------------------------------------------------------------------------------ area borders
 // @0x1bcda8 Map::UpdateAreaBorders (dark grass patches, flag posts, for-sale signs)
 // @0x1b68f4
+}  // namespace
 void UpdateOwnedAreaBorders() {
     int minX = 10000, minY = 10000, maxX = -10000, maxY = -10000;
     g_owned[0] = g_owned[1] = 10000;
@@ -353,6 +354,7 @@ void UpdateOwnedAreaBorders() {
     g_owned[2] = GetGridWidth() - 1;
     g_owned[3] = GetGridHeight();
 }
+namespace {
 
 void UpdateAreaBorders() {
     for (auto* s : g_borderSprites) Render::RemoveSprite(s);
@@ -2002,7 +2004,7 @@ void Free() {
     SoldierPool::DeactivateDeadSoldiers();
     EntityManager::Clean(false);
     HUDWindow::SetBottomType(0);
-    // UNVERIFIED (milestone 4h): TutorialWindow::ResetState.
+    TutorialWindow::ResetState();
     if (!GameState::IsTutorial()) {
         GUI::SetInteractionObjectLock(nullptr, nullptr);
         GUI::SetInteractionLock(false);

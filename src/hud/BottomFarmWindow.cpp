@@ -472,6 +472,8 @@ WindowManager::FunctionalWindow* Queue() {
 
 bool IsVisible() { return g_root->visibleSelf; }
 
+void* GetPlantButton() { return g_plant.clickArea; }   // @0x25fb74
+
 void Init() {
     g_offsetX = 0;
     g_offsetY = 0;

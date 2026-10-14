@@ -60,6 +60,9 @@ void AssignSoldiersToPlayerSquad();
 void GetPlayerAndSoldiers(std::vector<Entity*>& out);   // @0x1682c8 classes 10 and 5
 void ResetOrders(Map::Building* b);              // @0x1669dc every AI forgets its orders to b
 Entity* GetEntityAtXY(int x, int y);             // @0x16613c (active, alive)
+// @0x167a34: the first active entity with that EntityData id (alive: not dead; without anySpawn:
+// not of an NPC spawn point).
+Entity* GetEntityByClass(uint32_t id, bool alive, bool anySpawn);
 // @0x166448: an active, living monster of this enemy class (not an NPC's spawn point).
 Entity* GetEntityByEnemyClassID(uint32_t enemyClass);
 // Enemies (class 9 with no NPC spawn point), for fights and the quest helper.

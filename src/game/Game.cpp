@@ -10,6 +10,7 @@
 #include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
+#include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
 #include "game/EntityManager.h"
@@ -17,6 +18,7 @@
 #include "game/MetaData.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
+#include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tags.h"
 #include "gui/WindowManager.h"
@@ -165,9 +167,23 @@ void ExitWithSendSave() { MainExit(); }
 bool LoadSavedGame(bool listMaps) {
     (void)listMaps;
     SaveManager::SaveBlock* state = SaveManager::GetGameStateData();
-    // UNVERIFIED (milestone 4h): without a save the original starts a new game here (the hero, its
-    // squad and soldier 0x1a2 on campaign map 0x15); main's PORT test path does the city instead.
-    if (!state) return false;
+    if (!state) {
+        // A new game: the hero (entity 0xc until the player chooses) with his squad and his
+        // companion Stoutbeard (0x1a2), on campaign map 0x15, where the tutorial starts.
+        GameState::Reset();
+        Entity* hero = EntityManager::CreateEntity(0xc, false, true);
+        hero->CreateSquad();
+        hero->temporary = false;
+        Entity* soldier = EntityManager::CreateEntity(0x1a2, false, true);
+        SoldierSlots::AddSoldier(soldier);
+        hero->GetSquad()->AddSoldier(soldier);
+        soldier->temporary = false;
+        SaveManager::SaveBlock* map = SaveManager::GetMapData(0x15);
+        GameState::SetCurrentMapID(0x15);
+        GameState::SetCurrentLocation(2);
+        Map::Load(map, (uint32_t)Timer::GetGlobalTime(), false, false);
+        return false;
+    }
     GameState::Load(state);
     SoldierSlots::SetFreeSlotsCount(GameState::GetSoldierSlotCount());
     SaveManager::SaveBlock* city = SaveManager::GetMapData(0);

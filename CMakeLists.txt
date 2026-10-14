@@ -65,6 +65,7 @@ add_executable(rtk
   src/game/MetaExpression.cpp
   src/game/Tags.cpp
   src/game/Items.cpp
+  src/game/PlayerEquipmentInfo.cpp
   src/game/Tasks.cpp
   src/game/TasksHelp.cpp
   src/game/EntityMeta.cpp
@@ -80,6 +81,8 @@ add_executable(rtk
   src/hud/Shared.cpp
   src/hud/ContentScroller.cpp
   src/hud/TopCityWindow.cpp
+  src/hud/TutorialWindow.cpp
+  src/hud/PlayerHolder.cpp
   src/windows/CityRenameWindow.cpp
   src/windows/ConfirmPurchaseWindow.cpp
   src/windows/ExchangeWindow.cpp
@@ -92,6 +95,7 @@ add_executable(rtk
   src/windows/PopupWindow.cpp
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
+  src/windows/SelectHQWindow.cpp
   src/windows/HealSquadWindow.cpp
   src/windows/NeedItemWindow.cpp
   src/windows/TaskCompleteWindow.cpp

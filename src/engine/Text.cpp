@@ -367,6 +367,21 @@ Sprite* CreateTextInternal(Font* font, const char32_t* text, float r, float g, f
     return s;
 }
 
+// @0x1fedd4: the text is measured at growing lengths, from none; the first length whose text is
+// wider than `width` is returned (the whole length when none is).
+unsigned GetSymbolCountInWidth(Font* font, const char32_t* text, unsigned width) {
+    const unsigned n = (unsigned)TextToInternal(text, g_buf);
+    for (unsigned i = 0; i < n; ++i) {
+        uint16_t c = g_buf[i];
+        g_buf[i] = 0;
+        int w = 0, h = 0;
+        TTF_SizeUNICODE(font->ttf, g_buf, &w, &h);
+        if (width < (unsigned)w) return i;
+        g_buf[i] = c;
+    }
+    return n;
+}
+
 Sprite* CreateTextWrapped(Font* font, const char32_t* text, float r, float g, float b, int width, int align,
                           bool screenSpace, GlowFilter* glow, Sprite* reuse, int lineSpacing,
                           const TextPattern* pattern, unsigned style) {

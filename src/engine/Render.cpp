@@ -301,6 +301,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
     ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
     ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
+    ok = LoadShader(10, "textVS.txt", "grayscaleTransitionPS.txt") && ok;   // alpha fades to grey
     // Render::Update: no depth test, premultiplied alpha blending (ONE, ONE_MINUS_SRC_ALPHA).
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);

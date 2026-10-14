@@ -99,6 +99,7 @@ public:
     bool Contains(int x, int y) const;
 
     void SetWorkplace(Map::Building* b);         // @0x1500e8
+    void SwitchEntityData(EntityData* d);        // @0x1594e4 another body (the hero's gender)
     Map::Building* GetWorkplace() const { return workplace; }        // @0x1500b8
     void SetWorkplaceDecoration(Map::Decor* d);  // @0x15011c
     Map::Decor* GetWorkplaceDecoration() const { return workplaceDecor; }   // @0x1500c0
