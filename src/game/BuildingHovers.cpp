@@ -1310,8 +1310,7 @@ void HideWorldDialog(Entity* e) {
         g_worldDialog->OnClose();
         g_worldDialog->Hide();
     }
-    // UNVERIFIED (milestone 4g, PlayerHintHoverWindow): for the hero (or nullptr)
-    // PlayerTopWindow::HideDialog.
+    if (e == EntityManager::GetPlayer() || !e) PlayerTopWindow::HideDialog();
 }
 
 // @0x263a1c BuildingHovers::HideWorldDialogByTask

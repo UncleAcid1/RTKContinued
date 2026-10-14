@@ -347,8 +347,8 @@ void Show() {
     if (!GameState::IsPlayerCity()) return;
     if (!g_root->visibleSelf &&
         (WindowManager::GetShownWindowCount() != 0 || BuildingMovement::Activated() ||
-         BuildingPlacement::Activated() || GameState::IsPvPTutorial() || GameState::IsTameTutorial())) {
-        // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible (milestone 4) also defers it.
+         BuildingPlacement::Activated() || PlayerTopWindow::IsPlayerDialogVisible() || GameState::IsPvPTutorial() ||
+         GameState::IsTameTutorial())) {
         WindowManager::EnqueueWindow(Show, 0.f);
         return;
     }

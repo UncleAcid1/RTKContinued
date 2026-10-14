@@ -733,8 +733,7 @@ void Update(float dt) {
     g_scroller.Update(dt);
     g_quick.Update(dt);
     bool newTaskSound = false;
-    // UNVERIFIED (milestone 4g): PlayerTopWindow::IsPlayerDialogVisible also holds the banners back.
-    bool dialog = BuildingHovers::IsWorldDialogVisible();
+    bool dialog = PlayerTopWindow::IsPlayerDialogVisible() || BuildingHovers::IsWorldDialogVisible();
     for (int i = 0; i < kCount; ++i) {
         Shared::TaskWindow& w = g_windows[i];
         Window* root = w.root;

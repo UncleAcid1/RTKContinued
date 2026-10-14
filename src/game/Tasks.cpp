@@ -869,8 +869,8 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
                 std::printf("Tasks::CompleteTask() Cannot show next dialog %d - it was already completed\n", t->postQuest);
             } else {
                 if (next->dialogGiver == 0) {
-                    // UNVERIFIED (milestone 4g, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
-                    // next's pre-quest text, its id, !showButton, showButton).
+                    if (EntityManager::GetPlayer())
+                        PlayerTopWindow::SetParameters(next->preQuest, next->id, !next->showButton, next->showButton);
                 } else {
                     Entity* giver = EntityManager::GetEntityBySpawnPoint(next->dialogGiver);
                     if (giver && giver->IsActive())
@@ -1327,8 +1327,8 @@ void Update(bool force) {
         // A pop-up to show: said by its giver, else in the hero's own panel.
         if (t->f_1df) {
             if (t->dialogGiver == 0) {
-                // UNVERIFIED (milestone 4g, PlayerHintHoverWindow): PlayerTopWindow::SetParameters(
-                // pre-quest text, id, !showButton, showButton).
+                if (EntityManager::GetPlayer())
+                    PlayerTopWindow::SetParameters(t->preQuest, t->id, !t->showButton, t->showButton);
             } else if (Entity* giver = EntityManager::GetEntityBySpawnPoint(t->dialogGiver)) {
                 BuildingHovers::ShowWorldDialog(giver, t->preQuest, t->id, false, !t->showButton, false, 0, false, false);
             }

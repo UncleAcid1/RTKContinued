@@ -92,9 +92,9 @@ void LanguageSelect() {
 void AskLanguageQuestion() {
     if (languageHasBeenSelected) return;
     if (availableLanguageID == languageID || WindowManager::GetShownWindowCount() != 0 ||
-        GameState::secondTutorial != 0x100 || GameState::IsCombatActive() || BuildingHovers::IsWorldDialogVisible())
+        GameState::secondTutorial != 0x100 || GameState::IsCombatActive() || BuildingHovers::IsWorldDialogVisible() ||
+        PlayerTopWindow::IsPlayerDialogVisible())
         return;
-    // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible (the talking-hero dialog, 4g) also holds it back.
     std::u32string text = SWPrintf(0x100, StringTable::GetString("LANGUAGE_AVAILABLE"),
                                    {StringTable::GetStringF("LANGUAGE_%d", availableLanguageID)});
     PopupSelectionWindow::Show(StringTable::GetString("LANGUAGE_AVAILABLE_HEADER"), text.c_str(),

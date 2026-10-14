@@ -12,6 +12,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "game/Entity.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Setting.h"
@@ -377,8 +378,7 @@ void UpdateContents() {
 // @0x352d4c: deferred while anything else is up; the strip starts at the beginning and a fight
 // map pauses.
 void Show() {
-    // UNVERIFIED (milestone 4g): Entity::IsDeathAnimationRunning also defers it.
-    if (!g_root->visibleSelf && WindowManager::GetShownWindowCount() != 0) {
+    if (!g_root->visibleSelf && (WindowManager::GetShownWindowCount() != 0 || Entity::IsDeathAnimationRunning())) {
         WindowManager::EnqueueWindow(Show, 0.f);
         return;
     }

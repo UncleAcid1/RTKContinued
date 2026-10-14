@@ -7,8 +7,10 @@
 #include "gui/GUI.h"
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
+#include "game/Entity.h"
 #include "game/GameState.h"
 #include "game/Map.h"
+#include "hud/HUD.h"
 
 namespace WindowManager {
 namespace {
@@ -234,9 +236,8 @@ void EnqueueWindow(void (*fn)(), float delay) {
 int GetEnqueuedWindowCount() { return (int)g_windowQueue.size(); }
 
 void Update(float dt) {
-    // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible and Entity::IsDeathAnimationRunning
-    // (milestone 4) are not ported; they would also hold the queue.
-    if (g_windowQueue.empty() || g_shown != 0 || BuildingMovement::Activated() || BuildingPlacement::Activated())
+    if (g_windowQueue.empty() || g_shown != 0 || BuildingMovement::Activated() || BuildingPlacement::Activated() ||
+        PlayerTopWindow::IsPlayerDialogVisible() || Entity::IsDeathAnimationRunning())
         return;
     Enqueued& e = g_windowQueue.front();
     if (e.delay > 0.f) {

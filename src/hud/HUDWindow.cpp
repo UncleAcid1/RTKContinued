@@ -217,9 +217,9 @@ void UpdatePlayerLocator() {
     const int x = (int)player->worldX, y = (int)player->worldY;
     int sx = x, sy = y;
     Map::WorldCoordinatesToScreen(sx, sy);
-    // UNVERIFIED (milestone 4g): PlayerTopWindow::IsPlayerDialogVisible also hides it.
     if (GameState::GetCurrentMapID() == 0 || (0 < sx && sx < W && 0x32 < sy && sy <= H + 0x31) ||
-        WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible() || GameState::IsTutorial()) {
+        WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible() ||
+        PlayerTopWindow::IsPlayerDialogVisible() || GameState::IsTutorial()) {
         g_playerLocator.root->SetVisibility(false);
         return;
     }
@@ -244,14 +244,15 @@ void UpdateTaskLocator() {
     int sx = x, sy = y;
     Map::WorldCoordinatesToScreen(sx, sy);
     const bool seen = FogIsVisible(x - 0x1e, y - 0x1e, x + 0x1e, y + 0x1e);
-    // UNVERIFIED (milestone 4g): PlayerTopWindow::IsPlayerDialogVisible also hides it (both branches).
     if (!g_locatorGoing) {
-        if (seen || WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible()) {
+        if (seen || WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible() ||
+            PlayerTopWindow::IsPlayerDialogVisible()) {
             g_taskLocator.root->SetVisibility(false);
             return;
         }
     } else if ((0x32 < sx && sx < W - 0x32 && 0x32 < sy && sy < H - 0x32) ||
-               WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible()) {
+               WindowManager::GetShownWindowCount() != 0 || BuildingHovers::IsWorldDialogVisible() ||
+               PlayerTopWindow::IsPlayerDialogVisible()) {
         g_taskLocator.root->SetVisibility(false);
         g_locatorGoing = false;
         return;
@@ -385,7 +386,7 @@ void SetBottomType(int type) {
 void EnterFarm() {
     BattleBarWindow::Hide();
     BeltBarWindow::Hide();
-    // UNVERIFIED (milestone 4): PlayerTopWindow::HideDialog (the player's dialog).
+    PlayerTopWindow::HideDialog();
     BottomFarmWindow::Show();
     Map::Building* farm = Map::GetCurrentFarm();
     if (!farm) return;
@@ -664,8 +665,8 @@ void Update(float dt) {
                 int sx = (int)who->worldX, sy = (int)who->worldY;
                 Map::WorldCoordinatesToScreen(sx, sy);
                 if ((sx < 0x33 || GUI::ScreenWidth() - 0x32 <= sx || sy < 0x33 || GUI::ScreenHeight() - 0x32 <= sy) &&
-                    WindowManager::GetShownWindowCount() == 0 && !BuildingHovers::IsWorldDialogVisible()) {
-                    // UNVERIFIED (milestone 4g): nor while PlayerTopWindow::IsPlayerDialogVisible.
+                    WindowManager::GetShownWindowCount() == 0 && !BuildingHovers::IsWorldDialogVisible() &&
+                    !PlayerTopWindow::IsPlayerDialogVisible()) {
                     Render::Texture* icon = best->GetIcon();
                     SetTaskLocaterIcon(icon ? icon : IconManager::GetIcon("gold_quest", false), best->showInBattle,
                                        best->sidequest, false);
@@ -678,10 +679,9 @@ void Update(float dt) {
         if (g_taskLocator.root->visibleSelf) Render::SortRenderLayer(Render::kLayerGUI, 1);
     }
     g_lastSecond = now;
-    // UNVERIFIED (milestone 4g): not while PlayerTopWindow::IsPlayerDialogVisible; LoadingInternetWindow
-    // is online.
+    // (LoadingInternetWindow is online.)
     if (WindowManager::GetShownWindowCount() == 0 && GameState::tutorial == 0x80 &&
-        3u < (unsigned)(GameState::secondTutorial - 0x93) && !GameState::IsTameTutorial() &&
+        !PlayerTopWindow::IsPlayerDialogVisible() && 3u < (unsigned)(GameState::secondTutorial - 0x93) && !GameState::IsTameTutorial() &&
         WindowManager::Head() != Queue()) {
         BuildingHovers::MoveWindowDown();
         TaskHolderWindow::Show();

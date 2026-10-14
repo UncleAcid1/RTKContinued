@@ -394,9 +394,9 @@ void KeyDown(int scancode) {
     }
     if (scancode == SDL_SCANCODE_VOLUMEUP || scancode == SDL_SCANCODE_VOLUMEDOWN) return;
     if (scancode == SDL_SCANCODE_MENU || scancode == SDL_SCANCODE_V) {
-        // UNVERIFIED: PlayerTopWindow::IsPlayerDialogVisible (a dialog not ported) also blocks it.
         if (GameState::SecondTutorialStep() == 0x100 && WindowManager::GetShownWindowCount() == 0 &&
-            !BuildingHovers::IsWorldDialogVisible() && !SettingsWindow::IsVisible())
+            !BuildingHovers::IsWorldDialogVisible() && !PlayerTopWindow::IsPlayerDialogVisible() &&
+            !SettingsWindow::IsVisible())
             SettingsWindow::Show();
         return;
     }
