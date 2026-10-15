@@ -20,6 +20,7 @@
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Projectile.h"
+#include "game/PvP.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/SpawnPoint.h"
@@ -426,10 +427,27 @@ void Entity::OnDeath(Entity* attacker) {
             it->f0c = loss < it->f0c ? it->f0c - loss : 0;
         }
         CharacterInfoWindow::UpdateContents();
-        // UNVERIFIED (milestone 5): the PvP arena's defeat (PvP::GetPlayerInfoByGID,
-        // PlayerBattleInOutWindow's outro) and map 0x70's BossIntroWindow (reputation 1 in the
-        // arena, 2 outside) replace the heal window; those two tell the combat (Pause, PlayerDied).
-        if (attacker) {
+        // In the PvP arena the opponent's record counts the defeat and the outro shows, with a heal
+        // of 60% of the hero's HP (at most the HP he came with) as the loot; the combat pauses and,
+        // for the hero, hears of it. UNVERIFIED (milestone 5): map 0x70's BossIntroWindow
+        // (reputation 1 in the arena, 2 outside) does the same with the reputation screen.
+        // (milestone 6: the defeat sound; online, dormant: PvP::ReportStateToServer(gid, 3).)
+        if (GameState::IsPvPCombatActive()) {
+            if (PvP::PlayerInfo* p = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff)) {
+                ++p->losses;
+                ++p->f420;
+                p->defeated = 2;
+                PvP::SetDefeatCount(PvP::GetDefeatCount() + 1);
+            }
+            const int heal = (int)((float)EntityManager::GetPlayer()->GetHpMax() * 0.6f);
+            GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), 0x26a,
+                                                std::min(heal, GameState::GetStartingArenaHP()));
+            PlayerBattleInOutWindow::SetModeOutro();
+            PlayerBattleInOutWindow::SetParameters(PlayerCompetitionWindow::GetSelectedPlayerGID(), false);
+            PlayerBattleInOutWindow::Show();
+            GameState::GetActiveCombat()->Pause(nullptr);
+            if (player) GameState::GetActiveCombat()->PlayerDied();
+        } else if (attacker) {
             HealSquadWindow::Show();
             HealSquadWindow::SetAttacker(attacker);
         }

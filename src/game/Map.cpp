@@ -21,6 +21,7 @@
 #include "game/BuildingPlacement.h"
 #include "game/BuildingMovement.h"
 #include "game/Combat.h"
+#include "game/PvP.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/Fog.h"
@@ -2206,8 +2207,18 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         player->GetAI()->RemoveActionMarker();
         int x = player->tileX, y = player->tileY;
         TileCoordinatesToWorld(x, y);
-        // (a boss combat centres on the boss position instead: milestone 5)
-        Render::CenterOn((float)x, (float)y);
+        // A boss or arena fight (state 0x11) centres on the arena's camera tile, or on the map's
+        // middle without one. (Animated over 0.4 s on the original: CenterOn's tween.)
+        BaseCombat* combat = GameState::GetActiveCombat();
+        if (!combat || combat->GetState() != 0x11) {
+            Render::CenterOn((float)x, (float)y);
+        } else if (GameState::mBossMapPositions[8] == 0 || GameState::mBossMapPositions[9] == 0) {
+            Render::CenterOn((float)((unsigned)g_gridW >> 1) * 84.f, (float)((unsigned)g_gridH >> 1) * 42.f);
+        } else {
+            int cx = GameState::mBossMapPositions[8], cy = GameState::mBossMapPositions[9];
+            TileCoordinatesToWorld(cx, cy);
+            Render::CenterOn((float)cx, (float)cy);
+        }
         if (GameState::tutorial == 9) Render::CenterOn(392.f, 201.f);
     }
     // "auto_fix_map_reset": a quest decoration of maps 0x52..0x59 that kept a use although its quest
@@ -2262,10 +2273,18 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerObjects, 1);
-    // The map's name. UNVERIFIED (milestones 4g/5): a running boss combat shows the boss intro
-    // instead, a PvP one the players' intro.
+    // The map's name; a boss or arena fight with an enemy squad shows its intro instead: the PvP
+    // one the players' (PlayerBattleInOutWindow; a real opponent is told online, dormant),
+    // UNVERIFIED (milestone 5) the others the boss's banner (BossIntroWindow with the boss name).
     if (EntityManager::GetPlayer()) {
-        if (const char32_t* name = Locations::GetMapName(GameState::GetCurrentMapID())) HUDWindow::ShowMapName(name);
+        BaseCombat* combat = GameState::GetActiveCombat();
+        if (!combat || combat->GetType() < 3 || !combat->GetEnemySquad()) {
+            if (const char32_t* name = Locations::GetMapName(GameState::GetCurrentMapID())) HUDWindow::ShowMapName(name);
+        } else if (combat->GetType() == 6) {
+            PlayerBattleInOutWindow::SetModeIntro();
+            PlayerBattleInOutWindow::SetParameters(PlayerCompetitionWindow::GetSelectedPlayerGID(), false);
+            PlayerBattleInOutWindow::Show();
+        }
         CharacterInfoWindow::UpdateContents();
         GameState::SetupPlayerRegenerationState();
     }
@@ -2486,7 +2505,8 @@ void UpdateSpawns() {
         defX = 10;
         g_startX = g_startY = -1;
     }
-    // UNVERIFIED (milestone 5): a boss combat (state 0x11) clears the start position too.
+    // A boss or arena fight on its way (state 0x11) clears the start position too.
+    if (BaseCombat* c = GameState::GetActiveCombat(); c && c->GetState() == 0x11) g_startX = g_startY = -1;
     if (g_nextSpawnX != 0 || g_nextSpawnY != 0) {   // PlayerNextSpawn's tile
         g_startX = g_nextSpawnX;
         g_startY = g_nextSpawnY;
@@ -2526,8 +2546,28 @@ void SpawnEntities() {
     Entity* player = EntityManager::GetPlayer();
     // PORT: the original has a player on every map; saves the port wrote before milestone 4 have none.
     if (!player) return;
-    // UNVERIFIED (milestone 5): during a boss combat (state 0x11) the combat is ended and the boss,
-    // boss-wave or arena combat is set up instead.
+    // A boss or arena fight on its way (state 0x11, SwitchToBossFight & co.) is set up instead: the
+    // old combat ends, the fight of mCurrentBossCombatType starts against the last entry of
+    // mBossWaves (its hero; the PvP one is no player). UNVERIFIED (milestone 5): BossCombat (3),
+    // BossCombatWaves (4), ArenaCombat (5).
+    if (BaseCombat* c = GameState::GetActiveCombat(); c && c->GetState() == 0x11) {
+        GameState::EndActiveCombat(true);
+        if (GameState::mCurrentBossCombatType == 6) {
+            PvP::PlayerInfo* opponent = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
+            GameState::SetCombat(new PvPArenaCombat(opponent, false));
+            Entity* hero = EntityManager::CreateEntity(GameState::mBossWaves.back(), true, true);
+            hero->player = false;
+            hero->CreateSquad();
+            GameState::GetActiveCombat()->BeginCombat(player->GetSquad(), hero->GetSquad());
+            return;
+        }
+        if (GameState::IsCombatActive()) {
+            Entity* boss = EntityManager::CreateEntity(GameState::mBossWaves.back(), false, true);
+            boss->CreateSquad();
+            GameState::GetActiveCombat()->BeginCombat(player->GetSquad(), boss->GetSquad());
+        }
+        return;
+    }
     if (AI::Waypoint* wp = AI::GetWaypoint(player->tileX, player->tileY, false)) {
         wp->weight = 5.f;
         player->GetSquad()->SpawnAt(wp);

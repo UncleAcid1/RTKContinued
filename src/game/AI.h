@@ -83,6 +83,9 @@ Waypoint* GetRandomFreeWPRect(int w, int h, int x, int y);
 Waypoint* GetNearestWPFromNonWP(int x, int y, Waypoint* unused);
 float GetRadianBetweenPoints(float x1, float y1, float x2, float y2);   // @0xe1e98
 bool IsInMeleeRange(Waypoint* a, Waypoint* b);   // @0xe42c4 within the 3x3 tiles around a
+bool EnemyInMeleeRange(Waypoint* wp);            // @0xe4384 a living enemy within the 3x3 tiles around wp
+Waypoint* GetNearestReachableWPZeroWeight(Entity* e, Waypoint* wp);   // @0xe2efc
+Waypoint* GetNearestReachableWPZeroWeight(Entity* e, Entity* other);  // @0xe309c
 Waypoint* GetRandomWaypointInRange(int x, int y, int range, int inner, bool weightOne, Entity* e, bool reachable);
 
 }  // namespace AI

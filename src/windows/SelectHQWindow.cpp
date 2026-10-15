@@ -127,10 +127,10 @@ void UpdateContents() {
     }
     const bool ownMale = g_mode != 0 && GameState::IsMalePlayer();
     g_maleHolder.PlacePlayerEquipment(ownMale ? own : g_maleInfo, (float)g_maleHolder.root->x,
-                                      (float)g_maleHolder.root->y, g_itemHolder, true, 1.f, 0.f, 0.f, false);
+                                      (float)g_maleHolder.root->y, g_itemHolder, true, 1.f, 0.f, 0.f, 0.f, true);
     const bool ownFemale = g_mode != 0 && !GameState::IsMalePlayer();
     g_femaleHolder.PlacePlayerEquipment(ownFemale ? own : g_femaleInfo, (float)g_femaleHolder.root->x,
-                                        (float)g_femaleHolder.root->y, g_itemHolder, false, 1.f, 0.f, 0.f, false);
+                                        (float)g_femaleHolder.root->y, g_itemHolder, false, 1.f, 0.f, 0.f, 0.f, true);
     // The chosen one is bright, the other dim.
     g_maleHolder.root->SetAlpha(g_gender == 0 ? 1.f : 0.3f, true);
     g_maleHolder.root->SetCustomShader(10, true);

@@ -23,6 +23,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/PlayerEquipmentInfo.h"
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
@@ -139,9 +140,8 @@ Entity* g_attacker = nullptr;             // 0x620b18 who felled him (the arrow 
 std::function<void()> g_postAction;       // 0x620b20 run when the window closes with him alive
 int g_deaths[4] = {};                     // 0x620b24..0x620b30 when he last died (the newest last)
 HealthBar g_health;                       // 0x620b34
-Window* g_figureHolder = nullptr;         // 0x620b68 Shared::PlayerHolder's root
-Window* g_figureMale = nullptr;           // 0x620b70
-Window* g_figureFemale = nullptr;         // 0x620b7c
+Shared::PlayerHolder g_figure;            // 0x620b68 the hero's dressed figure
+Window* g_itemHolder = nullptr;           // 0x620ff8 Character_item_holder.xml (the figure's item cell)
 Shared::ItemHolder g_holders[5];          // 0x620d24
 std::vector<Items::ItemInfo*> g_items;    // 0x620fcc the healing items offered
 std::vector<Flying> g_flying;             // 0x620fd8
@@ -212,8 +212,8 @@ void UseItem(uint32_t id) {
     f.sprite = s;
     f.fromX = (float)(icon->x + g_root->x);
     f.fromY = (float)(icon->y + g_root->y);
-    f.toX = (float)(g_figureHolder->x + g_root->x) + (float)g_figureHolder->w * 0.5f + (float)icon->w * -0.5f;
-    f.toY = (float)(g_figureHolder->y + g_root->y) + (float)g_figureHolder->h * 0.5f + (float)icon->h * -0.5f;
+    f.toX = (float)(g_figure.root->x + g_root->x) + (float)g_figure.root->w * 0.5f + (float)icon->w * -0.5f;
+    f.toY = (float)(g_figure.root->y + g_root->y) + (float)g_figure.root->h * 0.5f + (float)icon->h * -0.5f;
     f.time = 0.f;
     f.duration = 0.75f;
     f.item = info->id;
@@ -410,15 +410,7 @@ void Init() {
     g_tween = GUI::CreateTweenEffect(g_root, nullptr, OnTweenIn, OnTweenOut);
     g_name = GUI::GetWindowTypedF<Textfield>(g_root, "text_player_name");
     g_health.LoadFrom(g_root, "win_health_bar");
-    // UNVERIFIED (milestone 4h, Shared::PlayerHolder): the figure wears the hero's equipment
-    // (PvP::PlayerEquipmentInfo::GetPlayerEquipment, PlacePlayerEquipment) and its broken pieces
-    // pulse red. Until then the plain figure shows.
-    g_figureHolder = GUI::GetWindowTypedF<Window>(g_root, "character_item_holder");
-    g_figureHolder->takesZ = true;
-    g_figureMale = GUI::GetWindowTypedF<Window>(g_root, "character_item_holder.inventory_character_male");
-    g_figureMale->takesZ = true;
-    g_figureFemale = GUI::GetWindowTypedF<Window>(g_root, "character_item_holder.inventory_character_female");
-    g_figureFemale->takesZ = true;
+    g_figure.LoadFrom(g_root, "character_item_holder");
     g_inInventory = GUI::GetWindowTypedF<Textfield>(g_root, "health_button_holder.text_in_inventory");
     for (int i = 0; i != 5; ++i) {
         char p[128];
@@ -447,6 +439,8 @@ void Init() {
     g_buffHolder->takesZ = true;
     // UNVERIFIED (milestone 5): the row of running buffs (Shared::BuffHolderManager(0x18, 1,
     // 0, 1)) at buff_holder_01.
+    g_itemHolder = GUI::RegisterUI("../resource/kingdom_icons/1Original/Character_item_holder.xml", "", 1.f, 0, 0, 0, 0,
+                                   false, 1.f);
     g_queue->fn.show = Show;
     g_queue->fn.update = Update;
     g_queue->fn.zRange = ZRange;
@@ -504,8 +498,8 @@ void UpdateContents() {
     g_close->SetVisibility(!(GameState::GetCurrentLocation() != 0 && GameState::GetCurrentMapID() != 0xb &&
                              GameState::GetCurrentMapID() != 0x74 && player->GetHP() == 0));
     g_name->SetText(StringTable::GetString("HEAL_SQUAD_HEADER"));
-    g_figureMale->SetVisibility(GameState::IsMalePlayer());
-    g_figureFemale->SetVisibility(!GameState::IsMalePlayer());
+    g_figure.body->SetVisibility(GameState::IsMalePlayer());
+    g_figure.bodyFemale->SetVisibility(!GameState::IsMalePlayer());
     // The health that came back while he lay dead in a fight puts him on his feet.
     if (int hp = GameState::GetVirtualHP()) {
         if (player->IsDead()) StandUp(player);
@@ -517,6 +511,10 @@ void UpdateContents() {
         GameState::PlayerItem* it = GameState::GetItemAt(i);
         if (it) broken = it->IsBroken() || broken;
     }
+    PvP::PlayerEquipmentInfo own;
+    own.GetPlayerEquipment();
+    g_figure.PlacePlayerEquipment(own, (float)g_figure.root->x, (float)g_figure.root->y, g_itemHolder,
+                                  GameState::IsMalePlayer(), 1.f, 0.f, 0.f, 0.f, true);
 
     // The healing items offered: "heal_player_items" (the "_c" list once he has item 0x211 or
     // quest 0x6b4 runs).
@@ -619,14 +617,30 @@ void Update(float dt) {
         g_health.root->UpdatePosition();
         if ((int)(before + 0.5f) != player->GetHpMax() && (int)(g_shownHp + 0.5f) == player->GetHpMax()) Hide();
     }
-    // The figure flashes green when a potion reaches it.
+    // The figure flashes green when a potion reaches it; its broken pieces pulse red (a mended
+    // one's red fades).
     g_flash += dt * -3.f;
-    for (Window* fig : {g_figureMale, g_figureFemale}) {
+    for (Window* fig : {g_figure.body, g_figure.bodyFemale}) {
         if (g_flash <= 0.f) {
             fig->SetCustomShader(0, false);
         } else {
             fig->SetCustomShader(0xc, false);
             fig->SetColor(0.f, std::sin((1.f - g_flash) * 3.14159f) * 0.2f, 0.f, false);
+        }
+    }
+    for (unsigned i = 0; i < 10; ++i) {
+        GameState::PlayerItem* it = GameState::GetItemAt(i);
+        if (!it) continue;
+        Window* w = GameState::IsMalePlayer() ? g_figure.layers[i].male : g_figure.layers[i].femaleWindow;
+        const float red = 0.15f + std::cos(g_time * 6.f) * 0.15f;
+        if (g_flash > 0.f) {
+            w->SetCustomShader(0xc, false);
+            w->SetColor(0.f, std::sin((1.f - g_flash) * 3.14159f) * 0.2f, 0.f, false);
+        } else if (it->IsBroken()) {
+            w->SetCustomShader(0xc, false);
+            w->SetColor(red, 0.f, 0.f, false);
+        } else if (w->sprite && red < w->sprite->color[0]) {
+            w->SetColor(red, 0.f, 0.f, false);
         }
     }
     for (size_t i = 0; i < g_flying.size();) {

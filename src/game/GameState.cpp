@@ -1,4 +1,5 @@
 #include "game/GameState.h"
+#include "game/PvP.h"
 
 #include <cmath>
 #include <cstdio>
@@ -128,10 +129,8 @@ std::vector<uint8_t> g_presents;
 char32_t g_neighbourSaveName[0x80];   // Neighbours::GetSaveName
 uint32_t g_questFriendCount = 0;      // Neighbours::Get/SetQuestFriendCount
 uint32_t g_pvpVictories = 0, g_pvpDefeats = 0;   // PvP::Get/SetVictoryCount, DefeatCount
-uint32_t g_pvpTutorialLastRefresh = 0;   // PvP::Get/SetTutorialLastRefresh
-bool g_pvpTutorialCompleted = false;     // PvP::IsCompletedPvPTutorial
-struct PvPTutorialPlayer { uint32_t a; uint8_t b, c; };
-std::vector<PvPTutorialPlayer> g_pvpTutorialPlayers;   // PvP::Get/SetTutorialPlayerStats
+bool g_pvpTutorial = false;     // 0x612d4c (SetPvPTutorial)
+int g_startingArenaHP = 0;      // GameState::mStartingArenaHP
 uint32_t g_playerType = 0;            // PlayerProfileManager::Get/SetPlayerType
 std::string g_sid, g_guid;            // 0x612f28 / 0x612f2c (null until loaded: getSID / getGUID)
 bool g_hasSid = false, g_hasGuid = false;
@@ -333,7 +332,11 @@ bool IsTameTutorial() {
     if (tutorial == 0x80 && g_mapId == 0xd) return !TaskCompleted(0x771);
     return false;
 }
-bool IsPvPTutorial() { return false; }
+bool arenaBotActive = false;    // 0x613520 (a test bot plays the arenas: never set offline)
+bool IsPvPTutorial() { return g_pvpTutorial; }       // @0x190b8c
+void SetPvPTutorial(bool on) { g_pvpTutorial = on; }  // @0x190ba0
+void SetStartingArenaHP(int hp) { g_startingArenaHP = hp; }   // @0x191504
+int GetStartingArenaHP() { return g_startingArenaHP; }
 bool IsFirstVirtualTutorial() { return (unsigned)(secondTutorial - 0x200) < 6; }
 
 bool TaskCompleted(unsigned id) { return g_completedTasks.count(id) != 0; }
@@ -1219,13 +1222,17 @@ void Save(uint32_t version) {
     }
     EndChunk();
     BeginChunk(0x56);
-    SaveUnsigned(g_pvpTutorialLastRefresh);
-    SaveChar(g_pvpTutorialCompleted);
-    SaveUnsigned((uint32_t)g_pvpTutorialPlayers.size());
-    for (const PvPTutorialPlayer& pl : g_pvpTutorialPlayers) {
-        SaveUnsigned(pl.a);
-        SaveChar(pl.b);
-        SaveChar(pl.c);
+    SaveUnsigned(PvP::GetTutorialLastRefresh());
+    SaveChar(PvP::IsCompletedPvPTutorial());
+    const unsigned shadows = PvP::GetTutorialPlayerCount();
+    SaveUnsigned(shadows);
+    for (unsigned i = 0; i < shadows; ++i) {
+        uint32_t lastFight = 0;
+        char f08 = 0, wins = 0;
+        PvP::GetTutorialPlayerStats(i, lastFight, f08, wins);
+        SaveUnsigned(lastFight);
+        SaveChar(f08);
+        SaveChar(wins);
     }
     EndChunk();
     BeginChunk(0x68);
@@ -1546,16 +1553,14 @@ void Load(SaveManager::SaveBlock* block) {
         }
         case 0x55: LoadMap(r, g_mapVisitTime); break;
         case 0x56: {   // PvP tutorial
-            g_pvpTutorialLastRefresh = r.u32();
-            g_pvpTutorialCompleted = r.u8() != 0;
-            uint32_t n = r.u32();
-            g_pvpTutorialPlayers.clear();
+            PvP::SetTutorialLastRefresh(r.u32());
+            PvP::SetCompletedPvPTutorial(r.u8() != 0);
+            const uint32_t n = r.u32();
             for (uint32_t i = 0; i < n; ++i) {
-                PvPTutorialPlayer pl;
-                pl.a = r.u32();
-                pl.b = r.u8();
-                pl.c = r.u8();
-                g_pvpTutorialPlayers.push_back(pl);
+                const uint32_t lastFight = r.u32();
+                const char f08 = (char)r.u8();
+                const char wins = (char)r.u8();
+                PvP::SetTutorialPlayerStats(i, lastFight, f08, wins);
             }
             break;
         }
@@ -1856,6 +1861,13 @@ int g_virtualHealth = 0;                 // 0x613458 GameState::mVirtualHealth
 }
 int mBossSpawnID = 0;
 uint32_t mReturnMapID = 0;
+std::vector<uint32_t> mBossWaves;
+std::vector<int> mBossWavesHP;
+int mLastBossXY[2] = {0, 0};
+int mLastBossPlayerXY[2] = {0, 0};
+int mLastPlayerDir = 0;
+int mCurrentBossCombatType = 3;   // 0x60efe4
+int mBossMapPositions[12] = {};
 
 BaseCombat* GetActiveCombat() { return g_currentCombat; }
 

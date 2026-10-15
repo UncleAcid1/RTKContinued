@@ -6,10 +6,11 @@
 // SetParameters forms), show the window, and give the loot with GiveCollectedToPlayer.
 // Port of FoundItemsWindow (libkingdom.so 5.11), 0x2b8de4..0x2bd35c. Statics at 0x61f478.
 //
-// None of its owners is ported yet (map end and chests: 4f / 5; tasks: 4c; the arena: 4g).
+// Over the PvP arena's outro (PlayerBattleInOutWindow) it has no band and its buttons are the
+// arena's: after a win "Continue" (back from the fight), after a loss "Attack again" (the fight
+// restarts), "Continue" and "Restock".
 // UNVERIFIED (later milestones):
-//  - the PvP arena path (PlayerBattleInOutWindow, 4g; its buttons "Attack again", "Profile",
-//    "Restock", PlayerWeakWindow, PvPArenaCombat restarts) is left out: that window is never shown;
+//  - PlayerWeakWindow (5: the warning before a rematch with a weak army or belt);
 //  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with the global map's windows (5);
 //  - RunPostAction's windows (item shop, hire troops: 5; level info: 5) and OnClose's owners
 //    (raid / campaign / boss / chest windows) are named in comments only.
@@ -26,6 +27,9 @@
 #include "engine/Text.h"
 #include "game/Tasks.h"
 #include "game/BuildingHovers.h"
+#include "game/Combat.h"
+#include "game/PvP.h"
+#include "game/Squad.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
@@ -107,11 +111,6 @@ Window* g_shopClick = nullptr;         // 0x61f7d8
 Window* g_tavernClick = nullptr;       // 0x61f7dc
 bool g_tablet = false;                 // 0x60f224
 float g_scale = 1.f;                   // 0x60f228
-
-// UNVERIFIED (milestone 5): PlayerBattleInOutWindow::IsVisible, the PvP arena's result window.
-bool BattleInOutVisible() { return false; }
-// UNVERIFIED (milestone 5): BossIntroWindow::IsVisible.
-bool BossIntroVisible() { return false; }
 
 // @0x2b8de4 operator<(CollectedInfo, CollectedInfo): higher priority first.
 bool ByPriority(const CollectedInfo& a, const CollectedInfo& b) { return b.priority < a.priority; }
@@ -197,31 +196,15 @@ void OnItem(unsigned i) {
     Render::SortRenderLayer(Render::kLayerGUI, 1);
 }
 
-void OnShare();
-
-// @0x2b9984 (the PvP arena's path: see the top of the file)
+// @0x2b9984: over the PvP arena's outro the button is "Restock" (after a loss).
 void OnTavern() {
-    if (!BattleInOutVisible()) {
+    if (!PlayerBattleInOutWindow::IsVisible()) {
         OnClose();
         g_postAction = 2;
+        return;
     }
-}
-
-// @0x2b99c4: the band is 30% of the screen; a window lower than that sinks into it halfway.
-void SetZ(float z) {
-    if (!g_queue->shown) return;
-    // UNVERIFIED (milestone 5): over PlayerBattleInOutWindow, z = its GetZ() + 0.0002.
-    float h = ScreenH();
-    g_dark->h = h * 0.3f;
-    g_dark->w = ScreenW();
-    Render::SetPosition(g_dark, 0.f, h, 0.028f);
-    g_goldLine->w = ScreenW();
-    Render::SetPosition(g_goldLine, 0.f, (g_dark->y - g_dark->h) + 5.f, 0.0279f);
-    float rh = (float)g_root->h;
-    g_offsetY = rh < h * 0.3f ? (int)(rh + h * -0.3f) / 2 : 0;
-    g_root->SetZ(z);
-    int y = !g_effect->hideAtEnd ? g_offsetY + GUI::ScreenHeight() - g_root->h : GUI::ScreenHeight();
-    g_root->SetPosition(g_effect->GetCenteredX(), y);
+    if (PlayerBattleInOutWindow::EnemyDefeated()) return;
+    // UNVERIFIED (milestone 5): PlayerWeakWindow::Show.
 }
 
 // @0x2b9b90
@@ -260,11 +243,6 @@ bool OnBack() {
     return true;
 }
 
-// @0x2bbfc0 (the PvP arena's paths: see the top of the file). PORT (online removed): the wall post
-// of the task / location / boss / chest (WallPost::PostForEvent with the share ticks, from level 3)
-// is not made.
-void OnShare() { OnClose(); }
-
 // The tail of each SetParameters: the strip sorted, from its start, under the title.
 void FinishParameters(const char32_t* title) {
     std::stable_sort(g_collected.begin(), g_collected.end(), ByPriority);
@@ -273,6 +251,23 @@ void FinishParameters(const char32_t* title) {
 }
 
 }  // namespace
+
+// @0x2b99c4: the band is 30% of the screen; a window lower than that sinks into it halfway.
+void SetZ(float z) {
+    if (!g_queue->shown) return;
+    if (PlayerBattleInOutWindow::IsVisible()) z = PlayerBattleInOutWindow::GetZ() + 0.0002f;
+    float h = ScreenH();
+    g_dark->h = h * 0.3f;
+    g_dark->w = ScreenW();
+    Render::SetPosition(g_dark, 0.f, h, 0.028f);
+    g_goldLine->w = ScreenW();
+    Render::SetPosition(g_goldLine, 0.f, (g_dark->y - g_dark->h) + 5.f, 0.0279f);
+    float rh = (float)g_root->h;
+    g_offsetY = rh < h * 0.3f ? (int)(rh + h * -0.3f) / 2 : 0;
+    g_root->SetZ(z);
+    int y = !g_effect->hideAtEnd ? g_offsetY + GUI::ScreenHeight() - g_root->h : GUI::ScreenHeight();
+    g_root->SetPosition(g_effect->GetCenteredX(), y);
+}
 
 WindowManager::FunctionalWindow* Queue() {
     if (!g_queue) {   // FUN_002b915c (static init)
@@ -294,6 +289,51 @@ void SetSharing(bool) { g_sharing = true; }                                // @0
 void HideOk() { g_hideOk = true; }                                         // @0x2b8e58
 bool HasPostAction() { return g_postAction != 0; }                         // @0x2b8e70
 
+// @0x2bbfc0: Ok. Over the PvP arena's outro: after a loss "Attack again" (a weak army or belt is
+// warned about once): the loot is given, the fight is set up again on the same map (a new
+// PvPArenaCombat against the same opponent, its hero from mBossWaves' last entry) and the outro
+// fades into the intro; after a win "Continue": the loot is given, the arena's post action
+// (UNVERIFIED (milestone 5): the valor profession's level up shows LevelInfoWindow, action 4) and
+// ScheduleReturn queued. PORT (online removed): the wall post of the task / location / boss /
+// chest (WallPost::PostForEvent with the share ticks, from level 3) is not made.
+void OnShare() {
+    if (PlayerBattleInOutWindow::IsVisible() && !PlayerBattleInOutWindow::EnemyDefeated()) {
+        const int alive = EntityManager::GetPlayer()->GetSquad()->GetAliveSoldierCount();
+        unsigned belt = 0;
+        for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i)
+            belt += (unsigned)GameState::GetItemAmount(GameState::GetBeltItemAt(i), true);
+        const bool weak = belt <= 4 && alive == 0;
+        if (weak && !g_weakShown) {
+            // UNVERIFIED (milestone 5): PlayerWeakWindow::Show.
+            g_weakShown = true;
+            return;
+        }
+        GiveCollectedToPlayer(false, nullptr, false);
+        GameState::ResetMapCollectionInfo((uint32_t)GameState::GetCurrentMapID());
+        OnClose();
+        if (GameState::IsCombatActive()) {
+            GameState::GetActiveCombat()->PostCombat();
+            GameState::EndActiveCombat(false);
+            PvP::PlayerInfo* opponent = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
+            GameState::SetCombat(new PvPArenaCombat(opponent, true));
+            Entity* hero = EntityManager::CreateEntity(GameState::mBossWaves.back(), true, true);
+            hero->player = false;
+            hero->CreateSquad();
+            GameState::GetActiveCombat()->BeginCombat(EntityManager::GetPlayer()->GetSquad(), hero->GetSquad());
+            EntityManager::GetPlayer()->SetAnimationP("idle_1", true, false, false);
+        }
+        PlayerBattleInOutWindow::ScheduleRestart();
+        return;
+    }
+    if (PlayerBattleInOutWindow::IsVisible() && PlayerBattleInOutWindow::EnemyDefeated()) {
+        GiveCollectedToPlayer(false, nullptr, false);
+        GameState::ResetMapCollectionInfo((uint32_t)GameState::GetCurrentMapID());
+        g_postAction = 3;
+        WindowManager::EnqueueWindow(PlayerBattleInOutWindow::ScheduleReturn, 0.f);
+    }
+    OnClose();
+}
+
 // @0x2b9748: the window the arena's buttons asked for, once the owner is done.
 void RunPostAction() {
     if (g_postAction == 1) {
@@ -301,8 +341,14 @@ void RunPostAction() {
     } else if (g_postAction == 2) {
         // UNVERIFIED (milestone 5): HireTroopsWindow::Show.
     } else if (g_postAction == 3) {
-        // UNVERIFIED (milestone 5 / online): PlayerCompetitionWindow (tab 4) unless the PvP
-        // tutorial runs (it ends) or it returns without a window.
+        if (!GameState::IsPvPTutorial()) {
+            if (!PlayerCompetitionWindow::HasReturnWithoutWindow()) {
+                // UNVERIFIED (milestone 5): PlayerCompetitionWindow::Show and OnTab(4).
+            }
+        } else {
+            GameState::SetPvPTutorial(false);
+        }
+        PlayerCompetitionWindow::SetReturnWithoutWindow(false);
     } else if (g_postAction == 4) {
         // UNVERIFIED (milestone 5): LevelInfoWindow::Show on the tab of profession 7.
     }
@@ -325,17 +371,27 @@ void Hide() {
     g_sharing = false;
 }
 
-// @0x2b98e4: the loot dialogs it closes with it are RaidCompleteWindow, CampaignPerfectedWindow,
-// CampaignCompleteWindow, BossIntroWindow, BossOutroWindow, ChestOpenedWindow and
-// PlayerBattleInOutWindow (UNVERIFIED, milestones 4g-5: none is ported).
-void OnClose() { Hide(); }
+// @0x2b98e4: the loot dialogs under it close with it. UNVERIFIED (milestone 5): RaidCompleteWindow,
+// CampaignPerfectedWindow, CampaignCompleteWindow, BossOutroWindow and ChestOpenedWindow.
+void OnClose() {
+    Hide();
+    if (BossIntroWindow::IsVisible()) BossIntroWindow::Hide();
+    if (PlayerBattleInOutWindow::IsVisible()) PlayerBattleInOutWindow::Hide();
+}
 
-// @0x2bbf5c (with its tail _INIT_91 @0x2bbf44; the PvP arena's path: see the top of the file)
+// @0x2bbf5c (with its tail _INIT_91 @0x2bbf44): over the PvP arena's outro the button is
+// "Continue" (after a loss): the loot is given and the arena's post action follows.
 void OnShop() {
-    if (!BattleInOutVisible()) {
+    if (!PlayerBattleInOutWindow::IsVisible()) {
         OnClose();
         g_postAction = 1;
+        return;
     }
+    if (PlayerBattleInOutWindow::EnemyDefeated()) return;
+    GiveCollectedToPlayer(false, nullptr, false);
+    GameState::ResetMapCollectionInfo((uint32_t)GameState::GetCurrentMapID());
+    OnClose();
+    g_postAction = 3;
 }
 
 // @0x2b9df4: priority 7 for item type 8, 5 for type 7.
@@ -407,17 +463,35 @@ void GiveCollectedToPlayer(bool drop, Entity* at, bool noCrystalCap) {
 // @0x2ba138: the buttons, then the visible cells of the strip (centred while there are fewer than
 // ten).
 void UpdateContents() {
-    // (the PvP arena's buttons: see the top of the file)
-    g_shareHolder->SetVisibility(!g_hideOk);
-    g_shareIcon->SetTexture(IconManager::GetIcon("gold_confirm"), true);
-    g_shareText->SetText(StringTable::GetString("SHARE_OK"));
-    g_shopHolder->SetVisibility(GameState::IsArenaCombatActive() && BossIntroVisible());
-    g_shopIcon->SetTexture(IconManager::GetIcon("Icon_bottom_bar_shop"), true);
-    g_shopText->SetText(StringTable::GetString("GO_TO_SHOP"));
-    g_tavernHolder->SetVisibility(GameState::IsArenaCombatActive() && BossIntroVisible());
-    g_tavernIcon->SetTexture(IconManager::GetIcon("bottom_bar_army"), true);
-    g_tavernText->SetText(StringTable::GetString("GO_TO_TAVERN"));
-    // The share ticks: shown for a location, task or boss, or a chest's share with Ok. PORT: hidden.
+    if (!PlayerBattleInOutWindow::IsVisible()) {
+        g_shareHolder->SetVisibility(!g_hideOk);
+        g_shareIcon->SetTexture(IconManager::GetIcon("gold_confirm"), true);
+        g_shareText->SetText(StringTable::GetString("SHARE_OK"));
+        g_shopHolder->SetVisibility(GameState::IsArenaCombatActive() && BossIntroWindow::IsVisible());
+        g_shopIcon->SetTexture(IconManager::GetIcon("Icon_bottom_bar_shop"), true);
+        g_shopText->SetText(StringTable::GetString("GO_TO_SHOP"));
+        g_tavernHolder->SetVisibility(GameState::IsArenaCombatActive() && BossIntroWindow::IsVisible());
+        g_tavernIcon->SetTexture(IconManager::GetIcon("bottom_bar_army"), true);
+        g_tavernText->SetText(StringTable::GetString("GO_TO_TAVERN"));
+    } else if (!PlayerBattleInOutWindow::EnemyDefeated()) {   // the PvP arena's loss
+        g_shareHolder->SetVisibility(true);
+        g_shareIcon->SetTexture(IconManager::GetIcon("gold_attack"), true);
+        g_shareText->SetText(StringTable::GetString("PVP_AGAIN"));
+        g_shopHolder->SetVisibility(true);
+        g_shopIcon->SetTexture(IconManager::GetIcon("gold_profile"), true);
+        g_shopText->SetText(StringTable::GetString("CAMPAIGN_INFO_RESUME"));
+        g_tavernHolder->SetVisibility(true);
+        g_tavernIcon->SetTexture(IconManager::GetIcon("Icon_bottom_bar_shop"), true);
+        g_tavernText->SetText(StringTable::GetString("PVP_RESTOCK_HEAD"));
+    } else {   // the PvP arena's win
+        g_shareHolder->SetVisibility(true);
+        g_shareIcon->SetTexture(IconManager::GetIcon("gold_profile"), true);
+        g_shareText->SetText(StringTable::GetString("CAMPAIGN_INFO_RESUME"));
+        g_shopHolder->SetVisibility(false);
+        g_tavernHolder->SetVisibility(false);
+    }
+    // The share ticks: shown for a location, task or boss, or a chest's share with Ok (over a
+    // PvP win: unless the tutorial's ambush). PORT: hidden.
     (void)g_sharing;
     g_social->SetVisibility(false);
 
@@ -478,7 +552,7 @@ void Show() {
     g_effect->Animate(g_effect->GetCenteredX(), h, g_effect->GetCenteredX(), h + g_offsetY - g_root->h, true);
     g_root->SetPosition(g_effect->GetCenteredX(), h);
     g_root->SetVisibility(true);
-    bool band = !BattleInOutVisible();
+    bool band = !PlayerBattleInOutWindow::IsVisible();
     Render::SetVisibility(g_dark, band);
     g_dark->h = (float)h * 0.3f;
     g_dark->w = ScreenW();

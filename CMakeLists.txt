@@ -51,6 +51,7 @@ add_executable(rtk
   src/game/AIState.cpp
     src/game/AICombat.cpp
     src/game/Combat.cpp
+    src/game/ArenaCombat.cpp
     src/game/EntityCombat.cpp
     src/game/Projectile.cpp
     src/game/AIEnemy.cpp
@@ -66,6 +67,7 @@ add_executable(rtk
   src/game/Tags.cpp
   src/game/Items.cpp
   src/game/PlayerEquipmentInfo.cpp
+  src/game/PvP.cpp
   src/game/Tasks.cpp
   src/game/TasksHelp.cpp
   src/game/EntityMeta.cpp
@@ -106,6 +108,8 @@ add_executable(rtk
   src/windows/CharacterInfoWindow.cpp
   src/windows/GlobalMapWindow.cpp
   src/windows/BossIntroWindow.cpp
+  src/windows/ArenaTurnWindow.cpp
+  src/windows/PlayerBattleInOutWindow.cpp
   src/windows/SetInfoWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp

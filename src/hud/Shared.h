@@ -283,9 +283,14 @@ struct PlayerHolder {
     int bodyFemaleX = 0, bodyFemaleY = 0;   // +0x18 +0x1c
     Layer layers[20];                    // +0x20
     void LoadFrom(GUI::Window* root, const char* name);   // @0x342470
-    // @0x34572c
+    // @0x34572c: info's pieces and looks on the figure (see PlayerHolder.cpp).
     void PlacePlayerEquipment(PvP::PlayerEquipmentInfo& info, float x, float y, GUI::Window* itemHolder, bool male,
-                              float scale, float dx, float dy, bool flag);
+                              float scale, float dx, float dy, float z, bool flag);
+    void PlaceItemInHolder(Items::ItemInfo* item, unsigned idx, float x, float y, GUI::Window* itemHolder, bool male,
+                           float scale, float dx, float dy, float z, bool flag, const char* variant);   // @0x345058
+    void PlaceObjectInHolder(GUI::Window* w, float x, float y, GUI::Window* itemHolder, const char* name, int ox,
+                             int oy, bool male, float scale, float dx, float dy, float z, bool flag,
+                             const char* variant);   // @0x344d78
 };
 
 }  // namespace Shared

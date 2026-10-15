@@ -11,6 +11,7 @@
 // 5 UpdatePositions, 6 CombatReady, 7 PlayerTurn, 8 EnemyTurn, 9 CheckSpellCast, 10 SpellCast,
 // 0xc UpdateEnemyPosition.
 #pragma once
+#include <cstdint>
 #include <vector>
 
 class BaseSquad;
@@ -20,6 +21,19 @@ namespace Spells { struct SpellInfo; }
 
 class BaseCombat {
 public:
+    // Pair1vs1 (0x28 bytes): one duel of an arena turn (ArenaCombat).
+    struct Pair1vs1 {
+        Entity* attacker = nullptr;      // +0x00
+        AI::Waypoint* attackerPos = nullptr;   // +0x04 where the attacker stands to strike
+        AI::Waypoint* targetPos = nullptr;     // +0x08
+        int f0c = 0, f10 = 0;            // +0x0c +0x10
+        Entity* target = nullptr;        // +0x14
+        bool started = false;            // +0x18 the blow (or the counter-blow) has begun
+        bool ready = false;              // +0x19 both stand in place
+        int initiative = 0;              // +0x1c
+        int state = 0;                   // +0x20 0 the blow, 1 the counter-blow, 2 over
+        bool skip = false;               // +0x24
+    };
     struct Pair {                        // 0x18 bytes
         Entity* attacker = nullptr;      // +0x00
         std::vector<Entity*> targets;    // +0x04
@@ -38,8 +52,9 @@ public:
     virtual void PlayerDied() {}                      // +0x18 @0xf8cbc
     virtual bool IsPaused() { return paused; }        // +0x1c @0x10c41c
     virtual void CancelCombat() { cancel = true; }    // +0x20 @0x10c3ec
-    virtual void QueueSpellCast(Spells::SpellInfo* s) { spell = s; spellQueued = true; }   // +0x24 @0x10c3dc
-    virtual void Continue();                          // +0x28 @0x10cf78
+    // +0x24 @0x10c3dc: the spell (its id) the hero casts next; x, y: an area spell's tile (the arenas).
+    virtual void QueueSpellCast(unsigned s, int, int) { spell = s; spellQueued = true; }
+    virtual void Continue(int mode);                  // +0x28 @0x10cf78 (the arenas' modes: ArenaCombat)
     virtual void AddGoodGuy(Entity* e);               // +0x2c @0x110998
     virtual void AddBadGuy(Entity* e);                // +0x30 @0x110bd0
     virtual bool HasActivePair() { return pair != nullptr; }   // +0x34 @0x10c494
@@ -102,7 +117,7 @@ public:
     AI::Waypoint* savedWp14 = nullptr;   // +0x1c
     int state = 0;                       // +0x20
     bool spellQueued = false;            // +0x24
-    Spells::SpellInfo* spell = nullptr;  // +0x28
+    unsigned spell = 0;                  // +0x28 the queued spell
     bool cancel = false;                 // +0x2c
     bool paused = false;                 // +0x2d
     bool completed = false;              // +0x2e
@@ -142,4 +157,103 @@ public:
     // (+0x3c EndCombat @0x1f597c is BaseCombat::EndCombat again.)
     void UpdatePositions() override;                  // +0xd8 @0x1f57ac
     void UpdateAttackPosition() override;             // +0xdc @0x1f5870
+};
+
+namespace PvP { struct PlayerInfo; }
+
+// ArenaCombat (@0xfa030..0xfee54, vtable 0x6077f0, 0xc0 bytes): the arenas' turn-based fight. The
+// two sides take turns (playerTurn); in each the side's fighters are paired 1 to 1 with the other
+// side's (WaitingForContinue), walk to striking distance (UpdateAttackPosition, UpdatePositions),
+// strike and get struck back (CombatReady -> PlayerTurn / EnemyTurn). The player picks the stance
+// (attack / block) on the battle bar before his turn, within the turn time.
+// States beyond BaseCombat's: 3 the wave is cleared, 0xd the next wave runs in, 0xe completed,
+// 0xf a spell's area is being chosen, 0x10 running out.
+class ArenaCombat : public BaseCombat {
+public:
+    ArenaCombat();                                    // @0xfbf20
+    ~ArenaCombat() override;                          // @0xfe318
+    void Update(float dt) override;                   // +0x08 @0xfb2a8
+    void BeginCombat(BaseSquad* player, BaseSquad* enemy) override;   // +0x0c @0xfb184
+    using BaseCombat::BeginCombat;
+    void Pause(Entity*) override {}                   // +0x14 @0xfa030
+    void PlayerDied() override;                       // +0x18 @0xfa180
+    void QueueSpellCast(unsigned s, int x, int y) override;   // +0x24 @0xfa21c
+    void Continue(int mode) override;                 // +0x28 @0xfc698
+    void AddGoodGuy(Entity* e) override;              // +0x2c @0xfe4cc
+    void PostCombat() override;                       // +0x38 @0xfa128
+    void EndCombat() override;                        // +0x3c @0xfc8ac
+    bool CanSpellCastNow() override;                  // +0x70 @0xfc430
+    AI::Waypoint* GetSpellEpicenter() override { return spellEpicenter; }   // +0x74 @0xfa0e0
+    Entity* GetBoss() override { return boss; }       // +0x84 @0xfa100
+    void SpellAreaSelectionStarted() override;        // +0x8c @0xfa108
+    void SpellAreaSelectionEnded() override;          // +0x90 @0xfa1a8
+    int GetCurrentWave() override { return wave; }    // +0x94 @0xfa0ac
+    int GetWaveCount() override { return waveCount; }   // +0x98 @0xfa0b4
+    void AddSpentMoney(int gold, int crystals) override;   // +0x9c @0xfa858
+    int GetSpentGold() override { return spentGold; } // +0xa0 @0xfa0bc
+    void WaitingForContinue() override;               // +0xa8 @0xfee54
+    void StartPositioning() override;                 // +0xb0 @0xfa054
+    void CombatReady() override;                      // +0xb4 @0xfc44c
+    void CheckSpellCast() override { SwitchState(6); }   // +0xcc @0xfa08c
+    void SpellCast() override;                        // +0xd0 @0xfa0c4
+    void UpdatePositions() override;                  // +0xd8 @0xfbb1c
+    void UpdateAttackPosition() override;             // +0xdc @0xfc110
+    virtual void ArenaCompleted();                    // +0xf4 @0xfaa1c
+    virtual void EnemyTurn(Pair1vs1* p);              // +0xf8 @0xfae54
+    virtual void PlayerTurn(Pair1vs1* p);             // +0xfc @0xfab6c
+    virtual void PlayerSpellCast(Pair1vs1* p);        // +0x100 @0xfa550
+    virtual void RunningOut();                        // +0x104 @0xfa034
+    virtual void WaveCleared();                       // +0x108 @0xfaae0
+    virtual void UpdateRunningToPos();                // +0x10c @0xfa90c
+    virtual void SpawnEnemies();                      // +0x110 @0xfdec0
+    virtual void SpawnPlayer();                       // +0x114 @0xfdb70
+    virtual void RunToSpawnPos();                     // +0x118 @0xfd884
+    virtual void SetupWave();                         // +0x11c @0xfcae0
+    virtual void SortPairs();                         // +0x120 @0xfe6e4
+    static void ClearArenaWPs();                      // +0x124 @0xfbc18
+    static void DisableOuterWPs();                    // +0x128 @0xfbd94
+    void SetWaveCount(int n) { waveCount = n; }       // @0xfa0a4
+    void SkipCombat();                                // @0xfa0e8
+    void BlockStance();                               // @0xfa328
+    void AttackStance();                              // @0xfa69c
+    void AutoCombat();                                // @0xfa80c
+
+    bool playerTurn = true;              // +0x80
+    int turn = 1;                        // +0x84 half-turns ((turn + 1) / 2 is shown)
+    int turnSteps = 0;                   // +0x88
+    bool allAtOnce = true;               // +0x8c every ready duel strikes in the same step
+    bool counterBlows = true;            // +0x8d
+    int wave = 0;                        // +0x90
+    int waveCount = 3;                   // +0x94
+    bool autoCombat = false;             // +0x98
+    int spentGold = 0;                   // +0x9c
+    Entity* boss = nullptr;              // +0xa0 the enemy squad's owner
+    std::vector<Pair1vs1*> duels;        // +0xa4
+    float turnTimer = 0.f;               // +0xb0 the player's time to choose
+    int stance = 0;                      // +0xb4 0 attack, 1 block
+    uint32_t eventStart = 0;             // +0xb8
+    AI::Waypoint* spellEpicenter = nullptr;   // +0xbc
+};
+
+// PvPArenaCombat (@0x1f31dc..0x1f4da4, vtable 0x608b28, 200 bytes): the PvP arena: the opponent's
+// hero and warriors (mBossWaves), the tutorial's ambush dialogue and the valor won.
+class PvPArenaCombat : public ArenaCombat {
+public:
+    PvPArenaCombat(PvP::PlayerInfo* opponent, bool secondWave);   // @0x1f46a4
+    ~PvPArenaCombat() override;                       // @0x1f4540
+    void Update(float dt) override;                   // +0x08 @0x1f37e8
+    void BeginCombat(BaseSquad* player, BaseSquad* enemy) override;   // +0x0c @0x1f3690
+    using BaseCombat::BeginCombat;
+    void PlayerDied() override;                       // +0x18 @0x1f34cc
+    void PostCombat() override;                       // +0x38 @0x1f3388
+    void EndCombat() override;                        // +0x3c @0x1f4c6c
+    void OnValorReceived(unsigned valor) override;    // +0xa4 @0x1f31dc
+    void ArenaCompleted() override;                   // +0xf4 @0x1f3524
+    void WaveCleared() override;                      // +0x108 @0x1f3470
+    void SpawnEnemies() override;                     // +0x110 @0x1f4814
+    void SetupWave() override;                        // +0x11c @0x1f4da4
+
+    PvP::PlayerInfo* opponent = nullptr; // +0xc0
+    bool waveSet = false;                // +0xc4 the first wave has been set up
+    bool waitingForServer = false;       // +0xc5 (the valor's online report)
 };

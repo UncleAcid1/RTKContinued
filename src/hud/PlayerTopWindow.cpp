@@ -259,15 +259,16 @@ void HideDialog() {
 void ShowArrowAndLock() { g_dialog->ShowArrowAndLock(); }   // @0x3278cc
 
 // @0x3278e0: the hero says `text` in his bubble; `task` (a quest, 0: none) is completed by its
-// Next. The same quest's text is not started again. lockNext: the helper arrow sits on Next.
-void SetParameters(const char32_t* text, uint32_t task, bool, bool lockNext) {
+// Next. The same quest's text is not started again. noNext: without the Next button (the bubble
+// waits for something else, e.g. a button the tutorial's arrow points at).
+void SetParameters(const char32_t* text, uint32_t task, bool, bool noNext) {
     if (task != 0 && g_dialog->task == task) return;
     if (g_dialog->shownHover) g_dialog->OnClose();
     BuildingHovers::HideWorldDialog(nullptr);
     // SoundsManager::PlaySound("interact_entity_MN3talks" / "..FN3talks"): milestone 6.
     g_dialog->Show();
     g_dialog->SetParameters(StringTable::GetUndecoratedString(text, 0x200).c_str(), task);
-    if (lockNext) g_dialog->ShowArrowAndLock();
+    if (noNext) g_dialog->HideNextButton();
 }
 
 // @0x327814: the hurt portrait flashes in.

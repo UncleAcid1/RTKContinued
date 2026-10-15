@@ -8,15 +8,21 @@
 // branch that needs it is left as a note.
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <vector>
 
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "engine/Timer.h"
 #include "game/Combat.h"
 #include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Map.h"
+#include "game/PvP.h"
 #include "game/Rand48.h"
+#include "game/AIState.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -156,10 +162,46 @@ void Update(float dt) {
             g_root->SetAlpha(1.f - g_fadeT, true);
         } else {
             if (g_ambush) {
-                // UNVERIFIED (4h, the next part): the tutorial's PvP ambush starts here
-                // (PlayerCompetitionWindow's player -1, the fake rival's level and gear, a hero
-                // entity 0xc / 0xd, GameState::SetPvPTutorial, an AggroCombat switched to the PvP
-                // arena: ForceBossFight(6, 0x91), DropGamePauseState).
+                // The tutorial's ambush: the rival (PvP player -1) is of the other gender, two
+                // levels above the hero, with random looks (customisations of type 0x11) for slots 2..6, 8, 9
+                // (not hair 0x2ef / 0x2f0 in slot 5); an aggro fight with her hero turns into the
+                // PvP arena fight on map 0x91.
+                PlayerCompetitionWindow::SetSelectedPlayerGID(-1, false);
+                PlayerCompetitionWindow::SetReturnWithoutWindow(true);
+                if (PvP::PlayerInfo* rival = PvP::GetPlayerInfoByGID(-1, 0xff)) {
+                    rival->male = !GameState::IsMalePlayer();
+                    rival->level = GameState::GetLevel() + 2;
+                    uint32_t seed = (uint32_t)Timer::GetGlobalTime();
+                    for (unsigned slot = 1; slot <= 9; ++slot) {
+                        if (slot == 7 || slot == 1) continue;
+                        std::vector<Items::ItemInfo*> looks;
+                        for (unsigned i = 0; Items::ItemInfo* it = Items::EnumItemInfo(i); ++i) {
+                            if (it->type != 0x11 || it->slot != slot) continue;
+                            const bool maleLook = std::memcmp(it->name, "male_", 5) == 0;
+                            const bool femaleLook = std::memcmp(it->name, "female_", 7) == 0;
+                            if (maleLook && !rival->male) continue;
+                            if (femaleLook && rival->male) continue;
+                            looks.push_back(it);
+                        }
+                        rival->equipment.customs[slot].id = 0;
+                        if (looks.empty()) continue;
+                        seed = seed * 0x343fd + 0x269ec3;
+                        const unsigned pick = ((seed & 0x7fffffff) >> 16) % (unsigned)(looks.size() + 1);
+                        if (slot == 5 && pick < looks.size() && (looks[pick]->id == 0x2ef || looks[pick]->id == 0x2f0))
+                            continue;
+                        if (pick != looks.size()) rival->equipment.customs[slot].id = looks[pick]->id;
+                    }
+                    if (Entity* hero = EntityManager::CreateEntity(rival->male ? 0xc : 0xd, true, true)) {
+                        GameState::SetPvPTutorial(true);
+                        GameState::SetCombat(new AggroCombat());
+                        hero->CreateSquad();
+                        hero->GetAI()->UpdateLastTarget();
+                        hero->player = false;
+                        GameState::GetActiveCombat()->BeginCombat(EntityManager::GetPlayer()->GetSquad(), hero->GetSquad());
+                        GameState::GetActiveCombat()->ForceBossFight(6, 0x91);
+                        GameState::DropGamePauseState();
+                    }
+                }
                 g_ambush = false;
             }
             g_root->SetAlpha(1.f, true);

@@ -334,10 +334,10 @@ void AIPlayer::ClickedEntity(Entity* e) {
         if (c->GetType() == 5 || c->GetType() == 6) {
             if (!entity->GetAI()->SetTarget(AI::GetWaypoint(e->tileX, e->tileY, false), true)) return;
             c->GetEnemySquad()->SetActiveSoldier(e);
-            c->Continue();
+            c->Continue(0);   // attack it
         } else {
-            // (A boss fight: BottomBattleWindow::SetSelectedButton(0), milestone 5.)
-            c->Continue();
+            if (GameState::IsBossCombatActive()) BottomBattleWindow::SetSelectedButton(0);
+            c->Continue(-1);
         }
     }
     if (!entity->f36) {

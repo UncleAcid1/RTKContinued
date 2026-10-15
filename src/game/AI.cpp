@@ -572,4 +572,69 @@ float GetRadianBetweenPoints(float x1, float y1, float x2, float y2) {
     return a;
 }
 
+// @0xe2efc: of the four diagonal neighbours of wp (the entity's own tile when wp is null), the
+// entity's own if it is one of them, else the nearest (in world distance) free one (weight <= 1)
+// it can walk to (TargetedAI::SetTarget sets its path as the test).
+Waypoint* GetNearestReachableWPZeroWeight(Entity* e, Waypoint* wp) {
+    Waypoint* own = GetWaypoint(e->tileX, e->tileY, false);
+    const float ex = e->worldX, ey = e->worldY;
+    if (!wp) wp = own;
+    int x = wp->x;
+    const int y = wp->y;
+    Waypoint* n[4];
+    if ((y & 1) == 0) {
+        n[0] = GetWaypoint(x - 1, y - 1, false);
+        n[1] = GetWaypoint(x, y + 1, false);
+        n[2] = GetWaypoint(x, y - 1, false);
+        --x;
+    } else {
+        n[0] = GetWaypoint(x, y - 1, false);
+        n[1] = GetWaypoint(x + 1, y + 1, false);
+        n[2] = GetWaypoint(x + 1, y - 1, false);
+    }
+    n[3] = GetWaypoint(x, y + 1, false);
+    Waypoint* best = nullptr;
+    float bestDist = 100000.f;
+    for (Waypoint* c : n) {
+        if (own == c) return own;
+        if (!c || 1.f < c->weight) continue;
+        if (!e->GetAI()->SetTarget(c, true)) continue;
+        const float dy = c->wy - ey, dx = c->wx - ex;
+        const float d = sqrtf(dy * dy + dx * dx);
+        if (d < bestDist) {
+            best = c;
+            bestDist = d;
+        }
+    }
+    return best;
+}
+
+// @0xe309c: next to the other entity's tile.
+Waypoint* GetNearestReachableWPZeroWeight(Entity* e, Entity* other) {
+    return GetNearestReachableWPZeroWeight(e, other->GetCurentWP());
+}
+
+// @0xe4384: a living enemy (class 9) on one of the 3x3 tiles around wp.
+bool EnemyInMeleeRange(Waypoint* wp) {
+    int x = wp->x;
+    const int y = wp->y;
+    if (std::abs(y) & 1) ++x;
+    int row = y - 2;
+    if ((y - 1) % 2 != 1) --x;
+    for (;;) {
+        int xx = x, yy = row;
+        for (;;) {
+            if (GetWaypoint(xx, yy, false) && EntityManager::GetEnemyAtXY(xx, yy)) return true;
+            if (yy % 2 == 1) ++xx;
+            if (yy == row + 2) break;
+            ++yy;
+        }
+        if (std::abs(row) & 1) ++x;
+        if (row == y) break;
+        --x;
+        ++row;
+    }
+    return false;
+}
+
 }  // namespace AI

@@ -86,9 +86,18 @@ struct EntityData {              // 0x160 bytes
     float successModifier = 0.f; // +0x15c "success_modifier"
 
     std::u32string ownTitle;     // PORT: storage for a title built by LoadData ("%s +%d")
+    // PORT: a PartialClone shares its original's itemsDrop; the original's destructor would free
+    // it twice, so a clone leaves it alone.
+    bool sharesItemsDrop = false;
 
     EntityData() = default;
     ~EntityData();               // @0x15f5e8
+    // @0x15f198: a member copy. (The original copies the level tables' pointers too; its only
+    // caller, PartialClone, clears them right after: the clone keeps none.)
+    EntityData& operator=(const EntityData& o);
+    // @0x15f594: a copy for one entity (Entity::SetCustomEntityData) without the level tables, the
+    // star items, the boss minions and the particle points.
+    EntityData* PartialClone() const;
     void Destroy();              // @0x15edb4 frees the tables and MetaData
     void Clean();                // @0x15ee94 back to the defaults above
     Animation* GetAnimation(const char* name) const;   // @0x15f13c

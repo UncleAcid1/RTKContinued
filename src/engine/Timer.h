@@ -30,4 +30,11 @@ inline double GetTime() {
     return (double)(SDL_GetPerformanceCounter() - start) / (double)freq;
 }
 
+// @0x23eccc / @0x23ec7c: the time spent between its construction and destruction (a window's
+// slow Show) is taken off the next frame's dt.
+struct TimeCompensationBlock {
+    double start = GetTime();
+    ~TimeCompensationBlock() { AddDeltaTimeCompensation(GetTime() - start); }
+};
+
 }  // namespace Timer

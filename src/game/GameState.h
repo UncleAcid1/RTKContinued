@@ -81,6 +81,16 @@ bool IsPvPCombatActive();                      // @0x191010 above 5
 bool IsVirtualTutorial();                      // @0x190b68 second-tutorial steps 0x200..0x21b
 extern int mBossSpawnID;                       // GameState::mBossSpawnID (boss fights: milestone 5)
 extern uint32_t mReturnMapID;                  // GameState::mReturnMapID the map a boss / arena fight was entered from
+// The fight a map load sets up (Map::SpawnEntities) and where it stands (BaseCombat::SwitchTo*):
+extern std::vector<uint32_t> mBossWaves;       // GameState::mBossWaves the enemies' entity ids, the boss last
+extern std::vector<int> mBossWavesHP;          // GameState::mBossWavesHP their HP (0: their own)
+extern int mLastBossXY[2];                     // GameState::mLastBossXY
+extern int mLastBossPlayerXY[2];               // GameState::mLastBossPlayerXY
+extern int mLastPlayerDir;                     // GameState::mLastPlayerDir
+extern int mCurrentBossCombatType;             // GameState::mCurrentBossCombatType 3 boss, 4 waves, 5 arena, 6 PvP arena
+// GameState::mBossMapPositions (tile pairs, from the map's "bat" list): [2,3] the player's
+// spawn, [6,7] the enemies', [8,9] the arena's centre (the camera), [10,11] its size.
+extern int mBossMapPositions[12];
 // The hero's HP comes back by itself, one at a time (mNextHP counts down to the next).
 void UpdateHPRegen(float dt);                  // @0x19203c
 int GetTimeTillNextHP();                       // @0x190f14 seconds
@@ -124,7 +134,11 @@ void ResetTimeModifier();
 bool IsTameTutorial();                         // @0x190bb4
 bool IsFirstVirtualTutorial();                 // @0x190b44 second-tutorial steps 0x200..0x205
 // @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.
-bool IsPvPTutorial();
+extern bool arenaBotActive;                    // 0x613520 the arenas' test bot (CombatTestBot)
+bool IsPvPTutorial();                          // @0x190b8c (0x612d4c)
+void SetPvPTutorial(bool on);                  // @0x190ba0 the ambush of the opening tutorial
+void SetStartingArenaHP(int hp);               // @0x191504 (mStartingArenaHP)
+int GetStartingArenaHP();
 bool TaskCompleted(unsigned id);               // @0x1908ac (the 0x1000-entry lookup cache is not ported)
 bool IsTaskStarted(unsigned id);               // @0x190988
 uint32_t GetTaskBeginTime(unsigned id);        // @0x198624 (0 when not begun)

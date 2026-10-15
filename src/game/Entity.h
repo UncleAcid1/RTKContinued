@@ -115,6 +115,8 @@ public:
     static uint32_t GetCurrentTime();            // PORT: reads it
 
     EntityData* GetEntityData() const { return data; }   // @0x150034
+    // @0x14ff94: the entity's own data (a PartialClone), deleted with it.
+    void SetCustomEntityData(EntityData* d) { data = d; ownsData = true; }
     bool IsPlayer() const { return player; }     // @0x1505b0
     // @0x15058c: spawned by a spawn point flagged NPC (+0x10). UNVERIFIED (milestone 4): spawn
     // points are not ported, so no entity is an NPC yet.

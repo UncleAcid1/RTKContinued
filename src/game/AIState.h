@@ -102,9 +102,9 @@ public:
     virtual void AddedToCombat() {}                   // +0x94 @0xe8210
     virtual void RemovedFromCombat() {}               // +0x98 @0xe8214
     virtual void Attack(bool) {}                      // +0x9c @0xe8218
-    virtual void MagicAttack(Spells::SpellInfo*) {}   // +0xa0 @0xe821c
-    virtual void MagicAttackArea(Spells::SpellInfo*) {}   // +0xa4 @0xe8220
-    virtual void MagicAttackAreaFinished() {}         // +0xa8 @0xe8224
+    virtual void MagicAttack(unsigned) {}             // +0xa0 @0xe821c (the spell's id)
+    virtual void MagicAttackArea(unsigned) {}         // +0xa4 @0xe8220
+    virtual void MagicAttackAreaFinished(unsigned) {} // +0xa8 @0xe8224
     virtual void Hit(float) {}                        // +0xac @0xe8228
     virtual void MagicHit(float, bool, float, bool, unsigned) {}     // +0xb0 @0xe822c
     virtual void Block(float) {}                      // +0xb4 @0xe8230

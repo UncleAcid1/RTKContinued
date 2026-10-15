@@ -53,6 +53,7 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/PvP.h"
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Setting.h"
@@ -708,6 +709,7 @@ int main_Loop_Init() {
     GUI::Init(font, false);
     // The game's windows: their static FunctionalWindow objects are constructed in the binary's
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
+    ArenaTurnWindow::Queue();
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
     BossIntroWindow::Queue();
@@ -729,6 +731,7 @@ int main_Loop_Init() {
     NeedItemWindow::Queue();
     HealSquadWindow::Queue();
     NotEnoughWindow::Queue();
+    PlayerBattleInOutWindow::Queue();
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();
     PopupWindow::Queue();
@@ -753,7 +756,10 @@ int main_Loop_Init() {
     SaveManager::Init();
     SoldierPool::Init();
     SoldierSlots::Init();
-    // (PvP::Init, ClearPlayerInfo(0xff) and the PvP tutorial players: milestone 5, offline arena)
+    PvP::Init();
+    PvP::ClearPlayerInfo(0xff);
+    PvP::CreatePvPTutorialPlayer();
+    PvP::CreatePvPTutorialPlayersRandom();
     TextInput::enabled = false;
     // (The waits for the server's first answers and for a save being fetched, Bonus::Enqueue: online.)
     // (Render::SortRenderLayer(0xe, 1) here; the port sorts the GUI layer once the HUD is up.

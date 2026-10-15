@@ -2,12 +2,14 @@
 // buttons (fury spells left and right, the centre one for running or, when a monster can be
 // tamed, the net), the mana bars and the rage buttons.
 // Port of BottomBattleWindow (libkingdom.so 5.11), 0x256e0c..0x25d8d8. Statics at 0x618224.
-// PORTED (4h, for the opening tutorial's taming lesson): the window, the large buttons, the net
-// (EnableNet, the centre button's net look, the throw and the catch).
-// UNVERIFIED (milestone 5, the rage bar): the spells and fury (OnLeft, OnRight, OnAutoCast,
-// OnSpell, the rage buttons, the mana bars and potion, HelpWithSpell, the spell drag in Click),
-// the stances (OnAttack, OnBlock, OnAuto), running on the centre button and its look, the
-// arena / boss branches of Update, showing the bar on every campaign map (Map::Load).
+// PORTED (4h, for the opening tutorial's taming lesson and ambush): the window, the large buttons,
+// the net (EnableNet, the centre button's net look, the throw and the catch), the stances of the
+// arena and boss fights (OnLeft / OnRight: OnAttack, OnBlock, their look in Update, SetEnabled,
+// the tutorial's arrows ShowAttackButton / ShowBlockButton / ShowMagicButton).
+// UNVERIFIED (milestone 5, the rage bar): the spells and fury (OnAutoCast, OnSpell, SpellMovement's
+// accept / decline on the large buttons, the rage buttons beyond their roots, the mana bars and
+// potion, HelpWithSpell, the spell drag in Click, EnableFuryGlow), running on the centre button and
+// its look, showing the bar on every campaign map (Map::Load). (milestone 6: the "ui_click" sound.)
 #include "hud/HUD.h"
 
 #include <cmath>
@@ -16,6 +18,7 @@
 #include "engine/Render.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
+#include "game/Combat.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -27,6 +30,7 @@
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
 #include "game/SoldierSlots.h"
+#include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
 #include "gui/GUI.h"
@@ -38,7 +42,7 @@ namespace {
 using GUI::Textfield;
 using GUI::Window;
 
-// ButtonFuryLarge (0x1c bytes): a large round button. LoadFrom @0x, SetColor @0x.
+// ButtonFuryLarge (0x1c bytes): a large round button. LoadFrom @0x259748, SetColor @0x256e0c.
 struct ButtonFuryLarge {
     Window* root = nullptr;      // +0x00 "%s"
     Window* active = nullptr;    // +0x04 fury_button_active_state (the glow)
@@ -60,10 +64,18 @@ struct ButtonFuryLarge {
     }
 };
 
+// RageButton (0x58 bytes): a spell slot of the rage bar, "rage_bar_button_%02d". UNVERIFIED
+// (milestone 5): only its root; the rest (LoadFrom @0x2598e8: the active / connector looks, the
+// icons, the cost texts, the click area with the spell's callback) comes with the spells.
+struct RageButton {
+    Window* root = nullptr;      // +0x00
+};
+
 WindowManager::FunctionalWindow* g_queue = nullptr;   // BottomBattleWindow::wnd
 Window* g_root = nullptr;              // 0x618224 Rage_bar.xml
-ButtonFuryLarge g_left;                // 0x618228 button_fury_large_01
-ButtonFuryLarge g_right;               // 0x618244 button_fury_large_02
+ButtonFuryLarge g_left;                // 0x618228 button_fury_large_01 (attack)
+ButtonFuryLarge g_right;               // 0x618244 button_fury_large_02 (block)
+RageButton g_rage[3];                  // 0x618260
 ButtonFuryLarge g_centre;              // 0x618380 button_fury_large_03
 float g_pulse = 0.f;                   // 0x618378 the glows' clock
 uint32_t g_netTarget = 0;              // 0x61836c the spawn point of the monster the net may catch
@@ -77,12 +89,174 @@ float g_netToX = 0.f, g_netToY = 0.f;       // 0x618424 0x618428
 float g_netTimer = 0.f;                // 0x61842c how long the dying monster can still be caught
 Textfield* g_stance = nullptr;         // 0x618458 text_stance
 GUI::MovementEffect* g_effect = nullptr;   // 0x618430
+float g_rageTimer = 0.f;               // 0x618368 (reset when the bar is enabled or disabled)
+int g_offsetY = 0x17;                  // 0x60f0fc
+unsigned g_selected = (unsigned)-1;    // 0x60f100 the stance: 0 attack, 1 block, 3 auto, -1 none
+bool g_enabled = false;                // 0x60f104 SetEnabled's last state
 int g_offsetX = 0;                     // 0x60f10c
-int g_offsetY = 0x17;                  // 0x60f110
+int g_spell = -1;                      // 0x60f110 (the spells': milestone 5)
+bool g_tablet = false;                 // 0x60f118
 float g_scale = 1.f;                   // 0x60f11c
 
-void OnTweenIn() {}                                    // @0x
-void OnTweenOut() { g_root->SetVisibility(false); }    // @0x
+void OnTweenIn() {}                                    // @0x256e50
+void OnTweenOut() { g_root->SetVisibility(false); }    // @0x256e54
+void Move(int, int) {}                                 // @0x256e4c
+
+// The stance glow's alpha.
+float Pulse(float speed) { return 0.5f + std::cos(g_pulse * speed) * 0.6f; }
+
+// The stance line: "STANCE_PRE" with the stance's name.
+void SetStanceText(const char* stance) {
+    g_stance->SetText(SWPrintf(0x100, StringTable::GetString("STANCE_PRE"), {StringTable::GetString(stance)}).c_str());
+}
+
+// The large buttons' look in a boss fight (types 3, 4) and in the arenas (5, 6): attack on the
+// left, block on the right, the chosen one glowing (all glow before a choice in a boss fight).
+void UpdateStances() {
+    if (!GameState::IsArenaCombatActive()) {
+        g_left.root->SetVisibility(true);
+        g_right.root->SetVisibility(true);
+        g_centre.root->SetVisibility(false);
+        g_left.root->SetEnabled(true);
+        for (Window* b : g_left.bg) b->SetEnabled(true);
+        g_left.icon->SetEnabled(true);
+        g_right.root->SetEnabled(true);
+        for (Window* b : g_right.bg) b->SetEnabled(true);
+        g_right.icon->SetEnabled(true);
+        g_left.SetColor(1);
+        g_left.icon->SetTexture(IconManager::GetIcon("gold_attack"), true);
+        g_left.active->SetVisibility(g_selected == 0);
+        g_left.active->SetAlpha(Pulse(8.f), false);
+        g_right.SetColor(0);
+        g_right.icon->SetTexture(IconManager::GetIcon("gold_shield"), true);
+        g_right.active->SetVisibility(g_selected == 1);
+        g_right.active->SetAlpha(Pulse(8.f), false);
+        if (g_selected == (unsigned)-1) {
+            g_left.active->SetVisibility(true);
+            g_left.active->SetAlpha(Pulse(8.f), false);
+            g_right.active->SetVisibility(true);
+            g_right.active->SetAlpha(Pulse(8.f), false);
+            g_stance->SetText(StringTable::GetString("STANCE_NONE"));
+        } else if (g_selected < 2) {
+            SetStanceText(g_selected == 1 ? "STANCE_BLOCK" : "STANCE_ATTACK");
+        }
+        for (RageButton& r : g_rage) r.root->SetEnabled(true);
+        return;
+    }
+    g_left.root->SetVisibility(true);
+    g_right.root->SetVisibility(true);
+    g_centre.root->SetVisibility(false);
+    g_right.root->SetEnabled(true);
+    // UNVERIFIED (milestone 5): while a spell is being aimed (SpellMovement::Activated) the
+    // buttons are confirm (colour 2, "gold_confirm") and cancel (colour 3, "gold_cancel") without
+    // glows, and the line reads "cast_spell".
+    g_left.SetColor(1);
+    g_left.icon->SetTexture(IconManager::GetIcon("gold_attack"), true);
+    g_left.active->SetVisibility(g_selected == 0);
+    g_left.active->SetAlpha(Pulse(4.f), false);
+    g_right.SetColor(0);
+    g_right.icon->SetTexture(IconManager::GetIcon("gold_shield"), true);
+    g_right.active->SetVisibility(g_selected == 1);
+    g_right.active->SetAlpha(Pulse(4.f), false);
+    if (g_selected == (unsigned)-1) g_stance->SetText(StringTable::GetString("STANCE_NONE"));
+    else if (g_selected == 0) SetStanceText("STANCE_ATTACK");
+    else if (g_selected == 1) SetStanceText("STANCE_BLOCK");
+    else if (g_selected == 3) SetStanceText("ARENA_AUTO");
+}
+
+// The tutorial task a stance button completes (ShowAttackButton / ShowBlockButton): the hero's
+// hint and the arrow go.
+void CompleteButtonTask() {
+    if (g_netTask == 0) return;
+    Tasks::CompleteTask(g_netTask, true, true, false);
+    if (PlayerTopWindow::IsPlayerDialogVisible()) PlayerTopWindow::HideDialog();
+    GUI::SetInteractionLock(false);
+    if (BuildingHovers::ArrowVisible() && BuildingHovers::GetArrowClickCallbackID() == g_netArrowCallback)
+        BuildingHovers::HideArrow();
+}
+
+// The arenas' stance: the opponent's hero is the target and the turn goes on in mode `mode`
+// (0 attack, 1 block, 4 auto).
+void ChooseStance(int mode) {
+    if (!GameState::IsCombatActive()) return;
+    BaseSquad* enemy = GameState::GetActiveCombat()->GetEnemySquad();
+    if (!enemy) return;
+    enemy->SetActiveSoldier(nullptr);
+    GameState::GetActiveCombat()->Continue(mode);
+}
+
+// @0x2585c8
+void OnAuto() {
+    CompleteButtonTask();
+    ChooseStance(4);
+}
+
+// @0x25869c
+void OnBlock() {
+    CompleteButtonTask();
+    ChooseStance(1);
+}
+
+// @0x258770: in the tutorial's ambush (until task 0x773) the target is the rival's hero (class 0x2b).
+void OnAttack() {
+    CompleteButtonTask();
+    if (GameState::TaskCompleted(0x773)) {
+        if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetEnemySquad()) {
+            ChooseStance(0);
+            return;
+        }
+        BuildingHovers::HideArrow();
+        return;
+    }
+    GameState::GetActiveCombat()->GetEnemySquad()->SetActiveSoldier(EntityManager::GetEntityByClass(0x2b, true, false));
+    GameState::GetActiveCombat()->Continue(0);
+}
+
+// @0x259164: block (the arenas) or the boss fight's block stance.
+void OnRight() {
+    if (GameState::tutorial == 0x17) TutorialSender::AddTutorialStep(0x720);
+    if (!GameState::IsArenaCombatActive()) {
+        if (GameState::IsBossCombatActive()) {
+            SetSelectedButton(1);
+            GameState::GetActiveCombat()->Continue(1);
+        }
+    } else {
+        OnBlock();   // (with a spell being aimed: SpellMovement::Decline, milestone 5)
+    }
+}
+
+// @0x259208: attack (the arenas) or the boss fight's attack stance. At second-tutorial step 0x9e
+// the ambush's task is done and the tutorial goes on (step 0x81, tutorial 0x17).
+void OnLeft() {
+    if (GameState::tutorial == 0x17) TutorialSender::AddTutorialStep(0x6bc);
+    if (GameState::secondTutorial == 0x9e) {
+        GameState::CompleteTask(0x773, false);
+        GUI::SetInteractionLock(false);
+        BuildingHovers::HideArrow();
+        GameState::secondTutorial = 0x81;
+        GameState::tutorial = 0x17;
+    }
+    if (!GameState::IsArenaCombatActive()) {
+        if (GameState::IsBossCombatActive()) {
+            SetSelectedButton(0);
+            GameState::GetActiveCombat()->Continue(0);
+        }
+        // (the new combat's CombatManager and SpellMovement::Accept: milestone 5)
+    } else {
+        OnAttack();   // (with a spell being aimed: the arrow goes and SpellMovement::Accept, milestone 5)
+    }
+}
+
+// The tutorial's arrow at a button: its callback, the interaction lock on `lock`.
+void PointAt(int task, void (*cb)(), Window* lock, bool locked, bool arrow, float x, float y) {
+    g_netTask = (uint32_t)task;
+    if (arrow && BuildingHovers::GetArrowClickCallbackID() != g_netArrowCallback)
+        g_netArrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(cb));
+    if (locked) GUI::SetInteractionObjectLock(lock, nullptr);
+    if (!arrow) return;
+    BuildingHovers::ArrowAt(x, y, false, false, false, false, true, false, false);
+    BuildingHovers::PreventArrowAutoHide();
+}
 
 // The net lands: in the taming lesson always a catch, else by the net's chance (meta 0x25)
 // times the tamed form's success rate, out of 10000.
@@ -156,6 +330,9 @@ void NetLanded() {
     }
 }
 
+void UpdateCentre();
+void FlyNet(float dt);
+
 // @0x259c70 (the parts listed at the top of the file)
 void Update(float dt) {
     if (!g_root->visibleSelf) return;
@@ -167,6 +344,16 @@ void Update(float dt) {
         g_netTimer -= dt;
     }
     if (g_netTimer < 0.f && !g_net) g_netTarget = 0;
+    if (GameState::IsArenaCombatActive() || GameState::IsBossCombatActive()) {
+        UpdateStances();
+    } else {
+        UpdateCentre();
+    }
+    FlyNet(dt);
+}
+
+// The centre button outside the boss and arena fights.
+void UpdateCentre() {
     // The centre button offers the net while there is a target, a net and a tamed form.
     uint32_t net = 0;
     bool offer = false;
@@ -194,7 +381,10 @@ void Update(float dt) {
         g_stance->SetText(StringTable::GetString("TAME_HINT"));
     }
     // UNVERIFIED (milestone 5): otherwise the run / walk look (gold_run / gold_walk, STANCE_MODE).
-    // The flying net: from the hero to the monster in 2/3 s, growing from 0.2 to its full size.
+}
+
+// The flying net: from the hero to the monster in 2/3 s, growing from 0.2 to its full size.
+void FlyNet(float dt) {
     if (g_net) {
         if (g_netT < 1.f) {
             Render::SetAlpha(g_net, 1.f);
@@ -214,7 +404,8 @@ void Update(float dt) {
     }
 }
 
-// @0x259564: the spells' drag is milestone 5.
+// @0x2594dc: the click reaches the bar. UNVERIFIED (milestone 5): the spells' drag (a rage button
+// pressed, held and dropped on the map: OnSpell / OnAutoCast), and no click while one flies.
 bool Click(int x, int y, bool pressed) { return g_root->Click(x, y, pressed, false); }
 
 }  // namespace
@@ -226,6 +417,8 @@ WindowManager::FunctionalWindow* Queue() {
         f.click = Click;
         f.setZ = SetZ;
         f.hide = Hide;
+        f.move = Move;
+        f.deinit = Deinit;
         g_queue = new WindowManager::FunctionalWindow("BottomBattleWindow", std::move(f));
     }
     return g_queue;
@@ -236,6 +429,7 @@ void Init() {
     g_offsetY = 0x17;
     g_offsetX = 0;
     g_queue->usesZRange = false;
+    g_tablet = GUI::IsTabletVersion();
     g_root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Rage_bar.xml", "Rage_bar.png", GUI::GetHudScaleFactor(), 0,
                              0, 0, 0, false, 1.f);
     g_queue->RegisterTopWindow(g_root);
@@ -243,13 +437,16 @@ void Init() {
     g_root->SetVisibility(false);
     g_root->SetPosition(-g_root->w, 0);
     g_effect = GUI::CreateMovementEffect(g_root, nullptr, OnTweenIn, OnTweenOut);
-    // UNVERIFIED (milestone 5): rage_bar_bg's tap (OnManaBar), the left button's OnLeft, the mana
-    // bars (ManaProgress) and the rage buttons.
+    // UNVERIFIED (milestone 5): rage_bar_bg's tap (OnManaBar), the mana bars (ManaProgress,
+    // rage_bar_bar_holder.text_02) and the rage buttons' spells.
     g_left.LoadFrom(g_root, "button_fury_large_01");
+    g_left.root->SetOnClick(OnLeft);
     g_right.LoadFrom(g_root, "button_fury_large_02");
+    g_right.root->SetOnClick(OnRight);
     g_centre.LoadFrom(g_root, "button_fury_large_03");
     g_centre.root->SetOnClick(OnCenter);
     g_stance = GUI::GetWindowTyped<Textfield>(g_root, "text_stance");
+    for (int i = 0; i < 3; ++i) g_rage[i].root = GUI::GetWindowTypedF<Window>(g_root, "rage_bar_button_%02d", i + 1);
     g_queue->fn.zRange = WindowManager::ReturnSmallZRange;
     g_queue->fn.update = Update;
     g_queue->fn.show = Show;
@@ -257,7 +454,61 @@ void Init() {
     g_offsetX = (int)((float)g_offsetX * g_scale);
 }
 
-bool IsVisible() { return g_root && g_root->visibleSelf; }   // @0x
+bool IsVisible() { return g_root && g_root->visibleSelf; }   // @0x256e98
+void SetOffset(float y) { g_offsetY = (int)y; }               // @0x256e7c
+void SetSelectedButton(unsigned b) { g_selected = b; }        // @0x256eac
+bool IsInAttackStance() { return g_selected == 0; }        // @0x2570b0
+bool IsInBlockStance() { return g_selected == 1; }            // @0x2570cc
+
+// @0x256ec0: the stance buttons' (and rage buttons') enabled look; the unchosen glows follow it.
+// Not at second-tutorial step 0x9e.
+void SetEnabled(bool on, bool, bool) {
+    if (GameState::secondTutorial == 0x9e) return;
+    g_left.root->SetEnabled(true);
+    for (Window* b : g_left.bg) b->SetEnabled(on);
+    g_left.icon->SetEnabled(on);
+    g_right.root->SetEnabled(true);
+    for (Window* b : g_right.bg) b->SetEnabled(on);
+    g_right.icon->SetEnabled(on);
+    if (g_selected == (unsigned)-1 || g_selected == 0) g_left.active->SetVisibility(on);
+    if (g_selected == (unsigned)-1 || g_selected == 1) g_right.active->SetVisibility(on);
+    for (RageButton& r : g_rage) r.root->SetEnabled(on);
+    if (g_enabled != on) {
+        g_enabled = on;
+        g_rageTimer = 0.f;
+    }
+}
+
+// @0x257490: the tutorial's arrow at the attack button (task: completed by it).
+void ShowAttackButton(unsigned task, bool lock, bool arrow) {
+    Window* b = g_left.root;
+    PointAt((int)task, OnLeft, b, lock, arrow, (float)(b->x + g_root->x + b->w / 2), (float)(b->y + g_root->y));
+}
+
+// @0x257388: the same at the block button.
+void ShowBlockButton(unsigned task, bool lock, bool arrow) {
+    Window* b = g_right.root;
+    PointAt((int)task, OnRight, b, lock, arrow, (float)(b->x + g_root->x + b->w / 2), (float)(b->y + g_root->y));
+}
+
+// @0x25d3bc: the same at the first rage button. UNVERIFIED (milestone 5): its arrow callback is the
+// spell's (FUN_00259c18(0)) and the lock is on its click area; until then they stay as they are.
+void ShowMagicButton(unsigned task, bool lock, bool arrow) {
+    g_netTask = task;
+    (void)lock;
+    if (!arrow) return;
+    Window* b = g_rage[0].root;
+    BuildingHovers::ArrowAt((float)(b->x + b->w / 2), (float)b->y, false, false, false, false, true, false, false);
+    BuildingHovers::PreventArrowAutoHide();
+}
+
+// @0x259708
+void Deinit() {
+    GUI::RemoveMovementEffect(g_effect);
+    g_effect = nullptr;
+    delete g_root;
+    g_root = nullptr;
+}
 
 // @0x25cfd8: from the taming lesson on; it slides up from the bottom, centred.
 void Show() {
@@ -271,7 +522,8 @@ void Show() {
     }
     g_root->SetVisibility(true);
     g_root->PreloadTextures();   // GUI::PreloadWindow
-    // (the rage buttons' and spells' state is reset here: milestone 5)
+    // (0x61844c, 0x618448, 0x60f114, 0x618444: the fury bar's animation, milestone 5)
+    g_selected = (unsigned)-1;
     Update(0.f);
 }
 
@@ -282,9 +534,11 @@ void Hide() {
         int x = (GUI::ScreenWidth() - g_root->w) / 2;
         g_effect->Animate(x + g_offsetX, GUI::ScreenHeight() + g_offsetY - g_root->h, x, GUI::ScreenHeight(), false);
     }
+    g_selected = (unsigned)-1;
+    g_spell = -1;
 }
 
-// @0x
+// @0x2593e4
 void SetZ(float) {
     g_root->SetZ(HUDWindow::GetZ());
     if (g_effect->active) return;

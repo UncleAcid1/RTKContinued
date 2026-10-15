@@ -63,11 +63,92 @@ EntityData::~EntityData() { Destroy(); }
 void EntityData::Destroy() {
     levelScale.reset();
     pool.reset();
-    delete itemsDrop;
+    if (!sharesItemsDrop) delete itemsDrop;
     for (MetaData*& m : starItems) delete m;
     delete bossMinionsLevels;
     delete bossMinions;
     delete particlePoints;
+}
+
+EntityData& EntityData::operator=(const EntityData& o) {
+    id = o.id;
+    type = o.type;
+    parentId = o.parentId;
+    name = o.name;
+    title = o.title;
+    enemyClass = o.enemyClass;
+    soundAttack = o.soundAttack;
+    soundDeath = o.soundDeath;
+    spawnTime = o.spawnTime;
+    trainTime = o.trainTime;
+    speedupCost = o.speedupCost;
+    warriorCost = o.warriorCost;
+    warriorCost2 = o.warriorCost2;
+    reviveCost = o.reviveCost;
+    resourceCostType = o.resourceCostType;
+    resourceCost = o.resourceCost;
+    itemCostId = o.itemCostId;
+    itemCost = o.itemCost;
+    hp = o.hp;
+    hpRate = o.hpRate;
+    attackMelee = o.attackMelee;
+    attackRanged = o.attackRanged;
+    critChance = o.critChance;
+    initiative = o.initiative;
+    attackMagic = o.attackMagic;
+    defenseMelee = o.defenseMelee;
+    defenseRanged = o.defenseRanged;
+    defenseMagic = o.defenseMagic;
+    level = o.level;
+    restoreTime = o.restoreTime;
+    corpseDropId = o.corpseDropId;
+    corpseDropCount = o.corpseDropCount;
+    female = o.female;
+    soundCharType = o.soundCharType;
+    xp = o.xp;
+    clas = o.clas;
+    finalClass = o.finalClass;
+    monsterType = o.monsterType;
+    vType = o.vType;
+    offX = o.offX;
+    offY = o.offY;
+    boffX = o.boffX;
+    boffY = o.boffY;
+    slots = o.slots;
+    iconY = o.iconY;
+    frames = o.frames;
+    speed = o.speed;
+    offSpeed = o.offSpeed;
+    itemsDrop = o.itemsDrop;
+    for (int i = 0; i < 3; ++i) starItems[i] = o.starItems[i];
+    bossMinionsLevels = o.bossMinionsLevels;
+    bossMinions = o.bossMinions;
+    side0 = o.side0;
+    anims = o.anims;
+    unlockQuest = o.unlockQuest;
+    trainingObjType = o.trainingObjType;
+    trainingObjCount = o.trainingObjCount;
+    criticalFx = o.criticalFx;
+    spellFx = o.spellFx;
+    particlePoints = o.particlePoints;
+    reputationId = o.reputationId;
+    reputationLevel = o.reputationLevel;
+    successRate = o.successRate;
+    successModifier = o.successModifier;
+    ownTitle = o.ownTitle;
+    if (o.title == o.ownTitle.c_str()) title = ownTitle.c_str();
+    return *this;
+}
+
+EntityData* EntityData::PartialClone() const {
+    EntityData* c = new EntityData();
+    *c = *this;
+    c->particlePoints = nullptr;
+    c->bossMinionsLevels = nullptr;
+    c->bossMinions = nullptr;
+    for (MetaData*& m : c->starItems) m = nullptr;
+    c->sharesItemsDrop = true;
+    return c;
 }
 
 void EntityData::Clean() {

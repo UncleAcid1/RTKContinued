@@ -13,6 +13,11 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Locations.h"
+#include "game/Map.h"
+#include "game/MetaData.h"
+#include "game/PvP.h"
+#include "game/SpawnPoint.h"
 #include "game/Setting.h"
 #include "game/Squad.h"
 #include "gui/GUI.h"
@@ -125,7 +130,7 @@ void BaseCombat::Pause(Entity* e) {
     if (e) EndTurn();
 }
 
-void BaseCombat::Continue() {
+void BaseCombat::Continue(int) {
     paused = false;
     if (GameState::secondTutorial != 0x91) return;
     if (BuildingHovers::GetArrowClickCallbackID() != arrowCallback) return;
@@ -321,7 +326,46 @@ void BaseCombat::EnemyTurn() {
 // AIPlayer::ClickedEntity).
 void BaseCombat::SwitchToBossFight() {}
 void BaseCombat::SwitchToArenaFight() {}
-void BaseCombat::SwitchToPvPArenaFight(int) {}
+// @0x10ff38: the PvP arena fight on map `map` (loaded next frame): where the player came from and
+// stood, the arena's positions from the map's "bat" list, the opponent's warriors and hero.
+void BaseCombat::SwitchToPvPArenaFight(int map) {
+    Map::EnqueueLoadMap(map, false, true, 0.f);
+    GameState::mReturnMapID = (uint32_t)GameState::GetCurrentMapID();
+    if (Locations::LocationInfo* l = Locations::GetLocationWithMap((uint32_t)GameState::GetCurrentMapID()))
+        if (l->mission && GameState::GetMapStartTime(l->startMap) == 0 && GameState::GetMapEndTime(l->startMap) != 0)
+            GameState::mReturnMapID = 0;
+    int spawn = 0;
+    if (enemySquad && enemySquad->GetOwner() && enemySquad->GetOwner()->GetSpawnPoint())
+        spawn = (int)enemySquad->GetOwner()->GetSpawnPoint()->id;
+    GameState::mBossWaves.clear();
+    GameState::mBossSpawnID = spawn;
+    GameState::mBossWavesHP.clear();
+    GameState::mLastBossXY[0] = GameState::mLastBossXY[1] = 0;
+    GameState::mLastBossPlayerXY[0] = wp14->x;
+    GameState::mLastBossPlayerXY[1] = wp14->y;
+    const int dir = playerSquad->GetOwner()->GetDirection();
+    GameState::mCurrentBossCombatType = 5;
+    static const int kDefaults[12] = {3, 0x16, 5, 0x11, 0xb, 6, 8, 0xb, 0, 0, 6, 3};
+    for (int i = 0; i < 12; ++i) GameState::mBossMapPositions[i] = kDefaults[i];
+    GameState::mLastPlayerDir = dir;
+    if (const MetaData* bat = Locations::GetMapBat((uint32_t)map))
+        for (unsigned i = 0; i < bat->GetChildrenCount(); ++i) {
+            const MetaData* pair = bat->GetChild(i);
+            GameState::mBossMapPositions[i * 2] = pair->GetChild(0)->GetInt();
+            GameState::mBossMapPositions[i * 2 + 1] = pair->GetChild(1)->GetInt();
+        }
+    GameState::mCurrentBossCombatType = 6;
+    if (PvP::PlayerInfo* info = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff))
+        for (const PvP::PlayerInfo::WarriorInfo& w : info->warriors) {
+            if (w.id == 0) continue;
+            GameState::mBossWaves.push_back(w.id);
+            GameState::mBossWavesHP.push_back(w.hp);
+        }
+    GameState::mBossWaves.push_back(enemySquad->GetOwner()->GetEntityData()->id);
+    GameState::mBossWavesHP.push_back(0);
+    EndCombat();
+    SwitchState(0x11);
+}
 
 void BaseCombat::CheckSpellCast() {
     Pair* p = GetPlayerPair();

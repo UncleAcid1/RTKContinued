@@ -55,7 +55,9 @@ dead  ^(Entity::(GetIdleWidth|GetAnimOffsets|UpdateAnimation|ContainsPrecise|Pre
 dead  ^(Game::(showBackground|hideBackground|showKoreanLogo)|OnRestartGame|OnSystemErrorOK|OnSystemErrorCancel|TextStyleManager::CreateGradient|PopupSelectionWindow::(CallbackOk|CallbackCancel)|FactoryHoverWindow::ContractIsActive|BuildingMovement::UpdateImages)$   # no caller in 5.11
 dead  ^GameState::(GetGoldSpent|SetGoldEarned|SetCrystalsEarned|GetTutorialStepName|RemoveAllEntitiesByID|RemoveEntity|GetGamePauseState|GetGoblinCountInTown|RemoveOrder|GetBuildingLimitExtend|ExtendBuildingLimit|RemoveBuilding|AddBulding)$   # no caller in 5.11 (the building counts are read by GetBuildingCount only)
 online  ^GameState::(GetCrystalsSpent|GetCrystalsEarned|CleanBeforeLoading)$   # SendPlayerData; friends' city visits
-4h    ^(GameState::(SetTutorialType|RemoveWorkersFromOrders)|BottomFarmWindow::GetPlantButton|ReloadSavedGame)$   # TutorialWindow; ReloadSavedGame / GameReset
+4h    ^(GameState::SetTutorialType|BottomFarmWindow::GetPlantButton)$   # TutorialWindow
+7    ^(GameState::RemoveWorkersFromOrders|ReloadSavedGame|HUDWindow::GameReset)$   # the restart and the profiles: SettingsWindow::OnRestartConfirm, PlayerProfileManager (7); otherwise only online callbacks, CleanBeforeLoading / GoHomeFromFriend (online) and the console (5) (moved from 4h on 2026-10-14)
+5    ^HUDWindow::GameReload$   # HireTroopsWindow::OnUpgrade (moved from 4h on 2026-10-14)
 4e    ^(Map::Building::RemoveHoldOfEntities|Map::FUN_(00130b58|00130b70)|Entity::SetEndWorkTS)$   # Map::RemoveHoldOfEntities, Decor::GetActionPoint, Decor::WorkStarted
 4c    ^Entity::PrepareForSetup$   # EntityManager::ExecuteStaticMeta
 5     ^(Map::Building::ChangeState|Entity::SetCustomUnderlay)$   # towers shooting (DoAttack, OnCoolDown); the PvP spawn meta
@@ -102,15 +104,17 @@ online  ^GameState::GetBIS$   # only PvP::GetBISItems
 # ---- moved out of 4g while porting it (2026-10-13) ----
 5  ^AIWarrior::(StartedMagicAttackArea|FindEpicenterPos|StartedMagicAttack|MagicDeath|MagicBlock|MagicHit|MagicAttackAreaFinished|MagicAttack|MagicAttackArea)$   # the fighters' side of spells (with Spells / AISpell)
 5  ^AIPlayer::PlayBuffAnimation$   # a buff's particles and cast animation (spells, potions' effects)
-5  ^BaseCombat::(SwitchToBossFight|SwitchToArenaFight|SwitchToPvPArenaFight)$   # hand the fight to BossCombat / ArenaCombat / PvPArenaCombat
+5  ^BaseCombat::(SwitchToBossFight|SwitchToArenaFight)$   # hand the fight to BossCombat / ArenaCombat (SwitchToPvPArenaFight: 4h, the tutorial's ambush)
 5  ^TaskInfoWindow::(SkipBossTask|OnFight)$   # the boss form of the quest window
-5  ^PlayerBattleInOutWindow::   # the PvP arena's versus intro / outro (Map::Load for an opponent's map, Entity::OnDeath in a PvP fight, FoundItemsWindow's arena branches)
+implicit ^PlayerBattleInOutWindow::(WinnerHolder::~WinnerHolder|FlagWindow::~FlagWindow|_INIT_105)$   # empty destructors and the static FunctionalWindow (Queue())
+implicit ^BottomBattleWindow::(ButtonFuryLarge::~ButtonFuryLarge|FUN_00257344)$   # empty destructor; FUN_00257344 wraps a function in a GUI::Callback
 util  ^ProjectileData::FUN_   # the Splitter's allocator and string copy for "anims"
 dead  ^AI::GetangleBetweenWPs$   # no caller in 5.11
 dead  ^HealthbarHoverWindow::   # hover type 0xd: BuildingHovers::Update never asks for it (only HoverInfo::SetHoverType's factory names it)
 5  ^PlayerWeakWindow::   # "you are too weak" advice after repeated deaths: every button opens a milestone-5 window (HireTroopsWindow, ItemShopWindow, ChestsWindow's starter / crystal chests). ASK THE USER FIRST: it advertises the chests (freemium rule)
 5  ^Shared::WarriorSlotInfo::   # PlayerWeakWindow, HireTroopsWindow, ChestsWindow
 5  ^Shared::(EndscreenProgressBar|ProgressBarLarge)::   # the boss / PvP end screens; CraftItemWindow, LevelInfoWindow
+implicit ^Shared::PlayerHolder::~PlayerHolder$   # the plain struct's destructor
 4h  ^Shared::PlayerHolder::   # the hero's figure with its equipment: SelectHQWindow (4h) is its first user that matters; HealSquadWindow shows the plain figure until then
 5  ^BeltBarWindow::(OnCraftPanelMove|OnMovingCraftPanel|OnCrafting|ShowProfessionPoint|OnInventory|OnShowInventory|ShowInventory|OnEmptySlot)$   # the belt's Crafting button and bar (crafting, professions) and its inventory button (CharacterInfoWindow)
 5  ^BeltBarWindow::(RunRageAnimation|GetAdjustedBuffZoneLocation|RaiseWindow|OnAddMoreSlot)$   # the fury flash (spells), the buff row's place, the raised belt for the character window, the shop link
@@ -265,9 +269,12 @@ dead  ^CallbackAssignWorker::   # never constructed in 5.11 (no call of its cons
 implicit  ^GlobalMapWindow::FUN_(002bdd9c|002bddd4|002bde08|002be1c4)   # the location arrays' and the arrow vector's static destructors
 4h  ^(GlobalMapWindow|BossIntroWindow)::   # the world map and its ambush banner: the tutorial's way home (user, 2026-10-14); their milestone-5 satellites (campaign/raid info, ChoosePath, the sultan's window, PvP travel, reputation screens) are notes in the code
 4h  ^(Shared::EndscreenProgressBar::|SetInfoWindow::GetPlayerItemOrBetter$|GameState::(ResetBossFightsOnMap|GetEventCompletionCount)$|Render::(CreateScreenTexture|IsLowPerformanceDevice)$|Timer::AddDeltaTimeCompensation$)   # what the world map and BossIntroWindow use
-4h  ^(TutorialWindow|TutorialSender|SelectHQWindow|Select_HQ|FirstCityEnterEffect)::
-4h  ^HUDWindow::(GameReload|GameReset)$
-4h  ^CmdReloadGame$
+dead  ^TutorialWindow::(StartTutorialSkip|StartGameBot|BotShouldTame|GetResource|Show)$   # the QA game bot, the tutorial skip and an unused Show: no caller, GOT or vtable entry in 5.11 (checked 2026-10-14)
+implicit ^TutorialWindow::(UpdateBot|EndTutorialSkip|EndGameBot)$   # UpdateBot is empty; the two Ends only undo the dead starters' flags (0x630925 / 0x630924), which are never set
+online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online); SelectHQWindow fetches its windows itself
+4h  ^(TutorialWindow|TutorialSender|SelectHQWindow|FirstCityEnterEffect)::
+4h  ^(ArenaTurnWindow|PlayerBattleInOutWindow)::   # the tutorial's ambush (user, 2026-10-14): the turn banner and the versus intro / outro
+4h  ^PvPArenaCombat::(PvPArenaCombat|~PvPArenaCombat|Update|SetupWave|SpawnEnemies|ArenaCompleted|OnValorReceived|PostCombat|EndCombat|WaveCleared|PlayerDied|SwitchState|GetCurrentWave|GetWaveCount)$   # the ambush's PvP fight
 
 # ---- 5: the rest of the game --------------------------------------------------------------------
 5  ^(HireTroopsWindow|RepairWindow|Spells|SpellMovement|AISpell|PlaceMagicHoverWindow|BossCombat|BossCombatWaves|BossIntroWindow|BossOutroWindow|BossTimeHoverWindow|BossIntroEffect|FastBossIntroEffect|SiegeCombat|AISiegeAttacker|StartRaidingWindow|RaidInfoWindow|RaidCompleteWindow|GlobalMapWindow|ItemShopWindow|Chests|ChestsWindow|ChestOpenedWindow|CraftingWindow|CraftItemWindow|CraftSuccessWindow|Professions|Collections|Sets|SetInfoWindow|Tavern|DailyBonusWindow|SultanArrivingWindow|ResourceHelper|ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow|BottomArenaWindow|AsyncBaseCombat|AsyncCombat|AsyncCombat_v2|PvPArenaCombat|AIPlayerBot|CombatTestBot|PvP|PresentsContainer|Notifications|EditorConsole|Editor|DebugViewer|BottomScreenshotWindow|PlayerInfoWindow|PlayerNameHoverWindow)::

@@ -620,6 +620,19 @@ void RemoveTexture(Texture* t) {
 namespace { bool g_forceLinear = false; float g_baseZoom = 1.f; }
 void SetForceLinear(bool on) { g_forceLinear = on; }
 bool GetForceLinear() { return g_forceLinear; }
+
+// @0x2017f0 Texture::SetMagnifyFilter: nearest (unless linear is forced) or linear magnification,
+// for the texture and the rest of its frame chain.
+void SetMagnifyFilter(Texture* t, bool nearest) {
+    if (g_forceLinear) nearest = false;
+    const GLint f = nearest ? GL_NEAREST : GL_LINEAR;   // Context::GetMagnifyFilter @0x1facb4
+    Texture* x = t;
+    do {
+        glBindTexture(GL_TEXTURE_2D, x->glId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, f);
+        x = x->next;
+    } while (x && x != t);
+}
 void SetBaseZoomFactor(float z) { g_baseZoom = z; }
 float GetBaseZoomFactor() { return g_baseZoom; }
 

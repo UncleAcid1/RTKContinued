@@ -71,7 +71,7 @@ void RefreshHP();                    // @0x327564
 // @0x3276c4: an item's icon flies into the portrait and the item takes effect on arrival.
 void RaiseAndMoveIntoPlayer(float z, Render::Sprite* sprite, uint32_t item);
 // The hero's own speech bubble (PlayerHintHoverWindow).
-void SetParameters(const char32_t* text, uint32_t task, bool unused, bool lockNext);   // @0x3278e0
+void SetParameters(const char32_t* text, uint32_t task, bool unused, bool noNext);   // @0x3278e0 noNext: no Next button
 bool IsPlayerDialogVisible();        // @0x327520
 void HideDialog();                   // @0x327890
 void ShowArrowAndLock();             // @0x3278cc
@@ -91,17 +91,24 @@ void OnUseSlot(unsigned slot);       // @0x24f05c the slot's potion is drunk
 void OnActivateSlot(unsigned slot);  // @0x24e944 the slot's orb goes on or off
 void HideHoverWindow();              // @0x24c63c
 }
-// UNVERIFIED (milestone 5, with the spells): the rage bar (BottomBattleWindow, Rage_bar.xml: spell
-// slots, fury buttons, the arena's stances, the taming net). Until then it never shows, nothing is
-// tamed and no net is aimed.
-// The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net part so far).
+// The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net and stance parts so far,
+// the spells with milestone 5).
 namespace BottomBattleWindow {
 WindowManager::FunctionalWindow* Queue();
 void Init();                        // @0x25d4a8
+void Deinit();                      // @0x259708
 void Show();                        // @0x25cfd8
 void Hide();                        // @0x259338
-void SetZ(float z);
-bool IsVisible();
+void SetZ(float z);                 // @0x2593e4
+bool IsVisible();                   // @0x256e98
+void SetOffset(float y);            // @0x256e7c
+void SetSelectedButton(unsigned b); // @0x256eac the stance shown: 0 attack, 1 block, 3 auto, -1 none
+bool IsInAttackStance();            // @0x2570b0
+bool IsInBlockStance();             // @0x2570cc
+void SetEnabled(bool on, bool opponentTurn, bool autoCombat);   // @0x256ec0 (only `on` is used)
+void ShowAttackButton(unsigned task, bool lock, bool arrow);    // @0x257490
+void ShowBlockButton(unsigned task, bool lock, bool arrow);     // @0x257388
+void ShowMagicButton(unsigned task, bool lock, bool arrow);     // @0x25d3bc
 void EnableNet(uint32_t spawn);     // @0x258f30 a dying monster may be tamed
 void TameNext();                    // @0x25710c
 uint32_t GetNetTargetSpawnID();     // @0x257090

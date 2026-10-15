@@ -134,6 +134,8 @@ void Show();                                // @0x2baba8
 void Hide();                                // @0x2b9804
 void OnClose();                             // @0x2b98e4 Hide, and the loot dialogs under it
 void OnShop();                              // @0x2bbf5c
+void OnShare();                             // @0x2bbfc0 Ok (the PvP arena: its outro's buttons)
+void SetZ(float z);                         // @0x2b99c4
 void SetHeader(const char32_t* text);       // @0x2b8e10
 void SetSharing(bool share);                // @0x2b8e40
 void HideOk();                              // @0x2b8e58 "tap to continue" instead of Ok
@@ -379,6 +381,43 @@ void SetBossName(const char32_t* name);     // @0x2517ac
 void SetWave(int wave, int total);          // @0x2517ec
 int GetTotalWaves();                        // @0x251804
 void SetAmbush();                           // @0x251818
+}
+
+// The arena's turn banner at the top (windows/ArenaTurnWindow.cpp).
+namespace ArenaTurnWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaTurnWindow"
+void Init();                                // @0x249958
+void Deinit();                              // @0x249918
+void Show();                                // @0x249760
+void Hide();                                // @0x2496f4
+void SetZ(float z);                         // @0x249884
+bool Click(int x, int y, bool pressed);     // @0x248d04
+bool IsVisible();                           // @0x248d48
+void UpdateContents();                      // @0x248d70
+void SetIcon(int background, Render::Texture* icon);              // @0x248d5c
+void SetNumber(int background, const char32_t* text, bool hurry);   // @0x2492f8
+void SetHeader(const char32_t* text);       // @0x249508
+void SetDescription(const char32_t* text);  // @0x24910c
+int GetHorizontalPosition();                // @0x249070
+}
+
+// The PvP arena fight's intro and outro (windows/PlayerBattleInOutWindow.cpp).
+namespace PlayerBattleInOutWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PlayerBattleInOutWindow" (FUN_002fe640)
+void Show();                                // @0x2ffdfc
+void Hide();                                // @0x2fe52c
+void SetZ(float z);                         // @0x2ff148
+bool Click(int x, int y, bool pressed);     // @0x3012f8
+bool IsVisible();                           // @0x2fe558
+float GetZ();                               // @0x2fe514
+void UpdateContents();                      // @0x2ff2bc
+void SetModeIntro();                        // @0x2fe56c
+void SetModeOutro();                        // @0x2fe584
+void SetParameters(uint32_t gid, bool won); // @0x2fe59c the opponent; won: it was beaten
+bool EnemyDefeated();                       // @0x2fe5b4
+void ScheduleRestart();                     // @0x2fe5c8
+void ScheduleReturn();                      // @0x2ffd88
+void OnContinue();                          // @0x2ffd5c
 }
 
 namespace GameState { struct PlayerItem; }
