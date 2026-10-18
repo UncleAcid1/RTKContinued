@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-18, 4h IN PROGRESS, one item left (HireTroopsWindow): search "RESUME HERE" below. 4g done (campaign combat); 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
+## Handoff (last updated 2026-10-18: MILESTONE 4 CLOSED. NEXT: milestone 5 step 5a (HireTroopsWindow 1) in the roadmap below; one step per sitting, then wait for the user. The old 4h block ("RESUME HERE") has the city-tutorial test taps. 4g done (campaign combat); 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
