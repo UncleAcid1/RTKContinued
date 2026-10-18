@@ -2,6 +2,55 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
+## START HERE (new conversation, written 2026-10-18)
+
+**State.** Milestones 1-4 are DONE (closed 2026-10-18, last commit on GitHub main). Coverage:
+3437 of 5021 portable functions ported (68%); left: milestone 5 1290, 6 118, 7 176
+(`python3 tools/inventory.py --steps`). The game starts a new game, plays the opening tutorial,
+the world map and the ambush, and the city tutorial up to step 0x61 ("train your first warrior",
+which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
+map-switch sepia was upside down), fixed in e69dc64.
+
+**Next.** Milestone 5, step 5a (the roadmap near the end of this file: "5. [ ] The rest of the game").
+WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
+push only when the user asks, a 2-3 line plain-language update, then WAIT for the user. Split a
+step that grows and say so. Steps marked DECIDED carry the user's answers; ask before anything
+freemium/online that is not decided.
+Two optional quick preparations the user was offered (not done yet): retry Ghidra on functions that
+decompiled to almost nothing (e.g. HireTroopsWindow::UpdateContents 0x2d05e4, 30 KB) with higher
+decompiler limits (tools/ghidra_headless.sh, tools/ghidra_scripts); a test-only "save a snapshot
+now" option (the game refuses to save during the tutorial, so late-tutorial tests replay it all).
+
+**Standing rules.** 100% faithful port: every function gets `// @0xADDR` (Ghidra address = nm
+address + 0x10000); guesses marked UNVERIFIED (milestone N) or PORT; clean code matching the
+surroundings; offline-first, online features dormant; no real money (memory/decisions below);
+confirm before downloads, installs or anything outward-facing; never share the user's email;
+commits end with the Co-Authored-By line; push only when asked.
+TEST RUNS: always `--storage <scratch dir>` and `--screenshot <file>`; there is no `--help` (an
+unknown flag loads and re-saves the REAL save in ~/Library/Application Support/Rule the Kingdom).
+
+**Tools (all in tools/, see each file's docstring).**
+- Reading the original: `out/decomp.c` (Ghidra C, one "// ==== ADDR Name" block per function) and
+  `out/asm_all.txt` (asm), both local and regenerable (out/ is git-ignored; README "Regenerate").
+  `tools/fnres.py Class::Func` (one function, PIC globals resolved), `tools/asmfn.py 0xADDR` (its
+  asm), `tools/dat.py 0xADDR...` (constants), `tools/elfread.py` (u32/cstr at Ghidra addresses),
+  `tools/picsym.py | tools/picvar.py` (named globals), `tools/vtable.py`, `nm -D -C` on
+  "../Android files/rule-the-kingdom-5-11-multi-android/.../libkingdom.so".
+  Ghidra often mixes floats/ints (softfp) and drops values: check doubtful parts in the asm.
+- Planning: `tools/inventory.py` (--functions STEP, --unplanned, --steps, --holes) with the rules in
+  `tools/port_plan.txt` (first match wins). Both `--functions <step>` and `--unplanned` must be empty
+  to close a step.
+- Test loop: `python3 tools/test_hook.py on tools/test_hook.txt` (puts a temporary hook in
+  src/main.cpp; turn it OFF before every commit), then `tools/testrun.sh SCRATCH BASE NAME FRAMES
+  CLICKS` with env SL (sleep frames: jobs/hovers/speed-ups run on wall-clock seconds) and CO
+  (collect-a-drop frames). Tap lists that reach each tutorial point: `tools/test_inputs.txt`.
+  The hook prints "[t] f=<frame> tut=<step>/<secondTutorial> ..." every 20 frames.
+- Run the game for the user: `./build/rtk --root .. --storage ~/rtk-test` (from port/).
+
+**History.** Everything below is the per-step log (newest milestone entries further down; the 4h
+block "RESUME HERE" has the details of the last steps). The roadmap with milestone 5's steps is
+at the end, before "Open questions".
+
 ## Handoff (last updated 2026-10-18: MILESTONE 4 CLOSED. NEXT: milestone 5 step 5a (HireTroopsWindow 1) in the roadmap below; one step per sitting, then wait for the user. The old 4h block ("RESUME HERE") has the city-tutorial test taps. 4g done (campaign combat); 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
