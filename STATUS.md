@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5b-2 (5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5b-3 (5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 (done: the tavern data and tools) .. 5b-3, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1650,7 +1650,17 @@ Milestones:
                    locked. button_build_upgrade and button_tavern_hang still show their layout state
                    over the Train button (5b-2). Debugging tip: dump a card's visible windows
                    recursively (name, x, y, w, h) to tell overlapping buttons apart.
-              5b-2 [ ] the cards' other states (upgrade, timers, task and building locks, goblins).
+              5b-2 [x] (2026-10-18) the rest of each card (0x2d1878..0x2d2b38): requirement line
+                   visibility, the refresh button (TAVERN_REFRESH, GetResetCost @0x2ce2e0, enabled
+                   after tutorial 0x7f) and the timer (TAVERN_AVAILABLE_IN / the tamer's "%d/%d"),
+                   the requirement text (building / level / task locks, SPAWN_GOB lines, STASK names
+                   for quick tasks), "%s_DESC" / PROMO_TAMER, the hired goblin's line, the build
+                   button (task: TASK_BUTTON_EXEC / PERFORM_FIND; next level: PERFORM_UPGRADE;
+                   further: PERFORM_PREVIOUS_UPGRADE) with g_buildTask[n] (0x622928), the sale label.
+                   VERIFIED at step 0x61: Soldier's Train clear; Fighter "Complete quest 'Battle
+                   Preparations'" + Complete (disabled); Berserk's description + Hire 25 crystals.
+                   Note: asm_all.txt's string comments are wrong for some literal pools near page
+                   ends; check with elfread (u32(pool) + pc + 8, cstr) or trust the decompile.
               5b-3 [ ] the squad and reserve slots.
        5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,
               OnUpgrade(+Continuation), OnBuild, the hints (OnHintGold / Move / Dismiss), ShowSlot,

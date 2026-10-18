@@ -248,7 +248,7 @@ struct ReserveEntry { Entity* soldier; uint32_t entity; };
 std::vector<ReserveEntry> g_reserveList;
 std::vector<Tavern::TavernInfo*> g_offers;   // 0x622918 the tab's warriors, by slot (UpdateContents)
 ItemHoverWindow* g_hover = nullptr;      // 0x622924
-int g_unk622928[4] = {};                 // 0x622928..0x622934 (zeroed by Init)
+int g_buildTask[4] = {};                 // 0x622928 per card: the task its build button goes to (0: none)
 Shared::WarriorSlotInfo* g_slots[8];     // 0x622938 the squad's three, then the reserve's five
 Shared::TabHolder g_tabs[6];             // 0x622958 tab_01..06
 Textfield* g_title = nullptr;            // 0x622a30 text_title
@@ -519,8 +519,8 @@ void ShowArrow() { g_arrowSlot = 1; }
 
 // @0x2dae58
 void Init() {
-    g_unk622928[3] = 0;
-    g_unk622928[0] = g_unk622928[1] = g_unk622928[2] = 0;
+    g_buildTask[3] = 0;
+    g_buildTask[0] = g_buildTask[1] = g_buildTask[2] = 0;
     g_tablet = GUI::IsTabletVersion();
     g_root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Window_tavern.xml", "Window_tavern.png", -1.f, 0, 0,
                              0x24, 0x23, false, 1.f);
@@ -759,6 +759,26 @@ int GetAdjustedResourceCost(uint32_t item, int cost) {
     return cost;
 }
 
+// @0x2ce2e0: the crystals a new offer costs on tab `tab` (the refresh button).
+int GetResetCost(unsigned tab) {
+    if (tab == 1) return Setting("tavern_reset_war").GetInt();
+    if (tab == 2) return Setting("tavern_reset_arch").GetInt();
+    if (tab == 3) return Setting("tavern_reset_mage").GetInt();
+    return Setting("tavern_reset").GetInt();
+}
+
+// The task that unlocks a building's level `level` (0: none).
+// PORT: a level past the building's list counts as none (the original reads past it).
+uint32_t UpgradeQuest(const GameData::BuildingData* b, unsigned level) {
+    if (!b || level == 0 || level - 1 >= b->upgrades.size()) return 0;
+    return (uint32_t)b->upgrades[level - 1].quest;
+}
+
+// The requirement text is built in one 0x100-character buffer, each line appended.
+void Append(std::u32string& text, const char32_t* format, std::initializer_list<StringArgument> args = {}) {
+    text += SWPrintf(0x100 - (unsigned)text.size(), format, args);
+}
+
 // One cost line of a card: the icon, "n" in plain and red, and the owned / missing marks.
 void ShowCost(CostInfo& c, int need, int have) {
     c.quantity->SetText(ToWideString(need));
@@ -990,10 +1010,170 @@ void UpdateContents() {
         slot.soldierFine->SetVisibility(true);
         slot.lowerPart->SetVisibility(false);
         slot.hpIcon->SetVisibility(false);
-        // UNVERIFIED (milestone 5b-2): the rest of the card (0x2d1878..0x2d2b38): the requirement
-        // line, the timer, the tamer's task, the refresh and build buttons, the sale label.
-        (void)tamerTask;
-        (void)remaining;
+        // The requirement line; the refresh button and the timer while the offer is not ready (the
+        // tamer's task shows its counter there instead).
+        if (hasBuilding && !trainable)
+            card.requires->SetVisibility(!tamerTask);
+        else if (canTrain)
+            card.requires->SetVisibility(false);
+        else
+            card.requires->SetVisibility(ready && !tamerTask);
+        g_buildTask[n] = 0;
+        card.hang->SetVisibility(!ready && !upgrading && trainable && hasBuilding);
+        card.timeout->SetVisibility(ready ? tamerTask : (trainable && hasBuilding) || tamerTask);
+        card.timeoutIcon->SetTexture(tamerTask ? IconManager::GetIcon("ui_prof_tamer_60", false)
+                                               : IconManager::GetSandClockIcon(),
+                                     false);
+        card.hangIcon->SetTexture(IconManager::GetIcon("gold_speedup", false), true);
+        card.hangText->SetText(StringTable::GetString("TAVERN_REFRESH"));
+        card.hangText->SetEnabled(GameState::tutorial > 0x7f);
+        card.hangPrice->SetText(ToWideString(GameState::AdjustCrystalCost(GetResetCost(g_tab))));
+        if (!ready) {
+            card.nextIn->SetText(StringTable::GetString("TAVERN_AVAILABLE_IN"));
+            card.nextTime->SetText(StringTable::GetNumericTimeString(remaining, false).c_str());
+        } else if (tamerTask) {
+            card.nextIn->SetText(StringTable::GetString("FACTORY_UNLOCK_TO_ORDER"));
+            card.nextTime->SetText(SWPrintf(0x100, U"%d/%d",
+                                            {GameState::GetSubTaskDone(unlockTask->subtasks[0].id),
+                                             unlockTask->subtasks[0].amount})
+                                       .c_str());
+        }
+        card.build->SetVisibility(false);
+        // What is missing: the building (or its level, or the task that unlocks that level), the
+        // player's level, the unit's task (or the first locked one in its chain).
+        std::u32string text;
+        const unsigned required = (unsigned)d->trainingObjCount;
+        if (building && (!hasBuilding || buildingLevel < required)) {
+            Append(text, StringTable::GetString("HIRE_TROOPS_BUILDING_LOCK"),
+                   {StringTable::GetString(building->name.c_str())});
+            if (buildingLevel < required) Append(text, U" [%d]", {(int)required + 1});
+            Append(text, U"\n");
+        }
+        if (buildingLevel < required) {
+            const uint32_t quest = UpgradeQuest(building, required);
+            if (quest == 0 || GameState::TaskCompleted(quest)) {
+                Append(text, StringTable::GetString("HOUSE_INFO_LEVEL"), {ToWideString((int)required + 1)});
+                Append(text, U"\n");
+            } else if (Tasks::TaskInfo* t = Tasks::GetTask(quest)) {
+                Append(text, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name});
+            } else {
+                Append(text, StringTable::GetString("UPGRADE_LOCKED"));
+            }
+        }
+        if (offer->unk2c > (unsigned)GameState::GetLevel()) {
+            if (g_tab == 5) {
+                Append(text, StringTable::GetString("SPAWN_GOB_HINT"));
+                Append(text, U"\n");
+            }
+            Append(text, StringTable::GetString("SPAWN_GOB_NEED_LEVEL"), {ToWideString((int)offer->unk2c)});
+            Append(text, U"\n");
+        }
+        uint32_t quest = d->unlockQuest;
+        if (Tasks::TaskInfo* t = Tasks::GetTask(quest))
+            if (t->IsLockedByTask()) quest = t->GetFirstLockedTaskInChain(true);
+        if (quest != 0 && !GameState::TaskCompleted(quest)) {
+            if (Tasks::TaskInfo* t = Tasks::GetTask(quest)) {
+                // A quick task is named by its first step.
+                if (t->quickTask) {
+                    const std::u32string step =
+                        StringTable::GetUndecoratedString(StringTable::GetStringF("STASK%d", t->subtasks[0].id), 0x100);
+                    Append(text, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {step.c_str()});
+                } else {
+                    Append(text, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name});
+                }
+            } else {
+                Append(text, StringTable::GetString("UPGRADE_LOCKED"));
+            }
+        }
+        // A ready offer that cannot be trained yet describes itself (the tamer's tab: an advert).
+        bool showRequires = false;
+        if (!hasBuilding || !trainable) {
+            card.requires->SetText(text.c_str());
+            showRequires = true;
+        } else if (!canTrain && ready && !tamerTask) {
+            if (g_tab == 4) {
+                card.requires->SetText(StringTable::GetString("PROMO_TAMER"));
+                showRequires = true;
+            } else {
+                card.requires->SetText(StringTable::GetStringF("%s_DESC", d->name.c_str()));
+                showRequires = g_tab != 5 || goblinOwned;
+            }
+        } else {
+            showRequires = true;
+        }
+        if (showRequires) {
+            // A hired goblin says so in the upgrade line.
+            if (goblinOwned) {
+                card.upgrading.root->SetVisibility(true);
+                card.upgrading.icon->SetTexture(IconManager::GetIcon("gold_confirm", false), true);
+                card.upgrading.text->SetText(SWPrintf(0x100, StringTable::GetString("SOLDIERS_HIRED"),
+                                                      {StringTable::GetString("STORAGE_GOBLINS_STATIC")})
+                                                 .c_str());
+            }
+            if (!hasBuilding) {
+                card.requires->SetVisibility(true);
+            } else if (!trainable) {
+                // The build button: the unit's task (find it on the tamer's tab), the building's
+                // next level, or (two or more levels short) the level before that first.
+                if (quest != 0 && !GameState::TaskCompleted(quest)) {
+                    card.build->SetVisibility(!upgrading);
+                    card.buildText->SetVisibility(true);
+                    if (tamerTask && d->unlockQuest == quest) {
+                        card.buildIcon->SetTexture(IconManager::GetIcon("gold_find", false), true);
+                        card.buildText->SetText(StringTable::GetString("PERFORM_FIND"));
+                    } else {
+                        card.buildIcon->SetTexture(IconManager::GetIcon("gold_flag", false), true);
+                        card.buildText->SetText(StringTable::GetString("TASK_BUTTON_EXEC"));
+                    }
+                    card.buildTextInactive->SetVisibility(false);
+                    g_buildTask[n] = 0;
+                    Tasks::TaskInfo* current[0x80] = {};
+                    const unsigned count = Tasks::GetCurrentTasks(current, 0x80, false, true);
+                    bool found = false;
+                    for (unsigned i = 0; i < count && !found; ++i) found = current[i]->id == quest;
+                    const bool done440 = GameState::TaskCompleted(0x440);
+                    card.build->SetEnabled((found || d->id == 0x195) && !GameState::IsArenaCombatActive() && done440 &&
+                                           !GameState::IsBossCombatActive());
+                    if (Tasks::GetTask(quest)) g_buildTask[n] = quest;
+                } else if (buildingLevel < required) {
+                    if (required - buildingLevel == 1) {
+                        card.build->SetVisibility(!upgrading);
+                        card.buildIcon->SetTexture(IconManager::GetIcon("gold_job_builder", false), true);
+                        card.buildText->SetVisibility(true);
+                        card.buildText->SetText(StringTable::GetString("PERFORM_UPGRADE"));
+                        card.buildTextInactive->SetVisibility(false);
+                        const uint32_t level = UpgradeQuest(building, required);
+                        g_buildTask[n] = 0;
+                        Tasks::TaskInfo* current[0x80] = {};
+                        const unsigned count = Tasks::GetCurrentTasks(current, 0x80, true, true);
+                        bool found = false;
+                        for (unsigned i = 0; i < count && !found; ++i) found = current[i]->id == level;
+                        if (!GameState::TaskCompleted(level)) {
+                            card.build->SetEnabled(found && !GameState::IsArenaCombatActive());
+                            if (Tasks::TaskInfo* t = Tasks::GetTask(level)) g_buildTask[n] = t->id;
+                        } else {
+                            card.build->SetEnabled(!GameState::IsArenaCombatActive());
+                            g_buildTask[n] = 0;
+                        }
+                    } else {
+                        card.upgrading.root->SetVisibility(true);
+                        card.upgrading.icon->SetTexture(IconManager::GetIcon("gold_build", false), true);
+                        card.upgrading.text->SetText(StringTable::GetString("PERFORM_PREVIOUS_UPGRADE"));
+                    }
+                }
+            }
+        }
+        // The sale label (none offline: GetDiscountSize is always 100).
+        for (Shared::DiscountInfo& di : slot.discount) di.root->SetVisibility(false);
+        const int discount = d->GetDiscountSize();
+        const int colour = discount < 50 ? 2 : discount < 75 ? 0 : discount <= 99 ? 1 : -1;
+        if (colour < 0) {
+            slot.golden->SetVisibility(false);
+        } else {
+            slot.golden->SetVisibility(true);
+            slot.discount[colour].root->SetVisibility(true);
+            slot.discount[colour].text->SetText(SWPrintf(0x80, U"-%d%%", {100 - d->GetDiscountSize()}).c_str());
+        }
     }
     // Fewer than three offers: the cards are centred in the strip.
     if (g_offers.size() < 3) {
