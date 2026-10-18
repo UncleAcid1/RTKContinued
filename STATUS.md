@@ -11,8 +11,8 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5b-3 (5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
-split in 5b-0 (done: the tavern data and tools) .. 5b-3, see the roadmap near the end of this file:
+**Next.** Milestone 5, step 5c (5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
 push only when the user asks, a 2-3 line plain-language update, then WAIT for the user. Split a
@@ -1661,7 +1661,13 @@ Milestones:
                    Preparations'" + Complete (disabled); Berserk's description + Hire 25 crystals.
                    Note: asm_all.txt's string comments are wrong for some literal pools near page
                    ends; check with elfread (u32(pool) + pc + 8, cstr) or trust the decompile.
-              5b-3 [ ] the squad and reserve slots.
+              5b-3 [x] (2026-10-18) the squad and reserve slots (0x2d2b70..end): squad soldiers with
+                   clamped HP bars, empty / locked helmets; reserve soldiers (HP bar, or the
+                   5-second training bar from the building's stateTime with WARRIOR_TRAINING_SMALL),
+                   queued ones (HIRE_TROOPS_IN_QUEUE, faded), Empty, the unlock slot (gold_add,
+                   HIRE_TROOPS_UNLOCK; not at tutorial 0x61/0x62), Locked; SLOTS_TAKEN n/m.
+                   VERIFIED with the full layout forced at step 0x61 (temporary edit, reverted):
+                   Squad 2 open + 1 locked, Reserve 2 Empty + 3 Locked, Slots Taken 0/2.
        5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,
               OnUpgrade(+Continuation), OnBuild, the hints (OnHintGold / Move / Dismiss), ShowSlot,
               ExecuteFirstHelp, Update, OnTweenIn/Out; GameState::AddSoldiersToSquad, HUDWindow::GameReload.

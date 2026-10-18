@@ -1186,7 +1186,182 @@ void UpdateContents() {
     }
     g_scroller.itemCount = (unsigned)g_offers.size();
     g_scroller.UpdateScroll();
-    // UNVERIFIED (milestone 5b-3): the squad and reserve slots (0x2d2bb4..0x2d7ae8).
+    // The squad: a soldier with its health bar; an empty slot shows a faded helmet (locked past the
+    // player's slot count).
+    g_squadHeader->SetText(StringTable::GetString("HIRE_TROOPS_SQUAD"));
+    for (unsigned i = 0; i < 3; ++i) {
+        Shared::WarriorSlotInfo& s = g_squad[i];
+        s.bgRed->SetVisibility(false);
+        s.lowerPart->SetVisibility(false);
+        s.hpBar->SetVisibility(false);
+        s.trainingBar->SetVisibility(false);
+        s.manageSlot->SetVisibility(false);
+        s.locked->SetVisibility(false);
+        s.quantityActive->SetVisibility(false);
+        Entity* soldier = SoldierSlots::GetSoldierBySlot(i);
+        s.soldier = soldier ? soldier->GetEntityData()->id : 0;
+        s.noDrop = GameState::GetSoldierSlotCount() <= i;
+        if (s.soldier == 0) {
+            s.wingsEmpty->SetVisibility(true);
+            s.wingsEmpty->SetEnabled(i < GameState::GetSoldierSlotCount());
+            s.wingsEmpty->SetAlpha(0.5f, false);
+            s.soldierFine->SetVisibility(true);
+            s.soldierFine->SetTexture(IconManager::GetIcon("icon_gold_helmet", false), true);
+            s.lockIcon->SetVisibility(GameState::GetSoldierSlotCount() <= i);
+            continue;
+        }
+        s.lowerPart->SetVisibility(true);
+        s.wingsEmpty->SetVisibility(false);
+        // Hidden while it is dragged or gliding back.
+        s.soldierFine->SetVisibility(!s.returnSprite && !s.dragSprite);
+        s.soldierFine->SetTexture(soldier->GetEntityData()->side0, false);
+        s.soldierFine->SetEnabled(true);
+        s.lockIcon->SetVisibility(false);
+        s.hpBar->SetVisibility(true);
+        const int hp = soldier->GetHP() > 0 ? soldier->GetHP() : 0;
+        const float ratio = (float)hp / (float)soldier->GetHpMax();
+        const float fill = ratio >= 1.f ? 1.f : ratio < 0.f ? 0.f : ratio;
+        const std::u32string text = SWPrintf(0x100, U"%d/%d", {hp, soldier->GetHpMax()});
+        s.hpText2->SetText(text.c_str());
+        s.hpText->SetText(text.c_str());
+        s.hpIcon->SetEnabled(soldier->GetHP() != 0);
+        s.hpClip.right = (int)((float)s.hpClip.left + fill * (float)s.hpBar->w);
+    }
+    // The reserve: the soldiers waiting (one being trained shows its 5-second bar; one still in the
+    // queue only its picture), then empty slots, the slot to buy (not during tutorial steps 0x61 /
+    // 0x62) and the locked ones.
+    g_reserveHeader->SetText(StringTable::GetString("HIRE_TROOPS_RESERVE"));
+    const unsigned reserveSlots = GameState::GetSoldierReserveSlots();
+    g_hired->SetVisibility(g_reserveList.size() < GameState::GetSoldierReserveSlots());
+    g_hiredFull->SetVisibility(GameState::GetSoldierReserveSlots() == g_reserveList.size());
+    g_hired->SetText(StringTable::GetString("HIRE_TROOPS_SLOTS_TAKEN"));
+    g_hiredFull->SetText(StringTable::GetString("HIRE_TROOPS_SLOTS_TAKEN"));
+    const std::u32string taken = SWPrintf(0x100, U"%d/%d", {(unsigned)g_reserveList.size(), reserveSlots});
+    g_hiredNum->SetVisibility(g_reserveList.size() < GameState::GetSoldierReserveSlots());
+    g_hiredFullNum->SetVisibility(GameState::GetSoldierReserveSlots() == g_reserveList.size());
+    g_hiredNum->SetText(taken.c_str());
+    g_hiredFullNum->SetText(taken.c_str());
+    static const char* const kTrainingIcons[3] = {"gold_16_attack", "gold_16_attack", "gold_16_ranged_attack"};  // 0x601728
+    for (unsigned i = 0; i < 5; ++i) {
+        Shared::WarriorSlotInfo& s = g_reserve[i];
+        Entity* soldier = nullptr;
+        if (i < g_reserveList.size()) {
+            soldier = g_reserveList[i].soldier;
+            s.soldier = g_reserveList[i].entity;
+        } else {
+            s.soldier = 0;
+        }
+        s.noDrop = GameState::GetSoldierReserveSlots() <= i;
+        if (soldier) {
+            const EntityData* d = soldier->GetEntityData();
+            // (A scan of the squad's slots follows here; its result is not used.)
+            const int type = d->trainingObjType == 0x8e ? 1 : d->trainingObjType == 0x69 ? 2 : 0;
+            const bool training = soldier->workType == 1;
+            s.golden->SetVisibility(false);
+            s.soldierFine->SetTexture(d->side0, false);
+            s.soldierFine->SetAlpha(1.f, false);
+            s.soldierFine->SetVisibility(!s.returnSprite && !s.dragSprite);
+            s.lockIcon->SetVisibility(false);
+            s.hpBar->SetVisibility(!training);
+            s.trainingBar->SetVisibility(training);
+            s.timeLeft->SetVisibility(training);
+            if (!training) {
+                s.hpIcon->SetEnabled(soldier->GetHP() != 0);
+                const std::u32string text = SWPrintf(0x100, U"%d/%d", {soldier->GetHP(), soldier->GetHpMax()});
+                s.hpText2->SetText(text.c_str());
+                s.hpText->SetText(text.c_str());
+                s.hpClip.right = (int)((float)s.hpClip.left + (float)s.hpFill->w *
+                                                                  ((float)soldier->GetHP() / (float)soldier->GetHpMax()));
+            } else {
+                // Training takes five seconds from the building's timer.
+                s.trainingType->SetTexture(IconManager::GetIcon(kTrainingIcons[type], false), true);
+                s.wingsEmpty->SetVisibility(false);
+                const GameData::BuildingData* b = GameData::GetBuilding((uint32_t)d->trainingObjType);
+                uint32_t started = 0;
+                Map::Building* mb = GameState::GetCurrentMapID() == 0 ? Map::GetBuildingWithID(b->id) : nullptr;
+                if (mb) {
+                    started = mb->IsOpened() ? mb->stateTime : 0;
+                } else if (GameState::OfflineBuilding* o = GameState::GetOfflineBuildingWithID(b->id)) {
+                    started = o->stateTime;
+                }
+                int elapsed = (int)(Timer::GetGlobalTime() - started);
+                if (elapsed > 4) elapsed = 5;
+                s.timeLeft->SetText(StringTable::GetTimeString(5 - elapsed, false).c_str());
+                s.trainingText2->SetText(StringTable::GetString("WARRIOR_TRAINING_SMALL"));
+                s.trainingText->SetText(StringTable::GetString("WARRIOR_TRAINING_SMALL"));
+                s.trainingClip.right =
+                    (int)((float)s.trainingClip.left + (float)s.trainingFill->w * ((float)elapsed / 5.f));
+            }
+            s.lowerPart->SetVisibility(true);
+            s.locked->SetVisibility(false);
+            s.gold->SetVisibility(false);
+            s.manageSlot->SetVisibility(false);
+        } else if (s.soldier != 0) {
+            // Hired but not made yet.
+            const EntityData* d = EntityFactory::GetEntityByID((int)s.soldier);
+            s.golden->SetVisibility(false);
+            s.wingsEmpty->SetVisibility(false);
+            s.soldierFine->SetTexture(d->side0, false);
+            s.soldierFine->SetAlpha(0.5f, false);
+            s.soldierFine->SetVisibility(!s.returnSprite);
+            s.lockIcon->SetVisibility(false);
+            s.hpBar->SetVisibility(false);
+            s.trainingBar->SetVisibility(false);
+            s.timeLeft->SetVisibility(false);
+            s.lowerPart->SetVisibility(true);
+            s.locked->SetVisibility(false);
+            s.gold->SetVisibility(false);
+            s.manageSlot->SetVisibility(true);
+            s.manageSlot->SetText(StringTable::GetString("HIRE_TROOPS_IN_QUEUE"));
+        } else {
+            s.hpBar->SetVisibility(false);
+            s.trainingBar->SetVisibility(false);
+            s.timeLeft->SetVisibility(false);
+            s.locked->SetVisibility(false);
+            s.gold->SetVisibility(false);
+            s.lowerPart->SetVisibility(true);
+            const char* icon;
+            if (i < GameState::GetSoldierReserveSlots()) {
+                s.bgSimple->SetEnabled(true);
+                s.golden->SetVisibility(false);
+                s.manageSlot->SetVisibility(false);
+                s.locked->SetVisibility(true);
+                s.locked->SetText(StringTable::GetString("HIRE_TROOPS_EMPTY"));
+                s.lockIcon->SetVisibility(false);
+                s.wingsEmpty->SetVisibility(true);
+                s.wingsEmpty->SetEnabled(true);
+                s.soldierFine->SetVisibility(true);
+                icon = "icon_gold_helmet";
+            } else if (GameState::GetSoldierReserveSlots() == i && GameState::tutorial != 0x61 &&
+                       GameState::tutorial != 0x62) {
+                s.bgSimple->SetEnabled(true);
+                s.golden->SetVisibility(true);
+                s.manageSlot->SetVisibility(false);
+                s.gold->SetVisibility(true);
+                s.gold->SetText(StringTable::GetString("HIRE_TROOPS_UNLOCK"));
+                s.lockIcon->SetVisibility(false);
+                s.wingsEmpty->SetVisibility(false);
+                s.soldierFine->SetVisibility(true);
+                s.soldierFine->SetTexture(IconManager::GetIcon("gold_add", false), true);
+                s.soldierFine->SetAlpha(1.f, false);
+                continue;
+            } else {
+                s.bgSimple->SetEnabled(false);
+                s.golden->SetVisibility(false);
+                s.manageSlot->SetVisibility(false);
+                s.locked->SetVisibility(true);
+                s.locked->SetText(StringTable::GetString("BOTTOM_BAR_LOCKED"));
+                s.lockIcon->SetVisibility(true);
+                s.wingsEmpty->SetVisibility(true);
+                s.wingsEmpty->SetEnabled(false);
+                s.soldierFine->SetVisibility(true);
+                icon = "icon_gold_helmet";
+            }
+            s.soldierFine->SetTexture(IconManager::GetIcon(icon, false), true);
+            s.soldierFine->SetAlpha(1.f, false);
+        }
+    }
+    g_root->UpdatePosition();
 }
 
 }  // namespace HireTroopsWindow
