@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5b-1 (5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5b-2 (5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 (done: the tavern data and tools) .. 5b-3, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1638,8 +1638,18 @@ Milestones:
                    four cards (one loop over local_1e10 0..3, entry firstIndex + n), 3130-3860 the squad
                    (HIRE_TROOPS_SQUAD) and reserve (HIRE_TROOPS_RESERVE, SLOTS_TAKEN, IN_QUEUE,
                    WARRIOR_TRAINING_SMALL, HIRE_TROOPS_UNLOCK) slots.
-              5b-1 [ ] the header and the cards' text (name, HP, attack and its icon, costs, the
-                   train / hire / buy-now buttons' states).
+              5b-1 [x] (2026-10-18) the header (reserve list, tab modes / icons, the tab's offers
+                   sorted with StlSort, the building's name / level / upgrading) and the cards (C
+                   lines up to 0x2d1860: respawn TS / HP on first sight, levelLock / trainable /
+                   canTrain / buyCrystal / goblinOwned / tamerTask, HP and attack texts ("??" when 0),
+                   attack icon, name, the cost lines, the slot window, Train / Buy now / the two small
+                   buttons, crystal prices), the centring of fewer than 3 cards, the scroller's
+                   count; SortTavernInfoBySlot, GetAdjustedResourceCost, ButtonWarriorBuyNow::
+                   ShowPrice / ShowPriceDiscounted. VERIFIED at step 0x61 (barracks tab): Soldier
+                   8 health / 1 damage, costs 1 item, 25 gold, 25 food with check marks; Fighter
+                   locked. button_build_upgrade and button_tavern_hang still show their layout state
+                   over the Train button (5b-2). Debugging tip: dump a card's visible windows
+                   recursively (name, x, y, w, h) to tell overlapping buttons apart.
               5b-2 [ ] the cards' other states (upgrade, timers, task and building locks, goblins).
               5b-3 [ ] the squad and reserve slots.
        5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,

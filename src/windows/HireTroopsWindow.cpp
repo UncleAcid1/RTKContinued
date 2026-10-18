@@ -12,18 +12,23 @@
 #include <vector>
 
 #include "engine/IconManager.h"
+#include "engine/StlSort.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
+#include "game/Contracts.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
+#include "game/GameData.h"
+#include "game/Items.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "game/Tavern.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
@@ -93,6 +98,27 @@ struct ButtonWarriorBuyNow {
         textForActual = GUI::GetWindowTypedF<Textfield>(w, "%s.text_for_actual", p);
         textForDisc = GUI::GetWindowTypedF<Textfield>(w, "%s.text_for_disc", p);
         crossout = GUI::GetWindowTypedF<Window>(w, "%s.element_crossout", p);
+    }
+    // @0x2ce488: one price.
+    void ShowPrice(unsigned price) {
+        crystal->SetVisibility(true);
+        textFor->SetVisibility(true);
+        textFor->SetText(ToWideString((int)price));
+        crystalDisc->SetVisibility(false);
+        textForActual->SetVisibility(false);
+        textForDisc->SetVisibility(false);
+        crossout->SetVisibility(false);
+    }
+    // @0x2ce394: the sale price, and the full one crossed out.
+    void ShowPriceDiscounted(unsigned price, unsigned full) {
+        crystal->SetVisibility(false);
+        textFor->SetVisibility(false);
+        crystalDisc->SetVisibility(true);
+        textForActual->SetVisibility(true);
+        textForActual->SetText(ToWideString((int)price));
+        textForDisc->SetVisibility(true);
+        textForDisc->SetText(ToWideString((int)full));
+        crossout->SetVisibility(true);
     }
 };
 
@@ -216,7 +242,11 @@ WarriorInfo g_warriors[4];               // 0x62128c
 bool g_arrowOnBuild = false;             // 0x62221c ShowForBuilding's flag: the arrow at the build button
 Shared::WarriorSlotInfo g_squad[3];      // 0x622224 troops_squad_holder.counter_slot_01..03
 Shared::WarriorSlotInfo g_reserve[5];    // 0x6224b8 troops_reserve_holder.counter_slot_01..05
-std::vector<Tavern::TavernInfo*> g_offers;   // 0x622918 the tab's warriors (UpdateContents)
+// 0x622904 (a small vector: data, inline buffer 0x622908, capacity 0x622910, count 0x622914):
+// the reserve's soldiers and their unit ids, made by UpdateContents.
+struct ReserveEntry { Entity* soldier; uint32_t entity; };
+std::vector<ReserveEntry> g_reserveList;
+std::vector<Tavern::TavernInfo*> g_offers;   // 0x622918 the tab's warriors, by slot (UpdateContents)
 ItemHoverWindow* g_hover = nullptr;      // 0x622924
 int g_unk622928[4] = {};                 // 0x622928..0x622934 (zeroed by Init)
 Shared::WarriorSlotInfo* g_slots[8];     // 0x622938 the squad's three, then the reserve's five
@@ -245,10 +275,10 @@ Window* g_close = nullptr;               // 0x622a84 x_button.clickArea
 Window* g_hurry = nullptr;               // 0x622a88 button_hurry_tiny
 int g_arrowSlot = -1;                    // 0x60f284 the card the tutorial arrow points at (ShowArrow)
 unsigned g_poolSlot = 0xffffffff;        // 0x60f288 the reserve slot SoldierMove takes from
-int g_tavernRespawn = 0;                 // 0x60f28c Setting "tavern_respawn"
-int g_warRespawn = 0xa8c;                // 0x60f290 "barracks_war_respawn"
-int g_archRespawn = 0xa8c;               // 0x60f294 "barracks_arch_respawn"
-int g_mageRespawn = 0xe10;               // 0x60f298 "barracks_mage_resapwn"
+// 0x60f28c: seconds before a tab's next warrior can be taken: Settings "tavern_respawn",
+// "barracks_war_respawn", "barracks_arch_respawn", "barracks_mage_resapwn" (set by Init); the
+// tamer's 0 and the goblins' 1 stay.
+int g_respawn[6] = {0, 0xa8c, 0xa8c, 0xe10, 0, 1};
 float g_scale = 1.f;                     // 0x60f2a4
 unsigned g_squadSlot = 0xffffffff;       // 0x60f2a8 the squad slot a dragged soldier left
 int g_unk60f2ac = -1;                    // 0x60f2ac (Show: -1)
@@ -268,6 +298,9 @@ bool InRect(const Window* w, int x, int y) {
     const int l = g_root->x + w->x, t = g_root->y + w->y;
     return l <= x && x <= l + w->w && t <= y && y <= t + w->h;
 }
+
+// @0x2cdd30
+bool SortTavernInfoBySlot(const Tavern::TavernInfo* a, const Tavern::TavernInfo* b) { return a->slot < b->slot; }
 
 // @0x2cdd48
 float ZRange() { return g_wnd->shown ? 0.12f : 0.001f; }
@@ -593,10 +626,10 @@ void Init() {
     g_hurry->SetOnClick([] { OnHintGold(false); });
     g_hurryText = GUI::GetWindowTyped<Textfield>(g_speedup, "button_hurry_tiny.text");
     g_hurryPrice = GUI::GetWindowTyped<Textfield>(g_speedup, "button_hurry_tiny.text_price");
-    g_tavernRespawn = Setting("tavern_respawn").GetInt();
-    g_warRespawn = Setting("barracks_war_respawn").GetInt();
-    g_archRespawn = Setting("barracks_arch_respawn").GetInt();
-    g_mageRespawn = Setting("barracks_mage_resapwn").GetInt();
+    g_respawn[0] = Setting("tavern_respawn").GetInt();
+    g_respawn[1] = Setting("barracks_war_respawn").GetInt();
+    g_respawn[2] = Setting("barracks_arch_respawn").GetInt();
+    g_respawn[3] = Setting("barracks_mage_resapwn").GetInt();
     for (unsigned i = 0; i < 3; ++i) g_slots[i] = &g_squad[i];
     for (unsigned i = 0; i < 5; ++i) g_slots[3 + i] = &g_reserve[i];
     g_wnd->hideOnOuterClick = true;
@@ -712,8 +745,268 @@ void OnTab(unsigned tab, bool arrowOnBuild) {
     g_arrowOnBuild = arrowOnBuild;
 }
 
-// (0x2d05e4) UNVERIFIED (milestone 5b): the tabs, the cards, the squad and reserve slots (30 KB
-// of asm, not ported yet); the window shows its layout as loaded.
-void UpdateContents() {}
+namespace {
+
+// @0x2ce260: a unit's resource price; with the server's setting 0xb3 (never set offline) the
+// building that makes item `item` adds that setting times its order's resource count.
+int GetAdjustedResourceCost(uint32_t item, int cost) {
+    const int mult = GameState::GetServerSetting(0xb3);
+    if (mult == 0) return cost;
+    unsigned slot = 0;
+    const uint32_t id = NeedItemWindow::GetBuildingThatProducesItem(item, slot);
+    const GameData::BuildingData* b = id ? GameData::GetBuilding(id) : nullptr;
+    if (b && b->delivery) cost += (int)b->delivery->missions[slot].priceResourceCount * mult;
+    return cost;
+}
+
+// One cost line of a card: the icon, "n" in plain and red, and the owned / missing marks.
+void ShowCost(CostInfo& c, int need, int have) {
+    c.quantity->SetText(ToWideString(need));
+    c.quantityRed->SetText(ToWideString(need));
+    c.icon.owned->SetVisibility(need <= have);
+    c.icon.redX->SetVisibility(have < need);
+    c.quantity->SetVisibility(c.icon.owned->visibleSelf);
+    c.quantityRed->SetVisibility(c.icon.redX->visibleSelf);
+    c.icon.itemClass[0]->SetVisibility(c.icon.owned->visibleSelf);
+    c.icon.locked->SetVisibility(c.icon.redX->visibleSelf);
+}
+
+}  // namespace
+
+// @0x2d05e4: the tabs, the visible cards and the squad / reserve slots.
+void UpdateContents() {
+    g_reserveList.clear();
+    for (unsigned i = 0; i < SoldierPool::GetOccupiedSlotCount(); ++i)
+        g_reserveList.push_back({SoldierPool::GetSoldierBySlot(i), SoldierPool::GetSoldierBySlot(i)->GetEntityData()->id});
+    // (A search for an empty squad slot follows here; its result is not used.)
+    for (unsigned i = 0; i < 6; ++i) g_tabs[i].SetMode(g_tab == i, false);
+    g_tabs[0].icon->SetTexture(IconManager::GetIcon("army_tavern_40", false), true);
+    g_tabs[1].icon->SetTexture(IconManager::GetIcon("army_warrior_40", false), true);
+    g_tabs[2].icon->SetTexture(IconManager::GetIcon("army_archer_40", false), true);
+    g_tabs[3].icon->SetTexture(IconManager::GetIcon("army_mage_40", false), true);
+    g_tabs[4].icon->SetTexture(IconManager::GetIcon("prof_tamer_35", false), true);
+    g_tabs[5].icon->SetTexture(IconManager::GetIcon("goblin_60", false), false);
+    // The goblins only in the city; the tamer after task 0x771.
+    g_tabs[5].root->SetVisibility(GameState::GetCurrentMapID() == 0);
+    g_tabs[4].root->SetEnabled(GameState::TaskCompleted(0x771));
+    // The tab's offers, by slot.
+    g_offers.clear();
+    for (unsigned i = 0; Tavern::TavernInfo* t = Tavern::EnumTavernInfo(i); ++i)
+        if (t->type == g_tab) g_offers.push_back(t);
+    if (!g_offers.empty())
+        StlSort::Sort(g_offers.data(), g_offers.data() + g_offers.size(),
+                      [](const Tavern::TavernInfo* a, const Tavern::TavernInfo* b) { return SortTavernInfoBySlot(a, b); });
+    // The tab's building: its name in the title, its level and whether it is being upgraded (a
+    // map away from the city: the copy kept for it). The tavern (0x8f) and 0x609 always count as built.
+    const GameData::BuildingData* building = GameData::GetBuilding(kTabBuildings[g_tab]);
+    bool hasBuilding = true;
+    unsigned buildingLevel = 0;
+    bool upgrading = false;
+    if (building) {
+        g_title->SetText(StringTable::GetString(building->name.c_str()));
+        if (building->requiresQuest != 0) GameState::TaskCompleted((unsigned)building->requiresQuest);
+        Map::Building* b = GameState::GetCurrentMapID() == 0 ? Map::GetBuildingWithID(building->id) : nullptr;
+        if (b) {
+            buildingLevel = (unsigned)b->level;
+            upgrading = b->upgrading != 0;
+        } else if (GameState::OfflineBuilding* o = GameState::GetOfflineBuildingWithID(building->id)) {
+            buildingLevel = o->level;
+            upgrading = (o->flags & 4) != 0;
+        } else {
+            hasBuilding = false;
+        }
+        if (building->id == 0x8f || building->id == 0x609) hasBuilding = true;
+    }
+    g_left->SetEnabled(g_scroller.CanMoveLeft());
+    g_right->SetEnabled(g_scroller.CanMoveRight());
+    for (unsigned n = 0; n < 4; ++n) {
+        WarriorInfo& card = g_warriors[n];
+        const unsigned index = g_scroller.firstIndex + n;
+        if (index >= g_offers.size()) {
+            card.root->SetVisibility(false);
+            continue;
+        }
+        Tavern::TavernInfo* offer = g_offers[index];
+        card.root->SetVisibility(offer != nullptr);
+        if (!offer) continue;
+        const EntityData* d = EntityFactory::GetEntityByID((int)offer->entity);
+        if (!d) return;
+        // An offer seen for the first time is ready at once, with its HP drawn (the barracks'
+        // first two warriors: 8 and 12).
+        const int respawn = g_respawn[g_tab];
+        if (GameState::GetTavernWarriorTS(offer->entity) == 0) {
+            GameState::SetTavernWarriorTS(offer->entity, Timer::GetGlobalTime() - (uint32_t)respawn);
+            GameState::SetTavernWarriorHP(offer->entity, (uint32_t)offer->GenerateHP());
+            if (g_tab == 1) GameState::SetTavernWarriorHP(offer->entity, index == 0 ? 8 : 0xc);
+        }
+        // levelLock: the player's level is below the offer's (not for goblins); trainable: its
+        // task is done, the building is high enough and so is the player (goblins: always);
+        // canTrain: also built, not card 2 during tutorial step 0x61, and a goblin not yet hired.
+        const bool levelLock = offer->unk2c > (unsigned)GameState::GetLevel() && g_tab != 5;
+        bool trainable;
+        if (d->unlockQuest != 0 && !GameState::TaskCompleted(d->unlockQuest))
+            trainable = false;
+        else if (buildingLevel < (unsigned)d->trainingObjCount)
+            trainable = false;
+        else if (offer->unk2c > (unsigned)GameState::GetLevel())
+            trainable = g_tab == 5;
+        else
+            trainable = true;
+        bool canTrain;
+        if (!hasBuilding || !trainable)
+            canTrain = false;
+        else if (n == 1)
+            canTrain = GameState::tutorial != 0x61;
+        else
+            canTrain = true;
+        if (g_tab == 5 && index > (unsigned)GameState::GetGoblinCount()) {
+            canTrain = false;
+            trainable = false;
+        }
+        Tasks::TaskInfo* unlockTask = Tasks::GetTask(d->unlockQuest);
+        const int elapsed = (int)(Timer::GetGlobalTime() - GameState::GetTavernWarriorTS(offer->entity));
+        const int remaining = respawn - elapsed > 0 ? respawn - elapsed : 0;
+        const bool ready = remaining == 0;
+        int attack = d->attackMelee;
+        if (attack == 0) attack = d->attackRanged;
+        if (attack == 0) attack = d->attackMagic;
+        if (offer->special != 0) attack = (int)offer->special;
+        const unsigned gold = d->GetCostGold(false, offer);
+        const unsigned crystals = d->GetCostCrystals(false, offer);
+        card.icon1->SetVisibility(g_tab != 5);
+        card.hp->SetVisibility(g_tab != 5);
+        card.hp->SetText(SWPrintf(0x100, U"%s %s",
+                                  {offer->hpMax ? ToWideString(offer->hpMax) : U"??",
+                                   StringTable::GetString("stats_hp_points")}).c_str());
+        card.icon2->SetVisibility(g_tab != 5);
+        card.attack->SetVisibility(g_tab != 5);
+        card.attack->SetText(SWPrintf(0x100, U"%s %s",
+                                      {attack ? ToWideString(attack) : U"??",
+                                       StringTable::GetString("stats_dmg_points")}).c_str());
+        if (g_tab == 5)
+            card.name->SetText(StringTable::GetString("STORAGE_GOBLINS_STATIC"));
+        else
+            card.name->SetText(offer->hpMax ? d->title : StringTable::GetString("TAVERN_UNKNOWN"));
+        // In the city the barracks train; the tavern (and away from the city everything) hires.
+        const bool training = GameState::GetCurrentMapID() == 0 && g_tab != 0;
+        const char* performKey = training ? "PERFORM_TRAIN" : "PERFORM_HIRE";
+        const char* hireKey = training && g_tab == 5 ? "SPAWN_GOB" : "HIRE_TROOPS_HIRE";
+        card.cost->SetText(StringTable::GetString(training ? "HIRE_TROOPS_TRAINING_COST" : "HIRE_TROOPS_HIRE_COST"));
+        // buyCrystal: the offer can be had for crystals.
+        bool buyCrystal = false;
+        if (canTrain) {
+            canTrain = ready && gold != 0 ? !levelLock : false;
+            buyCrystal = crystals != 0;
+        }
+        bool goblinOwned = false;
+        if (g_tab == 5 && index < (unsigned)GameState::GetGoblinCount()) {
+            goblinOwned = true;
+            canTrain = false;
+        }
+        // The tamer's tab: a "tame" or "find" task (0x3f / 0x43) that is ready and not locked.
+        bool tamerTask = false;
+        if (hasBuilding && !buyCrystal && unlockTask && g_tab == 4 && ready &&
+            (unlockTask->subtasks[0].type == 0x3f || unlockTask->subtasks[0].type == 0x43) && !unlockTask->IsLockedByTask())
+            tamerTask = true;
+        // Crystals buy only at the tavern, and goblins above the player's level.
+        if (canTrain && buyCrystal && g_tab != 0) {
+            if (g_tab != 5 || offer->unk2c <= (unsigned)GameState::GetLevel()) buyCrystal = false;
+        }
+        if (d->attackMagic != 0)
+            card.icon2->SetTexture(IconManager::GetIcon(d->GetSmallSpellIcon(), false), true);
+        else if (d->attackRanged != 0)
+            card.icon2->SetTexture(IconManager::GetIcon("gold_16_ranged_attack", false), true);
+        else if (d->attackMelee != 0)
+            card.icon2->SetTexture(IconManager::GetIcon("gold_16_attack", false), true);
+        // A crystal-priced unit has the golden frame.
+        card.transparent->SetVisibility(crystals == 0);
+        card.selecter->SetVisibility(crystals != 0);
+        card.transparent->SetEnabled(canTrain || buyCrystal);
+        card.selecter->SetEnabled(canTrain || buyCrystal);
+        // The goblins show the second slot window, the others the first.
+        Shared::WarriorSlotInfo& slot = g_tab == 5 ? card.slot2 : card.slot1;
+        slot.root->SetVisibility(true);
+        (g_tab == 5 ? card.slot1 : card.slot2).root->SetVisibility(false);
+        if (!canTrain) {
+            if (buyCrystal) {
+                slot.root->SetEnabled(true);
+                slot.lockIcon->SetVisibility(false);
+                slot.wingsEmpty->SetVisibility(false);
+                card.cost->SetVisibility(false);
+            } else {
+                slot.root->SetEnabled(goblinOwned);
+                slot.lockIcon->SetVisibility(!trainable);
+                slot.wingsEmpty->SetVisibility(false);
+                card.cost->SetVisibility(false);
+            }
+            for (CostInfo& c : card.costs) c.root->SetVisibility(false);
+        } else {
+            slot.root->SetEnabled(true);
+            slot.lockIcon->SetVisibility(false);
+            slot.wingsEmpty->SetVisibility(false);
+            card.cost->SetVisibility(true);
+            // The costs: an item, gold, a resource (each line only once the offer is ready).
+            card.costs[0].root->SetVisibility(ready && d->itemCostId != 0);
+            if (Items::ItemInfo* item = Items::GetItemInfo((uint32_t)d->itemCostId))
+                card.costs[0].icon.icon->SetTexture(item->GetIcon(), true);
+            ShowCost(card.costs[0], d->itemCost, GameState::GetItemAmount((uint32_t)d->itemCostId, false));
+            card.costs[1].root->SetVisibility(ready);
+            card.costs[1].icon.icon->SetTexture(IconManager::GetIcon(GameState::GetResourceIconName(GameState::kGold), false),
+                                                true);
+            ShowCost(card.costs[1], (int)d->GetCostGold(false, offer), (int)GameState::GetResourceAmount(GameState::kGold));
+            const int resource = GetAdjustedResourceCost((uint32_t)d->itemCostId, d->resourceCost);
+            card.costs[2].root->SetVisibility(ready && d->resourceCost != 0);
+            card.costs[2].icon.icon->SetTexture(
+                IconManager::GetIcon(GameState::GetResourceMapIconName(d->resourceCostType), false), true);
+            ShowCost(card.costs[2], resource, (int)GameState::GetResourceAmount(d->resourceCostType));
+            if (GameState::GetServerSetting(0xb3) != 0) card.costs[0].root->SetVisibility(false);
+        }
+        card.upgrading.root->SetVisibility(upgrading);
+        card.upgrading.text->SetText(SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_UPGRADING"),
+                                              {building ? StringTable::GetString(building->name.c_str()) : U""})
+                                         .c_str());
+        // The buttons: Train (resources), Buy now (crystals), and the two small ones when both apply.
+        card.train->SetVisibility(canTrain && !buyCrystal && !upgrading && g_tab != 4);
+        card.trainIcon->SetTexture(IconManager::GetIcon(g_tab == 5 ? "school" : "gold_attack", false), true);
+        card.trainText->SetText(StringTable::GetString(performKey));
+        card.buyNow.root->SetVisibility(!canTrain && buyCrystal && !upgrading && !goblinOwned && g_tab != 4);
+        card.buyNow.text->SetText(StringTable::GetString(hireKey));
+        if (d->GetCostCrystals(false, offer) == d->GetCostCrystals(true, offer))
+            card.buyNow.ShowPrice((unsigned)GameState::AdjustCrystalCost((int)d->GetCostCrystals(false, offer)));
+        else
+            card.buyNow.ShowPriceDiscounted((unsigned)GameState::AdjustCrystalCost((int)d->GetCostCrystals(false, offer)),
+                                            (unsigned)GameState::AdjustCrystalCost((int)d->GetCostCrystals(true, offer)));
+        const bool both = (canTrain || g_tab == 4) && buyCrystal && !upgrading;
+        card.hireRes->SetVisibility(both);
+        card.hireResIcon->SetTexture(
+            IconManager::GetIcon(g_tab == 5 ? "school" : g_tab == 4 ? "gold_find" : "gold_attack", false), true);
+        card.hireResText->SetText(StringTable::GetString(g_tab == 4 ? "PERFORM_FIND" : performKey));
+        card.hireCrystal->SetVisibility(both);
+        card.hireCrystalIcon->SetTexture(IconManager::GetIcon(g_tab == 5 ? "school" : "gold_attack", false), true);
+        card.hireCrystalText->SetText(StringTable::GetString(hireKey));
+        card.hireCrystalPrice->SetText(
+            ToWideString(GameState::AdjustCrystalCost((int)d->GetCostCrystals(false, offer))));
+        slot.soldierFine->SetTexture(d->side0, false);
+        slot.soldierFine->SetVisibility(true);
+        slot.lowerPart->SetVisibility(false);
+        slot.hpIcon->SetVisibility(false);
+        // UNVERIFIED (milestone 5b-2): the rest of the card (0x2d1878..0x2d2b38): the requirement
+        // line, the timer, the tamer's task, the refresh and build buttons, the sale label.
+        (void)tamerTask;
+        (void)remaining;
+    }
+    // Fewer than three offers: the cards are centred in the strip.
+    if (g_offers.size() < 3) {
+        for (WarriorInfo& w : g_warriors) {
+            w.root->RestorePosition();
+            w.root->MoveWindow((int)(g_scale * -15.f), 0);
+            w.root->MoveWindow((int)((unsigned)(g_scroller.track->w - g_scroller.itemSize * (int)g_offers.size()) >> 1), 0);
+        }
+        g_warriors[3].root->MoveWindow(g_warriors[1].root->x - g_warriors[0].root->x, 0);
+    }
+    g_scroller.itemCount = (unsigned)g_offers.size();
+    g_scroller.UpdateScroll();
+    // UNVERIFIED (milestone 5b-3): the squad and reserve slots (0x2d2bb4..0x2d7ae8).
+}
 
 }  // namespace HireTroopsWindow
