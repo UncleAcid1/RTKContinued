@@ -2,8 +2,7 @@
 // and the missions' side nodes over a scrolling parchment; the hero's marker travels between them.
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
-// UNVERIFIED (milestone 5): the windows its nodes open (RaidInfoWindow,
-// SultanArrivingWindow, CampaignCompleteWindow, RaidCompleteWindow,
+// UNVERIFIED (milestone 5): the windows its nodes open (SultanArrivingWindow, CampaignCompleteWindow, RaidCompleteWindow,
 // CampaignPerfectedWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
@@ -676,8 +675,9 @@ void CoreLocation::OnClick() {
                 CampaignInfoWindow::SetAnimationOnce();
                 return;
             }
-            // UNVERIFIED (milestone 5): RaidInfoWindow::SetParameters(info, map, false), Show and
-            // SetAnimationOnce.
+            RaidInfoWindow::SetParameters(info, map, false);
+            RaidInfoWindow::Show();
+            RaidInfoWindow::SetAnimationOnce();
             return;
         }
     }
@@ -1135,12 +1135,16 @@ void Hide() {
     g_tutorialAnim = false;
 }
 
-// @0x2c1440 the "Go home" button. UNVERIFIED (milestone 5): on a started mission's map whose result
-// waits, RaidInfoWindow (SetParameters(location, its start map, false), Show) instead.
+// @0x2c1440 the "Go home" button: on a mission's map in its timeout (ended, not restarted) its
+// RaidInfoWindow instead.
 void OnReturn() {
     std::printf("saint -> onreturn");
     if (LocationInfo* l = Locations::GetLocationWithMap((uint32_t)GameState::GetCurrentMapID()))
-        if (l->mission && GameState::GetMapStartTime(l->startMap) == 0 && GameState::GetMapEndTime(l->startMap) != 0) return;
+        if (l->mission && GameState::GetMapStartTime(l->startMap) == 0 && GameState::GetMapEndTime(l->startMap) != 0) {
+            RaidInfoWindow::SetParameters(l, l->startMap, false);
+            RaidInfoWindow::Show();
+            return;
+        }
     Hide();
     TaskHolderWindow::UpdateTasks();
 }

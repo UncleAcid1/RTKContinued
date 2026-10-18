@@ -172,6 +172,29 @@ struct HouseLivingWorkerInfo {           // 0x14 bytes, LoadFrom @0x343ebc
     void LoadFrom(GUI::Window* root, const char* prefix);
 };
 
+// Shared::ButtonRaidStart (0x44 bytes): a mission start button with its looks (blue, green, red,
+// gold) and texts. LoadFrom @0x3439cc.
+struct ButtonRaidStart {
+    GUI::Window* root = nullptr;             // +0x00 "%s"
+    GUI::Window* active = nullptr;           // +0x04 button_active
+    GUI::Window* activeGreen = nullptr;      // +0x08 button_active_green
+    GUI::Window* simpleRed = nullptr;        // +0x0c button_simple_red
+    GUI::Window* gold = nullptr;             // +0x10 button_gold
+    GUI::Window* inactive = nullptr;         // +0x14 button_inactive (hidden)
+    GUI::Window* crystalIcon = nullptr;      // +0x18 icon_35_crystal (takes a depth slot)
+    GUI::Window* lock = nullptr;             // +0x1c icon_locked_campaign
+    GUI::Textfield* text = nullptr;          // +0x20 text_start_raid
+    GUI::Textfield* textCentered = nullptr;  // +0x24 text_start_raid_centered
+    GUI::Textfield* pvpRed = nullptr;        // +0x28 text_pvp_red
+    GUI::Textfield* pvpRedCentered = nullptr;    // +0x2c text_pvp_red_centered
+    GUI::Textfield* textGreen = nullptr;     // +0x30 text_start_raid_green
+    GUI::Textfield* textCenteredGreen = nullptr; // +0x34 text_start_raid_centered_green
+    GUI::Textfield* goldText = nullptr;      // +0x38 text_gold
+    GUI::Textfield* price = nullptr;         // +0x3c text_price
+    GUI::Window* icon = nullptr;             // +0x40 icon_start_raid (takes a depth slot)
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+
 // Shared::DiscountInfo (8 bytes): a discount label. LoadFrom @0x343984.
 struct DiscountInfo {
     GUI::Window* root = nullptr;         // +0x00 "%s"

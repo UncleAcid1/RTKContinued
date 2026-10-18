@@ -248,6 +248,33 @@ std::u32string GetNumericTimeString(int t, bool) {
     return out.substr(0, 31);
 }
 
+std::u32string GetExtendedTimeString(unsigned size, int t, bool) {
+    auto unit = [](const char* key, int n) { return GetCountableString(GetString(key), n); };
+    if (t >= 0x15180) {
+        const int d = t / 0x15180, h = t % 0x15180 / 0xe10, m = t % 0xe10 / 0x3c;
+        const std::u32string ds = unit("COUNT_DAYS", d), hs = unit("COUNT_HOURS", h), ms = unit("COUNT_MINUTES", m);
+        if (h != 0 && m != 0)
+            return SWPrintf(size, U"%d %s %d %s %d %s", {d, ds.c_str(), h, hs.c_str(), m, ms.c_str()});
+        if (h != 0) return SWPrintf(size, U"%d %s %d %s", {d, ds.c_str(), h, hs.c_str()});
+        if (m != 0) return SWPrintf(size, U"%d %s %d %s", {d, ds.c_str(), m, ms.c_str()});
+        return SWPrintf(size, U"%d %s", {d, ds.c_str()});
+    }
+    if (t >= 0xe10) {
+        const int h = t / 0xe10, m = t % 0xe10 / 0x3c;
+        const std::u32string hs = unit("COUNT_HOURS", h), ms = unit("COUNT_MINUTES", m);
+        if (m == 0) return SWPrintf(size, U"%d %s", {h, hs.c_str()});
+        return SWPrintf(size, U"%d %s %d %s", {h, hs.c_str(), m, ms.c_str()});
+    }
+    if (t >= 0x3c) {
+        const int m = t % 0xe10 / 0x3c, s = t % 0x3c;
+        const std::u32string ms = unit("COUNT_MINUTES", m), ss = unit("COUNT_SECONDS", s);
+        if (s == 0) return SWPrintf(size, U"%d %s", {m, ms.c_str()});
+        return SWPrintf(size, U"%d %s %d %s", {m, ms.c_str(), s, ss.c_str()});
+    }
+    const std::u32string ss = unit("COUNT_SECONDS", t);
+    return SWPrintf(size, U"%d %s", {t, ss.c_str()});
+}
+
 // @0x22c980 ("%s_%s" with the current language, then "EN_%s")
 bool StringExists(const char* key) {
     return Find(std::string(g_lang) + "_" + key) || Find(std::string("EN_") + key);

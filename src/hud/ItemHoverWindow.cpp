@@ -48,7 +48,7 @@ void SetLine(ItemHoverWindow::EffectLine& l, const char32_t* text, const char* i
 
 // Systems of later milestones the window asks about. UNVERIFIED stand-ins until they are ported.
 bool LevelInfoWindowIsVisible() { return false; }          // LevelInfoWindow::IsVisible (5)
-bool RaidInfoWindowIsVisible() { return false; }           // RaidInfoWindow::IsVisible (5)
+bool RaidInfoWindowIsVisible() { return RaidInfoWindow::IsVisible(); }
 bool ChestsWindowIsVisible() { return false; }             // ChestsWindow::IsVisible (5)
 bool IsChestItem(uint32_t) { return false; }               // Chests::IsChestItem (5)
 bool ItemCanBeBought(uint32_t) { return false; }           // ItemShopWindow::ItemCanBeBought (5)

@@ -36,6 +36,10 @@ std::u32string GetTimeString(int seconds, bool compact);
 // @0x22a30c (the non-compact form): "00:SS", "MM:SS", "HH:MM:SS", from a day "D days HH:MM:SS".
 // UNVERIFIED: the compact form (second argument true) is not ported; it formats as false.
 std::u32string GetNumericTimeString(int seconds, bool compact);
+// @0x2293e0: a duration in words with COUNT_DAYS / _HOURS / _MINUTES / _SECONDS ("%d %s"): under a
+// minute the seconds; under an hour minutes (and seconds); under a day hours (and minutes); else
+// days with hours and minutes, the zero parts left out. (The bool is not read.)
+std::u32string GetExtendedTimeString(unsigned size, int seconds, bool unused);
 // @0x228478: the plural form of "{one|few|many}" for n (the Slavic rule: n%10 == 1 and not
 // 11 -> one; n%10 in 2..4 and not 12..14 -> few; else many).
 std::u32string GetCountableString(const char32_t* forms, int n);

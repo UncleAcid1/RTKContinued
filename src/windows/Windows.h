@@ -454,6 +454,22 @@ namespace SetInfoWindow {
 GameState::PlayerItem* GetPlayerItemOrBetter(uint32_t id);   // @0x33b3d4
 }
 
+// A mission's brief (windows/RaidInfoWindow.cpp).
+namespace RaidInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RaidInfoWindow"
+void Init();                                // @0x3319c8
+// @0x331228: the mission, its map; completed: shown after the mission's end.
+void SetParameters(Locations::LocationInfo* info, uint32_t map, bool completed);
+void SetAnimationOnce();                    // @0x32f208 Start travels with the world map's animation
+void RunCompletionAnimation();              // @0x32f220 the next opening animates the new star
+void ShowItem(uint32_t item);               // @0x335c40 the next opening points at that item's cell
+void UpdateContents();                      // @0x332728
+void OnBlue();                              // @0x32ff44 start / resume / restart
+void Show();                                // @0x335d64
+void Hide();                                // @0x32fe84
+bool IsVisible();                           // @0x32f1f4
+}
+
 // Repairing a worn item (windows/RepairWindow.cpp).
 namespace RepairWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RepairWindow"

@@ -119,8 +119,13 @@ bool g_darkening = false;             // 0x60f274 a window is open: the cover fa
 
 bool FogIsVisible(int x0, int y0, int x1, int y1) { return Fog::IsVisible(x0, y0, x1, y1); }
 
-// UNVERIFIED (milestone 5): OnFarmTimer opens RaidInfoWindow.
-void OnFarmTimer() {}
+// @0x2c7c84: the mission timer on a mission's map opens its RaidInfoWindow.
+void OnFarmTimer() {
+    Locations::LocationInfo* l = Locations::GetLocationWithMap((uint32_t)GameState::GetCurrentMapID());
+    if (!l || !l->mission) return;
+    RaidInfoWindow::SetParameters(l, l->startMap, false);
+    RaidInfoWindow::Show();
+}
 
 // @0x2c7cb8 HUDWindow::OnFindTask: the task locator was tapped (or a quick task's target was set).
 // Off screen: the camera travels there; on screen: the help arrow's callback runs, or the hero

@@ -260,6 +260,30 @@ void HouseLivingWorkerInfo::LoadFrom(Window* r, const char* p) {
     workers = GUI::GetWindowTypedF<Textfield>(r, "%s.text_worker", p);
 }
 
+// @0x3439cc
+void ButtonRaidStart::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    active = GUI::GetWindowTypedF<Window>(r, "%s.button_active", p);
+    activeGreen = GUI::GetWindowTypedF<Window>(r, "%s.button_active_green", p);
+    simpleRed = GUI::GetWindowTypedF<Window>(r, "%s.button_simple_red", p);
+    gold = GUI::GetWindowTypedF<Window>(r, "%s.button_gold", p);
+    inactive = GUI::GetWindowTypedF<Window>(r, "%s.button_inactive", p);
+    inactive->SetVisibility(false);
+    crystalIcon = GUI::GetWindowTypedF<Window>(r, "%s.icon_35_crystal", p);
+    crystalIcon->takesZ = true;
+    lock = GUI::GetWindowTypedF<Window>(r, "%s.icon_locked_campaign", p);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_start_raid", p);
+    textCentered = GUI::GetWindowTypedF<Textfield>(r, "%s.text_start_raid_centered", p);
+    textGreen = GUI::GetWindowTypedF<Textfield>(r, "%s.text_start_raid_green", p);
+    textCenteredGreen = GUI::GetWindowTypedF<Textfield>(r, "%s.text_start_raid_centered_green", p);
+    pvpRed = GUI::GetWindowTypedF<Textfield>(r, "%s.text_pvp_red", p);
+    pvpRedCentered = GUI::GetWindowTypedF<Textfield>(r, "%s.text_pvp_red_centered", p);
+    goldText = GUI::GetWindowTypedF<Textfield>(r, "%s.text_gold", p);
+    price = GUI::GetWindowTypedF<Textfield>(r, "%s.text_price", p);
+    icon = GUI::GetWindowTypedF<Window>(r, "%s.icon_start_raid", p);
+    icon->takesZ = true;
+}
+
 // @0x343984
 void DiscountInfo::LoadFrom(Window* r, const char* p) {
     root = GUI::GetWindowTypedF<Window>(r, "%s", p);

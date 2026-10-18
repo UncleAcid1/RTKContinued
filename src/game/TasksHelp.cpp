@@ -134,8 +134,7 @@ void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
     }
     // Else the world map: home (map 0) is travelled to at once (the help runs again there);
     // another map gets the world map with its arrow (map 0x2f: home's), or, with an item, the
-    // map centred. UNVERIFIED (milestone 5): there its raid / campaign window shows the item
-    // (RaidInfoWindow / CampaignInfoWindow::SetParameters, Show, ShowItem).
+    // map centred and its mission / campaign window showing the item.
     if (map == 0) {
         EnableLastSubTaskHelp();
         GlobalMapWindow::CenterOnMap((uint32_t)GameState::GetCurrentMapID());
@@ -147,8 +146,24 @@ void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
     }
     GlobalMapWindow::Show();
     GlobalMapWindow::SetArrowVisibleWindowLimit(2);
-    if (item == 0) GlobalMapWindow::ArrowAtMap(map == 0x2f ? 0 : map, false, true);
-    else GlobalMapWindow::CenterOnMap(map);
+    if (item == 0) {
+        GlobalMapWindow::ArrowAtMap(map == 0x2f ? 0 : map, false, true);
+    } else {
+        GlobalMapWindow::CenterOnMap(map);
+        if (Locations::LocationInfo* loc = Locations::GetLocationWithMap(map)) {
+            if (loc->mission) {
+                RaidInfoWindow::SetParameters(loc, map, false);
+                RaidInfoWindow::Show();
+                RaidInfoWindow::SetAnimationOnce();
+                RaidInfoWindow::ShowItem(item);
+            } else {
+                CampaignInfoWindow::SetParameters(loc, map, false);
+                CampaignInfoWindow::Show();
+                CampaignInfoWindow::ShowItem(item);
+                CampaignInfoWindow::UpdateContents();
+            }
+        }
+    }
     HUDWindow::UpdateTasks();
 }
 

@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5g (raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow). (5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5g-2 (RaidCompleteWindow, StartRaidingWindow). (5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1830,7 +1830,35 @@ Milestones:
                    Kingdom in the middle ("Return to Kingdom"), 6 dots; the right arrow twice ->
                    "Easy money" locked with its description; tapping Kingdom closes it and puts the
                    arrow on home.
-       5g [ ] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow.
+       5g [ ] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow. SPLIT (2026-10-18, about
+              60 functions; RaidInfoWindow::UpdateContents alone 13 KB):
+              5g-1 [x] (2026-10-18) windows/RaidInfoWindow.cpp (Window_raid_brief.xml; UpdateContents
+                   range-decompiled into out/big/ri_uc*.c, Ghidra's bogus _INIT_112 cuts it): the
+                   header, the star tabs (epic at 3), the star bar with "Raid Complete!" and the
+                   overall %, three flags (gold x raid_star_gold_mult, XP, the items sorted by
+                   GetItemDropProbability: location table, else the enemies' items_drop / starN_items,
+                   > 10 high, > 4 medium) with the found counts on the current star's flag, the
+                   "complete" tick, greyed flags above the next star, the completion animation
+                   (RunCompletionAnimation: the bar fills over 0.5 s, the new flag fades in; triggered
+                   by RaidCompleteWindow, 5g-2), the timer states (not started / running / time up /
+                   timeout / after the run), the three start buttons (begin, resume, restart, crystal
+                   resume with OnGold and ConfirmPurchaseWindow), the requirements; OnBlue (pays the
+                   star's requirements via NotEnoughWindow, restarts quests, resets an expired map:
+                   ResetTask / StartTask, removeItems, ResetMap, boss fights, collection, times),
+                   OnClose, OnItem (ItemHoverWindow with the chance), ShowItem (the flag order table
+                   0x59fbf0), Update (an expired mission map opens it by itself). New:
+                   Shared::ButtonRaidStart, StringTable::GetExtendedTimeString. Wired: the world map's
+                   mission nodes, its Go-home button in a timeout, HUDWindow::OnFarmTimer, the quest
+                   help's item search on a mission / campaign map (Tasks::HelpWithMapSwitchTo),
+                   ItemHoverWindow's check. UNVERIFIED: professions (5n: item filter, profession
+                   probabilities, REPUTATION requirements), RaidCompleteWindow::ResetRaid (5g-2),
+                   sounds (6); purchase statistics are online. Not wired: CraftItemWindow /
+                   CraftingWindow OnFind (5o), NotEnoughWindow's and ItemHoverWindow::OnFind's notes.
+                   VERIFIED (5d-2 save; new test aid RTK_RAID=n opens the n-th mission, RTK_RAIDDONE=1
+                   as after its end): "Raid - Troll Trail", Royal / Heroic locked, 0%, the flags
+                   (gold 161 / 241 / 322, XP 208, the item chances), "Time limit: 1 hour", "Cost to
+                   begin: 50"; Begin pays 50 gold and loads map 87; after the run: no X, 33%.
+              5g-2 [ ] RaidCompleteWindow, StartRaidingWindow.
        5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
        Fights:
        5i [ ] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,
