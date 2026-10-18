@@ -79,9 +79,9 @@ bool Init(const char* file) {
             t->hpMax = std::atoi(range.substr(dash == std::string::npos ? 0 : dash + 1).c_str());
             t->type = x.attribute("type").as_uint();
             t->slot = x.attribute("slot").as_uint();
-            t->unk2c = 0;
-            t->special = 0;
-            t->unk20 = 0;
+            t->level = 0;
+            t->attack = 0;
+            t->defense = 0;
             t->gold = 0;
             t->crystals = 0;
         }
@@ -106,16 +106,16 @@ void InitSpecial() {
         t->type = 5;
         t->probability = 100;
         t->slot = n;
-        t->special = 1;
-        t->unk20 = 0;
+        t->attack = 1;
+        t->defense = 0;
         if (n == 0) {
             t->gold = 100;
             t->crystals = 0;
-            t->unk2c = 1;
+            t->level = 1;
         } else {
             t->gold = (uint32_t)costs.GetChild(n - 1).GetChild(0).GetInt();
             t->crystals = (uint32_t)costs.GetChild(n - 1).GetChild(1).GetInt();
-            t->unk2c = (uint32_t)costs.GetChild(n - 1).GetChild(2).GetInt();
+            t->level = (uint32_t)costs.GetChild(n - 1).GetChild(2).GetInt();
         }
     }
 }

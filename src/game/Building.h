@@ -168,6 +168,10 @@ struct Building {
     // @0x11eb40: start order `index` (0-based) of the delivery list, on farm patch `patch` (-1:
     // the building's own order).
     void LaunchContract(unsigned index, int patch);
+    // @0x127294: the barracks trains soldier e (contract kTrainingContract): it walks in, the view
+    // centres on it, and it counts in the reserve meanwhile.
+    void LaunchContract(Entity* e);
+    static constexpr int kTrainingContract = 0xbad1dea;
     const GameData::UpgradeInfo& GetNextUpgradeInfo() const;   // @0x11c6e4 upgrades[level]
     int GetContractSpeedUpCost() const;          // @0x11d020
     const char32_t* GetContractName() const;     // @0x11de3c

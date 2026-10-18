@@ -15,11 +15,11 @@ struct TavernInfo {          // 0x30 bytes
     int hpMin = 0, hpMax = 0;   // +0x0c +0x10 "hp_range" ("a-b", or one number for both)
     uint32_t type = 0;       // +0x14 "type": the HireTroopsWindow tab it shows on (5 the goblins)
     uint32_t slot = 0;       // +0x18 "slot": its place on the tab
-    uint32_t special = 0;    // +0x1c 1 for the goblins
-    uint32_t unk20 = 0;      // +0x20
+    uint32_t attack = 0;     // +0x1c the hired unit's attack (0: the unit's; Entity::SetOverrideAttack; 1 for the goblins)
+    uint32_t defense = 0;    // +0x20 its defense (Entity::SetOverrideDefense)
     uint32_t gold = 0;       // +0x24 its own gold price (0: the unit's; EntityData::GetCostGold)
     uint32_t crystals = 0;   // +0x28 its own crystal price (0: the unit's)
-    uint32_t unk2c = 0;      // +0x2c the goblin_cost entry's third number
+    uint32_t level = 0;      // +0x2c the player level it needs (the goblin_cost entry's third number)
     int GenerateHP() const;  // @0x23d86c
 };
 

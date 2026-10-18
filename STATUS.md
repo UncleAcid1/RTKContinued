@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5c (5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5c-2 (5c split 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1668,9 +1668,31 @@ Milestones:
                    HIRE_TROOPS_UNLOCK; not at tutorial 0x61/0x62), Locked; SLOTS_TAKEN n/m.
                    VERIFIED with the full layout forced at step 0x61 (temporary edit, reverted):
                    Squad 2 open + 1 locked, Reserve 2 Empty + 3 Locked, Slots Taken 0/2.
-       5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,
-              OnUpgrade(+Continuation), OnBuild, the hints (OnHintGold / Move / Dismiss), ShowSlot,
-              ExecuteFirstHelp, Update, OnTweenIn/Out; GameState::AddSoldiersToSquad, HUDWindow::GameReload.
+       5c [ ] HireTroopsWindow 3. SPLIT (2026-10-18, about 27 functions / 3,500 asm lines):
+              5c-1 [x] (2026-10-18) OnTrain 0x2d9a1c (goblins' level check, no-slots popup, the tamer's
+                   "find a beast" arrow / map switch / SERVER_ERROR popup, NotEnough with
+                   REQUIREMENT_TROOPS + PERFORM_HIRE, charges gold / resource / item; goblin -> HireGolbin;
+                   tavern 0x8f -> new Entity + HireSoldier(e, true, 1); city map -> SpawnEntityAt the HQ's
+                   spawn tile + Building::LaunchContract(Entity*) @0x127294 (contract 0xbad1dea, worker 0,
+                   CenterOn, SoldierPool); else CreateEntity + HireSoldier(e, true, 2); tutorial 0x61 ->
+                   0x62 + interaction lock), OnHire 0x2d8b90 (crystals, ConfirmPurchaseWindow),
+                   RunHireAnimation, Update (hover z, tutorial 0x63 -> 0x64, the glides: ease-out circle
+                   0.5 s, reserve fades in; refresh each second), OnTweenIn (arrow at Train / small Hire /
+                   build), ShowSlot, ShowEntity. TavernInfo +0x1c/+0x20/+0x2c renamed attack / defense /
+                   level. VERIFIED (case 3 + tap 2820:410:552): the arrow points at Train; Train charges
+                   25 gold + 25 food, step 0x61 -> 0x62, the window closes, the soldier (8 HP) spawns at
+                   the castle, walks to the barracks and shows in the Army bar. NOT tested: OnHire (input
+                   is locked to Train at 0x61), the tamer path, other maps, the glides (level < 5 hides
+                   the window instead). Left for 5d: Building::TrainingCompleted 0x11d950 /
+                   IsTrainingCompleted / Map::TrainingcontractRunning (the trained soldier walking out,
+                   step 0x62 -> 0x63; OnContractCompleted's class 0xc note).
+                   Note: "TutorialWindow::UpdateCity() Amount of lumber after tutorial (311) ..." is
+                   printed at f=780 of case 2/3 already (before this step).
+              5c-2 [ ] OnSquad, OnReserve, OnRefresh, OnMove, the hints (OnHintGold / OnHintMove /
+                   OnHintDismiss / OnHintDismissContinue), OnBlueButton, OnItem, FUN_002d00d4 /
+                   FUN_002d0174 / FUN_002d0260.
+              5c-3 [ ] OnUpgrade (+Continuation), CheckUpgradeRequirements, OnBuild (g_buildTask),
+                   OnTaskDo, ExecuteFirstHelp, HUDWindow::GameReload (AddSoldiersToSquad was done in 5a).
        5d [ ] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
               the compass, the world map); a save round trip on a copy. The opening tutorial is done.
        5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::

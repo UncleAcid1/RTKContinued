@@ -438,5 +438,7 @@ void ShowArrow();                           // @0x2cde34
 // picks the first warrior the building does not train yet.
 void ShowForBuilding(uint32_t id, bool arrowOnBuild);
 void OnTab(unsigned tab, bool arrowOnBuild);   // @0x2d8f04
-void UpdateContents();                      // (0x2d05e4) UNVERIFIED (milestone 5b): empty so far
+void UpdateContents();                      // @0x2d05e4
+void ShowSlot(unsigned n);                  // @0x2cee94 the strip scrolls to card slot n
+void ShowEntity(uint32_t entity);           // @0x2d913c the strip scrolls to the offer of that unit
 }

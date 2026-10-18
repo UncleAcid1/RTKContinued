@@ -19,6 +19,7 @@
 #include "game/Rand48.h"
 #include "game/MetaData.h"
 #include "game/Setting.h"
+#include "game/SoldierSlots.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
 
@@ -537,6 +538,17 @@ void Building::CollectResources(bool& full, int& amount) {
     }
     if (cls != 0 && cls != 9) return;
     stateTime = Timer::GetGlobalTime();
+}
+
+void Building::LaunchContract(Entity* e) {
+    contract = kTrainingContract;
+    contractDone = false;
+    stateTime = Timer::GetGlobalTime();
+    AssignWorker(e, 0);
+    float x = 0.f, y = 0.f;
+    e->GetWorldPos(x, y);
+    Render::CenterOn(x, y, true, 0.4f, 0, false);
+    SoldierPool::AddSoldier(e);
 }
 
 void Building::LaunchContract(unsigned index, int patch) {

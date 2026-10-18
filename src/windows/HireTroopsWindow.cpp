@@ -4,9 +4,10 @@
 // (5 slots), whose soldiers are dragged from one to the other. Port of HireTroopsWindow
 // (libkingdom.so 5.11), 0x2cdd30..0x2dae58. Statics at 0x621170..0x622a8c and 0x60f284..0x60f2b0.
 //
-// Milestone 5a: the window, its parts, opening, tabs, scrolling, the soldier drag. UNVERIFIED
-// (milestone 5b): UpdateContents (the cards, the slots); (milestone 5c): the buttons' actions,
-// Update, OnTweenIn's tutorial arrows.
+// Milestone 5a: the window, its parts, opening, tabs, scrolling, the soldier drag; 5b: UpdateContents
+// (the cards, the slots); 5c-1: Train and Hire, the hire glide, Update, OnTweenIn's tutorial arrows.
+// UNVERIFIED (milestone 5c): the other buttons' actions.
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "engine/StlSort.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
+#include "game/AIState.h"
 #include "game/BuildingHovers.h"
 #include "game/Contracts.h"
 #include "game/Entity.h"
@@ -22,6 +24,7 @@
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/Setting.h"
@@ -284,10 +287,15 @@ unsigned g_squadSlot = 0xffffffff;       // 0x60f2a8 the squad slot a dragged so
 int g_unk60f2ac = -1;                    // 0x60f2ac (Show: -1)
 bool g_tablet = true;                    // 0x60f2b0
 
-// UNVERIFIED (milestone 5c): the buttons' actions are not ported yet.
+int g_lastSecond = 0;                    // 0x622a60 the global second Update last refreshed the contents in
+
+void OnTrain(unsigned n);
+void OnHire(unsigned n, bool confirmed);
+void Update(float dt);
+void OnTweenIn();
+
+// UNVERIFIED (milestone 5c): the other buttons' actions are not ported yet.
 void OnItem(unsigned, unsigned) {}       // (0x2ceca4)
-void OnTrain(unsigned) {}                // (0x2d9a1c)
-void OnHire(unsigned, bool) {}           // (0x2d8b90)
 void OnBlueButton(unsigned) {}           // (0x2d03f4)
 void OnRefresh(unsigned, bool) {}        // (0x2d8830)
 void OnSquad(unsigned) {}                // (0x2d80d0)
@@ -528,8 +536,8 @@ void Init() {
     g_scale = g_root->scale;
     g_root->SetVisibility(false);
     g_wnd->fn.show = Show;
-    // UNVERIFIED (milestone 5c): fn.update = Update (0x2d91b8).
-    g_tween = GUI::CreateTweenEffect(g_root, nullptr, nullptr /* UNVERIFIED (milestone 5c): OnTweenIn */, OnTweenOut);
+    g_wnd->fn.update = Update;
+    g_tween = GUI::CreateTweenEffect(g_root, nullptr, OnTweenIn, OnTweenOut);
     g_tween->swingIn.clear();   // (SetSwingInSound(nullptr))
     g_tween->CenterWith(0, (int)(g_scale * -35.f), 0, 0);
     g_close = GUI::GetWindowTyped<GUI::Button>(g_root, "x_button.clickArea");
@@ -862,13 +870,13 @@ void UpdateContents() {
         // levelLock: the player's level is below the offer's (not for goblins); trainable: its
         // task is done, the building is high enough and so is the player (goblins: always);
         // canTrain: also built, not card 2 during tutorial step 0x61, and a goblin not yet hired.
-        const bool levelLock = offer->unk2c > (unsigned)GameState::GetLevel() && g_tab != 5;
+        const bool levelLock = offer->level > (unsigned)GameState::GetLevel() && g_tab != 5;
         bool trainable;
         if (d->unlockQuest != 0 && !GameState::TaskCompleted(d->unlockQuest))
             trainable = false;
         else if (buildingLevel < (unsigned)d->trainingObjCount)
             trainable = false;
-        else if (offer->unk2c > (unsigned)GameState::GetLevel())
+        else if (offer->level > (unsigned)GameState::GetLevel())
             trainable = g_tab == 5;
         else
             trainable = true;
@@ -890,7 +898,7 @@ void UpdateContents() {
         int attack = d->attackMelee;
         if (attack == 0) attack = d->attackRanged;
         if (attack == 0) attack = d->attackMagic;
-        if (offer->special != 0) attack = (int)offer->special;
+        if (offer->attack != 0) attack = (int)offer->attack;
         const unsigned gold = d->GetCostGold(false, offer);
         const unsigned crystals = d->GetCostCrystals(false, offer);
         card.icon1->SetVisibility(g_tab != 5);
@@ -930,7 +938,7 @@ void UpdateContents() {
             tamerTask = true;
         // Crystals buy only at the tavern, and goblins above the player's level.
         if (canTrain && buyCrystal && g_tab != 0) {
-            if (g_tab != 5 || offer->unk2c <= (unsigned)GameState::GetLevel()) buyCrystal = false;
+            if (g_tab != 5 || offer->level <= (unsigned)GameState::GetLevel()) buyCrystal = false;
         }
         if (d->attackMagic != 0)
             card.icon2->SetTexture(IconManager::GetIcon(d->GetSmallSpellIcon(), false), true);
@@ -1060,12 +1068,12 @@ void UpdateContents() {
                 Append(text, StringTable::GetString("UPGRADE_LOCKED"));
             }
         }
-        if (offer->unk2c > (unsigned)GameState::GetLevel()) {
+        if (offer->level > (unsigned)GameState::GetLevel()) {
             if (g_tab == 5) {
                 Append(text, StringTable::GetString("SPAWN_GOB_HINT"));
                 Append(text, U"\n");
             }
-            Append(text, StringTable::GetString("SPAWN_GOB_NEED_LEVEL"), {ToWideString((int)offer->unk2c)});
+            Append(text, StringTable::GetString("SPAWN_GOB_NEED_LEVEL"), {ToWideString((int)offer->level)});
             Append(text, U"\n");
         }
         uint32_t quest = d->unlockQuest;
@@ -1363,5 +1371,309 @@ void UpdateContents() {
     }
     g_root->UpdatePosition();
 }
+
+// @0x2cee94: the strip scrolls so that card slot n shows.
+void ShowSlot(unsigned n) { g_scroller.ScrollIntoView(n); }
+
+// @0x2d913c: the strip scrolls to the tab's offer of unit `entity` (if it has one).
+void ShowEntity(uint32_t entity) {
+    for (unsigned i = 0; i < g_offers.size(); ++i) {
+        if (g_offers[i]->entity != entity) continue;
+        g_scroller.ScrollIntoView(i);
+        UpdateContents();
+        return;
+    }
+}
+
+namespace {
+
+// @0x2d899c: the hired soldier's icon glides from card n's slot to the squad slot of its kind; when
+// it went to the reserve (or the squad has none of it), to the last reserve slot showing its icon.
+// Update moves it.
+void RunHireAnimation(const EntityData* d, unsigned n) {
+    unsigned squad = 0xffffffff;
+    for (unsigned i = 0; i < GameState::GetSoldierSlotCount() && squad == 0xffffffff; ++i) {
+        if (!SoldierSlots::GetSoldierBySlot(i)) continue;
+        squad = SoldierSlots::GetSoldierBySlot(i)->GetEntityData()->id == d->id ? i : 0xffffffff;
+    }
+    int reserve = -1;
+    for (int i = 0; i < 5; ++i)
+        if (g_reserve[i].soldierFine->texture == d->side0) reserve = i;
+    Shared::WarriorSlotInfo* s;
+    if ((squad == 0xffffffff || SoldierPool::GetFirstSoldierByID(d->id)) && reserve != -1)
+        s = &g_reserve[reserve];
+    else if (squad != 0xffffffff)
+        s = &g_squad[squad];
+    else
+        return;   // PORT: the original writes to g_squad[-1] (inside the fourth card) here.
+    Render::RemoveSprite(s->returnSprite);
+    Render::Sprite* sp = Render::CreateSprite(d->side0, 0xf, false, false);
+    s->returnSprite = sp;
+    sp->screenSpace = true;
+    Render::SetShaderType(sp, 1);
+    s->returnTime = 0.f;
+    const Render::Sprite* from = g_warriors[n].slot1.soldierFine->sprite;
+    s->returnX = from->x;
+    s->returnY = from->y;
+    UpdateContents();
+}
+
+// Fills in a hired soldier from its offer, and the offer's next one (its time and HP).
+void SetUpHired(Entity* e, Tavern::TavernInfo* offer) {
+    e->SetHP((int)offer->hpMax);
+    e->SetHpMax((int)offer->hpMax);
+    e->SetOverrideAttack((int)offer->attack);
+    e->SetOverrideDefense((int)offer->defense);
+}
+void NextOffer(Tavern::TavernInfo* offer) {
+    GameState::SetTavernWarriorTS(offer->entity, (uint32_t)Timer::GetGlobalTime());
+    GameState::SetTavernWarriorHP(offer->entity, offer->GenerateHP());
+}
+
+// @0x2d9a1c: card n's Train button (and the small Hire for resources). On the goblins' tab the
+// player level comes first; with the squad and the reserve full it refuses (not for goblins). On
+// the tamer's tab (4) the arrow shows where a beast of that kind is instead. Else the price is
+// charged (NotEnough when short, its button trains again) and: a goblin joins the storage; the
+// tavern's warrior is hired at once; on the city map the building trains the warrior
+// (LaunchContract), elsewhere it joins at once.
+void OnTrain(unsigned n) {
+    Tavern::TavernInfo* offer = g_offers[g_scroller.firstIndex + n];
+    EntityData* d = EntityFactory::GetEntityByID((int)offer->entity);
+    if (g_tab == 5 && offer->level > (unsigned)GameState::GetLevel()) {
+        NotEnoughWindow::ResetRequirements();
+        NotEnoughWindow::AddLevelRequirement(offer->level);
+        NotEnoughWindow::AddRequirement(8, d->GetCostGold(false, offer));
+        if (!NotEnoughWindow::CheckRequirements()) {
+            NotEnoughWindow::Show();
+            return;
+        }
+    }
+    const bool room = (GameState::GetCurrentMapID() != 0 && SoldierSlots::GotFreeSlot(offer->entity)) ||
+                      SoldierPool::GotFreeSlot(offer->entity);
+    if (!room && g_tab != 5) {
+        PopupWindow::Show(StringTable::GetString("HIRE_TROOPS_NO_SLOTS"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    if (g_tab == 4) {
+        Entity* player = EntityManager::GetPlayer();
+        if (Entity* beast = EntityManager::GetNearestEnemyWithClassTo(player, (uint32_t)d->enemyClass)) {
+            float x = 0.f, y = 0.f;
+            beast->GetWorldPos(x, y);
+            AIBaseState* ai = player->GetAI();
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([ai, beast] { ai->ClickedEntity(beast); }));
+            BuildingHovers::FollowEntity(beast);
+            const float h = beast->GetSprite() ? beast->GetSprite()->h : 0.f;
+            Tasks::HelpWithLocation((int)x, (int)(y - h - 10.f), 0, 0);
+            Hide();
+            return;
+        }
+        const uint32_t map = Locations::GetMapWithEntityOfClass((uint32_t)d->enemyClass, false);
+        if (map != 0) {
+            if (map == 0x74) return;
+            Hide();
+            Tasks::HelpWithMapSwitchTo(map, true, false, 0);
+            return;
+        }
+        if (Locations::GetMapWithEntityOfClass((uint32_t)d->enemyClass, true) != 0)
+            PopupWindow::Show(StringTable::GetString("SERVER_ERROR"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    const int resources = GetAdjustedResourceCost((uint32_t)d->itemCostId, d->resourceCost);
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::AddRequirement(8, d->GetCostGold(false, offer));
+    NotEnoughWindow::AddRequirement(d->resourceCostType, (unsigned)resources);
+    if (GameState::GetServerSetting(0xb3) == 0)
+        NotEnoughWindow::AddItemRequirement((unsigned)d->itemCostId, (unsigned)d->itemCost);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::SetDescriptionText(
+            SWPrintf(0x80, StringTable::GetString("REQUIREMENT_TROOPS"), {d->title}).c_str(), d->title);
+        NotEnoughWindow::SetActionCallback([n] { OnTrain(n); }, StringTable::GetString("PERFORM_HIRE"), false);
+        NotEnoughWindow::Show();
+        return;
+    }
+    NotEnoughWindow::Hide();
+    GameState::ChangeResourceAmount(8, -(int)d->GetCostGold(false, offer));
+    GameState::ChangeResourceAmount(d->resourceCostType, -resources);
+    if (d->itemCostId != 0 && GameState::GetServerSetting(0xb3) == 0)
+        GameState::RemoveItem((uint32_t)d->itemCostId, d->itemCost);
+    if (g_tab == 5) {
+        if (Map::Building* b = Map::GetBuildingWithID(0x12)) b->HireGolbin();
+        Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, 0x12, 1);
+        UpdateContents();
+        return;
+    }
+    if (kTabBuildings[g_tab] == 0x8f) {
+        Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, 0x8f, 1);
+        Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
+        Entity* e = new Entity(d, 0, 0);
+        SetUpHired(e, offer);
+        GameState::HireSoldier(e, true, 1);
+        NextOffer(offer);
+        UpdateContents();
+        if (GameState::GetLevel() > 4) return;
+        Hide();
+        return;
+    }
+    if (GameState::GetCurrentMapID() == 0) {
+        if (Map::Building* b = Map::GetBuildingWithID(kTabBuildings[g_tab])) {
+            if (b->HasActiveContract() && !b->contractDone) b->OnContractCompleted(false);
+            int tx = 0, ty = 0;
+            Map::GetHQ()->GetSpawnTile(tx, ty);
+            Entity* e = EntityManager::SpawnEntityAt((int)d->id, (unsigned)tx, (unsigned)ty, true, true);
+            e->SetActive(true, true);
+            SetUpHired(e, offer);
+            NextOffer(offer);
+            b->LaunchContract(e);
+            UpdateContents();
+        }
+    } else {
+        Entity* e = EntityManager::CreateEntity((int)offer->entity, false, true);
+        GameState::HireSoldier(e, true, 2);
+        SetUpHired(e, offer);
+        NextOffer(offer);
+        Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, kTabBuildings[g_tab], 1);
+        Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
+        UpdateContents();
+    }
+    if (GameState::GetLevel() < 5)
+        Hide();
+    else
+        RunHireAnimation(d, n);
+    if (GameState::tutorial != 0x61) return;
+    BuildingHovers::HideArrow();
+    GameState::tutorial = 0x62;
+    GUI::SetInteractionLock(true);
+    Hide();
+}
+
+// @0x2d8b90: card n's crystal price: asks first (ConfirmPurchaseWindow), then hires at once: a
+// goblin for the storage, else a soldier (to the squad or the reserve) with the hire glide.
+void OnHire(unsigned n, bool confirmed) {
+    Tavern::TavernInfo* offer = g_offers[g_scroller.firstIndex + n];
+    EntityData* d = EntityFactory::GetEntityByID((int)offer->entity);
+    const bool room = (GameState::GetCurrentMapID() != 0 && SoldierSlots::GotFreeSlot(offer->entity)) ||
+                      SoldierPool::GotFreeSlot(offer->entity);
+    if (!room && g_tab != 5) {
+        PopupWindow::Show(StringTable::GetString("HIRE_TROOPS_NO_SLOTS"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    const int price = GameState::AdjustCrystalCost((int)d->GetCostCrystals(false, offer));
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::AddRequirement(9, (unsigned)price);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return;
+    }
+    if (!confirmed) {
+        ConfirmPurchaseWindow::SetParameters([n] { OnHire(n, true); }, (unsigned)price, true);
+        ConfirmPurchaseWindow::Show();
+        return;
+    }
+    // (FileManager::OnItemBought("warrior_%d", ...) and Billing::LogCBPurchase(0x19, ...): purchase
+    // statistics, removed.) UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+    GameState::ChangeResourceAmount(9, -price);
+    if (g_tab == 5) {
+        if (Map::Building* b = Map::GetBuildingWithID(0x12)) b->HireGolbin();
+        Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, 0x12, 1);
+        UpdateContents();
+        return;
+    }
+    Entity* e = EntityManager::CreateEntity((int)offer->entity, false, true);
+    GameState::HireSoldier(e, true, 2);
+    SetUpHired(e, offer);
+    NextOffer(offer);
+    if (kTabBuildings[g_tab] != 0) Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, kTabBuildings[g_tab], 1);
+    Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, (uint32_t)d->trainingObjType, 1);
+    Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
+    UpdateContents();
+    BattleBarWindow::UpdateContents();
+    RunHireAnimation(d, n);
+}
+
+// One glide step (a drag let go, a hire): a quarter circle (ease-out) in 0.5 s to the slot's icon;
+// false when it has landed (the sprite is gone). The reserve's fade in from half transparent.
+bool StepGlide(Shared::WarriorSlotInfo& s, float dt, bool fade) {
+    bool flying = true;
+    Render::Sprite* sp = s.returnSprite;
+    float t = s.returnTime + s.returnTime;
+    if (t < 1.f) {
+        t = t - 1.f;
+        const float k = std::sqrt(1.f - t * t);
+        const float dx = (float)(g_root->x + s.soldierFine->x) - s.returnX;
+        const float dy = ((float)(g_root->y + s.soldierFine->y) + sp->h) - s.returnY;
+        Render::SetPosition(sp, s.returnX + dx * k, s.returnY + dy * k, 0.01f);
+        if (fade) Render::SetAlpha(s.returnSprite, 0.5f + k * 0.5f);
+    } else {
+        s.returnSprite = Render::RemoveSprite(sp);
+        flying = false;
+    }
+    s.returnTime += dt;
+    return flying;
+}
+
+// @0x2d91b8
+void Update(float dt) {
+    if (g_hover->shownHover) {
+        if (g_hover->GetZ() != 0.001f) {
+            g_hover->SetZ(0.001f);
+            Render::SortRenderLayer(0xe, 1);
+        }
+        if (WindowManager::Head() != g_wnd) g_hover->Hide();
+    }
+    if (GameState::tutorial == 0x63) {
+        GUI::SetInteractionLock(true);
+        GameState::tutorial = 0x64;
+    }
+    if (!g_root->visibleSelf) {
+        for (Shared::WarriorSlotInfo& s : g_reserve) s.returnSprite = Render::RemoveSprite(s.returnSprite);
+        return;
+    }
+    g_scroller.Update(dt);
+    g_left->SetEnabled(g_scroller.CanMoveLeft());
+    g_right->SetEnabled(g_scroller.CanMoveRight());
+    bool landed = false;
+    for (Shared::WarriorSlotInfo& s : g_squad)
+        if (s.returnSprite && !StepGlide(s, dt, false)) landed = true;
+    for (Shared::WarriorSlotInfo& s : g_reserve)
+        if (s.returnSprite && !StepGlide(s, dt, true)) landed = true;
+    // The contents refresh once a second (the timers), and when a glide lands.
+    if (Timer::GetGlobalTime() != g_lastSecond || landed) UpdateContents();
+    g_lastSecond = Timer::GetGlobalTime();
+}
+
+// @0x2cdf50: after the slide in, the tutorial arrow: at card g_arrowSlot's Train (or small Hire)
+// button, in step 0x61 the first card's; with ShowForBuilding's flag at the first card's build
+// button.
+void OnTweenIn() {
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound(g_tab == 0 ? "ui_tavern_opened" : "ui_barracks_opened").
+    if (GameState::tutorial == 0x61) g_arrowSlot = 0;
+    if (g_arrowSlot != -1) {
+        TaskInfoWindow::BlockArrowLimitChangeOnce();
+        BuildingHovers::SetArrowVisibleWindowLimit(2);
+        const WarriorInfo& w = g_warriors[g_arrowSlot];
+        if (w.train->visibleSelf) {
+            BuildingHovers::ArrowAt((float)(w.train->w + w.train->x + g_root->x),
+                                    (float)(g_root->y + w.train->y + w.train->h / 2), false, true, false, false, true,
+                                    false, false);
+        } else if (w.hireRes->visibleSelf) {
+            BuildingHovers::ArrowAt((float)(g_root->x + w.hireRes->x),
+                                    (float)(g_root->y + w.hireRes->y + w.hireRes->h / 2), false, true, true, false,
+                                    true, false, false);
+        }
+        const unsigned slot = (unsigned)g_arrowSlot;
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([slot] { OnTrain(slot); }));
+        g_arrowSlot = -1;
+    }
+    if (g_arrowOnBuild && g_warriors[0].build->visibleSelf) {
+        BuildingHovers::SetArrowVisibleWindowLimit(2);
+        const Window* b = g_warriors[0].build;
+        BuildingHovers::ArrowAt((float)(g_root->x + b->x + b->w / 2), (float)(g_root->y + b->y), false, false, false,
+                                false, true, false, false);
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnBlueButton(0); }));
+        g_arrowOnBuild = false;
+    }
+}
+
+}  // namespace
 
 }  // namespace HireTroopsWindow
