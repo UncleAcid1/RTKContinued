@@ -163,8 +163,9 @@ void OnReturn() {
         }
         choosePath = GameState::TaskCompleted(0x43f);
     }
-    // UNVERIFIED (milestone 5): ChoosePathWindow::Show when choosePath.
-    (void)choosePath;
+    // (In the city the original first returns while StartRaidingWindow is up; it never opens, see
+    // above.)
+    if (choosePath) ChoosePathWindow::Show();
 }
 
 // @0x2772e8 (the HUD's player locator): the camera glides to the hero in a fight, else to the castle.

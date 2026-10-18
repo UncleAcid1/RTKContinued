@@ -3,7 +3,7 @@
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
 // UNVERIFIED (milestone 5): the windows its nodes open (RaidInfoWindow,
-// ChoosePathWindow, SultanArrivingWindow, CampaignCompleteWindow, RaidCompleteWindow,
+// SultanArrivingWindow, CampaignCompleteWindow, RaidCompleteWindow,
 // CampaignPerfectedWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
@@ -226,9 +226,8 @@ void PlaceSultan() {
 // @0x2bdd94
 bool OnBack() { return false; }
 
-// @0x2bf3b0: the "Navigate" button opens ChoosePathWindow. UNVERIFIED (milestone 5): the window
-// (its campaign progress and scroller) is not ported, so nothing opens.
-void OnNavigate() {}
+// @0x2bf3b0: the "Navigate" button opens ChoosePathWindow.
+void OnNavigate() { ChoosePathWindow::Show(); }
 
 // @0x2bf434. UNVERIFIED (milestone 5): SultanArrivingWindow (Show and UpdateContents).
 void OnSultan() {}

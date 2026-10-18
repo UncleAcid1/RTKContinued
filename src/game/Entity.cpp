@@ -940,8 +940,7 @@ void Entity::OnTalkTo() {
     if (talkTask == 0) {
         switch (specialTalk) {
         case 0x1d7:
-            // UNVERIFIED (milestone 5): ChoosePathWindow::Show (the "where to next" choice; all its
-            // answers lead to the global map).
+            ChoosePathWindow::Show();   // "where to next": all its answers lead to the world map
             break;
         case 0x578:
             TaskInfoWindow::SetTask(0x5b7, false);

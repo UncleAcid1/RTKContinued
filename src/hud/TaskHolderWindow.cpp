@@ -118,8 +118,11 @@ void SetTaskCharacter(Shared::TaskWindow& w, Render::Texture* image) {
 void OnTaskInfo(uint32_t id) {
     for (Shared::TaskWindow& w : g_windows)
         if (w.taskId == id) w.bannerTimer = 0.f;
-    // (0x5eb: the expansion update, online.) UNVERIFIED (milestone 5): 0x5fb opens ChoosePathWindow.
-    if (id == 0x5fb) return;
+    // (0x5eb: the expansion update, online.)
+    if (id == 0x5fb) {
+        ChoosePathWindow::Show();
+        return;
+    }
     // The topmost button (the first used one in place) with a campaign look opens its map's
     // campaign window; for the arena map 0x74 the world map's arrow at it, there the heal window
     // for a dead hero. UNVERIFIED (milestone 5): there ArenaEventWindow::Show.

@@ -2320,7 +2320,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     TaskListWindow::RunLastHelpItem();
     Tasks::RunLastSubTaskHelp();
     FoundItemsWindow::RunPostAction();
-    // UNVERIFIED (milestone 5): SultanArrivingWindow::RunLastHelp, ChoosePathWindow::RunShowOnLoad.
+    // UNVERIFIED (milestone 5h): SultanArrivingWindow::RunLastHelp.
+    ChoosePathWindow::RunShowOnLoad();
     g_mapTimer = missionMap ? 360.f : 0.f;
     GameState::ResetTimeModifier();
     CreateBirds();

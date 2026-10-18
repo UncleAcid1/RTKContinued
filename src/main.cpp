@@ -728,6 +728,7 @@ int main_Loop_Init() {
     CampaignInfoWindow::Queue();
     CastleTopWindow::Queue();
     ChapterWindow::Queue();
+    ChoosePathWindow::Queue();
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();
     ExchangeWindow::Queue();

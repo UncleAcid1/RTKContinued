@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5f-2 (ChoosePathWindow), then 5e. (5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5e (healing and repair), then 5g. (5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1752,7 +1752,7 @@ Milestones:
        5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::
               ShowHealSoldier, RepairWindow.
        The world map's windows:
-       5f [ ] ChoosePathWindow, CampaignInfoWindow, HintHoverWindow (campaign starts from the map).
+       5f [x] ChoosePathWindow, CampaignInfoWindow, HintHoverWindow (campaign starts from the map).
               SPLIT (2026-10-18, about 73 functions; ChoosePathWindow::UpdateContents alone 6.7 KB):
               5f-1 [x] (2026-10-18) windows/CampaignInfoWindow.cpp (Window_campaign_brief.xml):
                    SetParameters (the map's finds: resources 0..10, items not packs), UpdateContents
@@ -1773,7 +1773,27 @@ Milestones:
                    ItemHoverWindow's hide lists. VERIFIED (test case 4): the node opens "Campaign -
                    Digging Up the Past", 0%, two items, no X at 0x67; the mentor shows the story
                    bubble with Next; Begin Campaign travels to map 0xe (step 0x80).
-              5f-2 [ ] ChoosePathWindow (the Navigate button's "where to next").
+              5f-2 [x] (2026-10-18) windows/ChoosePathWindow.cpp (Window_where_to_next.xml): a
+                   strip of 3 recycled buttons over 6 slots (home, campaigns, missions, winter,
+                   desert, shop; the slot is OnTravel's type, the background type comes from
+                   g_options), names / progress lines ("%s: %d%%" of GetCampaignProgress) / the
+                   running mission's name and time (missions take turns every 5 s, faded), locks,
+                   the dots, the middle slot's description; PvP and arena featured holders (6, 7);
+                   OnTravel (arrows on the world map, quest helps via HelpWithTask / TaskInfoWindow,
+                   the desert's sultan steps, the arena's travel), OnTravelRegular (a cut-off button
+                   scrolls in), Show (starts at the newest open part), Update (the second half was
+                   Ghidra's bogus _INIT_78: range-decompiled into out/big/cp_up*.c; UpdateContents
+                   into out/big/cp_uc*.c). Wired: GlobalMapWindow's Navigate, Entity::OnTalkTo 0x1d7,
+                   CastleTopWindow::OnReturn (task 0x43f done), TaskHolderWindow 0x5fb,
+                   Map::Load's RunShowOnLoad. CenterOn is dead (port_plan). UNVERIFIED: the PvP rank
+                   and the arena events' reputation texts (Professions, 5n), ItemShopWindow (5q),
+                   LevelInfoWindow's PvP / arena helps (5n), SultanArrivingWindow (5h),
+                   ArenaEventWindow (5s); CampaignCompleteWindow's and RaidCompleteWindow's openings
+                   come with 5h / 5g. VERIFIED (the 5d-2 save, city at 0x80: compass 1240:38,
+                   Navigate 680:745): the window with PvP "Valor - Beginner (0)" and Arena disabled,
+                   Kingdom in the middle ("Return to Kingdom"), 6 dots; the right arrow twice ->
+                   "Easy money" locked with its description; tapping Kingdom closes it and puts the
+                   arrow on home.
        5g [ ] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow.
        5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
        Fights:

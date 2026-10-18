@@ -168,6 +168,18 @@ void Hide();                                // @0x2e77f8
 bool IsVisible();                           // @0x2e73b4
 }
 
+// "Where to next?": the destinations of the world (windows/ChoosePathWindow.cpp).
+namespace ChoosePathWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChoosePathWindow" (_INIT_ 0x295378)
+void Init();                                // @0x2962b8
+void UpdateContents();                      // @0x296c14
+void Show();                                // @0x298df0
+void Hide();                                // @0x295718
+bool IsVisible();                           // @0x2952e0
+void EnqueueShowOnLoad();                   // @0x2952f4 it opens after the next map load
+void RunShowOnLoad();                       // @0x298f74 (Map::Load)
+}
+
 // A campaign's brief from its world-map node: progress, the items to find, Begin / Resume
 // (windows/CampaignInfoWindow.cpp).
 namespace CampaignInfoWindow {
