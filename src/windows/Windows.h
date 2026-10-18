@@ -424,3 +424,19 @@ namespace GameState { struct PlayerItem; }
 namespace SetInfoWindow {
 GameState::PlayerItem* GetPlayerItemOrBetter(uint32_t id);   // @0x33b3d4
 }
+
+// The tavern and barracks: train and hire warriors, move soldiers between the squad and the reserve
+// (windows/HireTroopsWindow.cpp).
+namespace HireTroopsWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "HireTroopsWindow"
+void Init();                                // @0x2dae58
+void Show();                                // @0x2d9650 (not in the opening tutorial nor an arena fight)
+void Hide();                                // @0x2ceeac
+bool IsVisible();                           // @0x2cde20
+void ShowArrow();                           // @0x2cde34
+// @0x2d99d8: opens on the tab of building id (0x8f, 0x8e, 0x69, 0x93, 0x609, 0x12); arrowOnBuild
+// picks the first warrior the building does not train yet.
+void ShowForBuilding(uint32_t id, bool arrowOnBuild);
+void OnTab(unsigned tab, bool arrowOnBuild);   // @0x2d8f04
+void UpdateContents();                      // (0x2d05e4) UNVERIFIED (milestone 5b): empty so far
+}

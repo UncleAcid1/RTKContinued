@@ -11,6 +11,7 @@
 
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
+#include "game/AI.h"
 #include "game/AIState.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
@@ -1783,6 +1784,16 @@ Entity* GetFriendPlayer() {
 
 void SetSoldierReserveSlots(unsigned n) { SoldierPool::SetFreeSlotsCount(n); }
 unsigned GetSoldierReserveSlots() { return SoldierPool::GetTotalSlotsFree(); }
+
+// @0x191f8c: e appears on a free tile next to the hero (one tile away, else three) and joins
+// the squad.
+void AddSoldiersToSquad(BaseSquad* squad, Entity* e) {
+    Entity* player = EntityManager::GetPlayer();
+    AI::Waypoint* wp = AI::GetRandomWaypointInRange(player->tileX, player->tileY, 1, 0, false, nullptr, false);
+    if (!wp) wp = AI::GetRandomWaypointInRange(player->tileX, player->tileY, 3, 0, false, nullptr, false);
+    EntityManager::SpawnEntityAt(e, (unsigned)wp->x, (unsigned)wp->y, true, true);
+    squad->AddSoldier(e);
+}
 
 // @0x19a15c: a new soldier joins: its first and latest acquisition times and its count are noted;
 // it takes a free army slot (a dead soldier of the same kind, or any dead one when all slots are

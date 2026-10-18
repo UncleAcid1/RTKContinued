@@ -736,6 +736,7 @@ int main_Loop_Init() {
     LevelUpWindow::Queue();
     NeedItemWindow::Queue();
     HealSquadWindow::Queue();
+    HireTroopsWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerBattleInOutWindow::Queue();
     PlayerTopWindow::Queue();

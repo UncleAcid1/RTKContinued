@@ -312,6 +312,74 @@ void ItemIconHolder::SetItem(Items::ItemInfo* info) {
     state->SetVisibility(false);
 }
 
+// @0x345ab0
+void WarriorSlotInfo::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    lowerPart = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_lower_part", p);
+    lowerPartDisabled = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_lower_part_disabled", p);
+    lowerPartDisabled->SetVisibility(false);
+    bgSimple = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_bg_simple", p);
+    bgRed = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_bg_red", p);
+    bgDisabled = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_bg_disabled", p);
+    bgDisabled->SetVisibility(false);
+    wingsEmpty = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_icon_soldiers_wings.icon_wings_empty_slot", p);
+    wingsEmpty->SetTexture(IconManager::GetIcon("inv_wings", false), false);
+    soldierFine = GUI::GetWindowTypedF<Window>(r, "%s.bottom_bar_icon_soldiers_wings.icon_soldier_fine", p);
+    soldierFine->takesZ = true;
+    timeLeft = GUI::GetWindowTypedF<Textfield>(r, "%s.text_training_time_left", p);
+    lockIcon = GUI::GetWindowTypedF<Window>(r, "%s.icon_holder_16x16", p);
+    lockIcon->SetTexture(IconManager::GetIcon("gold_16_lock", false), true);
+    golden = GUI::GetWindowTypedF<Window>(r, "%s.slot_golden_borderv", p);
+    static const char* const kDiscounts[4] = {"blue", "green", "purple", "red"};
+    char name[300];
+    for (int i = 0; i < 4; ++i) {
+        std::snprintf(name, sizeof name, "%s.discount_label_holder.discount_label_%s", p, kDiscounts[i]);
+        discount[i].LoadFrom(r, name);
+    }
+    hpIcon = GUI::GetWindowTypedF<Window>(r, "%s.unit_info_hp_bar.icon_gold_16_health", p);
+    if (!hpIcon->texture) hpIcon->SetTexture(IconManager::GetIcon("gold_16_health", false), true);
+    // Each bar: the empty frame, and a copy at its full frame drawn under it, cut at the clip's
+    // right edge.
+    hpBar = GUI::GetWindowTypedF<Window>(r, "%s.unit_info_hp_bar", p);
+    hpBar->SetFrame(1, true);
+    hpFill = GUI::DuplicateWindow(hpBar, true, false, nullptr);
+    hpFill->SetFrame(100, false);
+    hpBar->PrependChild(hpFill);
+    hpText2 = GUI::GetWindowTypedF<Textfield>(r, "%s.unit_info_hp_bar.text_hp_bar_2", p);
+    hpText = GUI::GetWindowTypedF<Textfield>(r, "%s.unit_info_hp_bar.text_hp_bar", p);
+    hpClip = {hpFill->x, 0, hpFill->x + hpFill->w, 0x400};
+    hpFill->SetClipRect(&hpClip);
+    hpText->SetClipRect(&hpClip);
+    trainingType = GUI::GetWindowTypedF<Window>(r, "%s.unit_info_training_bar.unit_type_in_training", p);
+    trainingType->takesZ = true;
+    trainingBar = GUI::GetWindowTypedF<Window>(r, "%s.unit_info_training_bar", p);
+    trainingBar->SetFrame(1, true);
+    trainingFill = GUI::DuplicateWindow(trainingBar, true, false, nullptr);
+    trainingFill->SetFrame(100, false);
+    trainingBar->PrependChild(trainingFill);
+    trainingText2 = GUI::GetWindowTypedF<Textfield>(r, "%s.unit_info_training_bar.text_training_bar_2", p);
+    trainingText = GUI::GetWindowTypedF<Textfield>(r, "%s.unit_info_training_bar.text_training_bar", p);
+    trainingClip = {trainingFill->x, 0, trainingFill->x + trainingFill->w, 0x400};
+    trainingFill->SetClipRect(&trainingClip);
+    trainingText->SetClipRect(&trainingClip);
+    manageSlot = GUI::GetWindowTypedF<Textfield>(r, "%s.text_manage_slot", p);
+    slotIsActive = GUI::GetWindowTypedF<Textfield>(r, "%s.text_slot_is_active", p);
+    noMore = GUI::GetWindowTypedF<Textfield>(r, "%s.text_no_more", p);
+    locked = GUI::GetWindowTypedF<Textfield>(r, "%s.text_locked", p);
+    gold = GUI::GetWindowTypedF<Textfield>(r, "%s.text_gold", p);
+    quantityNone = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity_none", p);
+    quantity = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity", p);
+    quantityActive = GUI::GetWindowTypedF<Textfield>(r, "%s.text_quantity_active", p);
+    noDrop = false;
+    returnSprite = nullptr;
+    dragSprite = nullptr;
+    pressed = false;
+    dragging = false;
+    pressY = 0;
+    pressX = 0;
+    soldier = 0;
+}
+
 // @0x344c5c
 void ItemHolder::LoadFrom(Window* r, const char* p, bool repOverlay) {
     root = GUI::GetWindowTypedF<Window>(r, "%s", p);

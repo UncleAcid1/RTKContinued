@@ -11,7 +11,8 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5a (the roadmap near the end of this file: "5. [ ] The rest of the game").
+**Next.** Milestone 5, step 5b (5a done 2026-10-18: HireTroopsWindow opens, contents empty; see the
+roadmap near the end of this file: "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
 push only when the user asks, a 2-3 line plain-language update, then WAIT for the user. Split a
 step that grows and say so. Steps marked DECIDED carry the user's answers; ask before anything
@@ -1605,10 +1606,20 @@ Milestones:
        before the next step. A step that grows past that is split at a natural seam and the user
        told. "ASK" = a freemium/online question for the user before the step starts.
        The army and the tutorial's end:
-       5a [ ] HireTroopsWindow 1: Init, the LoadFrom structs (WarriorInfo 0x3e4 bytes x6, CostInfo,
-              ButtonWarriorBuyNow, UpgradeInProgress), Show / ShowForBuilding / Hide / SetZ / Click /
-              OnTab / OnLeft / OnRight / Move; the barracks taps that open it (BuildingHovers kHireTroops,
-              TaskInfoWindow 0x61, HoverWindows cls 0xc). Opens and shows the tabs, contents empty.
+       5a [x] (2026-10-18) HireTroopsWindow 1: windows/HireTroopsWindow.cpp: Init, the LoadFrom structs
+              (WarriorInfo 0x3e4 bytes x4 cards, CostInfo, ButtonWarriorBuyNow, UpgradeInProgress;
+              Shared::WarriorSlotInfo @0x345ab0), Show / ShowForBuilding / Hide / SetZ / ZRange / Click
+              (the soldier drag between squad and reserve) / OnTab / OnLeft / OnRight / Move / OnBack /
+              OnTweenOut / SoldierMove, GameState::AddSoldiersToSquad, game/Tavern.h (TavernInfo's
+              fields read so far). Wired: BuildingHovers kHireTroops, OnBuildingClick (0x8f and class
+              0xc with "always_open_tavern"), HoverWindows cls 0xc, TaskInfoWindow step 0x61. Left as
+              notes: UpdateContents (5b, empty), the buttons' actions, Update, OnTweenIn (5c; stubs
+              without @ tags), HealHoverWindow (5e), the other ShowForBuilding callers (BattleBar's
+              Army, TasksHelp, TaskListWindow, ItemHoverWindow, FoundItemsWindow, PlayerWeakWindow
+              removed). VERIFIED (test loop, tap 2700:690:265 after the CITY run): at step 0x61 the
+              barracks opens it in the short tutorial layout (6 tabs, 3 cards, arrows, no squad /
+              reserve), no GUI errors; X does nothing there (the original locks input to card 1's
+              Train button). NOT checked: the full layout outside the tutorial.
        5b [ ] HireTroopsWindow 2: UpdateContents 0x2d05e4..0x2d7ae8 (30 KB, from the asm; split in
               two sittings if needed: the training tab first).
        5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,

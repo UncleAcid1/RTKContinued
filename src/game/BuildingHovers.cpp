@@ -1965,7 +1965,7 @@ bool Click(int x, int y, bool pressed) {
                     return true;
                 }
                 if (t == kHireTroops) {
-                    // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(tutorial 0x61 ? 0x8f : id).
+                    HireTroopsWindow::ShowForBuilding(GameState::tutorial == 0x61 ? 0x8fu : b->id, false);
                     return true;
                 }
                 if (b) {
@@ -2195,7 +2195,7 @@ bool OnBuildingClick(Map::Building* b, int, int) {
         } else if (b->IsOpened() && b->id == 99) {
             g_currentHover = g_castleWindow;
         } else if (b->IsOpened() && b->id == 0x8f) {
-            // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(id, false).
+            HireTroopsWindow::ShowForBuilding(b->id, false);
         } else if (cls == 4) {
             OnResourceAssign(b);
         } else if (b->IsOpened() && cls == 0) {
@@ -2206,8 +2206,11 @@ bool OnBuildingClick(Map::Building* b, int, int) {
             if (tutorialFarmLock && (unsigned)(GameState::tutorial - 0x3a) > 0x1b) return true;
             g_currentHover = g_factoryWindow;
         } else if (b->IsOpened() && cls == 0xc) {
-            // UNVERIFIED (milestone 5): the tavern's HireTroopsWindow (Setting "always_open_tavern"
-            // == 1 outside tutorial step 0x61: building 0x8f's).
+            // A tavern-class building: its own tab, or always the tavern's with "always_open_tavern".
+            if (GameState::tutorial != 0x61 && Setting("always_open_tavern").GetInt() == 1)
+                HireTroopsWindow::ShowForBuilding(0x8f, false);
+            else
+                HireTroopsWindow::ShowForBuilding(b->id, false);
         }
     }
     // (Off the city only the hover already chosen, if any, shows.)

@@ -232,7 +232,7 @@ bool BubbleHoverWindow::Click(int x, int y, bool pressed) {
                 return true;
             }
             if (cls == 0xc) {
-                // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(b->id, false).
+                HireTroopsWindow::ShowForBuilding(b->id, false);
                 return true;
             }
         }

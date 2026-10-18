@@ -13,6 +13,7 @@ namespace SaveManager { struct SaveBlock; }
 namespace Items { struct ItemInfo; }
 class Entity;
 class BaseCombat;
+class BaseSquad;
 
 namespace GameState {
 
@@ -275,6 +276,7 @@ Entity* GetFriendPlayer();                      // @0x1919ec the first class-0x1
 void SetSoldierReserveSlots(unsigned n);  // @0x191d90 SoldierPool::SetFreeSlotsCount
 unsigned GetSoldierReserveSlots();
 void HireSoldier(Entity* e, bool spawn, int where);    // @0x19a15c where: 0 by the hero, 1 tavern, 2 barracks
+void AddSoldiersToSquad(BaseSquad* squad, Entity* e);   // @0x191f8c spawned by the hero, then in the squad
 void HireSoldier(int id);                              // @0x19a5d8        // @0x191d94 SoldierPool::GetTotalSlotsFree
 void AddOfflineBuilding(const OfflineBuilding& b);   // @0x194928
 void ClearOfflineBuildings();                  // @0x19bda8

@@ -100,6 +100,7 @@ add_executable(rtk
   src/windows/ShopWindow.cpp
   src/windows/SelectHQWindow.cpp
   src/windows/HealSquadWindow.cpp
+  src/windows/HireTroopsWindow.cpp
   src/windows/NeedItemWindow.cpp
   src/windows/TaskCompleteWindow.cpp
   src/windows/TaskInfoWindow.cpp

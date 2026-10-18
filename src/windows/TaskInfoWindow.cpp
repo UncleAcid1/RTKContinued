@@ -147,7 +147,10 @@ void UpdateDescription() {
 
 // @0x35a648 TaskInfoWindow::OnHelpActual: the step's action button, once the window has closed.
 void OnHelpActual(unsigned step) {
-    // UNVERIFIED (milestone 5): in tutorial step 0x61 HireTroopsWindow::ShowForBuilding(0x8f) instead.
+    if (GameState::tutorial == 0x61) {
+        HireTroopsWindow::ShowForBuilding(0x8f, false);
+        return;
+    }
     Tasks::TaskInfo* t = Tasks::GetTask(g_task);
     if (!t) return;
     Tasks::TaskSubtask& s = t->subtasks[step];

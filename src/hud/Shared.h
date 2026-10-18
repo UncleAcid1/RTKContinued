@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "gui/GUI.h"
-namespace Render { struct Texture; }
+namespace Render { struct Texture; struct Sprite; }
 namespace Items { struct ItemInfo; }
 
 namespace PvP { struct PlayerEquipmentInfo; }
@@ -249,6 +249,54 @@ struct TaskWindow {
     // @0x342ef0: with a prefix the names are "<prefix>.<name>".
     void LoadFrom(GUI::Window* root, const char* prefix);
     void Animate(int fromX, int fromY, int toX, int toY);   // @0x3408dc half a second
+};
+
+// Shared::WarriorSlotInfo (0xdc bytes): a soldier's slot (HireTroopsWindow's squad and reserve,
+// the tavern offers' slots), with its health and training bars. LoadFrom @0x345ab0.
+struct WarriorSlotInfo {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Window* lowerPart = nullptr;    // +0x04 bottom_bar_lower_part
+    GUI::Window* lowerPartDisabled = nullptr;   // +0x08 (hidden)
+    GUI::Window* bgSimple = nullptr;     // +0x0c bottom_bar_bg_simple
+    GUI::Window* bgRed = nullptr;        // +0x10
+    GUI::Window* bgDisabled = nullptr;   // +0x14 (hidden)
+    GUI::Window* wingsEmpty = nullptr;   // +0x18 icon "inv_wings"
+    GUI::Window* soldierFine = nullptr;  // +0x1c the soldier's icon (takes a depth slot)
+    GUI::Textfield* timeLeft = nullptr;  // +0x20 text_training_time_left
+    GUI::Window* lockIcon = nullptr;     // +0x24 icon_holder_16x16, icon "gold_16_lock"
+    GUI::Window* golden = nullptr;       // +0x28 slot_golden_borderv
+    DiscountInfo discount[4];            // +0x2c blue, green, purple, red
+    GUI::Window* hpIcon = nullptr;       // +0x4c unit_info_hp_bar.icon_gold_16_health
+    GUI::Window* hpBar = nullptr;        // +0x50 unit_info_hp_bar (frame 1)
+    GUI::Window* hpFill = nullptr;       // +0x54 its copy at frame 100, clipped at hpClip
+    GUI::Textfield* hpText2 = nullptr;   // +0x58 text_hp_bar_2
+    GUI::Textfield* hpText = nullptr;    // +0x5c text_hp_bar (clipped at hpClip)
+    GUI::ClipRect hpClip{0, 0, 0, 0};    // +0x60
+    GUI::Window* trainingType = nullptr; // +0x70 unit_type_in_training (takes a depth slot)
+    GUI::Window* trainingBar = nullptr;  // +0x74 unit_info_training_bar (frame 1)
+    GUI::Window* trainingFill = nullptr; // +0x78 its copy at frame 100, clipped at trainingClip
+    GUI::Textfield* trainingText2 = nullptr;   // +0x7c text_training_bar_2
+    GUI::Textfield* trainingText = nullptr;    // +0x80 text_training_bar (clipped)
+    GUI::ClipRect trainingClip{0, 0, 0, 0};    // +0x84
+    GUI::Textfield* manageSlot = nullptr;      // +0x94 text_manage_slot
+    GUI::Textfield* slotIsActive = nullptr;    // +0x98
+    GUI::Textfield* noMore = nullptr;          // +0x9c
+    GUI::Textfield* locked = nullptr;          // +0xa0
+    GUI::Textfield* gold = nullptr;            // +0xa4
+    GUI::Textfield* quantityNone = nullptr;    // +0xa8
+    GUI::Textfield* quantity = nullptr;        // +0xac
+    GUI::Textfield* quantityActive = nullptr;  // +0xb0
+    // HireTroopsWindow's soldier drag: the icon gliding back to its slot, and the one under the finger.
+    Render::Sprite* returnSprite = nullptr;    // +0xb4
+    float returnTime = 0.f;                    // +0xb8
+    float returnX = 0.f, returnY = 0.f;        // +0xbc +0xc0 where it was let go
+    Render::Sprite* dragSprite = nullptr;      // +0xc4
+    bool pressed = false;                      // +0xc8
+    bool dragging = false;                     // +0xc9
+    int pressX = 0, pressY = 0;                // +0xcc +0xd0
+    uint32_t soldier = 0;                      // +0xd4 the soldier's entity id (0: empty)
+    bool noDrop = false;                       // +0xd8 not a drop target
+    void LoadFrom(GUI::Window* root, const char* prefix);
 };
 
 // Shared::ItemHolder (0x88 bytes): an inventory cell. LoadFrom @0x344c5c.
