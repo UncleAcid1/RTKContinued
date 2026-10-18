@@ -2,7 +2,7 @@
 // and the missions' side nodes over a scrolling parchment; the hero's marker travels between them.
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
-// UNVERIFIED (milestone 5): the windows its nodes open (CampaignInfoWindow, RaidInfoWindow,
+// UNVERIFIED (milestone 5): the windows its nodes open (RaidInfoWindow,
 // ChoosePathWindow, SultanArrivingWindow, CampaignCompleteWindow, RaidCompleteWindow,
 // CampaignPerfectedWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
@@ -289,8 +289,9 @@ void CastleLocation::OnClick() {
     if (comp->enabled) {
         if (info->campaign == 0x3ea || info->campaign == 0x3ec) {
             if (info->campaign == 0x3ea) {
-                // UNVERIFIED (milestone 5): CampaignInfoWindow::SetParameters(info, info->startMap,
-                // false), Show and SetAnimationOnce; nothing opens until then.
+                CampaignInfoWindow::SetParameters(info, info->startMap, false);
+                CampaignInfoWindow::Show();
+                CampaignInfoWindow::SetAnimationOnce();
                 return;
             }
         }
@@ -671,8 +672,9 @@ void CoreLocation::OnClick() {
                     SwitchMapAnimated(map, false, 500.f, false);
                     return;
                 }
-                // UNVERIFIED (milestone 5): CampaignInfoWindow::SetParameters(info, map, false),
-                // Show and SetAnimationOnce.
+                CampaignInfoWindow::SetParameters(info, map, false);
+                CampaignInfoWindow::Show();
+                CampaignInfoWindow::SetAnimationOnce();
                 return;
             }
             // UNVERIFIED (milestone 5): RaidInfoWindow::SetParameters(info, map, false), Show and

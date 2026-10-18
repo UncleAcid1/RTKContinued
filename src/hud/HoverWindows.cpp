@@ -1829,3 +1829,66 @@ void PlayerHintHoverWindow::OnClose() {
     Hide();
 }
 
+
+// --------------------------------------------------------------------- HintHoverWindow
+
+HintHoverWindow::~HintHoverWindow() { delete root; }
+
+void HintHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Dialog_hint_hd.xml", "Dialog_hint_hd.png",
+                           GUI::GetHoverScaleFactor(1.f, hoverScale), 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    frame = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_hint_window_9s");
+    arrowSW = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_sw");
+    arrowSE = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_se");
+    arrowNW = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_nw");
+    arrowNE = GUI::GetWindowTypedF<GUI::Window>(root, "dialog_arrow_ne");
+    arrowSW->SetVisibility(false);
+    arrowSE->SetVisibility(false);
+    arrowNW->SetVisibility(false);
+    arrowNE->SetVisibility(false);
+    text = GUI::GetWindowTypedF<GUI::Textfield>(root, "dialog_text");
+    next = GUI::GetWindowTypedF<GUI::Window>(root, "button_dialog_hint_next");
+    GUI::GetWindowTypedF<GUI::Textfield>(root, "button_dialog_hint_next.text_give_job")
+        ->SetText(StringTable::GetString("DIALOG_NEXT"));
+    // A third wider than laid out; Next moves to stay centred.
+    root->SetSize((unsigned)(root->w + (int16_t)(root->w / 3)), (unsigned)root->h);
+    frame->SetSize((unsigned)(frame->w + (int16_t)(root->w / 3)), (unsigned)frame->h);
+    text->SetSize((unsigned)(text->w + (int16_t)(root->w / 3)), (unsigned)text->h);
+    next->MoveWindow((int16_t)(root->w / 6), 0);
+}
+
+bool HintHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    root->Click(x, y, pressed, false);
+    return true;
+}
+
+// (The original also puts "HintHoverWindow::Show" to the log.)
+void HintHoverWindow::Show() {
+    if (shownHover) return;
+    BuildingHoverWindow::Show();
+    root->SetVisibility(true);
+}
+
+void HintHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+void HintHoverWindow::SetParameters(const char32_t* str) {
+    // Back to the laid-out size, then as much taller as the text needs.
+    root->SetSize((unsigned)root->w, (unsigned)(root->h - grown));
+    frame->SetSize((unsigned)frame->w, (unsigned)(frame->h - grown));
+    next->MoveWindow(0, -grown);
+    grown = 0;
+    text->SetAlignment(0, 0);
+    text->SetText(str);
+    grown = text->sprite ? (int)(std::fabs(text->sprite->h) - (float)text->h) - 6 : -6;
+    root->SetSize((unsigned)root->w, (unsigned)(grown + root->h));
+    frame->SetSize((unsigned)frame->w, (unsigned)(frame->h + grown));
+    next->MoveWindow(0, grown);
+    f2c = root->w;
+    f30 = root->h;
+}

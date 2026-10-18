@@ -7,6 +7,7 @@
 namespace WindowManager { class FunctionalWindow; }
 namespace Map { struct Building; struct Decor; }
 namespace Render { struct Texture; }
+namespace Locations { struct LocationInfo; }
 class Entity;
 
 namespace CityRenameWindow {
@@ -165,6 +166,22 @@ void SetPatchParameters(uint32_t farmId, int patch);   // @0x2e73e0 (3f)
 void Show();                                // @0x2e7778
 void Hide();                                // @0x2e77f8
 bool IsVisible();                           // @0x2e73b4
+}
+
+// A campaign's brief from its world-map node: progress, the items to find, Begin / Resume
+// (windows/CampaignInfoWindow.cpp).
+namespace CampaignInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CampaignInfoWindow" (_INIT_ 0x272cd4)
+void Init();                                // @0x275450
+// @0x275148: the campaign, the map Start travels to (its finds are listed); the bool is kept but
+// never read.
+void SetParameters(Locations::LocationInfo* info, uint32_t map, bool param3);
+void SetAnimationOnce();                    // @0x272c68 Start travels with the world map's animation
+void ShowItem(uint32_t item);               // @0x274598 the next opening points at that item's cell
+void UpdateContents();                      // @0x2731a8
+void Show();                                // @0x274630
+void Hide();                                // @0x2746d0
+bool IsVisible();                           // @0x272c54
 }
 
 // The chapter banner: a chapter task opens it, closing it completes the task.

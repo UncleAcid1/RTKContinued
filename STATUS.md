@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5f, then the rest of 5d (5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; its campaign node needs CampaignInfoWindow = 5f; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5: 5d-2 (only the save round trip on a copy is left: the node -> map 0xe -> step 0x80 already plays since 5f-1), then 5f-2 (ChoosePathWindow). (5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1732,12 +1732,41 @@ Milestones:
                    BLOCKED: that node is campaign 1 (not the instant-travel node 4000), so its tap needs
                    CampaignInfoWindow (5f). 5d-2 [ ] after 5f: the node -> map 0xe -> step 0x80
                    (Map::Load), then a save round trip on a copy (the game does not save in the tutorial).
-                   Seen: the world map is drawn shifted (parchment on the left and bottom at 1280x800);
-                   check against the original in 5f.
+                   PROGRESS (5f-1, 2026-10-18): the node -> CampaignInfoWindow -> Begin Campaign ->
+                   map 0xe -> step 0x80 / secondTutorial 0x200, Chapter 4 "The Early Feats" (test
+                   case 4 in tools/test_inputs.txt). Left: the save round trip on a copy.
+                   The world map's "shift" (paper on the left and bottom at 1280x800) is FAITHFUL:
+                   home and the tutorial's node sit in the map's bottom-left corner, CenterOnMap
+                   centres on them and the scroll clamp (HandleMove / SetZ, checked against the asm)
+                   lets the map pass its edges by half a margin (256 x the window scale, about 170 px
+                   here), drawn with pattern_paper_bg; the bottom strip is wider because
+                   world_map_bg has paper below its frame. (CenterOnArrows' x term is not negated,
+                   unlike y: also the original's, asm 0x2c23c8.)
        5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::
               ShowHealSoldier, RepairWindow.
        The world map's windows:
        5f [ ] ChoosePathWindow, CampaignInfoWindow, HintHoverWindow (campaign starts from the map).
+              SPLIT (2026-10-18, about 73 functions; ChoosePathWindow::UpdateContents alone 6.7 KB):
+              5f-1 [x] (2026-10-18) windows/CampaignInfoWindow.cpp (Window_campaign_brief.xml):
+                   SetParameters (the map's finds: resources 0..10, items not packs), UpdateContents
+                   (range-decompiled 0x2731a8..0x2742f4 with DecompRangeAddr: out/big/ci_uc*.c;
+                   header, the two-part progress bar (main fills the orange half from the left, side
+                   the green half from the right), the % counter, the newest running main / side
+                   quest's icon else gold_confirm / gold_quest, the findable items from the
+                   location's "items" in a scrolled 2-per-line grid with the found counts, one or two
+                   centred, the "complete" tick (its tap shows the grid), mentor / sultan (campaign
+                   5), Begin / Resume), ShowItem, OnItem (ItemHoverWindow), OnDialogShow / Hide,
+                   OnTweenIn (arrows: ShowItem's cell; the mentor before map 0xf was entered),
+                   OnStart (SwitchMapAnimated after SetAnimationOnce, else SwitchMap), Click, Back,
+                   Show / Hide; HintHoverWindow (hud/HoverWindows: Dialog_hint_hd.xml a third
+                   wider, centred, scale 1.3). Wired: CoreLocation::OnClick and the desert castle
+                   (CastleLocation 0x3ea). UNVERIFIED (milestone 5n): the profession filter of the
+                   findable items (every item is listed). Not wired yet (their windows are later
+                   steps): TasksHelp's ShowItem path (with RaidInfoWindow), NotEnoughWindow's and
+                   ItemHoverWindow's hide lists. VERIFIED (test case 4): the node opens "Campaign -
+                   Digging Up the Past", 0%, two items, no X at 0x67; the mentor shows the story
+                   bubble with Next; Begin Campaign travels to map 0xe (step 0x80).
+              5f-2 [ ] ChoosePathWindow (the Navigate button's "where to next").
        5g [ ] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow.
        5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
        Fights:

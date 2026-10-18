@@ -174,6 +174,34 @@ public:
     unsigned windowCount = 0;          // +0x64 the windows shown when it opened (one more closes it)
 };
 
+// The centred speech bubble of a dialog window (CampaignInfoWindow: the campaign's description
+// when its mentor or the sultan is tapped): Dialog_hint_hd.xml a third wider, no pointing arrows.
+// Port of HintHoverWindow (@0x382df0..0x38341c, 0x5c bytes).
+class HintHoverWindow : public BuildingHoverWindow {
+public:
+    HintHoverWindow() { name = "HintHoverWindow"; }   // @0x3833c0 (also @0x38341c)
+    ~HintHoverWindow() override;                 // @0x3832fc (deleting @0x383350, @0x38336c)
+    void Init() override;                        // +0x08 @0x383074
+    void SetZ(float z) override { root->SetZ(z); }   // +0x10 @0x382df0
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x382e0c
+    void Show() override;                        // +0x1c @0x38302c
+    void Hide() override;                        // +0x20 @0x382ff4
+    void SetPosition(int x, int y) override { root->SetPosition(x - 0x1e, y + 0x14); }   // +0x3c @0x382e4c
+    virtual void SetParameters(const char32_t* text);   // +0x54 @0x382e70 the bubble grows to fit it
+    void SetOnClose(GUI::Callback cb) { root->SetOnClick(std::move(cb)); }   // @0x382fd8 a tap on it
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Window* arrowSW = nullptr;    // +0x38 (the four arrows are hidden)
+    GUI::Window* arrowSE = nullptr;    // +0x3c
+    GUI::Window* arrowNW = nullptr;    // +0x40
+    GUI::Window* arrowNE = nullptr;    // +0x44
+    GUI::Window* frame = nullptr;      // +0x48 dialog_hint_window_9s
+    GUI::Textfield* text = nullptr;    // +0x4c
+    GUI::Window* next = nullptr;       // +0x50 button_dialog_hint_next
+    float hoverScale = 1.f;            // +0x54 the high-DPI scale (CampaignInfoWindow: 1.3)
+    int grown = 0;                     // +0x58 the extra height the text needed
+};
+
 // The small health bar over a fighter (hover type 0xe): a wounded monster in view, every fighter of
 // the arenas. Port of HealthbarTinyHoverWindow (@0x38253c..0x382ad4, Battle_info_hp_tiny.xml). The
 // larger HealthbarHoverWindow (type 0xd, @0x381da0..0x38229c) is never asked for in 5.11.

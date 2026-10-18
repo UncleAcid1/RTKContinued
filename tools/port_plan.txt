@@ -141,7 +141,8 @@ dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever sho
 4g  ^TapHoverWindow::   # the belt's tap hint, created by BeltBarWindow::Init (4g)
 5  ^(CampaignCompleteWindow|CampaignPerfectedWindow)::   # only the global map shows them (GlobalMapWindow::*::ShowCompletionWindow / OnTaskCompleted)
 5  ^LoadingScreenWindow::   # Map::Load shows it only when the switch starts from the open global map; the other users are online (friends' cities)
-5  ^(ChoosePathWindow|CampaignInfoWindow|HintHoverWindow)::   # satellites of the global map: every ChoosePathWindow choice ends in GlobalMapWindow (Show / ArrowAtMap / SwitchMapAnimated), CampaignInfoWindow's Start is GlobalMapWindow::SwitchMap and only the global map (or HelpWithMapSwitchTo through it) opens it; HintHoverWindow is CampaignInfoWindow's
+implicit ^CampaignInfoWindow::(FUN_00272cd4|FlagInfo::~FlagInfo|_INIT_71)$   # the static FunctionalWindow (Queue()) with its scrollers and vectors, the flag's destructor; _INIT_71 is not a function: Ghidra cut UpdateContents (0x2731a8..0x2742f4) there
+5  ^ChoosePathWindow::   # 5f-2. A satellite of the global map: every ChoosePathWindow choice ends in GlobalMapWindow (Show / ArrowAtMap / SwitchMapAnimated)
 # ---- 4b.5 first: ported without their `// @0x` marker (inventory.py --unmarked), verify and mark ---
 4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
 
