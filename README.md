@@ -317,6 +317,26 @@ project brings back what the game files themselves contain, and makes it run on 
 <br><sub>Screenshots of the port itself: the city, the shop and a requirements dialog.</sub>
 </div>
 
+## A note from the maintainer
+
+<div align="center">
+<sub><i>Rule the Kingdom, kept alive by one person who never wanted to say goodbye to it.</i></sub>
+</div>
+
+RTKContinued is maintained solely by **[UncleAcid1](https://github.com/UncleAcid1)**. It began as
+nostalgia: afternoons spent playing this game with their mother, and the wish to give those hours
+back to anyone who remembers them. It has been a labour of love, and a personal investment, to
+bring it back to life.
+
+Part of the pull is the look. The game's rendered, storybook artwork and gentle whimsy feel less
+like a phone game and more like the casual PC classics of the late 1990s and early 2000s: warm,
+handmade and unhurried. It is a time capsule of how casual gaming once felt, and it remains more
+intuitive than most of its kind, then or now.
+
+The port was made possible with Claude Opus and Claude Sonnet 5.5, under constant human
+supervision, creativity, research and ingenuity. Every function is checked against the original,
+and nothing in the game's art or content is generated; all of it is the original work.
+
 ## Scope and rules of the port
 
 - **A faithful port, not a remake.** Every function is translated from the original's code and
