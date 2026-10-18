@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5: 5d-2 (only the save round trip on a copy is left: the node -> map 0xe -> step 0x80 already plays since 5f-1), then 5f-2 (ChoosePathWindow). (5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5f-2 (ChoosePathWindow), then 5e. (5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1716,7 +1716,7 @@ Milestones:
                    Fighter's button -> the window closes, the world map opens with the arrow at map 0x52
                    ("!" 0%). NOT tested: OnBuild / OnUpgrade / OnTaskDo (no card offers them this early:
                    the archery tab's cards are quest-locked without a build button).
-       5d [ ] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
+       5d [x] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
               the compass, the world map); a save round trip on a copy. The opening tutorial is done.
               SPLIT (2026-10-18): 5d-1 [x] Building::TrainingCompleted 0x11d950 (contract cleared; the
                    trainee joins the squad and walks to a waypoint near the hero when there is room and
@@ -1734,7 +1734,14 @@ Milestones:
                    (Map::Load), then a save round trip on a copy (the game does not save in the tutorial).
                    PROGRESS (5f-1, 2026-10-18): the node -> CampaignInfoWindow -> Begin Campaign ->
                    map 0xe -> step 0x80 / secondTutorial 0x200, Chapter 4 "The Early Feats" (test
-                   case 4 in tools/test_inputs.txt). Left: the save round trip on a copy.
+                   case 4 in tools/test_inputs.txt).
+                   5d-2 [x] (2026-10-18) VERIFIED, saves on copies: (1) the map switch itself saves
+                   (the city at step 0x67, before map 0xe loads); reloaded, the city comes back at
+                   0x67 with the arrow on the compass, the soldier and the same resources. (2) On
+                   map 0xe after the Chapter 4 banner (step 0x80 / secondTutorial 0x201) a --save
+                   writes map 14 too; reloaded, the game starts in the city (LoadSavedGame always
+                   loads map 0, as the original) with 0x80 / 0x201, the crystals and the soldier
+                   kept. Nothing needed changing.
                    The world map's "shift" (paper on the left and bottom at 1280x800) is FAITHFUL:
                    home and the tutorial's node sit in the map's bottom-left corner, CenterOnMap
                    centres on them and the scroll clamp (HandleMove / SetZ, checked against the asm)
