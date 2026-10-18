@@ -1128,8 +1128,8 @@ void ItemHoverWindow::OnHeal() {
         PopupWindow::Show(StringTable::GetString("CAN_NOT_OPEN_IN_ARENA"), PopupWindow::Hide, nullptr, nullptr);
         return;
     }
-    // UNVERIFIED (milestones 4g/5): HireTroopsWindow::ShowHealSoldier when it is open, else
-    // BattleBarWindow::ShowHealSoldier(unit).
+    if (HireTroopsWindow::IsVisible()) HireTroopsWindow::ShowHealSoldier(unit);
+    else BattleBarWindow::ShowHealSoldier(unit);
     Hide();
 }
 

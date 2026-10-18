@@ -20,6 +20,7 @@
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 #include "game/Tasks.h"
+#include "hud/HealHoverWindow.h"
 #include "hud/ItemHoverWindow.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -53,6 +54,7 @@ Textfield* g_allQuestsText = nullptr;
 Window* g_slider = nullptr;  // "Slider_mission_scroll_bg" (Shared::TaskWindow)
 GUI::MovementEffect* g_sliderEffect = nullptr;
 ItemHoverWindow* g_hover = nullptr;   // 0x617a28 a soldier's card over its slot
+HealHoverWindow* g_heal = nullptr;    // 0x617a30 the healing card over a wounded soldier's slot
 Entity* g_hoverEntity = nullptr;      // 0x617b78 whose card shows
 unsigned g_hoverSlot = 0;             // 0x617b7c
 bool g_deathTutorial = false;         // 0x617a2c the helper after the first soldier's death runs
@@ -80,8 +82,7 @@ bool Click(int x, int y, bool pressed) {
         // (BottomScreenshotWindow, not ported, is never visible)
         return (g_slider && g_slider->GetWindowAtPosition(x, y, false)) || g_root->GetWindowAtPosition(x, y, false);
     }
-    // UNVERIFIED (milestone 5, HealHoverWindow 0x617a30): the heal card gets the tap first.
-    if (g_hover->Click(x, y, pressed)) return true;
+    if (g_heal->Click(x, y, pressed) || g_hover->Click(x, y, pressed)) return true;
     if (g_slider && g_slider->Click(x, y, pressed, false)) return true;
     return g_root->Click(x, y, pressed, false);
 }
@@ -158,7 +159,7 @@ void Init() {
     g_sliderX = (int)((float)g_sliderX * g_scale);
     g_sliderDY = (int)((float)g_sliderDY * g_scale);
     g_hover = new ItemHoverWindow();
-    // UNVERIFIED (milestone 5): the HealHoverWindow (0x617a30).
+    g_heal = new HealHoverWindow();
 }
 
 // @0x24b8ac: shown in the city during tutorial steps 10..24 and after 54
@@ -232,6 +233,19 @@ void SetZ(float) {
 }
 
 bool DeathTutorialActive() { return g_deathTutorial; }   // @0x249c10
+
+// @0x249cfc: the healing card over the slot of soldier e (if it has one).
+void ShowHealSoldier(Entity* e) {
+    unsigned slot = ~0u;
+    for (unsigned i = 0; i < SoldierSlots::GetTotalSlotCount() && slot == ~0u; ++i)
+        if (SoldierSlots::GetSoldierBySlot(i) == e) slot = i;
+    if (slot == ~0u) return;
+    g_heal->SetEntity(e);
+    g_heal->Show();
+    const Window* h = g_slots[slot].holder;
+    g_heal->SetPosition(g_root->x + h->x, g_root->y + h->y - g_heal->root->h);
+    g_heal->MoveWindowOnTop(true);
+}
 
 // @0x249bd4
 void HideHoverWindow() {

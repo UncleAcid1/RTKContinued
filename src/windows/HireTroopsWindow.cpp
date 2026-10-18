@@ -38,6 +38,7 @@
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
 #include "hud/HUD.h"
+#include "hud/HealHoverWindow.h"
 #include "hud/ItemHoverWindow.h"
 #include "hud/Shared.h"
 #include "windows/Windows.h"
@@ -252,6 +253,7 @@ struct ReserveEntry { Entity* soldier; uint32_t entity; };
 std::vector<ReserveEntry> g_reserveList;
 std::vector<Tavern::TavernInfo*> g_offers;   // 0x622918 the tab's warriors, by slot (UpdateContents)
 ItemHoverWindow* g_hover = nullptr;      // 0x622924
+HealHoverWindow* g_heal = nullptr;       // 0x622220 the healing card over a wounded soldier's slot
 int g_buildTask[4] = {};                 // 0x622928 per card: the task its build button goes to (0: none)
 Shared::WarriorSlotInfo* g_slots[8];     // 0x622938 the squad's three, then the reserve's five
 Shared::TabHolder g_tabs[6];             // 0x622958 tab_01..06
@@ -441,7 +443,7 @@ bool Click(int x, int y, bool pressed) {
     if (g_root->visibleSelf) {
         if (BuildingHovers::ClickOnArrow(x, y, pressed)) return true;
         if (!pressed && GameState::tutorial != 0x61) BuildingHovers::HideArrow();
-        // UNVERIFIED (milestone 5e): the HealHoverWindow (0x622220) takes the click first.
+        if (g_heal->Click(x, y, pressed)) return true;
         if (g_hover->Click(x, y, pressed)) return true;
         if (GameState::tutorial != 0x61 && g_scroller.Click(x, y, pressed, g_root)) return true;
         if (pressed) {
@@ -647,7 +649,7 @@ void Init() {
     g_wnd->fn.back = OnBack;
     g_wnd->fn.show = Show;
     g_hover = new ItemHoverWindow();
-    // UNVERIFIED (milestone 5e): new HealHoverWindow (0x622220).
+    g_heal = new HealHoverWindow();
 }
 
 // @0x2ceeac
@@ -1687,6 +1689,22 @@ void OnHintMove() {
         return;
     }
     if (g_poolSlot < g_reserveList.size()) SoldierMove(g_reserveList[g_poolSlot].entity);
+}
+
+// @0x2ce874: the healing card over soldier e's squad slot, else its reserve slot.
+void ShowHealSoldier(Entity* e) {
+    unsigned squad = ~0u, pool = ~0u;
+    for (unsigned i = 0; i < SoldierSlots::GetTotalSlotCount() && squad == ~0u; ++i)
+        if (SoldierSlots::GetSoldierBySlot(i) == e) squad = i;
+    for (unsigned i = 0; i < SoldierPool::GetTotalSlotCount() && pool == ~0u; ++i)
+        if (SoldierPool::GetSoldierBySlot(i) == e) pool = i;
+    if (squad == ~0u && pool == ~0u) return;
+    g_heal->SetEntity(e);
+    g_heal->Show();
+    const Window* s = squad != ~0u ? g_squad[squad].root : g_reserve[pool].root;
+    g_heal->SetPosition(g_root->x + s->x + s->w / 2 - g_heal->root->w / 2, g_root->y + s->y - g_heal->root->h);
+    g_heal->SetZ(0.021f);
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
 }
 
 // @0x2cea28: "dismiss <name>?" for the tapped reserve soldier.

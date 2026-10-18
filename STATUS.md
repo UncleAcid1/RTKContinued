@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5e (healing and repair), then 5g. (5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5e-2 (RepairWindow), then 5g. (5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1750,7 +1750,27 @@ Milestones:
                    world_map_bg has paper below its frame. (CenterOnArrows' x term is not negated,
                    unlike y: also the original's, asm 0x2c23c8.)
        5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::
-              ShowHealSoldier, RepairWindow.
+              ShowHealSoldier, RepairWindow. SPLIT (2026-10-18, about 31 functions):
+              5e-1 [x] (2026-10-18) hud/HealHoverWindow.* (Hint_heal_warriors.xml): "<PERFORM_SAVE>
+                   <unit> hp/max", the potions of "heal_warrior_items" (0x162 only when owned) in a
+                   scrolled 2x5 grid (cells numbered by column, 0x5a678c), quality frames, "x%d"
+                   owned, "+%d stats_hp_points" from the item's HP effect on the green badge's text;
+                   OnItem: not owned -> NeedItemWindow (HireTroopsWindow hidden); else the effect is
+                   applied, the potion removed, a dead soldier stands up (units' layer, back into the
+                   hero's squad when it has a slot, spawned near the hero, AI reset, camera on it),
+                   the windows refreshed; the card stays while the unit is still hurt. A tap off it
+                   closes it. BattleBarWindow::ShowHealSoldier (over the army slot) and
+                   HireTroopsWindow::ShowHealSoldier (over the squad / reserve slot), their heal cards
+                   (0x617a30, 0x622220) take taps first; ItemHoverWindow::OnHeal calls them.
+                   UNVERIFIED: ArenaDifficultyWindow / PlayerInfoWindow / PlayerCompetitionWindow hidden
+                   on the NeedItem path (5s / online), the "drink_potion" sound (6).
+                   VERIFIED (the 5d-2 save; new test aid RTK_HEALCARD=1 in tools/test_hook.txt opens the
+                   card over the first hurt soldier; RTK_SHP=3 RTK_ITEM=56): "Heal Soldier 3/8", the
+                   grid with +1/+3/+5/+4/+2 health badges, x3 on potion 56; tapping it heals to 4/8, x2,
+                   the card stays; an unowned potion -> NeedItemWindow, which leads to the Bakery.
+                   The army card's Heal button only shows for elite soldiers (as ported in 4g), so
+                   the tutorial soldier's card has none.
+              5e-2 [ ] RepairWindow.
        The world map's windows:
        5f [x] ChoosePathWindow, CampaignInfoWindow, HintHoverWindow (campaign starts from the map).
               SPLIT (2026-10-18, about 73 functions; ChoosePathWindow::UpdateContents alone 6.7 KB):

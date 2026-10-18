@@ -21,6 +21,7 @@
                 if (envi("RTK_CRYSTALS", 0)) GameState::SetResourceAmountValidated(GameState::kCrystal, (uint32_t)envi("RTK_CRYSTALS", 0));
                 if (envi("RTK_ITEM", 0)) { GameState::AddItem((uint32_t)envi("RTK_ITEM", 0), 3, false, false, false); BeltBarWindow::AutoBind((uint32_t)envi("RTK_ITEM", 0)); BeltBarWindow::UpdateBeltItems(); BeltBarWindow::UpdateContents(); }
                 if (envi("RTK_SHP", 0)) { std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v); for (Entity* e : v) if (e != pl && e->GetHpMax() > 0) e->SetHP(envi("RTK_SHP", 0)); }
+                if (envi("RTK_HEALCARD", 0)) { std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v); for (Entity* e : v) if (e != pl && e->GetHP() < e->GetHpMax()) { BattleBarWindow::ShowHealSoldier(e); break; } }
                 foe = envi("RTK_FOE", 0) ? EntityManager::GetNearestEnemyTo(pl, (uint32_t)envi("RTK_FOE", 0)) : EntityManager::GetNearestEnemy(pl, false, true);
                 if (foe) std::printf("[t] foe %s at %d,%d hp=%d ranged=%d; hero at %d,%d\n", foe->GetEntityData()->name.c_str(), foe->tileX, foe->tileY, foe->GetHP(), foe->GetAttackRanged(), pl->tileX, pl->tileY);
                 if (t == "fight" && foe) pl->GetAI()->ClickedEntity(foe);

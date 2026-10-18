@@ -81,6 +81,7 @@ void OnDamage(Entity* e);            // @0x24b114
 void LaunchFirstDeathHelper();       // @0x249dd4 the helper arrow after the first soldier died
 bool DeathTutorialActive();          // @0x249c10
 void HideHoverWindow();              // @0x249bd4 the soldier's card
+void ShowHealSoldier(Entity* e);     // @0x249cfc the healing card over its slot
 void ShowSoldier(uint32_t id, bool help);   // @0x24a6a0
 void UpdateContents();               // @0x24a750
 }
