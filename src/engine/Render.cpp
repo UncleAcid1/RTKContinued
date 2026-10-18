@@ -775,7 +775,22 @@ Texture* CreateScreenTexture() {
     t->name = "screen";
     glGenTextures(1, &t->glId);
     glBindTexture(GL_TEXTURE_2D, t->glId);
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, g_screenW, g_screenH, 0);
+    // PORT: GL reads the framebuffer bottom row first, while the port's textures have the top row
+    // first (v 0 at the top), so the rows are flipped before the upload.
+    std::vector<unsigned char> px((size_t)g_screenW * (size_t)g_screenH * 4);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, g_screenW, g_screenH, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+    const size_t row = (size_t)g_screenW * 4;
+    std::vector<unsigned char> tmp(row);
+    for (int y = 0; y < g_screenH / 2; ++y) {
+        unsigned char* a = px.data() + (size_t)y * row;
+        unsigned char* b = px.data() + (size_t)(g_screenH - 1 - y) * row;
+        std::memcpy(tmp.data(), a, row);
+        std::memcpy(a, b, row);
+        std::memcpy(b, tmp.data(), row);
+    }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_screenW, g_screenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
