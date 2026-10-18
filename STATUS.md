@@ -1556,6 +1556,9 @@ Milestones:
 6. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.
 7. [ ] Mac release and polish: .app bundle, settings/persistence paths, languages, Retina/fullscreen,
+       (user 2026-10-18) a frame-rate cap option (e.g. 30 / 60 / display): the port runs at the
+       display rate (120 Hz here) and feels faster than the original on phones, though its timing
+       code matches the original (real-time dt, cos(t*15)*8 arrow bob, 0.3 s sepia);
        performance pass, full playthrough check against the original.
    Every class of the binary is placed in one of these (or marked online-only) in
    docs/port_inventory.md; `python3 tools/inventory.py` gives the coverage. Re-check after each step.
