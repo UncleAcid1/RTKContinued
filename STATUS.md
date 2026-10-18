@@ -1584,16 +1584,22 @@ Milestones:
        5m [ ] CharacterInfoWindow 2, SetInfoWindow, Sets, Collections.
        5n [ ] Professions, LevelInfoWindow.
        5o [ ] crafting: CraftingWindow, CraftItemWindow, CraftSuccessWindow.
-       5p [ ] ASK: chests (Chests, ChestsWindow, ChestOpenedWindow; offline crystals from chests per
-              the 2026-10-07 decision; what replaces paid keys).
-       5q [ ] ASK: ItemShopWindow (gold/crystal prices only), PlayerWeakWindow (it advertises chests).
+       5p [ ] chests (Chests, ChestsWindow, ChestOpenedWindow). DECIDED 2026-10-18: keys (the chests'
+              "required items") can no longer be bought; a map that holds a key gives it with a 1/4
+              chance on completing the map, or, on a map with a boss, a 1/2 chance from the boss
+              instead. Chests give crystals (2026-10-07). Real-money chests go; confirm at the start
+              whether crystal-priced chests stay buyable.
+       5q [ ] ItemShopWindow, gold/crystal prices only. PlayerWeakWindow is REMOVED (user 2026-10-18).
        5r [ ] DailyBonusWindow (the offline daily crystals), Tavern, ResourceHelper, Notifications,
               the calendar events.
-       Arena and PvP (offline, room left for a server; ASK for the opponents' source):
+       Arena and PvP (offline, room left for a server). DECIDED 2026-10-18: opponents are generated
+       rivals (names, levels and gear scaled to the player, built like the ambush's rival); ranks
+       and valor kept locally; a server could replace the generator later.
        5s [ ] the arena: ArenaEventWindow, ArenaDifficultyWindow, BottomArenaWindow, ArenaCombat's rest.
        5t [ ] PvP 1: PvP (the opponent list), AsyncBaseCombat, AsyncCombat.
        5u [ ] PvP 2: AsyncCombat_v2, PlayerInfoWindow, PlayerNameHoverWindow.
-       5v [ ] ASK: PresentsContainer (friends' gifts, the warehouse).
+       5v [ ] PresentsContainer. DECIDED 2026-10-18: ported but dormant (no gifts arrive offline); the
+              warehouse keeps working for everything else that uses it.
        Tools and leftovers:
        5w [ ] the admin mode: EditorConsole, Editor, DebugViewer (store items for free).
        5x [ ] leftovers: GameState (51), Entity (16), Map (9), AIWarrior (9), EntityData, MetaExpression,

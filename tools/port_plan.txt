@@ -111,7 +111,7 @@ implicit ^BottomBattleWindow::(ButtonFuryLarge::~ButtonFuryLarge|FUN_00257344)$ 
 util  ^ProjectileData::FUN_   # the Splitter's allocator and string copy for "anims"
 dead  ^AI::GetangleBetweenWPs$   # no caller in 5.11
 dead  ^HealthbarHoverWindow::   # hover type 0xd: BuildingHovers::Update never asks for it (only HoverInfo::SetHoverType's factory names it)
-5  ^PlayerWeakWindow::   # "you are too weak" advice after repeated deaths: every button opens a milestone-5 window (HireTroopsWindow, ItemShopWindow, ChestsWindow's starter / crystal chests). ASK THE USER FIRST: it advertises the chests (freemium rule)
+removed  ^PlayerWeakWindow::   # "you are too weak" advice after repeated deaths: removed by the user 2026-10-18 (it pointed to the shop and paid chests)
 5  ^Shared::WarriorSlotInfo::   # PlayerWeakWindow, HireTroopsWindow, ChestsWindow
 5  ^Shared::(EndscreenProgressBar|ProgressBarLarge)::   # the boss / PvP end screens; CraftItemWindow, LevelInfoWindow
 implicit ^Shared::PlayerHolder::~PlayerHolder$   # the plain struct's destructor
