@@ -944,7 +944,10 @@ void UnregisterBuilding(Map::Building* b) {
         RemoveHover(i);
         ++i;   // as the original: the swapped-in record is not checked
     }
-    // UNVERIFIED (milestone 3e): the storage, resource, living and factory info windows drop b.
+    // The storage, resource, living and factory info windows drop it.
+    for (BuildingHoverWindow* w : {(BuildingHoverWindow*)g_storageWindow, (BuildingHoverWindow*)g_resourceActiveWindow,
+                                   (BuildingHoverWindow*)g_livingWindow, (BuildingHoverWindow*)g_factoryWindow})
+        if (w && w->building == b) w->SetBuilding(nullptr);
 }
 
 void UnregisterDecoration(Map::Decor* d) {

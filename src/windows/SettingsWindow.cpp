@@ -109,10 +109,10 @@ void OnTweenOut() {
 }
 
 // @0x33e000: only points the tutorial arrow at the screenshot button after HelpWithScreenShot.
-// UNVERIFIED (milestone 3): BuildingHovers arrows are not ported; the help flag is never set.
+// UNVERIFIED (milestone 5, with BottomScreenshotWindow): the help flag is never set yet.
 void OnTweenIn() {}
 
-// @0x33e424. UNVERIFIED (milestone 3): a click first goes to the tutorial arrow when it belongs to
+// @0x33e424. UNVERIFIED (milestone 5, screenshot help): a click first goes to the tutorial arrow when it belongs to
 // this window (BuildingHovers::ClickOnArrow).
 bool Click(int x, int y, bool pressed) {
     bool visible = g_root->visibleSelf;

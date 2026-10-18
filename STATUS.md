@@ -1420,7 +1420,7 @@ Milestones:
        (e.g. --key 28 = Y/back, 42 = Backspace, 40 = Return). `--show` is a PORT test aid that opens a
        window not reachable yet. A drag's fling uses real time, as on the original. Don't run
        rtk without --screenshot from a tool call: it opens the window and blocks.
-3. [ ] Game data + GameState + save/load; building and economy loops. Sub-steps:
+3. [x] Game data + GameState + save/load; building and economy loops. Sub-steps:
        3a [x] data foundation (2026-10-05): settings (game/Setting: dynamic_config <px> key=value
               trees via the Parse*Setting grammar, Setting handles, GetSetting/SetSetting, level XP
               table, <ar> areas -> GameState::AreaInfo), the main_Loop_Init hard-coded settings (flag
@@ -1495,7 +1495,7 @@ Milestones:
        Note: with no save, LoadSavedGame (@0x1885e0) starts a new game on campaign map 0x15 with the
        hero entity (the tutorial), which needs M4. Until then the port boots the city from a Reset
        GameState (PORT test path).
-4. [ ] Hero, army, quests, items, decoration jobs, the new-game tutorial. Sub-steps (planned 2026-10-07;
+4. [x] (closed 2026-10-18) Hero, army, quests, items, decoration jobs, the new-game tutorial. Sub-steps (planned 2026-10-07;
        each ends with a headless check, a commit and a short update to the user):
        4a [x] the hero and the army on the city map. 4a.1 (done): squads (BaseSquad/PlayerSquad/EnemySquad/
               Squad, Entity::CreateSquad +0xcc), SoldierSlots/SoldierPool, EntityManager::GetPlayer/
@@ -1507,7 +1507,7 @@ Milestones:
               EntityManager::OnClick/AIBaseState::ClickedTile, Map::Load centring on the player (the
               stand-in in main.cpp goes), HUDWindow::Update's player-entity early return.
               Combat, spells, jobs and decoration actions stay stubs until 4e/4g.
-       4b [ ] items. 4b.1 (done): MetaExpression's parser (moved here from 4c: item bonuses are
+       4b [x] items. 4b.1 (done): MetaExpression's parser (moved here from 4c: item bonuses are
               expressions), Tags, Items (items.xml, item_packs.xml, ItemInfo and its getters),
               PlayerItem::info on load. 4b.2 (done): GameState item APIs (AddItem, bindings/equip, belt,
               sell) and the hero's equipment bonuses (MetaExpression::OnApplyItemEffect /
@@ -1542,7 +1542,7 @@ Milestones:
               bubble, traps, HP regeneration and death (user decision: free regeneration, crystals
               to heal at once). Moved out: the siege system (dead in 5.11); bosses, arenas, PvP,
               spells, the rage bar, soldier healing -> 5.
-       4h [ ] the new game: LoadSavedGame's new-game branch (hero 0xc + squad + soldier 0x1a2 on map
+       4h [x] (closed 2026-10-18; the tutorial plays to step 0x61, its end moved to 5a-5d) the new game: LoadSavedGame's new-game branch (hero 0xc + squad + soldier 0x1a2 on map
               0x15, location 2; replaces the PORT test city), TutorialWindow::Update steps 0..0x17
               (a jump table Ghidra lost: read from the asm), BuildingHovers::ShowWorldDialog,
               SelectHQWindow, TutorialSender (no server: a no-op), then the city tutorial
@@ -1550,9 +1550,56 @@ Milestones:
        Not in M4 (later milestones; ask before porting the online/freemium ones): spells and magic,
        arena/PvP/boss/siege/async combats, chests, crafting and professions, the item shop,
        collections, the global map, presents (chunk 8, friends' gifts), CharacterInfoWindow.
-5. [ ] The rest of the game: spells, boss/siege fights, raids, global map, hiring/healing the army,
-       item shop, chests, crafting, collections, sets, tavern, daily bonus, events, the admin mode
-       (on the original's EditorConsole commands), offline arena/PvP/presents (ask the user first).
+5. [ ] The rest of the game (planned 2026-10-18). 1290 functions at the start. BITE-SIZED STEPS (user
+       2026-10-18): each step is one sitting of about 20-40 minutes, ends with a build, a short
+       check in the test loop, a commit and a 2-3 line update to the user, then WAIT for the user
+       before the next step. A step that grows past that is split at a natural seam and the user
+       told. "ASK" = a freemium/online question for the user before the step starts.
+       The army and the tutorial's end:
+       5a [ ] HireTroopsWindow 1: Init, the LoadFrom structs (WarriorInfo 0x3e4 bytes x6, CostInfo,
+              ButtonWarriorBuyNow, UpgradeInProgress), Show / ShowForBuilding / Hide / SetZ / Click /
+              OnTab / OnLeft / OnRight / Move; the barracks taps that open it (BuildingHovers kHireTroops,
+              TaskInfoWindow 0x61, HoverWindows cls 0xc). Opens and shows the tabs, contents empty.
+       5b [ ] HireTroopsWindow 2: UpdateContents 0x2d05e4..0x2d7ae8 (30 KB, from the asm; split in
+              two sittings if needed: the training tab first).
+       5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,
+              OnUpgrade(+Continuation), OnBuild, the hints (OnHintGold / Move / Dismiss), ShowSlot,
+              ExecuteFirstHelp, Update, OnTweenIn/Out; GameState::AddSoldiersToSquad, HUDWindow::GameReload.
+       5d [ ] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
+              the compass, the world map); a save round trip on a copy. The opening tutorial is done.
+       5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::
+              ShowHealSoldier, RepairWindow.
+       The world map's windows:
+       5f [ ] ChoosePathWindow, CampaignInfoWindow, HintHoverWindow (campaign starts from the map).
+       5g [ ] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow.
+       5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
+       Fights:
+       5i [ ] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,
+              FastBossIntroEffect, BossIntroWindow::SetReputation.
+       5j [ ] spells 1: Spells, AISpell, Entity's magic (OnSpellCast, OnHitMagic, ...), the rage bar's rest
+              (BottomBattleWindow).
+       5k [ ] spells 2: SpellMovement, PlaceMagicHoverWindow, BeltBarWindow's spell/buff parts.
+       The hero's things:
+       5l [ ] CharacterInfoWindow 1: equipment and belt (the inventory button, item moves).
+       5m [ ] CharacterInfoWindow 2, SetInfoWindow, Sets, Collections.
+       5n [ ] Professions, LevelInfoWindow.
+       5o [ ] crafting: CraftingWindow, CraftItemWindow, CraftSuccessWindow.
+       5p [ ] ASK: chests (Chests, ChestsWindow, ChestOpenedWindow; offline crystals from chests per
+              the 2026-10-07 decision; what replaces paid keys).
+       5q [ ] ASK: ItemShopWindow (gold/crystal prices only), PlayerWeakWindow (it advertises chests).
+       5r [ ] DailyBonusWindow (the offline daily crystals), Tavern, ResourceHelper, Notifications,
+              the calendar events.
+       Arena and PvP (offline, room left for a server; ASK for the opponents' source):
+       5s [ ] the arena: ArenaEventWindow, ArenaDifficultyWindow, BottomArenaWindow, ArenaCombat's rest.
+       5t [ ] PvP 1: PvP (the opponent list), AsyncBaseCombat, AsyncCombat.
+       5u [ ] PvP 2: AsyncCombat_v2, PlayerInfoWindow, PlayerNameHoverWindow.
+       5v [ ] ASK: PresentsContainer (friends' gifts, the warehouse).
+       Tools and leftovers:
+       5w [ ] the admin mode: EditorConsole, Editor, DebugViewer (store items for free).
+       5x [ ] leftovers: GameState (51), Entity (16), Map (9), AIWarrior (9), EntityData, MetaExpression,
+              BottomScreenshotWindow (+ the screenshot help notes), roads (BuildingMovement kRoad), and
+              the ~100 UNVERIFIED notes without a milestone (sorted into fixes or 6/7).
+       5y [ ] close: inventory --functions 5 empty, no "milestone 5" note, a long play test, STATUS.
 6. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects.
 7. [ ] Mac release and polish: .app bundle, settings/persistence paths, languages, Retina/fullscreen,

@@ -85,7 +85,7 @@ bool Click(int x, int y, bool pressed) {
     return g_root->Click(x, y, pressed, true);
 }
 
-// @0x276d0c. UNVERIFIED (milestone 3): while the screenshot help is pending (a flag set with the
+// @0x276d0c. UNVERIFIED (milestone 5, screenshot help): while the screenshot help is pending (a flag set with the
 // tutorial arrows) it first hides its arrow and calls SettingsWindow::HelpWithScreenShot.
 void OnSettings() { SettingsWindow::Show(); }
 
