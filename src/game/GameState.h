@@ -275,6 +275,12 @@ unsigned GetSoldierSlotCount();
 Entity* GetFriendPlayer();                      // @0x1919ec the first class-0x16 entity (a visited friend)
 void SetSoldierReserveSlots(unsigned n);  // @0x191d90 SoldierPool::SetFreeSlotsCount
 unsigned GetSoldierReserveSlots();
+// The tavern offers' state by TavernInfo id (chunk 0x4d): when the offer was last taken (its
+// respawn timer starts there) and the HP the next warrior will have. 0 for an offer not seen yet.
+uint32_t GetTavernWarriorTS(uint32_t id);             // @0x19adf8
+void SetTavernWarriorTS(uint32_t id, uint32_t ts);    // @0x19add0
+uint32_t GetTavernWarriorHP(uint32_t id);             // @0x19ae44
+void SetTavernWarriorHP(uint32_t id, uint32_t hp);    // @0x19ae1c
 void HireSoldier(Entity* e, bool spawn, int where);    // @0x19a15c where: 0 by the hero, 1 tavern, 2 barracks
 void AddSoldiersToSquad(BaseSquad* squad, Entity* e);   // @0x191f8c spawned by the hero, then in the squad
 void HireSoldier(int id);                              // @0x19a5d8        // @0x191d94 SoldierPool::GetTotalSlotsFree

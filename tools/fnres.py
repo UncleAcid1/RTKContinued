@@ -5,7 +5,7 @@ For named globals and GOT slots pipe tools/fn.sh through tools/picsym.py | tools
 import os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from elfread import u32
+from elfread import u32, rd
 src = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, '..', 'out', 'decomp.c')
 name = sys.argv[1]
 out, p = [], False
@@ -17,8 +17,11 @@ for line in open(src):
     if p: out.append(line)
 var, res = {}, []
 for l in out:
-    m = re.search(r'(iVar\d+) = DAT_([0-9a-f]{8});', l)
-    if m: var[m.group(1)] = int(m.group(2), 16)
+    m = re.search(r'(iVar\d+) = (.*?);', l)
+    if m:   # the variable now holds DAT_x's word (only while that is readable)
+        d = re.fullmatch(r'DAT_([0-9a-f]{8})', m.group(2))
+        if d and rd(int(d.group(1), 16), 4): var[m.group(1)] = int(d.group(1), 16)
+        else: var.pop(m.group(1), None)
     def sub(mm):
         v, o = mm.group(1), int(mm.group(2), 16)
         return 'g_%x' % ((u32(var[v]) + o) & 0xffffffff) if v in var else mm.group(0)

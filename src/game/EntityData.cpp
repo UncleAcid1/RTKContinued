@@ -1,3 +1,4 @@
+#include "game/Tavern.h"
 #include "game/EntityData.h"
 
 #include <pugixml.hpp>
@@ -202,17 +203,18 @@ int EntityData::GetDefenseRangedForLevel(int lvl) const { return levelScale ? le
 int EntityData::GetDefenseMagicForLevel(int lvl) const { return levelScale ? levelScale->row[6][lvl] : defenseMagic; }
 
 // @0x15ecfc EntityData::GetCostGold
+// A tavern offer's own price, when it has one, replaces the unit's.
 unsigned EntityData::GetCostGold(bool full, const Tavern::TavernInfo* tavern) const {
-    (void)tavern;
-    if (full) return (unsigned)warriorCost;
-    return (unsigned)(warriorCost * GetDiscountSize()) / 100;
+    const unsigned own = tavern ? tavern->gold : 0;
+    if (full) return own ? own : (unsigned)warriorCost;
+    return (own ? own : (unsigned)warriorCost) * (unsigned)GetDiscountSize() / 100;
 }
 
 // @0x15ec74 EntityData::GetCostCrystals
 unsigned EntityData::GetCostCrystals(bool full, const Tavern::TavernInfo* tavern) const {
-    (void)tavern;
-    if (full) return (unsigned)warriorCost2;
-    return (unsigned)(warriorCost2 * GetDiscountSize()) / 100;
+    const unsigned own = tavern ? tavern->crystals : 0;
+    if (full) return own ? own : (unsigned)warriorCost2;
+    return (own ? own : (unsigned)warriorCost2) * (unsigned)GetDiscountSize() / 100;
 }
 
 namespace EntityFactory {

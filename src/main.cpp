@@ -35,6 +35,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/SystemFuncs.h"
+#include "game/Tavern.h"
 #include "game/AI.h"
 #include "engine/Text.h"
 #include "engine/TextInput.h"
@@ -705,7 +706,8 @@ int main_Loop_Init() {
     if (!LoadSystemConfiguration(ProjectileData::Init, "projectiles.xml", "L", "ProjectileData::Init", 21.0 / 46.0,
                                  0x18, 0x18))
         return 1;
-    // UNVERIFIED (milestone 5): Tavern::Init "tavern.xml" (22/46) and Tavern::InitSpecial.
+    if (!LoadSystemConfiguration(Tavern::Init, "tavern.xml", "L", "Tavern::Init", 22.0 / 46.0, 0x16, 0x16)) return 1;
+    Tavern::InitSpecial();
     Render::zoom = Render::GetDefaultZoom();
     // Korean and Japanese use Android's fallback font. PORT: it only exists on Android; without it
     // the game's own font is used (it has no such glyphs; milestone 7).

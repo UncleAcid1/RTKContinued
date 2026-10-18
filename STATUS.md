@@ -11,8 +11,9 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5b (5a done 2026-10-18: HireTroopsWindow opens, contents empty; see the
-roadmap near the end of this file: "5. [ ] The rest of the game").
+**Next.** Milestone 5, step 5b-1 (5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+split in 5b-0 (done: the tavern data and tools) .. 5b-3, see the roadmap near the end of this file:
+"5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
 push only when the user asks, a 2-3 line plain-language update, then WAIT for the user. Split a
 step that grows and say so. Steps marked DECIDED carry the user's answers; ask before anything
@@ -1620,8 +1621,27 @@ Milestones:
               barracks opens it in the short tutorial layout (6 tabs, 3 cards, arrows, no squad /
               reserve), no GUI errors; X does nothing there (the original locks input to card 1's
               Train button). NOT checked: the full layout outside the tutorial.
-       5b [ ] HireTroopsWindow 2: UpdateContents 0x2d05e4..0x2d7ae8 (30 KB, from the asm; split in
-              two sittings if needed: the training tab first).
+       5b [ ] HireTroopsWindow 2: UpdateContents 0x2d05e4..0x2d7ae8 (30 KB). SPLIT (2026-10-18):
+              5b-0 [x] the data it reads: game/Tavern.* (Init "tavern.xml" in main_Loop_Init 22/46,
+                   InitSpecial: the goblins from "goblin_cost", EnumTavernInfo / GetTavernInfo /
+                   GetForEntity / GenerateHP; TavernInfo 0x30 bytes, its "type" is the window's tab),
+                   EntityData::GetCostGold/Crystals take an offer's own price, GameState::Get/Set
+                   TavernWarriorTS/HP (g_warriorRespawn, chunk 0x4d). TOOLS: Ghidra decompiles
+                   UpdateContents with raised limits over its range (DecompRange.java: out/big/uc.c,
+                   4280 lines once resolved); DecompRangeAddr.java prints every C line with its asm
+                   address (out/big/uca.c; drop the "--------" lines: out/big/ucb.c); fnres.py takes
+                   that file as its 2nd argument. The C has gaps (empty if/else where stores were
+                   dropped, e.g. the card's HP text: "?" when hpMax is 0, else the number, asm
+                   0x2d3dcc / 0x2d5778): check every branch in the asm (out/asm_all.txt).
+                   Layout of the C: lines 4-208 header (the reserve list 0x622904, tab modes and icons
+                   army_tavern_40 .. goblin_60, the tab's offers g_offers sorted by slot), 209-3130 the
+                   four cards (one loop over local_1e10 0..3, entry firstIndex + n), 3130-3860 the squad
+                   (HIRE_TROOPS_SQUAD) and reserve (HIRE_TROOPS_RESERVE, SLOTS_TAKEN, IN_QUEUE,
+                   WARRIOR_TRAINING_SMALL, HIRE_TROOPS_UNLOCK) slots.
+              5b-1 [ ] the header and the cards' text (name, HP, attack and its icon, costs, the
+                   train / hire / buy-now buttons' states).
+              5b-2 [ ] the cards' other states (upgrade, timers, task and building locks, goblins).
+              5b-3 [ ] the squad and reserve slots.
        5c [ ] HireTroopsWindow 3: OnTrain, OnHire, OnSquad, OnReserve, OnRefresh, RunHireAnimation,
               OnUpgrade(+Continuation), OnBuild, the hints (OnHintGold / Move / Dismiss), ShowSlot,
               ExecuteFirstHelp, Update, OnTweenIn/Out; GameState::AddSoldiersToSquad, HUDWindow::GameReload.

@@ -1785,6 +1785,11 @@ Entity* GetFriendPlayer() {
 void SetSoldierReserveSlots(unsigned n) { SoldierPool::SetFreeSlotsCount(n); }
 unsigned GetSoldierReserveSlots() { return SoldierPool::GetTotalSlotsFree(); }
 
+uint32_t GetTavernWarriorTS(uint32_t id) { return g_warriorRespawn[id].first; }
+void SetTavernWarriorTS(uint32_t id, uint32_t ts) { g_warriorRespawn[id].first = ts; }
+uint32_t GetTavernWarriorHP(uint32_t id) { return g_warriorRespawn[id].second; }
+void SetTavernWarriorHP(uint32_t id, uint32_t hp) { g_warriorRespawn[id].second = hp; }
+
 // @0x191f8c: e appears on a free tile next to the hero (one tile away, else three) and joins
 // the squad.
 void AddSoldiersToSquad(BaseSquad* squad, Entity* e) {

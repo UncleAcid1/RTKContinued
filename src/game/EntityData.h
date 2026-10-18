@@ -14,7 +14,7 @@
 namespace Render { struct Texture; }
 class MetaData;
 
-namespace Tavern { struct TavernInfo; }   // milestone 5
+namespace Tavern { struct TavernInfo; }
 
 struct EntityData {              // 0x160 bytes
     // Per-level values (ParseLevelScaleInfo), 40 levels per row.
@@ -119,8 +119,7 @@ struct EntityData {              // 0x160 bytes
     int GetDiscountSize() const { return 100; }
     // @0x15ecfc / @0x15ec74: the hiring price in gold ("warrior_cost") / crystals
     // ("warrior_cost2"); unless `full`, with the sale taken off (price * discount / 100).
-    // UNVERIFIED (milestone 5): a tavern offer's own prices (TavernInfo +0x24 / +0x28, when not 0)
-    // replace the unit's; every ported caller passes none.
+    // A tavern offer's own prices (TavernInfo +0x24 / +0x28, when not 0) replace the unit's.
     unsigned GetCostGold(bool full, const Tavern::TavernInfo* tavern) const;
     unsigned GetCostCrystals(bool full, const Tavern::TavernInfo* tavern) const;
 };
