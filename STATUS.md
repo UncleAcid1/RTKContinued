@@ -2,7 +2,7 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## Handoff (last updated 2026-10-13, 4h IN PROGRESS: search "RESUME HERE" below. 4g done (campaign combat); 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
+## Handoff (last updated 2026-10-18, 4h IN PROGRESS, one item left (HireTroopsWindow): search "RESUME HERE" below. 4g done (campaign combat); 4f done (campaign maps); 4c done (quests core); 4e done (decoration jobs); 4d done (quest HUD and windows)) — read this first in a new conversation
 **Where things stand.** Milestones 1–2 done; milestone 3 (city economy) done (3a–3f):
 3a/3b city systems, 3c workers/economy/hover windows (tax, build bubbles, regrow and build progress
 boxes, drops), 3d saves (see the 3d entry below).  GitHub: https://github.com/UncleAcid1/RTKContinued
@@ -1063,7 +1063,44 @@ the handoff; give the user a short update after each finished step (3e, 3f, ...)
    a class nobody constructs is dead: check before porting.
    NEXT: 4h (the new game and the opening tutorial).
 
-**4h IN PROGRESS - RESUME HERE (written 2026-10-13).**
+**4h IN PROGRESS - RESUME HERE (updated 2026-10-18).**
+   STATE 2026-10-18 (commit e5facf6 "4h part 7", and part 6 2407fd1 before it): everything in 4h is
+   ported except ONE item. The ambush (PvP arena fight) and the world map are done and verified;
+   `inventory.py --functions 4h` and `--unplanned` are empty; no "milestone 4" note is left in src.
+   The city tutorial was played in the test loop from step 0x1b to 0x61 (house from the ruin,
+   taxes, the tree, level 2, the farm: plant / speed up / harvest / food, the bakery order and
+   hurry, Chapter 3, the barracks built and hurried, quest "Training the Troops"). Fixed on the
+   way (all were notes or missing code): Render::CenterOn's 0.4 s glide (Render::UpdateCamera) and
+   every call site matched; AIWorker::WalkCompleted steps 0x1c/0x23/0x26/0x2b; StartWorking 0x5d;
+   AssignToJob(Decor) 0x1e and its action point; AIGoblin's decoration job (step 5, RemoveFromJob,
+   AssignToJob) and step 0x30; BottomCityWindow 0x5a/0x5b; BuildProgressHoverWindow's decoration
+   branch (SetDecoration's auto speed-up 0x1e/0x3a, Update, GetSpeedUpCost, GetRemainingTime);
+   BuildingHovers::MoveRectIntoView (was wrongly "dead"); TaxesHoverWindow closes the dialog;
+   CastleTopWindow OnReturn (the compass: world map), OnFindPlayer (HUD locator), Update (button
+   states, tutorial arrows 0x67 / 0x80+0x81 / type-1 0x37), Click, Show conditions;
+   HUDWindow::OnFindTask camera paths; ExchangeWindow's discount tasks 0x4d8/0x4da/0x4db;
+   BeltBarWindow second-tutorial steps 0x95/0x8b/0xa3/0x86; LevelUpWindow, PopupSelectionWindow,
+   MapMovement / main arrow auto-hide; Decor::Contains; GetGoldEarned (always 0 in 5.11).
+   TEST NOTES: jobs, hovers (UpdateHovers once a second), the farm speed-up and patch boxes run on
+   wall-clock seconds, so the test loop needs RTK_SLEEPS around every wait; random drops are taken
+   with RTK_COLLECT. "Blooming 366%" in a sped-up patch box is the fast test frames, not a bug.
+   The city run's taps (from a save at step 0x1b, made by the ambush run with
+   scratch clicks_amb.txt): 20:640:700, 160:975:420 (ruin), 450:975:372 (taxes), collect 540,
+   700:808:520 (tree), 920:636:668 (level-up OK), 1000:715:364 (Next), 1120:640:440 (farm),
+   1540:745:735 (speed up), 1700:780:275 (crop arrow), collect 1800, 1880:533:735 (Return),
+   1960:515:448 (baker), 2040:740:490 (bakery), 2100:745:398 (order), 2160:870:400 (hurry arrow),
+   collect 2220, 2300:640:700 (Chapter 3), 2420:875:365 (barracks hurry), 2500:640:645 (quest OK);
+   sleeps at about every 40-60 frames from 400 on.
+   THE ONE ITEM LEFT (user 2026-10-18: "port it now", pulled from 5 into 4h): HireTroopsWindow
+   (0x2cdd30..0x2dae58, 52 functions). Step 0x61 "train your first warrior" opens it from the
+   barracks (BuildingHovers::Click's kHireTroops, TaskInfoWindow::OnHelpActual, HoverWindows' cls
+   0xc: ShowForBuilding(tutorial 0x61 ? 0x8f : id)); its Show/OnTweenIn/Click/OnTrain carry the
+   steps 0x61 -> 0x65; then AIWarrior::WalkCompleted 0x65, TaskCompleteWindow 0x65 -> 0x66, the
+   envoy 0x66 -> 0x67, the compass (CastleTopWindow, ported) -> the world map -> 0x80. Sizes:
+   Init 502 decompiled lines, OnTrain 463, WarriorInfo::LoadFrom 175 (0x3e4-byte entries, 6 tabs),
+   UpdateContents 0x2d05e4..0x2d7ae8 (30 KB; Ghidra gave 2 lines: read the asm). After it: play
+   0x61..0x80 in the test loop, check a save round trip on a copy, close 4h (roadmap [x], STATUS
+   entry), commit.
    DONE AND COMMITTED:
    part 1: the new game (LoadSavedGame's branch; "--map N" keeps the old test start past the
      tutorial), hud/TutorialWindow.cpp (Update steps 0..0x17, UpdateCity 0x18..0x66, UpdateSecond;
