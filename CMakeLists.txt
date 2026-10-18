@@ -99,6 +99,7 @@ add_executable(rtk
   src/windows/LevelUpWindow.cpp
   src/windows/PopupSelectionWindow.cpp
   src/windows/PopupWindow.cpp
+  src/windows/RepairWindow.cpp
   src/windows/SettingsWindow.cpp
   src/windows/ShopWindow.cpp
   src/windows/SelectHQWindow.cpp

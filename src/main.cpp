@@ -746,6 +746,7 @@ int main_Loop_Init() {
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();
     PopupWindow::Queue();
+    RepairWindow::Queue();
     SelectHQWindow::Queue();
     SettingsWindow::Queue();
     ShopWindow::Queue();

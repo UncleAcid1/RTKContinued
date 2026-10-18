@@ -454,6 +454,16 @@ namespace SetInfoWindow {
 GameState::PlayerItem* GetPlayerItemOrBetter(uint32_t id);   // @0x33b3d4
 }
 
+// Repairing a worn item (windows/RepairWindow.cpp).
+namespace RepairWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RepairWindow"
+void Init();                                // @0x337958
+void SetParameters(GameState::PlayerItem* item);   // @0x33661c
+void Show();                                // @0x337390
+void Hide();                                // @0x33740c
+bool IsVisible();                           // @0x336218
+}
+
 // The tavern and barracks: train and hire warriors, move soldiers between the squad and the reserve
 // (windows/HireTroopsWindow.cpp).
 namespace HireTroopsWindow {

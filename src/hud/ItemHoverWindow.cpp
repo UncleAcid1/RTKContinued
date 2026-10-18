@@ -987,7 +987,8 @@ void ItemHoverWindow::OnRepair() {
     if (item->f0c == item->info->durability) return;
     if (item->info->IsProfessionTool() && item->info->cost2 == 0) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 5): RepairWindow::SetParameters(item) and Show.
+    RepairWindow::SetParameters(item);
+    RepairWindow::Show();
     Hide();
 }
 
