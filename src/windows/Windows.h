@@ -443,4 +443,5 @@ void ShowSlot(unsigned n);                  // @0x2cee94 the strip scrolls to ca
 void ShowEntity(uint32_t entity);           // @0x2d913c the strip scrolls to the offer of that unit
 void OnHintMove();                          // @0x2d8788 the tapped soldier changes sides (ItemHoverWindow's Move)
 void OnHintDismiss();                       // @0x2cea28 asks before dismissing the tapped reserve soldier
+bool ExecuteFirstHelp();                    // @0x2da9b4 the bot's first help (Train, else a refresh)
 }

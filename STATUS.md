@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5c-3 (5c split 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5d (5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1668,7 +1668,7 @@ Milestones:
                    HIRE_TROOPS_UNLOCK; not at tutorial 0x61/0x62), Locked; SLOTS_TAKEN n/m.
                    VERIFIED with the full layout forced at step 0x61 (temporary edit, reverted):
                    Squad 2 open + 1 locked, Reserve 2 Empty + 3 Locked, Slots Taken 0/2.
-       5c [ ] HireTroopsWindow 3. SPLIT (2026-10-18, about 27 functions / 3,500 asm lines):
+       5c [x] HireTroopsWindow 3. SPLIT (2026-10-18, about 27 functions / 3,500 asm lines):
               5c-1 [x] (2026-10-18) OnTrain 0x2d9a1c (goblins' level check, no-slots popup, the tamer's
                    "find a beast" arrow / map switch / SERVER_ERROR popup, NotEnough with
                    REQUIREMENT_TROOPS + PERFORM_HIRE, charges gold / resource / item; goblin -> HireGolbin;
@@ -1703,8 +1703,19 @@ Milestones:
                    as in BattleBarWindow), the reserve unlock bubble (Unlock 5 crystals), Unlock -> 0
                    crystals and Slots Taken 0/3. NOT tested: Move / Dismiss (no soldier in reserve yet),
                    OnRefresh.
-              5c-3 [ ] OnBlueButton, OnUpgrade (+Continuation), CheckUpgradeRequirements, OnBuild (g_buildTask),
-                   OnTaskDo, ExecuteFirstHelp, HUDWindow::GameReload (AddSoldiersToSquad was done in 5a).
+              5c-3 [x] (2026-10-18) OnBlueButton (no training building -> OnBuild; a task in
+                   g_buildTask -> OnTaskDo (TaskInfoWindow), the Fighter 0x195 instead -> the world map
+                   arrow at map 0x52, or on it AddCameraPoint(0x10, 0xe ...); else a too-low level ->
+                   OnUpgrade), OnBuild (the unfinished site: camera + arrow with OnBuildingClick, else the
+                   shop on it; elsewhere the world map arrow at the city), OnUpgrade (PEOPLE_LIMIT popup,
+                   else CheckUpgradeRequirements + UPGRADE_ACTION -> OnUpgradeContinuation), OnTaskDo,
+                   ExecuteFirstHelp (the bot: "bot_use_cb"). HUDWindow::GameReload is dead (no call,
+                   pointer or relocation in 5.11; port_plan). UNVERIFIED (milestone 5s): OnBlueButton
+                   hides ArenaDifficultyWindow / PlayerCompetitionWindow first. VERIFIED (case 3, temp:
+                   full layout, input unlocked, the right arrow calling OnBlueButton(1); reverted): the
+                   Fighter's button -> the window closes, the world map opens with the arrow at map 0x52
+                   ("!" 0%). NOT tested: OnBuild / OnUpgrade / OnTaskDo (no card offers them this early:
+                   the archery tab's cards are quest-locked without a build button).
        5d [ ] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
               the compass, the world map); a save round trip on a copy. The opening tutorial is done.
        5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::

@@ -5,9 +5,9 @@
 // (libkingdom.so 5.11), 0x2cdd30..0x2dae58. Statics at 0x621170..0x622a8c and 0x60f284..0x60f2b0.
 //
 // Milestone 5a: the window, its parts, opening, tabs, scrolling, the soldier drag; 5b: UpdateContents
-// (the cards, the slots); 5c-1: Train and Hire, the hire glide, Update, OnTweenIn's tutorial arrows.
-// UNVERIFIED (milestone 5c-3): the build / upgrade / task button.
-// 5c-2: the cost cells' hints, refresh, the squad / reserve slots' hints (move, dismiss, unlock).
+// (the cards, the slots); 5c-1: Train and Hire, the hire glide, Update, OnTweenIn's tutorial arrows;
+// 5c-2: the cost cells' hints, refresh, the squad / reserve slots' hints (move, dismiss, unlock);
+// 5c-3: the build / upgrade / task button.
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -302,8 +302,7 @@ void OnReserve(unsigned n);
 void OnHintGold(bool confirmed);
 void OnHintDismissContinue();
 
-// UNVERIFIED (milestone 5c-3): the build / upgrade / task button is not ported yet.
-void OnBlueButton(unsigned) {}           // (0x2d03f4)
+void OnBlueButton(unsigned n);
 
 bool InRect(const Window* w, int x, int y) {
     const int l = g_root->x + w->x, t = g_root->y + w->y;
@@ -1863,6 +1862,162 @@ void OnSquad(unsigned n) {
     }
     ShowHoverAt(g_squad[n].root);
     UpdateContents();
+}
+
+}  // namespace
+
+// @0x2da9b4: the bot's first help (Settings "bot_use_cb"): train on the first of the two front
+// cards whose unit the army has fewer than two of; else a crystal refresh of card 0 or 1.
+bool ExecuteFirstHelp() {
+    for (unsigned n = 0; n < 2; ++n) {
+        const WarriorInfo& w = g_warriors[n];
+        if (!w.train->visible && !w.hireRes->visible) continue;
+        const unsigned i = n + g_scroller.firstIndex;
+        const Tavern::TavernInfo* offer = i < g_offers.size() ? g_offers[i] : nullptr;
+        if (offer && SoldierSlots::GetSoldiersCountByID(offer->entity) + SoldierPool::GetSoldiersCountByID(offer->entity) >= 2)
+            continue;
+        OnTrain(n);
+        Hide();
+        return true;
+    }
+    for (unsigned n = 0; n < 2; ++n) {
+        if (g_warriors[n].hang->visible && Setting("bot_use_cb").GetInt() != 0) {
+            OnRefresh(n, true);
+            return true;
+        }
+    }
+    return false;
+}
+
+namespace {
+
+// @0x2ce550: the NotEnough requirements of the tab's building's next level (as UpgradeBuilding).
+bool CheckUpgradeRequirements(unsigned tab) {
+    Map::Building* b = Map::GetBuildingWithID(kTabBuildings[tab]);
+    if (!b) return false;
+    const GameData::UpgradeInfo u = b->GetNextUpgradeInfo();
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::SetLevelFailMessage(StringTable::GetString("UPGRADE_LEVEL_REQ"));
+    const std::u32string desc = SWPrintf(0x100, StringTable::GetString("REQUIREMENT_UPGRADE"),
+                                         {StringTable::GetString(b->data->name.c_str()), ToWideString(b->level + 2)});
+    NotEnoughWindow::SetDescriptionText(desc.c_str(), nullptr);
+    NotEnoughWindow::AddLevelRequirement((unsigned)u.level);
+    NotEnoughWindow::AddPopulaionRequirement((unsigned)u.population);
+    for (int i = 0; i < 11; ++i) NotEnoughWindow::AddRequirement(i, (unsigned)u.cost[i]);
+    if (u.requiredId != 0)
+        NotEnoughWindow::AddBuildingLevelRequirement((unsigned)u.requiredId, (unsigned)u.requiredCount);
+    NotEnoughWindow::SetExchangeLimit((unsigned)u.exchangeLimit);
+    return NotEnoughWindow::CheckRequirements();
+}
+
+// @0x2cefe0: NotEnough's Upgrade: the tab's building starts its next level.
+void OnUpgradeContinuation() {
+    Map::Building* b = Map::GetBuildingWithID(kTabBuildings[g_tab]);
+    if (!b) return;
+    b->Upgrade((unsigned)b->level + 1);
+    Hide();
+    NotEnoughWindow::Hide();
+}
+
+// The world map with the arrow at the city (map 0).
+void ArrowAtCity() {
+    GlobalMapWindow::Show();
+    GlobalMapWindow::SetArrowVisibleWindowLimit(2);
+    GlobalMapWindow::ArrowAtMap(0, false, true);
+}
+
+// @0x2cf028: the tab's building's upgrade (NotEnough with the next level's requirements), unless
+// the people limit is reached; away from the city, the arrow at it on the world map.
+void OnUpgrade() {
+    Hide();
+    if (GameState::GetCurrentMapID() != 0) {
+        ArrowAtCity();
+        return;
+    }
+    Map::Building* b = Map::GetBuildingWithID(kTabBuildings[g_tab]);
+    if (!b) return;
+    const GameData::UpgradeInfo& u = b->GetNextUpgradeInfo();
+    if (GameState::GetPlayerWorkersCount() + Map::GetPendingWorkerCount() + u.givePopulation > GameState::GetMaxWorkerCount()) {
+        PopupWindow::Show(
+            SWPrintf(0x100, StringTable::GetString("PEOPLE_LIMIT"), {ToWideString(GameState::GetMaxWorkerCount())}).c_str(),
+            PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    CheckUpgradeRequirements(g_tab);
+    NotEnoughWindow::SetActionCallback(OnUpgradeContinuation, StringTable::GetString("UPGRADE_ACTION"), false);
+    NotEnoughWindow::Show();
+}
+
+// @0x2cf368: the tab's building is not built: the arrow at its construction site (the camera goes
+// there), else the shop on it; away from the city, the arrow at it on the world map.
+void OnBuild() {
+    Hide();
+    if (GameState::GetCurrentMapID() != 0) {
+        ArrowAtCity();
+        return;
+    }
+    Map::Building* b = Map::GetUnfinishedBuildingWithID(kTabBuildings[g_tab], false);
+    if (!b) {
+        ShopWindow::Show();
+        ShopWindow::OnSelectItemID(kTabBuildings[g_tab]);
+        return;
+    }
+    Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f, true, 0.4f, 0, false);
+    int sx = (int)b->minX, sy = (int)b->minY;
+    Map::WorldCoordinatesToScreen(sx, sy);
+    BuildingHovers::SetArrowClickCallback(new GUI::Callback([b, sx, sy] { BuildingHovers::OnBuildingClick(b, sx, sy); }));
+    BuildingHovers::ArrowAt(b->baseX, b->minY, false, false, false, false, false, false, false);
+}
+
+// @0x2cefb0: card n's task (g_buildTask) in TaskInfoWindow.
+void OnTaskDo(unsigned n) {
+    Hide();
+    TaskInfoWindow::SetTask((uint32_t)g_buildTask[n], false);
+    TaskInfoWindow::Show();
+}
+
+// @0x2d03f4: card n's blue button: build the unit's training building when there is none, else its
+// task (the Fighter, unit 0x195: the way to map 0x52 and its camera tour), else upgrade the building
+// when its level is too low.
+void OnBlueButton(unsigned n) {
+    const unsigned i = n + g_scroller.firstIndex;
+    if (i >= g_offers.size() || !g_offers[i]) return;
+    const EntityData* d = EntityFactory::GetEntityByID((int)g_offers[i]->entity);
+    unsigned level = 0;
+    if (const GameData::BuildingData* bd = GameData::GetBuilding((uint32_t)d->trainingObjType)) {
+        bool built;
+        Map::Building* b = GameState::GetCurrentMapID() == 0 ? Map::GetBuildingWithID(bd->id) : nullptr;
+        if (b) {
+            level = (unsigned)b->level;
+            built = true;
+        } else {
+            const GameState::OfflineBuilding* o = GameState::GetOfflineBuildingWithID(bd->id);
+            level = o ? o->level : 0;
+            built = o != nullptr;
+        }
+        if (bd->id != 0x8f && !built) {
+            OnBuild();
+            return;
+        }
+    }
+    if (g_buildTask[n] == 0) {
+        if (level < (unsigned)d->trainingObjCount) OnUpgrade();
+        return;
+    }
+    if (d->id != 0x195) {
+        OnTaskDo(n);
+        return;
+    }
+    // UNVERIFIED (milestone 5s): ArenaDifficultyWindow and PlayerCompetitionWindow are hidden first
+    // when open.
+    Hide();
+    if (GameState::GetCurrentMapID() != 0x52) {
+        if (!GlobalMapWindow::IsVisible()) GlobalMapWindow::Show();
+        GlobalMapWindow::SetArrowVisibleWindowLimit(3);
+        GlobalMapWindow::ArrowAtMap(0x52, false, true);
+        return;
+    }
+    Map::AddCameraPoint(0x10, 0xe, 1, 1, 0, 0x56a, 0xd2, 0, 1.f, true, 0.f, 0);
 }
 
 }  // namespace

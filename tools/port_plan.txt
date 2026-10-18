@@ -57,7 +57,7 @@ dead  ^GameState::(GetGoldSpent|SetGoldEarned|SetCrystalsEarned|GetTutorialStepN
 online  ^GameState::(GetCrystalsSpent|GetCrystalsEarned|CleanBeforeLoading)$   # SendPlayerData; friends' city visits
 4h    ^(GameState::SetTutorialType|BottomFarmWindow::GetPlantButton)$   # TutorialWindow
 7    ^(GameState::RemoveWorkersFromOrders|ReloadSavedGame|HUDWindow::GameReset)$   # the restart and the profiles: SettingsWindow::OnRestartConfirm, PlayerProfileManager (7); otherwise only online callbacks, CleanBeforeLoading / GoHomeFromFriend (online) and the console (5) (moved from 4h on 2026-10-14)
-5    ^HUDWindow::GameReload$   # HireTroopsWindow::OnUpgrade (moved from 4h on 2026-10-14)
+dead  ^HUDWindow::GameReload$   # no caller in 5.11 (no call, pointer or relocation; checked 2026-10-18)
 4e    ^(Map::Building::RemoveHoldOfEntities|Map::FUN_(00130b58|00130b70)|Entity::SetEndWorkTS)$   # Map::RemoveHoldOfEntities, Decor::GetActionPoint, Decor::WorkStarted
 4c    ^Entity::PrepareForSetup$   # EntityManager::ExecuteStaticMeta
 5     ^(Map::Building::ChangeState|Entity::SetCustomUnderlay)$   # towers shooting (DoAttack, OnCoolDown); the PvP spawn meta
