@@ -192,6 +192,10 @@ struct Building {
     int GetFirstActiveSoilPatch() const;         // @0x120058
     int GetNextPatchToBuy() const;               // @0x11fe34
     void OnContractCompleted(bool silent);       // @0x11db64
+    // @0x11d950: barracks trainee e is done: it joins the squad (walking to a spot near the hero) when
+    // there is room and none of its kind, else the reserve (hidden); silent (loading): the squad
+    // at once. Tutorial step 0x62 -> 0x63.
+    void TrainingCompleted(Entity* e, bool silent);
     void OnBuilded();                            // @0x1260d4 (houses get workers, farms a farmer)
     void OnUpgraded();                           // @0x124df0
     void UpdateStorage();                        // @0x1244e4 the storage's resource piles

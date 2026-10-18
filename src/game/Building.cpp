@@ -6,6 +6,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
+#include "game/AI.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
 #include "game/Contracts.h"
@@ -22,6 +23,7 @@
 #include "game/SoldierSlots.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
+#include "hud/HUD.h"
 
 namespace Map {
 namespace {
@@ -733,9 +735,49 @@ void Building::OnContractCompleted(bool silent) {
         EntityManager::RemoveEntity(trainee, true);
         trainee = nullptr;
     }
-    // UNVERIFIED (milestone 5): class 0xc calls TrainingCompleted(workers[0], silent).
+    if (data->buildingClass == 0xc) TrainingCompleted(workers[0], silent);
     BuildingHovers::Update(0.0, true);
-    (void)silent;
+}
+
+void Building::TrainingCompleted(Entity* e, bool silent) {
+    contract = 0;
+    contractDone = false;
+    Entity* player = EntityManager::GetPlayer();
+    if (silent) {
+        SoldierPool::RemoveSoldier(e);
+        GameState::HireSoldier(e, false, 0);
+        e->RemoveGlow();
+        e->GetAI()->Reset(true);
+        RemoveWorker(e);
+        BattleBarWindow::UpdateContents();
+    } else {
+        SoldierPool::RemoveSoldier(e);
+        if (SoldierSlots::GetOccupiedSlotCount() < GameState::GetSoldierSlotCount() &&
+            !SoldierSlots::GetFirstSoldierByID(e->GetEntityData()->id)) {
+            GameState::HireSoldier(e, false, 0);
+            RemoveWorker(e);
+            if (AI::Waypoint* wp = AI::GetRandomWaypointInRange(player->tileX, player->tileY, 2, 1, false, nullptr, false))
+                e->GetAI()->WalkTo(wp);
+        } else {
+            GameState::HireSoldier(e, false, 0);
+            RemoveWorker(e);
+            BuildingHovers::UnregisterEntity(e);
+            e->SetActive(false, true);
+        }
+        if (GameState::tutorial == 0x62) {
+            // From now on training takes the order's real training time (the original writes the
+            // shared contract data).
+            if (data->delivery && !data->delivery->missions.empty()) {
+                auto* c = const_cast<Contracts::Contract*>(data->delivery);
+                c->missions[0].timePlant = c->missions[0].trainTime;
+            }
+            GameState::tutorial = 0x63;
+        }
+        BattleBarWindow::UpdateContents();
+    }
+    if (GameState::tutorial == 0x63) return;
+    Tasks::CompleteSubtask(Tasks::kTrainWorkerInBuilding, id, 1);
+    Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
 }
 
 namespace {

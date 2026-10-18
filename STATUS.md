@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5d (5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5f, then the rest of 5d (5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; its campaign node needs CampaignInfoWindow = 5f; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1718,6 +1718,22 @@ Milestones:
                    the archery tab's cards are quest-locked without a build button).
        5d [ ] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
               the compass, the world map); a save round trip on a copy. The opening tutorial is done.
+              SPLIT (2026-10-18): 5d-1 [x] Building::TrainingCompleted 0x11d950 (contract cleared; the
+                   trainee joins the squad and walks to a waypoint near the hero when there is room and
+                   none of its kind, else the reserve hidden; silent: the squad at once; step 0x62 ->
+                   0x63 and the barracks' order 0 gets its real training time; the train subtasks),
+                   wired in OnContractCompleted (class 0xc). Dead (no caller in 5.11):
+                   IsTrainingCompleted, Map::TrainingcontractRunning. VERIFIED (test loop: case 3 +
+                   2820:410:552 Train, 3500:640:646 Ok, 3900:1240:38 compass; SL every 50 frames to
+                   3300 and 3550..4050): the soldier trains 3 s, 0x62 -> 0x65, "Quest Complete! Warrior
+                   for Hire" (210 XP, 80 gold, 50 wood, 50 stone, paid on Ok), the soldier walks to the
+                   hero, the envoy ("Skeletons... follow me west!") with the arrow at the compass, the
+                   compass opens the world map at step 0x67 with the arrow on the next node.
+                   BLOCKED: that node is campaign 1 (not the instant-travel node 4000), so its tap needs
+                   CampaignInfoWindow (5f). 5d-2 [ ] after 5f: the node -> map 0xe -> step 0x80
+                   (Map::Load), then a save round trip on a copy (the game does not save in the tutorial).
+                   Seen: the world map is drawn shifted (parchment on the left and bottom at 1280x800);
+                   check against the original in 5f.
        5e [ ] healing and repair: HealHoverWindow, BattleBarWindow::ShowHealSoldier, HireTroopsWindow::
               ShowHealSoldier, RepairWindow.
        The world map's windows:
