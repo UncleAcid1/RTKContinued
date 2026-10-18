@@ -451,7 +451,10 @@ void AIPlayer::ClickedTile(int x, int y, int, int) {
     if (entity->GetSquad()->IsAnyoneInCombat()) return;
     if (entity->f38) return;
     g_marker = Render::RemoveSprite(g_marker);
-    // UNVERIFIED (milestones 4g/4h): GameState::EndActiveCombat(true), BuildingHovers::HideWorldDialog.
+    // A tap elsewhere leaves the fight (an aggro one: the boss and arena fights returned above)
+    // and the hero's dialog.
+    GameState::EndActiveCombat(true);
+    BuildingHovers::HideWorldDialog(entity);
     // Tutorial steps 0xb and 0xd: the arrow points at the entity at (4, 6) / (5, 0xd), whose tap
     // goes to ClickedEntity.
     for (int step : {0xb, 0xd}) {
@@ -657,7 +660,7 @@ void AIPlayer::SearchDecoration(Map::Decor* d) {
     int sx = (int)entity->worldX, sy = (int)entity->worldY;
     Map::WorldCoordinatesToScreen(sx, sy);
     if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
-        Render::CenterOn(entity->worldX, entity->worldY);   // (over 0.4 s on the original)
+        Render::CenterOn(entity->worldX, entity->worldY, true);
     ChangeState(0x21);
     entity->OnStartedToWork();
     Map::Decor* job = entity->GetWorkplaceDecoration();
@@ -851,7 +854,7 @@ void AIPlayer::ProcessAction() {
         if (text)
             BuildingHovers::ShowTextHover(entity->worldX, entity->worldY, text, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19,
                                           5, 5.f, true, 2.f, 50.f);
-        Render::CenterOn(entity->worldX, entity->worldY - entity->GetIdleHeight());   // (over 0.4 s on the original)
+        Render::CenterOn(entity->worldX, entity->worldY - entity->GetIdleHeight(), true);
         break;
     }
     case 5: {   // a tapped decoration

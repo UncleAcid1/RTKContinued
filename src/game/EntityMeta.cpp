@@ -49,6 +49,8 @@ const MetaData* GotoPlace(const MetaData* d, GotoFlags& f) {
 }  // namespace
 
 // @0x150534 Entity::IsEnemy
+bool Entity::IsNPC() const { return spawnPoint && spawnPoint->npc; }
+
 bool Entity::IsEnemy() const {
     if (!data || data->clas != 9) return false;
     return spawnPoint ? !spawnPoint->npc : true;
@@ -103,7 +105,7 @@ void SetQuestAnimation(Entity* e, const char* name) {
     e->GetAI()->SetCustomIdleAnimation(name, -1, -1);
     if (!std::strcmp(name, "death")) e->SetAnimationOnce("death", false, false, true, true);
     else e->SetAnimationP(name, true, false, false);
-    e->f95 = false;
+    e->patrolHideAtEnd = false;
 }
 
 // STATS_REPLACE_AFTER_QUEST: the stats of another entity type at the player's level.
@@ -156,7 +158,7 @@ void Entity::OnSubTaskCompleted(uint32_t subtask) {
             SetQuestAnimation(this, Str(d, 2));
             GetAI()->UpdateLastTarget();
             int direction = IsNumber(d, 3) ? Int(d, 3) : -1;
-            f94 = true;
+            patrolOnce = true;
             // (where it stands, or where its patrol ends)
             int x = patrol.empty() ? tileX : patrol.back().x;
             int y = patrol.empty() ? tileY : patrol.back().y;
@@ -166,12 +168,12 @@ void Entity::OnSubTaskCompleted(uint32_t subtask) {
             GotoFlags f;
             d = GotoPlace(d, f);
             if ((uint32_t)Int(d, 1) == subtask) {
-                f95 = f.hide;
+                patrolHideAtEnd = f.hide;
                 f96 = f.dialog;
                 if (f.unhide) SetActive(true, false);
                 GetAI()->UpdateLastTarget();
                 int direction = IsNumber(d, 4) ? Int(d, 4) : -1;
-                f94 = true;
+                patrolOnce = true;
                 AddPatrolPoint("", Int(d, 2), Int(d, 3), 0, direction, "", 0, 0);
             }
         }
@@ -186,7 +188,7 @@ void Entity::OnTaskCompleted(uint32_t task) {
         if ((d = e->GetDataWithType(kExpUnhideQuest)) && (uint32_t)d->GetInt() == task) Unhide(this);
         if ((d = e->GetDataWithType(kExpUnhideAfterQuest)) && (uint32_t)d->GetInt() == task) Unhide(this);
         if ((d = e->GetDataWithType(kExpAnimFinishQuest)) && (uint32_t)Int(d, 0) == task) {
-            f94 = true;
+            patrolOnce = true;
             AddPatrolPoint("", tileX, tileY, 0, -1, Str(d, 1), 1, 0);
         }
         if ((d = e->GetDataWithType(kExpAnimAfterQuest)) && (uint32_t)Int(d, 0) == task)
@@ -195,12 +197,12 @@ void Entity::OnTaskCompleted(uint32_t task) {
             GotoFlags f;
             d = GotoPlace(d, f);
             if ((uint32_t)Int(d, 0) == task) {
-                f95 = f.hide;
+                patrolHideAtEnd = f.hide;
                 f96 = f.dialog;
                 if (f.unhide) SetActive(true, false);
                 GetAI()->UpdateLastTarget();
                 int direction = IsNumber(d, 4) ? Int(d, 4) : -1;
-                f94 = true;
+                patrolOnce = true;
                 AddPatrolPoint("", Int(d, 1), Int(d, 2), 0, direction, "", 0, 0);
                 if (IsString(d, 3)) GetAI()->SetCustomIdleAnimation(Str(d, 3), -1, -1);
             }

@@ -160,12 +160,16 @@ void OnHelpActual(unsigned step) {
     Tasks::SetLastSubTaskHelp(s.id);
     HUDWindow::SetTaskLocaterIcon(s.GetIcon(), t->showInBattle, t->sidequest, t->quickTask);
     if (s.type != Tasks::kEnterMap && t->id != 0x5c9) {
-        // (GlobalMapWindow::Hide here: milestone 5; a city task met outside the city also
-        // refreshes the quest list)
-        if (t->isCity && GameState::GetCurrentMapID() == 0) TaskHolderWindow::UpdateTasks();
-        else if (t->mapId != 0 && GameState::GetCurrentMapID() != Tasks::NormalizeMapID(t->mapId)) {
+        // The world map goes; a city task in the city also refreshes the quest list, a task of
+        // another map helps there first.
+        if (t->isCity && GameState::GetCurrentMapID() == 0) {
+            GlobalMapWindow::Hide();
+            TaskHolderWindow::UpdateTasks();
+        } else if (t->mapId != 0 && GameState::GetCurrentMapID() != Tasks::NormalizeMapID(t->mapId)) {
             Tasks::HelpWithMapSwitchTo(Tasks::NormalizeMapID(t->mapId), true, false, 0);
             return;
+        } else {
+            GlobalMapWindow::Hide();
         }
     }
     // UNVERIFIED (milestone 5): with a boss set, a "kill" step for it starts the fight (OnFight).
@@ -246,8 +250,11 @@ void OnSubtaskSkip(unsigned box) {
         if (s.type != 0 && GameState::GetSubTaskDone(s.id) < s.amount) all = false;
     if (all) {
         HideWindow();
-        // UNVERIFIED (milestone 5): task 0x5c9 on the world map moves the sultan on
-        // (GlobalMapWindow::ShowSultanMovement / SwitchMapAnimated(0xb)).
+        // Task 0x5c9 finished on the world map (not in a fight): the sultan moves on to map 0xb.
+        if (t->id == 0x5c9 && GlobalMapWindow::IsVisible() && !GameState::IsCombatActive()) {
+            if (GameState::GetCurrentMapID() != 0xb) GlobalMapWindow::ShowSultanMovement();
+            GlobalMapWindow::SwitchMapAnimated(0xb, false, 500.f, false);
+        }
     }
     UpdateContents();
 }
@@ -286,7 +293,7 @@ void OnTweenOut() {
     Tasks::SetBlocked(false);
     if (g_resetArrowLimit) BuildingHovers::SetArrowVisibleWindowLimit(0);
     g_resetArrowLimit = true;
-    // UNVERIFIED (milestone 5): GlobalMapWindow::SetArrowVisibleWindowLimit(1).
+    GlobalMapWindow::SetArrowVisibleWindowLimit(1);
     GameState::DropGamePauseState();
 }
 

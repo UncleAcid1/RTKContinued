@@ -31,11 +31,11 @@
 #include "hud/HUD.h"
 #include "windows/Windows.h"
 
-namespace {
+bool Entity::g_deathAnimation = false;     // 0x6119ac a boss is dying: the game waits for it
+Entity* Entity::g_dyingBoss = nullptr;     // 0x6119d0
+float Entity::g_dyingBossTime = 0.f;       // 0x6119d4
 
-bool g_deathAnimation = false;       // 0x6119ac a boss is dying: the game waits for it
-Entity* g_dyingBoss = nullptr;       // 0x6119d0
-float g_dyingBossTime = 0.f;         // 0x6119d4
+namespace {
 
 // The attacker's damage before bonuses: its magic attack if it has one, else ranged, else melee.
 int BaseDamage(const Entity* attacker) {
@@ -156,7 +156,7 @@ void Entity::OnAggro() {
     int sx = (int)worldX, sy = (int)worldY;
     Map::WorldCoordinatesToScreen(sx, sy);
     if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
-        Render::CenterOn(worldX, worldY);   // (animated over 0.4 s on the original)
+        Render::CenterOn(worldX, worldY, true);
     std::printf("Entity::OnAggro() - %d\n", (int)data->id);
     if (workplaceDecor) {
         workplaceDecor->ReturnCost();
@@ -177,7 +177,7 @@ void Entity::OnRemovedFromCombat() {
     if (anim) anim->mult = 1.f;
     f36 = false;
     f38 = false;
-    f1aa = true;
+    wanders = true;
 }
 
 bool Entity::OrbsCanBeUsed() {
@@ -286,7 +286,7 @@ void Entity::OnDying(Entity* attacker) {
     // monster's death sound (EntityData::GetSoundDeath, else "battle_death_monster"): milestone 6.
     if ((data->clas == 10 || player) && GameState::IsCombatActive()) GameState::GetActiveCombat()->Pause(this);
     if (IsBoss()) {
-        Render::CenterOn(worldX, worldY);   // (animated over 0.4 s on the original)
+        Render::CenterOn(worldX, worldY, true);
         g_dyingBossTime = 0.f;
         g_dyingBoss = this;
         g_deathAnimation = true;

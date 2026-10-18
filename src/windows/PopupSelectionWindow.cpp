@@ -48,7 +48,7 @@ void OnTweenOut() {
     WindowManager::WindowHide(false);
     g_queue->shown = false;
     g_queue->MoveWindowDown(true);
-    // UNVERIFIED (milestone 4): GameState::IsCombatActive() -> DropGamePauseState (no combats yet).
+    if (GameState::IsCombatActive()) GameState::DropGamePauseState();
 }
 
 // @0x32cb74
@@ -169,7 +169,7 @@ void Show(const char32_t* title, const char32_t* text, const char32_t* okText, R
     g_mentor->SetVisibility(false);
     g_goblin->SetVisibility(false);
     g_empty->SetVisibility(false);
-    // UNVERIFIED (milestone 4): GameState::IsCombatActive() -> RaiseGamePauseState (no combats yet).
+    if (GameState::IsCombatActive()) GameState::RaiseGamePauseState();
 }
 
 // @0x32cb50

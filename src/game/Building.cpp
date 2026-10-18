@@ -193,7 +193,8 @@ void Building::UpdateImage() {
     int w = d->w, h = d->h;
     GetBuildZone(w, h);
     bool wip = upgrading != 0 || !IsOpened();
-    // UNVERIFIED (milestone 4): in a combat, a building at 0 hp also shows the scaffold.
+    // (In a city battle, GameState::g_Combat, a building at 0 hp also shows the scaffold: the
+    // siege system, dead in 5.11.)
     if (wip) {
         CreateWipSprite(*this, w, h);
     } else {
@@ -352,7 +353,7 @@ void Building::WorkEnded(int p) {
     if (st == 0x12) {
         ai->SetItem((int)data->delivery->id, patchContract[p] - 1, p);
         if (GameState::tutorial == 0x45) {   // the first crop is planted: the farmer explains
-            Render::CenterOn(600.f, 2795.f);   // (animated on the original)
+            Render::CenterOn(600.f, 2795.f, true);
             if (Entity* farmer = EntityManager::GetEntityByClass(0xdf, false, true))
                 BuildingHovers::ShowWorldDialog(farmer, StringTable::GetString("DESC412"), 0, false, false, true, 0, true,
                                                 false);

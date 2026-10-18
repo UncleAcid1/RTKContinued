@@ -645,8 +645,7 @@ void Show() {
                         e->SetDirection((lrand48() & 1) == 0 ? 1 : 7);
                         e->SetAnimationP(e->player ? "bat_vict" : "victory", true, false, false);
                     }
-                    // (animated over 0.4 s on the original: Render::CenterOn's tween is not ported)
-                    if (e->player) Render::CenterOn(e->worldX, e->worldY - e->GetIdleHeight());
+                    if (e->player) Render::CenterOn(e->worldX, e->worldY - e->GetIdleHeight(), true);
                 }
             }
             if (!g_won && GameState::IsCombatActive()) {

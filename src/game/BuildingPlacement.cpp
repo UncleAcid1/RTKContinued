@@ -41,8 +41,8 @@ float g_dragX = 0.f, g_dragY = 0.f;            // 0x630c0c 0x630c10 the drag in 
 int g_grabX = 0, g_grabY = 0;                  // 0x630c14 0x630c18 the grab point minus the drag
 bool g_fromPresents = false;                   // 0x630c1c a present: free and built at once
 bool g_declineOnAccept = false;                // 0x630c1d
-// 0x630c20 PresentsContainer::Present* and 0x630c24 (a sprite chain removed by Accept): presents
-// are milestone 4; nothing sets them yet.
+// 0x630c20 PresentsContainer::Present* and 0x630c24 (a sprite chain removed by Accept): the
+// presents (milestone 5, with the gifts' window); nothing sets them yet.
 
 // @0x3a1b18
 void Activate() {

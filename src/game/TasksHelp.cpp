@@ -81,7 +81,7 @@ void ShopOn(uint32_t building) {
 void ArrowAtArea(const GameState::AreaInfo& a) {
     float x = 30.f + (float)(a.x + a.w / 2) * 84.f;
     float y = (float)(a.y + a.h / 2) * 42.f * 0.5f - 90.f;
-    Render::CenterOn(x, y);   // (animated in the original: zoom 0.4)
+    Render::CenterOn(x, y, true);
     int sx = (int)x, sy = (int)(y + 90.f);
     Map::WorldCoordinatesToScreen(sx, sy);
     BuildingHovers::SetArrowClickCallback(new GUI::Callback([sx, sy] { Map::ClickToBuyArea(sx, sy); }));
@@ -97,7 +97,7 @@ void HelpWithLocation(int x, int y, int tileX, int tileY) {
         HUDWindow::ShowTaskLocaterTo(x, y, tileX, tileY);
         return;
     }
-    Render::CenterOn((float)x, (float)y);   // (animated in the original: zoom 0.4)
+    Render::CenterOn((float)x, (float)y, true);
     BuildingHovers::ArrowAt((float)x, (float)y, false, false, false, false, false, false, false);
 }
 
@@ -109,7 +109,6 @@ void HelpWithMapSwitchToContinuation() {
 
 // @0x235964 Tasks::HelpWithMapSwitchTo: the way to another map (item: what is looked for there).
 void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
-    (void)item;
     if (GameState::IsCombatActive()) {
         PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
         return;
@@ -124,7 +123,7 @@ void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
     if (Map::Decor* d = Map::GetPortalToMap(map)) {
         int x, y;
         DecorPoint(d, x, y);
-        Render::CenterOn((float)x, (float)y);   // (animated in the original: 0.4 s)
+        Render::CenterOn((float)x, (float)y, true);
         if (arrow) {
             BuildingHovers::SetArrowVisibleWindowLimit(1);
             BuildingHovers::SetArrowClickCallback(new GUI::Callback([d] { BuildingHovers::OnDecorClick(d, 0, 0); }));
@@ -133,10 +132,24 @@ void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
         }
         return;
     }
-    // UNVERIFIED (milestone 5): else the world map: home (map 0) switches there at once
-    // (EnableLastSubTaskHelp, GlobalMapWindow::SwitchMap(0)); another map gets the world map with
-    // its arrow (ArrowAtMap), or with an item its campaign / raid window showing the item.
-    std::printf("Tasks::HelpWithMapSwitchTo() map %u: the world map is not ported yet\n", map);
+    // Else the world map: home (map 0) is travelled to at once (the help runs again there);
+    // another map gets the world map with its arrow (map 0x2f: home's), or, with an item, the
+    // map centred. UNVERIFIED (milestone 5): there its raid / campaign window shows the item
+    // (RaidInfoWindow / CampaignInfoWindow::SetParameters, Show, ShowItem).
+    if (map == 0) {
+        EnableLastSubTaskHelp();
+        GlobalMapWindow::CenterOnMap((uint32_t)GameState::GetCurrentMapID());
+        GlobalMapWindow::SwitchMap(0, false, true);
+        GlobalMapWindow::PreventArrowHide();
+        GlobalMapWindow::Show();
+        GlobalMapWindow::Hide();
+        return;
+    }
+    GlobalMapWindow::Show();
+    GlobalMapWindow::SetArrowVisibleWindowLimit(2);
+    if (item == 0) GlobalMapWindow::ArrowAtMap(map == 0x2f ? 0 : map, false, true);
+    else GlobalMapWindow::CenterOnMap(map);
+    HUDWindow::UpdateTasks();
 }
 
 // @0x2381d8 Tasks::TaskSubtask::OnHelp. arrow: an arrow may be shown. True when it helped.
@@ -196,7 +209,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         if (b) {   // being upgraded: its speed-up
             if (arrow) {
                 BuildingHovers::ShowArrowAtSpeedup(b);
-                Render::CenterOn(b->baseX, b->minY);
+                Render::CenterOn(b->baseX, b->minY, true);
             }
             return true;
         }
@@ -261,7 +274,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
             HelpWithMapSwitchTo(0, arrow, false, 0);
             return true;
         }
-        // (GlobalMapWindow::Hide when it is up: milestone 5)
+        if (GlobalMapWindow::IsVisible()) GlobalMapWindow::Hide();
         const Contracts::Contract* c = Contracts::GetContract(value / 10);
         if (!c) return false;
         Map::Building* b = Map::GetBuildingWithContract(c, type == kDeliveryMissionEnd);
@@ -420,11 +433,17 @@ bool TaskSubtask::OnHelp(bool arrow) {
             return true;
         }
         if (Entity* e = EntityManager::GetEntityWithDrop(value)) {   // somebody who drops it
-            if (arrow) ArrowAtEntity(e);
+            if (arrow) {
+                if (GlobalMapWindow::IsVisible()) GlobalMapWindow::Hide();
+                ArrowAtEntity(e);
+            }
             return true;
         }
         if (Map::Decor* d = Map::GetDecorationWithDrop(value)) {   // a decoration that drops it
-            if (arrow) ArrowAtDecor(d);   // (the original also hides GlobalMapWindow, milestone 5)
+            if (arrow) {
+                if (GlobalMapWindow::IsVisible()) GlobalMapWindow::Hide();
+                ArrowAtDecor(d);
+            }
             return true;
         }
         const Items::ItemInfo* info = Items::GetItemInfo(value);

@@ -146,7 +146,7 @@ void Init() {
     g_slider = GUI::RegisterUI("../resource/kingdom_ui/1Original/Slider_mission_scroll_bg.xml",
                                "Slider_mission_scroll_bg.png", GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);
     if (g_slider) {
-        // Shared::TaskWindow::LoadFrom (quest lines): milestone 4. Starts hidden.
+        // Shared::TaskWindow::LoadFrom: the quest line nothing in 5.11 shows (see ShowAllTasks). Starts hidden.
         g_slider->SetVisibility(false);
         g_slider->SetOnClick([] {});
         g_sliderEffect = GUI::CreateMovementEffect(g_slider);
@@ -219,7 +219,7 @@ void Hide() {
     }
 }
 
-// @0x24ba4c (the heal hover window takes z - 0.0001: milestone 4)
+// @0x24ba4c (the heal hover window takes z - 0.0001: milestone 5)
 void SetZ(float) {
     if (!g_root) return;
     float z = HUDWindow::GetZ();

@@ -19,6 +19,7 @@
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "windows/Windows.h"
@@ -145,9 +146,13 @@ struct DailyBonus {
 // The original's pack tables (0x595c20), 7 entries; LineToindex maps line 5 to entry 5 (6 with
 // server setting 0xb6, online only).
 const int kCrystalMain[7] = {1000, 500, 200, 140, 70, 15, 30};      // +0x8c
-const int kCrystalBonus[7] = {125, 50, 15, 6, 3, 0, 0};             // +0x1c, discount row 0
 const int kGoldMain[7] = {200000, 100000, 40000, 28000, 14000, 3000, 6000};   // +0x118
-const int kGoldBonus[7] = {25000, 10000, 3000, 2000, 1000, 0, 0};   // +0xa8, discount row 0
+// The bonuses by discount row (0 none, 1 task 0x4d8, 2 task 0x4da, 3 task 0x4db).
+const int kCrystalBonus[4][7] = {   // +0x1c
+    {125, 50, 15, 6, 3, 0, 0}, {125, 50, 15, 6, 3, 0, 0}, {125, 50, 15, 6, 3, 0, 0}, {0, 0, 0, 0, 0, 0, 0}};
+const int kGoldBonus[4][7] = {      // +0xa8
+    {25000, 10000, 3000, 2000, 1000, 0, 0}, {25000, 10000, 3000, 2000, 1000, 0, 0},
+    {25000, 10000, 3000, 2000, 1000, 0, 0}, {0, 0, 0, 0, 0, 0, 0}};
 
 WindowManager::FunctionalWindow* g_queue = nullptr;   // ExchangeWindow::wnd
 Window* g_root = nullptr;              // 0x61e814 Payment_screen.xml
@@ -159,6 +164,8 @@ int g_crystalAmounts[6][2] = {};       // 0x61eb2c (amount, bonus)
 int g_goldAmounts[6][2] = {};          // 0x61eb5c (amount, bonus)
 unsigned g_tab = 0;                    // 0x61eb8c 0 gold, 1 crystals
 Window* g_gemHolder = nullptr;         // 0x61eb90 payment_gem_holder (discount tasks)
+Window* g_gemIcon = nullptr;           // 0x61eb94 icon_gem_60
+Textfield* g_gemTime = nullptr;        // 0x61eb98 text_time_left
 DailyBonus g_daily;                    // 0x61eb9c
 bool g_tabSet = false;                 // 0x61ebb8
 Textfield* g_header = nullptr;         // 0x61ebbc task__buy_more
@@ -187,29 +194,51 @@ void MakeNeat(int& a, int& b) {
     b = (int)(std::ceil((float)b / 10.f) * 10.f);
 }
 
-// @0x2ac434. UNVERIFIED (milestone 4, Tasks): the discount tasks 0x4d8/0x4da/0x4db raise the
-// multiplier to 1.3/1.4/3.0 and pick the bonus row; offline none is active (multiplier 1.0, row 0).
+// The discount: its multiplier and bonus row (UpdateCosts), or none.
+struct Discount { float mult = 1.f; unsigned row = 0; bool noBonus = false; };
+Discount ActiveDiscount() {
+    Discount d;
+    if (Tasks::IsTaskActive(0x4d8, false)) { d.mult = 1.3f; d.row = 1; }
+    if (Tasks::IsTaskActive(0x4da, false)) { d.mult = 1.4f; d.row = 2; }
+    if (Tasks::IsTaskActive(0x4db, true)) { d.mult = 3.f; d.row = 3; d.noBonus = true; }
+    return d;
+}
+
+// @0x2ac434: the amounts with the discount task's multiplier; the 0x4db one drops the bonuses.
 void UpdateCosts() {
-    const float mult = 1.f;
+    const Discount d = ActiveDiscount();
     for (unsigned i = 0; i < 6; ++i) {
-        g_crystalAmounts[i][0] = (int)std::floor((float)kCrystalMain[i] * mult);
-        g_crystalAmounts[i][1] = (int)std::floor((float)kCrystalBonus[i] * mult);
-        g_goldAmounts[i][0] = (int)std::floor((float)kGoldMain[i] * mult);
-        g_goldAmounts[i][1] = (int)std::floor((float)kGoldBonus[i] * mult);
+        g_crystalAmounts[i][0] = (int)std::floor((float)kCrystalMain[i] * d.mult);
+        g_goldAmounts[i][0] = (int)std::floor((float)kGoldMain[i] * d.mult);
+        if (d.noBonus) {
+            g_crystalAmounts[i][1] = 0;
+            g_goldAmounts[i][1] = 0;
+        } else {
+            g_crystalAmounts[i][1] = (int)std::floor((float)kCrystalBonus[d.row][i] * d.mult);
+            g_goldAmounts[i][1] = (int)std::floor((float)kGoldBonus[d.row][i] * d.mult);
+        }
         MakeNeat(g_goldAmounts[i][0], g_goldAmounts[i][1]);
     }
 }
 
-// One holder's texts: the price, the amount and its "+ bonus" placed after the amount's text.
-void FillHolder(Holder& h, const std::u32string& price, int amount, int bonus) {
+// One holder's texts. text_get_01 (crossed out) shows the undiscounted amount with a discount and
+// the plain amount otherwise; it is hidden only without a discount and a bonus. "+ bonus" is
+// placed after the amount's text.
+void FillHolder(Holder& h, const std::u32string& price, int amount, int bonus, bool discount, int before) {
     h.price->SetText(price.c_str());
-    h.get1->SetVisibility(false);   // no discount task: no amount before the discount
-    h.crossout->SetVisibility(false);
-    h.get2->SetText(ToWideString(amount));
+    h.get1->SetVisibility(true);
+    h.get1->SetText(ToWideString(discount ? before : amount));
+    h.crossout->SetVisibility(true);
     if (bonus < 1) {
+        if (!discount) {
+            h.get1->SetVisibility(false);
+            h.crossout->SetVisibility(false);
+        }
+        h.get2->SetText(ToWideString(amount));
         h.bonus->SetVisibility(false);
         return;
     }
+    h.get2->SetText(ToWideString(amount));
     h.bonus->SetVisibility(true);
     h.bonus->SetText(SWPrintf(0x80, U"+ %d", {bonus}).c_str());
     h.bonus->RestorePosition();
@@ -231,9 +260,20 @@ void UpdateContents() {
     g_tabs[1].goldIcon->SetVisibility(false);
     g_tabs[1].crystalIcon->SetTexture(IconManager::GetIcon("crystal_60"), true);
     g_tabs[1].text->SetText(StringTable::GetString("PAYMENT_CONVERT_CB_MOBILE"));
-    // UNVERIFIED (milestone 4, Tasks): with a discount task active the gem holder shows its icon and
-    // time left ("FACTORY_TIME_LEFT"); offline none is.
-    g_gemHolder->SetVisibility(false);
+    // The discount task's gem and its time left.
+    const char* gem = nullptr;
+    Tasks::TaskInfo* task = nullptr;
+    if (Tasks::IsTaskActive(0x4d8, false)) { task = Tasks::GetTask(0x4d8); gem = "discount_pyramid_ruby_percent"; }
+    if (Tasks::IsTaskActive(0x4da, false)) { task = Tasks::GetTask(0x4da); gem = "discount_pyramid_diamond_percent"; }
+    if (Tasks::IsTaskActive(0x4db, true)) { task = Tasks::GetTask(0x4db); gem = "discount_pyramid_amber_percent"; }
+    g_gemHolder->SetVisibility(task != nullptr);
+    if (task) {
+        g_gemIcon->SetTexture(IconManager::GetIcon(gem), true);
+        std::u32string left = StringTable::GetNumericTimeString(task->GetRemainingTime(), true);
+        g_gemTime->SetText(SWPrintf(0x100, StringTable::GetString("FACTORY_TIME_LEFT"), {left.c_str()}).c_str());
+    }
+    const Discount d = ActiveDiscount();
+    const bool discount = task != nullptr;
     g_daily.chestOpened->SetVisibility(false);
     g_daily.chestClosed->SetVisibility(false);
     g_daily.bagGold->SetVisibility(g_tab == 0);
@@ -252,10 +292,12 @@ void UpdateContents() {
         // exchange price in the other currency now.
         if (g_tab == 0) {
             std::u32string price = Grouped(GoldPackPrice(i)) + U" " + GameState::GetResourceGameName(GameState::kCrystal);
-            FillHolder(l.gold, price, g_goldAmounts[i][0], g_goldAmounts[i][1]);
+            FillHolder(l.gold, price, g_goldAmounts[i][0], g_goldAmounts[i][1], discount,
+                       kGoldMain[i] + (d.noBonus ? 0 : kGoldBonus[d.row][i]));
         } else if (g_tab == 1) {
             std::u32string price = Grouped(CrystalPackPrice(i)) + U" " + GameState::GetResourceGameName(GameState::kGold);
-            FillHolder(l.crystals, price, g_crystalAmounts[i][0], g_crystalAmounts[i][1]);
+            FillHolder(l.crystals, price, g_crystalAmounts[i][0], g_crystalAmounts[i][1], discount,
+                       kCrystalMain[i] + (d.noBonus ? 0 : kCrystalBonus[d.row][i]));
         }
         l.deal.redX2->SetVisibility(i == 2);
         l.deal.redX1->SetVisibility(i == 0);
@@ -409,7 +451,9 @@ void Init() {
     }
     // GemHolder::LoadFrom @0x2af22c: payment_gem_holder, its icon_gem_60 and text_time_left.
     g_gemHolder = GUI::GetWindowTyped<Window>(g_root, "payment_gem_holder");
-    GUI::GetWindowTyped<Window>(g_root, "payment_gem_holder.icon_gem_60")->takesZ = true;
+    g_gemIcon = GUI::GetWindowTyped<Window>(g_root, "payment_gem_holder.icon_gem_60");
+    g_gemIcon->takesZ = true;
+    g_gemTime = GUI::GetWindowTyped<Textfield>(g_root, "payment_gem_holder.text_time_left");
     g_header = GUI::GetWindowTyped<Textfield>(g_root, "task__buy_more");
     g_daily.LoadFrom(g_root);
     for (unsigned i = 0; i < 6; ++i) {

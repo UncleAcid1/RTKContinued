@@ -1160,7 +1160,6 @@ void ShowFarm(bool show, Building* b) {
         AI::LinkAdjacentFarmWaypoints();
         b->SpawnFarm();
         HUDWindow::EnterFarm();
-        // UNVERIFIED: the original animates the camera there at zoom 0.4 (CenterOn's animated path).
         Render::CenterOn(600.f, 2840.f);
         return;
     }
@@ -1173,7 +1172,6 @@ void ShowFarm(bool show, Building* b) {
     AI::RemoveFarmWaypoints();
     g_farmBlocks.clear();
     Building* farm = g_currentFarm;
-    // UNVERIFIED: animated on the original (zoom 0.4).
     Render::CenterOn(farm->baseX, (farm->maxY + farm->minY) * 0.5f);
     farm->DespawnFarm();
     g_currentFarm = nullptr;
@@ -1769,10 +1767,11 @@ Building* GetBuildingAtCoords(int x, int y) {
     return best;
 }
 
-// Decor::Contains @0x1344b0. UNVERIFIED (milestones 3-4): quest decorations (MetaExpression +0x20),
-// portals (+0x90) and decorations with a worker (+0x4c) always count; none exist in the port yet.
+// Decor::Contains @0x1344b0: a visible pixel of it; quest decorations, portals, decorations still
+// usable and collectable ones always count, the others only with `any`.
 bool DecorContains(const Decor* d, int x, int y, bool any) {
     if (!d->visible || !d->sprite || !Render::HasPixelAt(d->sprite, (float)x, (float)y)) return false;
+    if (d->meta || d->portal || d->f4c != 0) return true;
     if (!d->data || d->data->collectTime == 0) return any;
     return true;
 }
@@ -2304,8 +2303,15 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         GameState::lastSentStep = 0x80;
     }
     if (GameState::secondTutorial == 0x20e && GameState::GetCurrentMapID() != 0xf) BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 5, the rage bar): outside the tutorial BottomBattleWindow shows on every map but the
-    // city and the emperor's (0xb).
+    // Outside the tutorial the battle bar shows on every map but the city and the emperor's (0xb).
+    if (!GameState::IsTutorial()) {
+        const uint32_t m = (uint32_t)GameState::GetCurrentMapID();
+        if (m == 0 || m == 0xb) {
+            if (BottomBattleWindow::IsVisible()) BottomBattleWindow::Hide();
+        } else if (!BottomBattleWindow::IsVisible()) {
+            BottomBattleWindow::Show();
+        }
+    }
     // The help that was running when the map was left goes on.
     if (GameState::GetCurrentMapID() == 0) {
         NeedItemWindow::RunLastHelpItem();
@@ -3045,8 +3051,8 @@ bool SaveMap() {
     SaveUnsigned(g_mapId);
     SaveChar((uint8_t)g_gridW);
     SaveChar((uint8_t)g_gridH);
-    // The player's position (EntityManager::GetPlayer +0x54/+0x58). PORT (milestone 4): with no
-    // player in the port the loaded position is kept.
+    // The player's position (EntityManager::GetPlayer +0x54/+0x58). PORT: a save the port wrote
+    // before milestone 4 has no player; then the loaded position is kept.
     if (Entity* player = EntityManager::GetPlayer()) {
         g_startX = player->spawnX;
         g_startY = player->spawnY;
@@ -3119,7 +3125,12 @@ void Save(int type) {
             }
         }
     }
-    // UNVERIFIED (milestone 4): the player's decoration job ends (Decor::ReturnCost, RemoveWorker).
+    // The hero's job on a decoration ends with the save: its price comes back.
+    if (Entity* player = EntityManager::GetPlayer())
+        if (Decor* d = player->GetWorkplaceDecoration()) {
+            d->ReturnCost();
+            d->RemoveWorker();
+        }
     SaveState();
     bool ok = SaveMap();
     if (type == 1) {

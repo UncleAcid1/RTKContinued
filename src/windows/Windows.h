@@ -212,9 +212,9 @@ bool IsVisible();                           // @0x2f6ce8
 void ResetRequirements();                   // @0x2f6cfc
 void AddRequirement(int type, unsigned amount);   // @0x2f6ea4 a resource amount needed
 void AddLevelRequirement(unsigned level);         // @0x2f6ebc
-void AddReputationRequirement(unsigned profession, unsigned level);   // @0x2f6ed0 (milestone 4)
+void AddReputationRequirement(unsigned profession, unsigned level);   // @0x2f6ed0 (the profession check: milestone 5)
 void AddPopulaionRequirement(unsigned people);    // @0x2f6ee8 free people needed (sic)
-void AddItemRequirement(unsigned id, unsigned count);            // @0x2f87bc (milestone 4)
+void AddItemRequirement(unsigned id, unsigned count);            // @0x2f87bc
 void AddBuildingCountRequirement(unsigned id, unsigned count);   // @0x2f8948
 void AddBuildingLevelRequirement(unsigned id, unsigned level);   // @0x2f8ad4
 void SetExchangeLimit(unsigned limit);            // @0x2f6efc the most Buy all may cost
@@ -224,7 +224,7 @@ void SetUpgradableBuilding(Map::Building* b);     // @0x2f6df8
 // @0x2f6e0c: an order that makes `item` (drop subtask `subtask`, at world point x, y) can be bought
 // instead when its level is not reached (OnBuyItem drops it there).
 void SetItemToProduce(uint32_t item, uint32_t subtask, float x, float y);
-// @0x2f8c60: true when nothing is missing. UNVERIFIED (milestone 4): the profession requirement.
+// @0x2f8c60: true when nothing is missing. UNVERIFIED (milestone 5): the profession requirement.
 bool CheckRequirements();
 void SetDescriptionText(const char32_t* text, const char32_t* title);   // @0x2f7134
 void SetActionCallback(std::function<void()> cb, const char32_t* text, bool flag);   // @0x2f6e2c

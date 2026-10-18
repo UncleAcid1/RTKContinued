@@ -20,6 +20,7 @@
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
@@ -157,9 +158,7 @@ GUI::Callback* BuildingClickCallback(Map::Building* b, int x, int y) {
 
 // The arrow over a building, after centring the view on it: a tap on it opens the building.
 void PointAtBuilding(Map::Building* b) {
-    // UNVERIFIED: Render::CenterOn(x, y, true, true, 0.4, 0, false) animates to zoom 0.4; the port's
-    // CenterOn is the instant path without the zoom.
-    Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);
+    Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f, true);
     int sx = (int)b->minX, sy = (int)b->minY;
     Map::WorldCoordinatesToScreen(sx, sy);
     BuildingHovers::SetArrowClickCallback(BuildingClickCallback(b, sx, sy));
@@ -194,7 +193,7 @@ void FindResourceHelp(int type, unsigned line, bool fromLine) {
     } else {
         g_pendingFind = line;
     }
-    // UNVERIFIED (milestone 4): GlobalMapWindow::SwitchMap(0, false, true) travels home first.
+    GlobalMapWindow::SwitchMap(0, false, true);   // home first; the Find runs again there
 }
 namespace {
 
@@ -219,16 +218,23 @@ void OnFindActual(unsigned i) {
     case kLevel:
         break;
     case kProfession:
-        // UNVERIFIED (milestone 4): CraftItemWindow / LevelInfoWindow on the profession's tab.
+        // UNVERIFIED (milestone 5, Professions): CraftItemWindow / LevelInfoWindow on the
+        // profession's tab.
         break;
     case kBuildingCount:
-        if (GameState::GetCurrentMapID() != 0) break;   // UNVERIFIED (M4): GlobalMapWindow::SwitchMap(0)
+        if (GameState::GetCurrentMapID() != 0) {   // home first
+            GlobalMapWindow::SwitchMap(0, false, true);
+            return;
+        }
         ShopWindow::Show();
         ShopWindow::OnSelectItemID(l.buildingId);
         ShopWindow::ShowArrowOnItem(l.buildingId);
         break;
     case kBuildingLevel: {
-        if (GameState::GetCurrentMapID() != 0) break;   // UNVERIFIED (M4): GlobalMapWindow::SwitchMap(0)
+        if (GameState::GetCurrentMapID() != 0) {   // home first
+            GlobalMapWindow::SwitchMap(0, false, true);
+            return;
+        }
         if (Map::Building* b = Map::GetUpgradeableBuildingWithID(l.buildingId)) {
             // Another farm's view is left; the farm being visited points at its Upgrade button.
             if (Map::GetCurrentFarm() && b != Map::GetCurrentFarm()) HUDWindow::ExitFarm();
@@ -237,7 +243,7 @@ void OnFindActual(unsigned i) {
                 return;
             }
             if (b->IsOpened() && b->data->buildingClass != 0xd && (!b->HasActiveContract() || !b->contractDone)) {
-                Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);   // UNVERIFIED: zoom 0.4, see above
+                Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);   // (at once)
                 BuildingHovers::OnBuildingClick(b, GUI::ScreenWidth() / 2, GUI::ScreenHeight() / 2);
                 BuildingHovers::ShowArrowAtUpgrade();
                 return;
@@ -262,7 +268,7 @@ void OnFindActual(unsigned i) {
             int sx = (int)b->minX, sy = (int)b->minY;
             Map::WorldCoordinatesToScreen(sx, sy);
             BuildingHovers::SetArrowClickCallback(BuildingClickCallback(b, sx, sy));
-            Render::CenterOn(b->baseX, b->minY);   // UNVERIFIED: zoom 0.4, see PointAtBuilding
+            Render::CenterOn(b->baseX, b->minY, true);
             BuildingHovers::SetArrowVisibleWindowLimit(2);
             BuildingHovers::ArrowAt(b->maxX - 30.f, (b->maxY + b->minY) * 0.5f, false, true, false, false, false,
                                     false, false);
@@ -272,11 +278,34 @@ void OnFindActual(unsigned i) {
             ShopWindow::ShowArrowOnItem(0x20);
         }
         break;
-    case kItem:
-        // UNVERIFIED (milestones 4b.4/4c/5): a lying drop (BuildingHovers::HasDroppedItem, then
-        // Tasks::HelpWithLocation), the mission map with the item (GlobalMapWindow, RaidInfoWindow),
-        // NeedItemWindow::OnProduce for types 6/9, the item shop, the crafting collections.
+    case kItem: {
+        // A lying drop (everything is picked up), else the mission map with it on the world map,
+        // else its building for types 6 / 9. (CharacterInfoWindow / ItemShopWindow::Hide with
+        // this window's: milestone 5.) UNVERIFIED (milestone 5): the map's RaidInfoWindow showing
+        // the item; the item shop (ItemShopWindow::ItemCanBeBought / ShowShopItem); the crafting
+        // windows for a collection's result (CraftingWindow, CraftItemWindow after
+        // "craft_unlock_task"); a PvP item (meta 0x30): CastleTopWindow::HelpWithPvP.
+        Items::ItemInfo* info = Items::GetItemInfo(l.itemId);
+        if (!info) return;
+        float x = 0.f, y = 0.f;
+        if (BuildingHovers::HasDroppedItem(info->id, x, y)) {
+            Hide();
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { BuildingHovers::CollectAll(); }));
+            Tasks::HelpWithLocation((int)x, (int)y, 0, 0);
+            return;
+        }
+        if (uint32_t map = GlobalMapWindow::GetMissionMapForItem(info->id, 0)) {
+            Hide();
+            GlobalMapWindow::Show();
+            GlobalMapWindow::CenterOnMap(map);
+            return;
+        }
+        if (info->type == 6 || info->type == 9) {
+            BuildingHovers::SetArrowVisibleWindowLimit(2);
+            NeedItemWindow::OnProduce(info->id);
+        }
         break;
+    }
     }
 }
 
@@ -299,8 +328,10 @@ void OnFind(unsigned i) {
         return;
     }
     BuildingHovers::Hide();
-    // UNVERIFIED (milestone 4): HireTroops, GlobalMap, CampaignInfo, RaidInfo, HealSquad, Crafting,
-    // CraftItem and ArenaDifficulty windows are hidden too.
+    GlobalMapWindow::Hide();
+    HealSquadWindow::Hide();
+    // UNVERIFIED (milestone 5): HireTroops, CampaignInfo, RaidInfo, Crafting, CraftItem and
+    // ArenaDifficulty windows are hidden too.
     if (g_lines[i].type != kPopulation) ShopWindow::Hide();
     g_pendingFind = i;
 }
@@ -558,7 +589,7 @@ bool CheckRequirements() {
         if (need != 0 && (int)GameState::GetResourceAmount(i) < need) ++g_missing;
     }
     if (g_level != 0 && (unsigned)GameState::GetLevel() < g_level) ++g_missing;
-    // UNVERIFIED (milestone 4): the profession level (Professions::GetPlayerProfessionLevel).
+    // UNVERIFIED (milestone 5): the profession level (Professions::GetPlayerProfessionLevel).
     for (auto& [id, n] : g_items)
         if ((unsigned)GameState::GetItemAmount(id, false) < n) ++g_missing;
     if (g_population != 0 &&
@@ -910,7 +941,7 @@ void Show() {
 
 // @0x2f73f4
 void Hide() {
-    // UNVERIFIED (milestone 4): CampaignInfoWindow and RaidInfoWindow UpdateContents.
+    // UNVERIFIED (milestone 5): CampaignInfoWindow and RaidInfoWindow UpdateContents.
     if (!g_root->visibleSelf) return;
     g_tween->AnimateOut();
 }

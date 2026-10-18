@@ -274,7 +274,7 @@ void FactoryHoverWindow::OnSpeedUpFinished() {
         speedingUp = false;
     } else {
         if (GameState::tutorial == 0x54) {   // the tutorial's hurried order: back to the building
-            Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);   // (animated on the original)
+            Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f, true);
             BuildingHovers::Hide();
             GameState::tutorial = 0x55;
         }
@@ -322,7 +322,7 @@ void FactoryHoverWindow::OnSpeedUp(bool confirmed) {
         NotEnoughWindow::AddItemRequirement(boostItem, (unsigned)boostAmount);
         if (!NotEnoughWindow::CheckRequirements()) {
             BuildingHovers::Hide();
-            // UNVERIFIED (milestone 4, Items): ItemShopWindow::Show / ShowShopItem(boostItem).
+            // UNVERIFIED (milestone 5): ItemShopWindow::Show / ShowShopItem(boostItem).
             return;
         }
     }
@@ -886,8 +886,7 @@ void CenterOnWorker(Entity* e) {
         BuildingHovers::ArrowAt(x, (y - s->h) - 20.f, false, false, false, false, false, false, false);
         BuildingHovers::FollowEntity(e);
     }
-    // UNVERIFIED: the original animates the camera there at zoom 0.4 (Render::CenterOn's animated path).
-    Render::CenterOn(x, y);
+    Render::CenterOn(x, y, true);
 }
 }  // namespace
 

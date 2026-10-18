@@ -327,7 +327,7 @@ void OnActivateSlot(unsigned i) {
             BuildingHovers::SetArrowClickCallback(new GUI::Callback([ai, enemy] { ai->ClickedEntity(enemy); }));
             BuildingHovers::ArrowAt(enemy->worldX + 20.f, enemy->worldY + enemy->GetIdleHeight() * -0.5f, false, true, false,
                                     false, false, false, false);
-            Render::CenterOn(enemy->worldX, enemy->worldY);   // (animated over 0.4 s on the original)
+            Render::CenterOn(enemy->worldX, enemy->worldY, true);
         }
         st = 0x206;
     } else if (st == 0x8c) {
@@ -478,8 +478,25 @@ void UpdateContents() {
                 s.progressValue = (float)(int)it->f0c / (float)it->info->GetUseCount();
         }
     }
-    // UNVERIFIED (milestone 4h): the second tutorial's belt steps (0x95: item 0x88 is bound to
-    // slot 1 and the arrow points at it, 0x96; 0x8b: the arrow at slot 0, 0x8c).
+    // The second tutorial's belt steps: at 0x95 item 0x88 goes to slot 1 (once no item is being
+    // moved) and the arrow points at it (0x96); at 0x8b the arrow points at slot 0 (0x8c).
+    int& st = GameState::secondTutorial;
+    auto pointAtSlot = [](unsigned i) {
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([i] { OnSlot(i); }));
+        Window* h = g_slots[i].holder;
+        BuildingHovers::ArrowAt((float)(g_root->x + h->x + h->w / 2), (float)(g_root->y + h->y), false, false, false,
+                                false, true, true, false);
+        GUI::SetInteractionObjectLock(h, nullptr);
+    };
+    if (st == 0x95 && !BuildingHovers::IsItemMoving()) {
+        GameState::BindBeltItemTo(1, 0x88);
+        UpdateBeltItems();
+        pointAtSlot(1);
+        st = 0x96;
+    } else if (st == 0x8b) {
+        pointAtSlot(0);
+        st = 0x8c;
+    }
     g_craftText->SetText(StringTable::GetString("CRAFT_ITEM_TITLE"));
     g_craftIcon->SetTexture(IconManager::GetIcon("tab_inv_acc_craft", false), true);
     g_craftLock->SetVisibility(!GameState::TaskCompleted((unsigned)Setting("craft_unlock_task").GetInt()));
@@ -515,9 +532,26 @@ void Update(float dt) {
         }
         s.SetFillPercent(g.shown);
     }
-    // UNVERIFIED (milestone 4h): the second tutorial's arrows at the inventory button (0xa3) and
-    // at slot 0 (0x86).
-    if (Timer::GetGlobalTime() != g_lastSecond && GameState::secondTutorial != 0x95) {
+    // The second tutorial's arrows at the inventory button (0xa3) and at slot 0 (0x86).
+    int& st = GameState::secondTutorial;
+    if (st == 0xa3) {
+        // UNVERIFIED (milestone 5): the arrow's tap is OnInventory (CharacterInfoWindow).
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([] {}));
+        GUI::SetInteractionObjectLock(g_inventoryClick, nullptr);
+        Window* w = g_inventoryIcon;
+        BuildingHovers::ArrowAt((float)(g_root->x + w->x), (float)(w->y + g_root->y - 0xf + w->h / 2), false, true,
+                                true, false, true, false, false);
+        st = 0xa4;
+    } else if (st == 0x86) {
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnSlot(0); }));
+        Window* h = g_slots[0].holder;
+        GUI::SetInteractionObjectLock(h, nullptr);
+        BuildingHovers::ArrowAt((float)(g_root->x + h->x + h->w / 2), (float)(g_root->y + h->y), false, false, false,
+                                false, true, false, false);
+        BuildingHovers::PreventArrowAutoHide();
+        st = 0x87;
+    }
+    if (Timer::GetGlobalTime() != g_lastSecond && st != 0x95) {
         g_lastSecond = Timer::GetGlobalTime();
         UpdateContents();
     }

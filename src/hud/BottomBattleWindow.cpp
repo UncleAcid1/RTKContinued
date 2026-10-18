@@ -559,7 +559,7 @@ void EnableNet(uint32_t spawn) {
         EntityData* tamed = EntityFactory::GetTamedEntityForID(e->GetEntityData()->id);
         if (tamed) {
             if (spawn == 0x1e || spawn == 0x6e9) {
-                Render::CenterOn(616.f, 260.f);   // (animated over 0.4 s on the original)
+                Render::CenterOn(616.f, 260.f, true);
                 PlayerTopWindow::SetParameters(StringTable::GetString("TAME_TUT2"), 0, false, true);
                 g_netTask = 0;
                 g_netArrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnCenter));

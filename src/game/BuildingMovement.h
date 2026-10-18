@@ -6,7 +6,7 @@
 // Not ported: road painting (mode 3, ToggleRoadType (0x39c874), the road actions and their gold
 // cost) and the warehouse (mode 4, ToggleWarehouse (0x39ca78), PresentsContainer); nothing in 5.11
 // calls their toggles. Legacy mode (a single object with the placement controls) is only entered
-// from the quests' help (milestone 4).
+// from the quests' help (Tasks::TaskSubtask::OnHelp, kBuildDecor).
 #pragma once
 
 namespace BuildingMovement {

@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "engine/Render.h"
+#include "game/BuildingHovers.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "gui/GUI.h"
@@ -51,10 +52,11 @@ bool Move(int x, int y, int dx, int dy) {
     Shift((float)dx, (float)dy);
     Map::InterruptCamera();
     Render::ApplyViewportLimit();
-    if (GameState::TutorialStep() == 0x80) {
-        // UNVERIFIED: BuildingHovers arrow auto-hide (step 0x60efd0 != 0x83, !IsCityTutorial,
-        // CanAutoHideArrow -> HideArrow) is not ported.
-    }
+    // Dragging the map hides a help arrow that may auto-hide (after the city tutorial, not at
+    // second-tutorial step 0x83).
+    if (GameState::TutorialStep() == 0x80 && GameState::secondTutorial != 0x83 && !GameState::IsCityTutorial() &&
+        BuildingHovers::CanAutoHideArrow())
+        BuildingHovers::HideArrow();
     return true;
 }
 

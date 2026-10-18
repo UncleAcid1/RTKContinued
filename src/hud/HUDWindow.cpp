@@ -119,17 +119,13 @@ bool g_darkening = false;             // 0x60f274 a window is open: the cover fa
 
 bool FogIsVisible(int x0, int y0, int x1, int y1) { return Fog::IsVisible(x0, y0, x1, y1); }
 
-// UNVERIFIED (milestone 4): CastleTopWindow::OnFindPlayer moves the camera to the player;
-// OnFarmTimer opens the farm.
-void OnFindPlayer() {}
+// UNVERIFIED (milestone 5): OnFarmTimer opens RaidInfoWindow.
 void OnFarmTimer() {}
 
 // @0x2c7cb8 HUDWindow::OnFindTask: the task locator was tapped (or a quick task's target was set).
 // Off screen: the camera travels there; on screen: the help arrow's callback runs, or the hero
-// walks to the tile, or the camera centres on the point.
-// UNVERIFIED: the camera path (Map::ClearCameraPoints + AddCameraPoint(tileX, tileY, 1, 1, 0, x, y,
-// 0, 1.0, true, 0.0, 0)) and the animated Render::CenterOn(x, y, true, true, 0.4, 0, false) are
-// both the instant Render::CenterOn here.
+// walks to the tile, or the camera glides to the point. Under the fog the camera path goes there
+// (with the help arrow at the point) and back to the hero.
 void OnFindTask() {
     int tileX = g_targetTileX, tileY = g_targetTileY;
     int x = g_targetX, y = g_targetY;
@@ -147,19 +143,21 @@ void OnFindTask() {
     }
     int sx = x, sy = y;
     Map::WorldCoordinatesToScreen(sx, sy);
+    auto travel = [&] { Map::AddCameraPoint(tileX, tileY, 1, 1, 0, x, y, 0, 1.f, true, 0.f, 0); };
     if (g_locatorGoing) {
-        if (!FogIsVisible(x - 0x20, y - 0x20, x + 0x20, y + 0x20)) Render::CenterOn((float)x, (float)y);
-        else Render::CenterOn((float)g_targetX, (float)g_targetY);
+        if (!FogIsVisible(x - 0x20, y - 0x20, x + 0x20, y + 0x20)) travel();
+        else Render::CenterOn((float)g_targetX, (float)g_targetY, true);
         g_taskLocator.root->SetVisibility(false);
         g_locatorGoing = false;
         return;
     }
     if (sx < 0 || GUI::ScreenWidth() < sx || sy < 0 || GUI::ScreenHeight() < sy) {
         g_taskLocator.root->SetVisibility(false);
-        Render::CenterOn((float)x, (float)y);
+        Map::ClearCameraPoints();
+        travel();
     } else if (!g_arrowCallback) {
         if (g_targetTileX == 0 && g_targetTileY == 0) {
-            Render::CenterOn((float)g_targetX, (float)g_targetY);
+            Render::CenterOn((float)g_targetX, (float)g_targetY, true);
         } else {
             g_taskLocator.root->SetVisibility(false);
             if (Entity* player = EntityManager::GetPlayer()) {
@@ -179,8 +177,8 @@ void OnFindTask() {
         (*g_arrowCallback)();
         g_arrowCallback = nullptr;   // (not deleted, as the original)
     } else {
-        if (!FogIsVisible(x - 0x20, y - 0x20, x + 0x20, y + 0x20)) Render::CenterOn((float)x, (float)y);
-        else Render::CenterOn((float)g_targetX, (float)g_targetY);
+        if (!FogIsVisible(x - 0x20, y - 0x20, x + 0x20, y + 0x20)) travel();
+        else Render::CenterOn((float)g_targetX, (float)g_targetY, true);
     }
     g_targetTileY = 0;
     g_targetTileX = 0;
@@ -291,7 +289,7 @@ void Init() {
     g_black = nullptr;
     g_blackTex = nullptr;
     g_playerLocator.LoadFrom("../resource/kingdom_ui/1Original/Player_locator_large.xml", "Player_locator_large.png");
-    g_playerLocator.root->SetOnClick(OnFindPlayer);
+    g_playerLocator.root->SetOnClick(CastleTopWindow::OnFindPlayer);
     g_playerLocator.maleBad->SetTexture(Resources::GetDirectImage("images/damage_locator_m.png"), false, 0, 0, false, 0);
     g_playerLocator.femaleBad->SetTexture(Resources::GetDirectImage("images/damage_locator_f.png"), false, 0, 0, false, 0);
     g_playerLocator.finderOrange->SetVisibility(false);
@@ -361,8 +359,9 @@ void UpdateFrameBorder() {
 }
 
 void SetInfoText(const char32_t* text) {
-    // UNVERIFIED (milestone 4): 30 px lower while ArenaTurnWindow is visible.
-    g_mapName2->SetPosition((GUI::ScreenWidth() - g_mapName2->w) / 2, g_mapName2->h + 0x50);
+    // (30 px lower while the arena's turn banner is up)
+    g_mapName2->SetPosition((GUI::ScreenWidth() - g_mapName2->w) / 2,
+                            g_mapName2->h + 0x50 + (ArenaTurnWindow::IsVisible() ? 0x1e : 0));
     g_mapName2->SetVisibility(text != nullptr);
     if (text) g_mapName2Text->SetText(text);
 }
@@ -375,8 +374,7 @@ void SetBottomType(int type) {
         return;
     }
     BottomFarmWindow::Hide();
-    // UNVERIFIED (milestone 4): GlobalMapWindow::IsVisible also keeps the city bar hidden.
-    if (type == 0 && GameState::GetCurrentMapID() == 0 && !ShopWindow::IsVisible()) {
+    if (type == 0 && GameState::GetCurrentMapID() == 0 && !ShopWindow::IsVisible() && !GlobalMapWindow::IsVisible()) {
         if (!BottomCityWindow::IsVisible()) BottomCityWindow::Show();
     } else {
         BottomCityWindow::Hide();
@@ -397,8 +395,7 @@ void EnterFarm() {
 }
 
 void ShowMapName(const char32_t* name) {
-    if (GameState::tutorial < 9 || g_mapName->visibleSelf) return;
-    // UNVERIFIED (milestone 4): nothing during a PvP battle (GameState::IsPvPCombatActive).
+    if (GameState::tutorial < 9 || g_mapName->visibleSelf || GameState::IsPvPCombatActive()) return;
     g_mapName->SetVisibility(true);
     g_mapNameText->SetText(name ? name : U" ");
     if (g_mapNameText->sprite && g_mapNameText->sprite->tex) {
@@ -442,8 +439,9 @@ void Show() {
     PlayerTopWindow::Show();
     if (GameState::GetCurrentLocation() != 3) TopCityWindow::Show();
     CastleTopWindow::Show();
-    // BottomBattleWindow (location 2) belongs to campaign maps (milestone 4).
-    if (GameState::GetCurrentLocation() == 0) BottomCityWindow::Show();
+    if (GameState::GetCurrentLocation() == 2 && !GlobalMapWindow::IsVisible()) BottomBattleWindow::Show();
+    else BottomBattleWindow::Hide();
+    if (GameState::GetCurrentLocation() == 0 && !GlobalMapWindow::IsVisible()) BottomCityWindow::Show();
     else BottomCityWindow::Hide();
     if (GameState::IsPlayerCity()) TaskHolderWindow::Show();
     else TaskHolderWindow::Hide();
@@ -453,8 +451,8 @@ void Show() {
 void SetZ(float z) {
     g_z = z;
     g_mapName->SetZ(0.001f);
-    // (+0x1e while ArenaTurnWindow is visible: arena maps, milestone 4)
-    g_mapName2->SetPosition((GUI::ScreenWidth() - g_mapName2->w) / 2, g_mapName2->h + 0x50);
+    g_mapName2->SetPosition((GUI::ScreenWidth() - g_mapName2->w) / 2,
+                            g_mapName2->h + 0x50 + (ArenaTurnWindow::IsVisible() ? 0x1e : 0));
     g_playerLocator.root->SetZ(0.01f);
     g_farmTimer.root->SetZ(z);
     UpdateFrameBorder();
@@ -526,10 +524,13 @@ void UpdateScreenDarkening(float dt) {
             Render::SetAlpha(g_black, a > 0.6f ? 0.6f : a);
         }
     }
-    // UNVERIFIED (milestones 4g/5): GlobalMapWindow, RaidCompleteWindow, CampaignPerfectedWindow,
-    // CampaignCompleteWindow, BossOutroWindow, BossIntroWindow's black, ChestOpenedWindow and
-    // PlayerBattleInOutWindow count like the hover.
-    const unsigned free = (BuildingHovers::IsHoverVisible() || ShopWindow::IsVisible()) ? 1 : 0;
+    // The world map, the hover, the shop, BossIntroWindow's black and the PvP intro / outro count
+    // as one window that does not darken. UNVERIFIED (milestone 5): RaidCompleteWindow,
+    // CampaignPerfectedWindow, CampaignCompleteWindow, BossOutroWindow and ChestOpenedWindow too.
+    const unsigned free = (GlobalMapWindow::IsVisible() || BuildingHovers::IsHoverVisible() || ShopWindow::IsVisible() ||
+                           BossIntroWindow::IsBlackVisible() || PlayerBattleInOutWindow::IsVisible())
+                              ? 1
+                              : 0;
     const unsigned shown = WindowManager::GetShownWindowCount();
     if (free < shown) {
         g_darkening = true;

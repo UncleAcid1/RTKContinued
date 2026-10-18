@@ -340,7 +340,7 @@ void BuildingDeinit() {
     g_buildings.clear();
 }
 
-// @0x13a4e4 Map::DecorDeinit: every decoration type's expression (+0x74, milestone 4e) is deleted
+// @0x13a4e4 Map::DecorDeinit: every decoration type's expression (+0x74) is deleted
 // and the type goes back to its pool; the list, the id lookup and the road styles' list are emptied.
 void DecorDeinit() {
     g_decorList.clear();

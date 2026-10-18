@@ -351,9 +351,10 @@ Entity* GetNonPlayerEntityAtXY(int x, int y) {
 void OnClick(int x, int y) {
     if (!g_player || !g_player->GetAI()) return;
     if (Entity* e = GetEntityAtWorldXY(x, y)) {
-        // UNVERIFIED (milestones 4b/4g): a dead entity with a corpse item (Entity::HasCorpseItem) can
-        // be tapped too; (4c) its meta expression is printed.
-        if (e->IsActive() && !e->IsDead()) {
+        // A dead one is tapped too while its corpse holds an item.
+        if (e->IsActive() && (!e->IsDead() || e->HasCorpseItem())) {
+            if (MetaExpression* m = e->GetMetaExpression())
+                std::printf("EntityManager::OnClick() Meta of the entity: %s\n", m->GetExpression());
             g_player->GetAI()->ClickedEntity(e);
             return;
         }
@@ -367,13 +368,13 @@ void OnClick(int x, int y) {
 }
 
 Entity* GetEntityAtWorldXY(int x, int y) {
-    // UNVERIFIED (milestone 4): the first pass also skips NPCs (spawn point +0x10); spawn points
-    // are not ported, so it is the same as the second.
+    // The frontmost under the point: first the living non-NPCs, then any living one, then any.
     Entity* best = nullptr;
     float z = 100000.f;
     for (int pass = 0; pass < 3 && !best; ++pass) {
         for (Entity* e : g_entities) {
             if (!e->IsActive() || (pass < 2 && e->IsDead()) || !e->Contains(x, y)) continue;
+            if (pass == 0 && e->IsNPC()) continue;
             Render::Sprite* s = e->GetSprite();
             if (!s || z <= s->z) continue;
             best = e;
@@ -385,8 +386,8 @@ Entity* GetEntityAtWorldXY(int x, int y) {
 
 Entity* GetFreeWorker() {
     for (Entity* e : g_entities) {
-        // UNVERIFIED (milestone 4): IsNPC (spawn points) is always false.
-        if (e->GetEntityData()->clas == 0 && !e->GetWorkplace() && !e->GetWorkplaceDecoration() && e->IsActive())
+        if (e->GetEntityData()->clas == 0 && !e->GetWorkplace() && !e->GetWorkplaceDecoration() && !e->IsNPC() &&
+            e->IsActive())
             return e;
     }
     return nullptr;
@@ -410,7 +411,7 @@ Entity* GetEntityWithTargetPositionAtXY(int x, int y) {
         if (e->player || !e->IsActive() || !e->GetAI() || e->IsDead()) continue;
         AI::Waypoint* t = e->GetAI()->GetLastTarget();
         if (t && t->x == x && t->y == y) return e;
-        // UNVERIFIED (milestone 4): Entity::PartolEndsOn (patrols are not ported).
+        if (e->PartolEndsOn(x, y)) return e;
     }
     return nullptr;
 }

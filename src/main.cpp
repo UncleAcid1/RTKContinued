@@ -216,7 +216,7 @@ const char* QueueName(WindowManager::WindowQueue* q) {
 // GameState::Update, WindowManager::Update (the windows waiting to be shown), the window queue, HUDWindow::Update,
 // GUI animations, the movement controllers, BuildingHovers, then when the game is not paused the
 // entities (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's
-// camera step (the camera tween, not ported, and ApplyViewportLimit), UpdateTagState and DestroyPendingWindows;
+// camera step (the CenterOn glide and ApplyViewportLimit), UpdateTagState and DestroyPendingWindows;
 // its drawing is Render::Frame.
 void Tick(float dt) {
     if (!GameState::IsPaused()) GameState::UpdateHPRegen(dt);
@@ -247,6 +247,7 @@ void Tick(float dt) {
         }
         Map::Update(dt);
     }
+    Render::UpdateCamera(dt);
     Render::ApplyViewportLimit();
     Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
     UpdateTagState();
@@ -269,7 +270,12 @@ void MouseDown(int x, int y, bool left) {
             std::printf("TRACE down %d,%d -> %s (mapMove active %d focus %d)\n", x, y, QueueName(down),
                         MapMovement::IsActive(), MapMovement::HasFocus());
         if (down && down != WindowManager::g_desktopWindow) {
-            // UNVERIFIED: the tutorial arrow (BuildingHovers::ClickOnArrow / HideArrow) at step 0x80.
+            // A tap on a window with none shown (the HUD's) after the tutorials: a help arrow that
+            // may auto-hide goes, unless the tap was on it.
+            if (WindowManager::GetShownWindowCount() == 0 && GameState::TutorialStep() == 0x80 &&
+                !BuildingHovers::ClickOnArrow(x, y, true) && GameState::secondTutorial != 0x83 &&
+                !GameState::IsCityTutorial() && BuildingHovers::CanAutoHideArrow())
+                BuildingHovers::HideArrow();
         } else if (!(BuildingMovement::Activated() && BuildingMovement::Click(x, y, true, false)) &&
                    !(BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, true, false))) {
             MapMovement::Click(x, y, true, false);

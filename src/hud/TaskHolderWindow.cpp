@@ -18,6 +18,8 @@
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
 #include "game/Combat.h"
+#include "game/Entity.h"
+#include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Locations.h"
 #include "game/Map.h"
@@ -116,13 +118,48 @@ void SetTaskCharacter(Shared::TaskWindow& w, Render::Texture* image) {
 void OnTaskInfo(uint32_t id) {
     for (Shared::TaskWindow& w : g_windows)
         if (w.taskId == id) w.bannerTimer = 0.f;
-    // (0x5eb: the expansion update, online.) UNVERIFIED (milestone 5): 0x5fb opens
-    // ChoosePathWindow; the top campaign button opens its campaign window
-    // (GlobalMapWindow::ShowCampaignWindowForMap, or for the arena map 0x74 the world map's
-    // arrow / HealSquadWindow / ArenaEventWindow); 0x5c9 the sultan's arrival on the world map.
-    std::printf("TaskHolderWindow::OnTaskInfo() Showing task %d\n", id);
-    TaskInfoWindow::SetTask(id, false);
-    TaskInfoWindow::Show();
+    // (0x5eb: the expansion update, online.) UNVERIFIED (milestone 5): 0x5fb opens ChoosePathWindow.
+    if (id == 0x5fb) return;
+    // The topmost button (the first used one in place) with a campaign look opens its map's
+    // campaign window; for the arena map 0x74 the world map's arrow at it, there the heal window
+    // for a dead hero. UNVERIFIED (milestone 5): there ArenaEventWindow::Show.
+    Shared::TaskWindow* top = nullptr;
+    for (Shared::TaskWindow& w : g_windows)
+        if (w.taskId != 0 && w.target == 0) {
+            top = &w;
+            break;
+        }
+    if (top && top->taskId == id &&
+        (top->quickOrange->visibleSelf || top->quickRed->visibleSelf || top->allQuestsBg->visibleSelf ||
+         top->iconBattle->visibleSelf)) {
+        if (Tasks::TaskInfo* t = Tasks::GetTask(id)) {
+            if (t->debugMap == 0x74) {
+                if (GameState::GetCurrentMapID() != 0x74) {
+                    GlobalMapWindow::Show();
+                    GlobalMapWindow::ArrowAtMap(0x74, false, true);
+                    UpdateTasks();
+                    return;
+                }
+                if (EntityManager::GetPlayer()->IsDead()) {
+                    HealSquadWindow::Show();
+                    HealSquadWindow::ResetRecentDeaths();
+                }
+                return;
+            }
+            if (GlobalMapWindow::ShowCampaignWindowForMap(t->debugMap)) return;
+        }
+    }
+    if (id != 0x5c9) {
+        std::printf("TaskHolderWindow::OnTaskInfo() Showing task %d\n", id);
+        TaskInfoWindow::SetTask(id, false);
+        TaskInfoWindow::Show();
+        return;
+    }
+    // The sultan's visit: the world map on him. UNVERIFIED (milestone 5): SultanArrivingWindow::Show.
+    if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
+    GlobalMapWindow::Show();
+    GlobalMapWindow::CenterOnSultan();
+    UpdateTasks();
 }
 
 }  // namespace

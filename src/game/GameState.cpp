@@ -122,8 +122,8 @@ bool g_socnetConnections[2];    // chunk 0x3c
 // port): kept as loaded.
 uint32_t g_expansionVersions[2];
 // The state of systems not ported yet, kept as the save holds it:
-// UNVERIFIED (milestone 4): the presents container (PresentsContainer::Save/Load, chunk 8) is kept
-// as loaded; a new game writes the empty container (no presents, 0x60f024 = 2, nothing opened).
+// UNVERIFIED (milestone 5, the presents): the presents container (PresentsContainer::Save/Load,
+// chunk 8) is kept as loaded; a new game writes the empty container (no presents, 0x60f024 = 2, nothing opened).
 std::vector<uint8_t> g_presents;
 // Online state (Neighbours, PvP, PlayerProfileManager), kept as loaded.
 char32_t g_neighbourSaveName[0x80];   // Neighbours::GetSaveName
@@ -186,7 +186,11 @@ void Reset() {
     SetCastleName(U"");
     SoldierPool::SetFreeSlotsCount((unsigned)Setting("reserve_slot_start").GetInt());
     SoldierPool::SetMaxSlotsCount((unsigned)Setting("reserve_slot_max").GetInt());
-    // UNVERIFIED (milestone 4): mVirtualHealth and the other combat and event fields Reset clears.
+    g_pvpTutorial = false;
+    ResetVirtualHP();
+    ResetTimeModifier();
+    // (Reset also clears the daily bonus's time, days and status (milestone 5) and the online
+    // PvP refresh time, Facebook / Twitter connections and expansion versions.)
     g_dailyBonusCount = 0;
     g_tutorialType = 0;
     g_presents.clear();

@@ -511,7 +511,7 @@ static void OnTutorialFarmerWomanAction(Entity* e) {
     BuildingHovers::ShowWorldDialog(e, StringTable::GetString("DESC1017"), 0, false, false, false, 0, true, false);
     BuildingHovers::Update(0.f, true);
     if (!Tasks::GetTask(0xbe)) return;
-    Render::CenterOn(2441.f, 97.f);   // (animated over 0.4 s on the original)
+    Render::CenterOn(2441.f, 97.f, true);
     if (Map::GetDecoration(0x1d, 0xe)) {
         Map::EnqueueBuildingPlacement(0x1d, 0xe, 0x13);
         GUI::SetInteractionLock(true);

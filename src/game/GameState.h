@@ -133,7 +133,7 @@ float GetTimeModifier();
 void ResetTimeModifier();
 bool IsTameTutorial();                         // @0x190bb4
 bool IsFirstVirtualTutorial();                 // @0x190b44 second-tutorial steps 0x200..0x205
-// @0x190b8c a PvP tutorial fight is running. UNVERIFIED stand-in (milestone 4, PvP): false.
+// @0x190b8c a PvP tutorial fight is running (the opening's ambush).
 extern bool arenaBotActive;                    // 0x613520 the arenas' test bot (CombatTestBot)
 bool IsPvPTutorial();                          // @0x190b8c (0x612d4c)
 void SetPvPTutorial(bool on);                  // @0x190ba0 the ambush of the opening tutorial
@@ -142,6 +142,8 @@ int GetStartingArenaHP();
 bool TaskCompleted(unsigned id);               // @0x1908ac (the 0x1000-entry lookup cache is not ported)
 bool IsTaskStarted(unsigned id);               // @0x190988
 uint32_t GetTaskBeginTime(unsigned id);        // @0x198624 (0 when not begun)
+// @0x1904d8: the gold earned (0x6129bc); SetGoldEarned @0x1904bc has no caller in 5.11, so it stays 0.
+inline int GetGoldEarned() { return 0; }
 void SetTaskBeginTime(unsigned id, uint32_t t);   // @0x1985e8
 uint32_t GetTaskEndTime(unsigned id);          // @0x198530 (0 when not ended)
 void SetTaskEndTime(unsigned id, uint32_t t);  // @0x1984f4

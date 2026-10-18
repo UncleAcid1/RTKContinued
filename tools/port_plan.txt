@@ -160,7 +160,7 @@ online  ^FileManager::(Billing|Blog|Coupon|Facebook|FlowGameCurrency|GetChestCon
 online  ^SettingsWindow::(GetFacebook|SetFacebook|ToggleFacebook|GetTwitter|SetTwitter|ToggleTwitter|OnGameCenter|OnGames|OnInvite)
 online  ^(LevelUpWindow|LandExpandedWindow|TaskCompleteWindow)::OnFacebookToggle   # the share toggle is not offered (PORT)
 online  ^Shared::ShareButtonsHolder::
-online  ^CastleTopWindow::(OnFriends|OnFindPlayer|UpdateGICounter)
+online  ^CastleTopWindow::(OnFriends|UpdateGICounter)
 online  ^HUDWindow::(ToggleInternet|UpdateInternet)
 online  ^EntityManager::(GetFriendPlayer|MarkVisitigFriend)
 online  ^(Items|Contracts|Tags|EntityFactory)::(Change\w*Attribute|ChangeItemsOf|SetTransactionTime|GetTransactionTime)   # server patches of the data (4b.1)
@@ -273,6 +273,7 @@ dead  ^TutorialWindow::(StartTutorialSkip|StartGameBot|BotShouldTame|GetResource
 implicit ^TutorialWindow::(UpdateBot|EndTutorialSkip|EndGameBot)$   # UpdateBot is empty; the two Ends only undo the dead starters' flags (0x630925 / 0x630924), which are never set
 online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online); SelectHQWindow fetches its windows itself
 4h  ^(TutorialWindow|TutorialSender|SelectHQWindow|FirstCityEnterEffect)::
+4h  ^CastleTopWindow::(OnFindPlayer|OnReturn)$   # the HUD's player locator; the compass to the world map
 4h  ^(ArenaTurnWindow|PlayerBattleInOutWindow)::   # the tutorial's ambush (user, 2026-10-14): the turn banner and the versus intro / outro
 4h  ^PvPArenaCombat::(PvPArenaCombat|~PvPArenaCombat|Update|SetupWave|SpawnEnemies|ArenaCompleted|OnValorReceived|PostCombat|EndCombat|WaveCleared|PlayerDied|SwitchState|GetCurrentWave|GetWaveCount)$   # the ambush's PvP fight
 
@@ -287,7 +288,7 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 5  ^EntityFactory::(GetEntityForArena|GetTamedEntityForID)$
 5  ^EntityData::(GetSmallSpellIcon|GetWaves\w+)$
 5  ^CharacterInfoWindow::   # the window itself (its stat part was 4b.2)
-5  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|OnBuyItem|OnShop|OnReturn|HelpWithScreenshot)$
+5  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|OnBuyItem|OnShop|HelpWithScreenshot)$
 5  ^BaseAI::|^AIPlayer::Retreat$
 5  ^BuildingPlacement::BuildingFromPresents$
 5  ^HUDWindow::(OnArenaEvent|SetCurrentCity)$
@@ -319,7 +320,7 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 # ---- residue triage (2026-10-07): each checked against its callers --------------------------------
 online  ^(GameState::(LoadShort|GetUpgraderState|SetUpgraderState|GetUpgradeProgress|SetUpgradeProgress|LockGame|IsGameLocked|ResetGameLock|GetActiveMaps)|Map::(LoadShort|UpdateCityMap))$   # friend visits, the server heartbeat lock, store upgrades, task footprints
 7  ^GameState::GetGameStateInfo$   # PlayerProfileManager
-5  ^(Map::(GetTavern|GetBarracks|DebugAdvanceTime|ShowLevelStats)|Entity::SetXP|EntityData::GetDiscountSize|GameState::(GetGoldEarned|GetSettingCount|EnumSetting))$   # hiring (HireSoldier), the debug console
+5  ^(Map::(GetTavern|GetBarracks|DebugAdvanceTime|ShowLevelStats)|Entity::SetXP|EntityData::GetDiscountSize|GameState::(GetSettingCount|EnumSetting))$   # hiring (HireSoldier), the debug console
 4c  ^(Map::(GetBuildingDataWithContract|GetBuildingWithContract|GetNextAreaID|GetUpgradeableBuilding|GetFarmWithPatchToBuy)|EntityManager::GetEntityWithGUID|GameState::AddEntity)$   # Tasks::TaskSubtask::OnHelp, Bonus::Give
 4e  ^(GameState::GetGoblin|Entity::GetCurrentAnimation)$   # SendGoblinToWork, PlayBuffAnimation
 4g  ^(Entity::(SetUpdateSpeedScale|GetCenterWorldXY)|Map::Building::(GetCenterPoint|GetCenterWorldXY)|EntityManager::EnumEntitiesByID|GameState::IsVirtualTutorial)$
@@ -339,7 +340,7 @@ online  ^(FileManager::(CheckExpansion|FUN_0016d350)|Timer::GetServerGlobalTime|
 removed  ^ExchangeWindow::OnPayForCBYES$
 dead  ^FarmGrowHoverWindow::   # created, never shown in 5.11 (3f.4)
 dead  ^AI::(CreateWaypoint|CreateWaypointDebugOutput|GetShortPathFrom|GetRoadTo|RemoveWaypoint)$   # no caller, no address taken
-dead  ^BuildingHovers::(CanInvestAll|CanCollectAll|InvestAllResult|ColelctAllResult|BuildingsInvest|BuildingsCollect|ShowTextInvest|SetWorldDialogOffset|OnBack|MoveRectIntoView|ShowDroppedItem|RegisterEntity|ShowSprite)$   # no caller, no address taken
+dead  ^BuildingHovers::(CanInvestAll|CanCollectAll|InvestAllResult|ColelctAllResult|BuildingsInvest|BuildingsCollect|ShowTextInvest|SetWorldDialogOffset|OnBack|ShowDroppedItem|RegisterEntity|ShowSprite)$   # no caller, no address taken
 dead  ^ExchangeWindow::(GetNameByID|LineToindex|GetCrystalBonus|GetCrystalMain|GetGoldBonus|GetGoldMain|GetProductIndexForButton)$   # no caller (the port's exchange reads the packs directly)
 dead  ^(IconManager::FitBuildingIntoUI|Shared::ButtonTripleInfo::ShowGold|WindowManager::DequeueWindow|AIPlayer::FUN_000eeb60|PlayerTopWindow::FUN_00327580|AnimationController::IsStopped|Resources::GetAnimatedImage|Render::(GetScreenData|CreateTextureReserved|Sprite::SetSize|Texture::SetMipFilter))$   # no caller, no address taken
 implicit  ^(WindowManager::WindowQueue::(Init|SetZ|Move|Show|Hide|Update|Wheel|Back|RemoveWindow)|MapObject::(Contains|IsLower|OnSetup))$   # empty base-class virtuals (4-12 bytes)

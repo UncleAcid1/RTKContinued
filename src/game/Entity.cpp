@@ -10,6 +10,7 @@
 #include "game/AI.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
+#include "game/Combat.h"
 #include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -227,15 +228,30 @@ int Entity::GetAnimationFrameCount() const {
 bool Entity::AnimExists(const char* name) const { return data->AnimationExists(name); }
 
 void Entity::AnimationEnded() {
-    // UNVERIFIED (milestone 4): class 0x14 (spells) forwards to the linked entity and flags removal;
-    // a patrol step in state 3 moves to state 4.
+    // A spell (class 0x14) hands the end to the entity it is linked to and goes.
+    if (data->clas == 0x14) {
+        if (linked) {
+            linked->GetAI()->AnimEnded();
+            linked->AnimationEnded();
+        }
+        needRemove = true;
+    }
+    // A patrol point's animation (step 3) ended: its pause starts (step 4).
+    if (!patrol.empty() && patrolStep == 3) {
+        patrolStep = 4;
+        PatrolPoint& p = patrol[(size_t)patrolIndex];
+        p.pauseLeft = (float)p.pause;
+    }
     if (removeSpriteOnEnd) {
         SetActive(false, false);
         sprite = Render::RemoveSprite(sprite);
         removeSpriteOnEnd = false;
     }
-    // UNVERIFIED (milestone 3, decorations): a decoration search animation ends here
-    // (Decor::GetPlayerSearchAnimation).
+    // The hero's search animation on a decoration ended: its job is 8 seconds nearer its end.
+    if (Map::Decor* d = GetWorkplaceDecoration(); d && player && d->GetPlayerSearchAnimation(nullptr)) {
+        d->collectStart -= 8;
+        d->Update(0.0);
+    }
     if (walkAwayOnEnd) {
         std::vector<AI::Waypoint*> near;
         AI::GetWaypointsInRange(near, (unsigned)tileX, (unsigned)tileY, 1, false);
@@ -251,7 +267,7 @@ void Entity::Update(float dt) {
     if (appearing && sprite) {
         if (alpha == 0.f && spawnSound) {
             spawnSound = false;
-            // UNVERIFIED (milestones 4-5): class 10 soldiers play their spawn sound here.
+            // (milestone 6: class 10 soldiers play their spawn sound here.)
         }
         if (alpha < 1.f) {
             alpha = alpha + dt * speedScale;
@@ -302,12 +318,104 @@ void Entity::Update(float dt) {
             if (!animQueue.empty()) SetAnimation(animQueue.front().name.c_str(), 1, false, false, false, true, false);
         }
     }
-    // UNVERIFIED (milestone 4): patrols (+0xe0), spawn-point wandering and respawns.
+    if (!patrol.empty() && !IsDead()) UpdatePatrol(dt);
+    // A wanderer of a spawn point with a range (+0x24) and no walk to make picks a free tile in it
+    // and runs there (a one-point patrol: wait 1, 1 time, a pause of 3..6).
+    if (!IsDead() && spawnPoint && wanders && spawnPoint->f24 > 0 && patrol.empty()) {
+        std::vector<AI::Waypoint*> near;
+        AI::GetWaypointsInRange(near, (unsigned)spawnPoint->x, (unsigned)spawnPoint->y, (unsigned)spawnPoint->f24, false);
+        if (!near.empty()) {
+            AI::Waypoint* wp = near[(unsigned)Rand48::lrand48() % near.size()];
+            if (!EntityManager::GetEntityAtXY(wp->x, wp->y) && !EntityManager::GetEntityWithTargetPositionAtXY(wp->x, wp->y)) {
+                patrolOnce = true;
+                AddPatrolPoint("run", wp->x, wp->y, 1, -1, "", 1, (int)(Rand48::lrand48() % 4) + 3);
+            }
+        }
+    }
     if (hoverWindow &&
         !BuildingHovers::SetHoverWindowPosition(hoverWindow, (int)worldX, (int)(worldY - GetIdleHeight())))
         hoverWindow = nullptr;
-    // UNVERIFIED (milestone 4): meta-expression spawns, the boss camera/time modifier and class 9
-    // events.
+    // A dead mob with a restore time comes back once it has passed since its death: an
+    // ARENA_SPAWN (meta 0x96) one as the arena's entity while its task runs (UNVERIFIED,
+    // milestone 5: EntityFactory::GetEntityForArena), a MOB_SPAWN (0x97) one as itself while its
+    // spawn point has respawned it fewer times than the first number says (0: always).
+    if (data->restoreTime != 0 && spawnPoint && spawnPoint->deathTime != 0 &&
+        (uint32_t)(data->restoreTime + (int)spawnPoint->deathTime) < GetCurrentTime()) {
+        if (MetaExpression* m = GetMetaExpression()) {
+            const MetaData* mob = m->FindChildData(kExpMobSpawn);
+            if (mob && !(mob->GetChild(0)->GetInt() > 0 && mob->GetChild(0)->GetInt() <= spawnPoint->f50)) {
+                Disappear();
+                SetUpdateSpeedScale(0.25f);
+                SpawnPoint* sp = spawnPoint;
+                spawnPoint = nullptr;
+                sp->deathTime = 0;
+                sp->entityId = data->id;
+                sp->hp = data->GetHpForLevel(GameState::GetLevel());
+                sp->hpMax = data->GetHpForLevel(GameState::GetLevel());
+                if (Entity* e = EntityManager::SpawnEntityAt(sp, true, false)) e->OnSetup();
+            }
+        }
+    }
+    // A dying boss (OnDying): the game slows down (time x0.25..0.5 over the first second, back to
+    // 1 over the next) while the camera zooms in and out again; then the game goes on.
+    if (g_deathAnimation && this == g_dyingBoss) {
+        const float t = dt / GameState::GetTimeModifier() + g_dyingBossTime;
+        g_dyingBossTime = t;
+        if (t < 1.f) GameState::SetTimeModifier(0.5f + std::sqrt(1.f - (t - 1.f) * (t - 1.f)) * -0.25f);
+        else if (t < 2.f) GameState::SetTimeModifier(0.25f + (t - 1.f) * 0.75f);
+        if (t < 0.5f) {
+            Render::zoom = Render::GetDefaultZoom() * (1.f + (t + t) * 0.5f);
+        } else if (t > 1.f && t < 2.f) {
+            Render::zoom = Render::GetDefaultZoom() * (1.5f + (t - 1.f) * -0.5f);
+        } else if (t >= 2.f) {
+            GameState::SetTimeModifier(1.f);
+            g_deathAnimation = false;
+            Render::zoom = Render::GetDefaultZoom();
+        }
+    }
+    // (The timed events of +0x14 (EventManager<Entity>): only the siege system's attacks schedule
+    // them, dead in 5.11. Class 9's CheckAggro @0x150af8 is empty.)
+}
+
+// The patrol (part of @0x15ba40): 0 walk (or run, for the hero) to the point with its walk
+// animation; 1 walking (OnWalkComplete); 2 waiting, then its animation (step 3, AnimationEnded)
+// or straight to the pause; 4 pausing, then the next point. After the last a one-time patrol
+// (+0x94) is dropped (and with +0x95 the entity goes, its dialog too).
+void Entity::UpdatePatrol(float dt) {
+    PatrolPoint& p = patrol[(size_t)patrolIndex];
+    if (patrolStep == 2) {
+        p.waitLeft -= dt;
+        if (!(p.waitLeft < 0.f)) return;
+        if (p.animation.empty() || p.times == 0) {
+            patrolStep = 4;
+            p.pauseLeft = (float)p.pause;
+        } else {
+            if (p.animation == "death") {
+                SetAnimationOnce("death", false, false, true, true);
+                Render::ChangeLayer(GetSprite(), 6);
+            } else {
+                SetAnimation(p.animation.c_str(), p.times, false, false, false, true, false);
+            }
+            patrolStep = 3;
+        }
+    } else if (patrolStep == 4) {
+        p.pauseLeft -= dt;
+        if (!(p.pauseLeft < 0.f)) return;
+        patrolStep = 0;
+        if ((size_t)++patrolIndex < patrol.size()) return;
+        patrolIndex = 0;
+        if (!patrolOnce) return;
+        patrol.clear();
+        if (patrolHideAtEnd) {
+            SetActive(false, false);
+            BuildingHovers::HideWorldDialog(this);
+        }
+    } else if (patrolStep == 0) {
+        patrolStep = 1;
+        if (!p.name.empty()) ai->SetCustomWalkAnimation(p.name.c_str());
+        if (!player) ai->WalkTo(p.x, p.y);
+        else ai->ClickedTile(p.x, p.y, 0, 0);
+    }
 }
 
 float Entity::GetIdleHeight() {
@@ -355,9 +463,44 @@ void Entity::UpdateRing() {
         CreateUnderlay(f198);
         return;
     }
-    // (combat not ported: never active, so no boss/enemy/squad combat rings)
-    // UNVERIFIED (milestone 4): IsBoss and IsEnemy need meta expressions and spawn points; both
-    // are false for everything spawned so far.
+    // A boss or arena fight with an enemy squad (types 3+): its owner counts as the boss, but
+    // in the arenas (5, 6) only in the last wave.
+    bool bossFight = false, lastWave = true;
+    BaseCombat* c = GameState::GetActiveCombat();
+    if (c && c->GetType() >= 3 && c->GetEnemySquad()) {
+        bossFight = true;
+        if (c->GetType() == 5 || c->GetType() == 6) lastWave = c->GetCurrentWave() == c->GetWaveCount();
+    }
+    const bool asBoss = IsBoss() || (bossFight && this == c->GetEnemySquad()->GetOwner());
+    if (asBoss && lastWave) {
+        if (c && c->GetState() == 0x10) {
+            CreateUnderlay(0);
+            return;
+        }
+        if (f36) {
+            CreateUnderlay(2);
+            return;
+        }
+        CreateUnderlay(f75 ? (GameState::IsPvPCombatActive() ? 2 : 7) : 0);
+        return;
+    }
+    if (IsEnemy()) {
+        if (bossFight) {
+            if (c->GetState() == 0x10) {
+                CreateUnderlay(0);
+                return;
+            }
+            if (!f36) {
+                CreateUnderlay(f75 ? (GameState::IsPvPCombatActive() ? 3 : 6) : 0);
+                return;
+            }
+        } else if (!f36) {
+            CreateUnderlay(6);
+            return;
+        }
+        CreateUnderlay(3);
+        return;
+    }
     if (player) {
         CreateUnderlay(4);
         return;
@@ -366,8 +509,12 @@ void Entity::UpdateRing() {
         CreateUnderlay(1);
         return;
     }
-    if (ringStyle != 1) return;   // (class 10 squad members get style 5, milestone 4)
-    CreateUnderlay(0);
+    if (ringStyle == 1) {
+        CreateUnderlay(0);
+        return;
+    }
+    // A soldier of the hero's squad: style 5.
+    if (data->clas == 10 && GetSquad() == EntityManager::GetPlayer()->GetSquad()) CreateUnderlay(5);
 }
 
 void Entity::CreateUnderlay(int style) {
@@ -471,14 +618,18 @@ void Entity::ChangeAIState(int state) {
     ai = CreateAIState(state, this);
 }
 
-void Entity::OnMoved() {
-    // Observers' AIs are AIBaseState-derived classes whose +0x178 slot takes the moved entity.
-    // UNVERIFIED (milestone 4): nothing registers observers yet (squads and followers).
-}
+// @0x155bb8: each observer's AI (an AISiegeAttacker, +0x178) hears of the move. Only the siege
+// attackers observe, and the siege system is dead in 5.11, so the list stays empty.
+void Entity::OnMoved() {}
 
+// @0x1553bc: a patrol walk (step 1) reached its point: its wait starts (step 2), facing the point's
+// direction when it has one.
 void Entity::OnWalkComplete() {
-    // UNVERIFIED (milestone 4): a patrol step in state 1 moves to state 2 (its wait time and
-    // facing).
+    if (patrol.empty() || patrolStep != 1) return;
+    patrolStep = 2;
+    PatrolPoint& p = patrol[(size_t)patrolIndex];
+    p.waitLeft = (float)p.wait;
+    if (p.direction != -1) SetDirection(p.direction);
 }
 
 void Entity::OnUnableToWalk(int x, int y) {
@@ -492,13 +643,12 @@ void Entity::OnWaypointRemove(AI::Waypoint* wp) {
 
 void Entity::OnStartedToWork() {
     // (the player at tutorial step 0x14 centres the camera on itself)
-    if (player && GameState::TutorialStep() == 0x14) Render::CenterOn(worldX, worldY);
+    if (player && GameState::TutorialStep() == 0x14) Render::CenterOn(worldX, worldY, true);
 }
 
 bool Entity::Contains(int x, int y) const {
     if (!sprite || !f9c) return false;
-    // UNVERIFIED (milestone 4): IsBoss (meta expressions) divides the width by 3 instead.
-    float half = sprite->w * 0.5f;
+    const float half = IsBoss() ? sprite->w / 3.f : sprite->w * 0.5f;   // a boss: the middle third
     float fx = (float)x;
     if (fx < worldX - half || fx > half + worldX) return false;
     float fy = (float)y;
@@ -834,7 +984,7 @@ bool Entity::PartolEndsOn(int x, int y) const {
 // @0x15d1a0
 void Entity::RemovePatrol() {
     patrol.clear();
-    f1aa = false;
+    wanders = false;
 }
 
 // @0x1518c8: an arena or mob spawn stays where it is put.

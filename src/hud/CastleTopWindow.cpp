@@ -1,8 +1,21 @@
 // CastleTopWindow: the navigation panel at the top right (Friends, Shop, world map / attack, PvP,
 // settings). Port of CastleTopWindow (libkingdom.so 5.11), 0x276934..0x279f6c.
+#include <cstdio>
+
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Timer.h"
+#include "game/Building.h"
+#include "game/BuildingHovers.h"
+#include "game/BuildingMovement.h"
+#include "game/BuildingPlacement.h"
+#include "game/Combat.h"
+#include "game/Entity.h"
+#include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Locations.h"
+#include "game/Map.h"
+#include "game/Setting.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
@@ -48,15 +61,27 @@ Window* g_friendsNotify = nullptr;
 Textfield* g_friendsNotifyText = nullptr;
 Window* g_giNotify = nullptr;
 Textfield* g_giNotifyText = nullptr;
-bool g_campaignToCityDirect = false;   // Setting "campaign_to_city_direct" == 1
+bool g_campaignToCityDirect = false;   // 0x61922c Setting "campaign_to_city_direct" == 1
+int g_blinkMap = 0;                    // 0x619214 BlinkCompass's map (milestone 5: nothing sets it)
+int g_arrowCallback = 0;               // 0x61921c the id of the tutorial arrow's callback
+unsigned g_shownWindows = 0;           // 0x619220 the fewest windows shown since the arrow went up
+int g_friendRequests = 0;              // 0x61924c (online: always 0)
+int g_lastSecond = 0;                  // 0x619250
 
-// @0x277f5c: the panel takes clicks even on disabled buttons (force). At tutorial step 0x17 (and,
-// UNVERIFIED for later milestones, while BuildingMovement/BuildingPlacement is active or the shop /
-// screenshot window is open) it only absorbs clicks that land on it. The tutorial arrow and the
-// two featured quest holders follow with quests.
+// @0x277f5c: the panel takes clicks even on disabled buttons (force), and the tutorial arrow at the
+// compass first. While a building is edited or placed, the shop is open or at tutorial step 0x17 it
+// only absorbs the clicks that land on it (while editing, only presses). (BottomScreenshotWindow is
+// milestone 5 and never open; the featured-quest holders, which take clicks after the root, too.)
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
-    if (GameState::TutorialStep() == 0x17) return g_root->GetWindowAtPosition(x, y, false) != nullptr;
+    const bool editing = BuildingMovement::Activated() || BuildingPlacement::Activated();
+    if (editing || ShopWindow::IsVisible() || GameState::tutorial == 0x17) {
+        bool r = g_root->GetWindowAtPosition(x, y, false) != nullptr;
+        if (editing && !pressed) r = false;
+        return r;
+    }
+    if (BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback && BuildingHovers::ClickOnArrow(x, y, pressed))
+        return true;
     return g_root->Click(x, y, pressed, true);
 }
 
@@ -65,6 +90,91 @@ bool Click(int x, int y, bool pressed) {
 void OnSettings() { SettingsWindow::Show(); }
 
 }  // namespace
+
+// @0x27738c the compass: to the world map (from the city or a farm), or back to the castle from a
+// campaign map's fight or the arena; not while editing, shopping or in a late fight phase.
+void OnReturn() {
+    std::printf("saint -> castletop\n");
+    if (BuildingMovement::Activated() || BuildingPlacement::Activated() || ShopWindow::IsVisible()) return;
+    if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 2) return;
+    if (GameState::IsCombatActive()) {
+        PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    const int step = GameState::tutorial;
+    const bool firstTravel = GameState::GetTutorialType() == 1 && GameState::GetCurrentMapID() == 0 && step == 0x37 &&
+                             !GameState::TaskCompleted(0x237);
+    if (GameState::GetCurrentLocation() == 0 && step <= 0x66 && !firstTravel) {
+        PopupWindow::Show(StringTable::GetString("FINISH_TUTORIAL_TO_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    if (!GameState::IsPlayerCity()) return;   // GoHomeFromFriend: a friend's city (online)
+    const int location = GameState::GetCurrentLocation();
+    bool choosePath = false;
+    if (location == 1) {   // a farm
+        GlobalMapWindow::CenterOnMap(GameState::GetCurrentMapID());
+        GlobalMapWindow::Show();
+        TaskHolderWindow::UpdateTasks();
+        BuildingHovers::HideArrow();
+        HUDWindow::ExitFarm();
+        EntityManager::Update(0.f);
+        BuildingHovers::Update(0.0, true);
+        choosePath = GameState::TaskCompleted(0x43f);
+    } else {
+        if (location == 2 && g_campaignToCityDirect && Locations::GetCampaignForMap(GameState::GetCurrentMapID())) {
+            GlobalMapWindow::SwitchMap(0, false, true);
+            return;
+        }
+        if (location != 2 && location != 0) {
+            // UNVERIFIED (milestone 5): the arena (location 3, after step 0x80) saves, loads the city
+            // and hides the world map ("ui_map_opened").
+            return;
+        }
+        GlobalMapWindow::CenterOnMap(GameState::GetCurrentMapID());
+        GlobalMapWindow::Show();
+        TaskHolderWindow::UpdateTasks();
+        if (step == 0x80 && GameState::secondTutorial == 0x81 && GameState::GetCurrentMapID() == 0)
+            GlobalMapWindow::ArrowAtMap(0xf, false, true);
+        if (firstTravel) GlobalMapWindow::ArrowAtMap(0xf, false, true);
+        const uint32_t now = (uint32_t)Timer::GetGlobalTime();
+        if (GameState::GetEventStartTime(0x5dc) == 0) GameState::SetEventStartTime(0x5dc, now);
+        if (GameState::GetEventStartTime(2000) == 0) {
+            GameState::SetEventStartTime(2000, now);
+            GameState::SetEventStartTime(0x7d2, (uint32_t)GameState::GetGoldEarned());
+            GameState::SetEventStartTime(0x7d1, (uint32_t)GameState::GetGoldEarned());
+        }
+        if (GameState::GetTaskBeginTime(0x43f) == 0) return;
+        if (GameState::GetTaskBeginTime(0x5c9) != 0 && !GameState::TaskCompleted(0x5c9) &&
+            GameState::GetEventStartTime(0x5dd) == 0) {
+            GameState::SetEventStartTime(0x5dc, now);
+            GlobalMapWindow::CenterOnSultan();
+            // UNVERIFIED (milestone 5): SultanArrivingWindow::Show.
+            return;
+        }
+        if (0x14370u < now - GameState::GetEventStartTime(2000)) {
+            // The "easy money" offer: StartRaidingWindow (milestone 5) when the gold earned since
+            // the last check grew less than before and the gold is under "easy_money_threshold".
+            // GetGoldEarned is always 0 in 5.11, so it never shows.
+            const uint32_t earned = (uint32_t)GameState::GetGoldEarned();
+            const uint32_t last = GameState::GetEventStartTime(0x7d2);
+            GameState::SetEventStartTime(2000, now);
+            GameState::SetEventStartTime(0x7d2, earned);
+            GameState::SetEventStartTime(0x7d1, last);
+        }
+        choosePath = GameState::TaskCompleted(0x43f);
+    }
+    // UNVERIFIED (milestone 5): ChoosePathWindow::Show when choosePath.
+    (void)choosePath;
+}
+
+// @0x2772e8 (the HUD's player locator): the camera glides to the hero in a fight, else to the castle.
+void OnFindPlayer() {
+    if (GameState::GetCurrentLocation() == 2) {
+        if (Entity* p = EntityManager::GetPlayer()) Render::CenterOn(p->worldX, p->worldY, true);
+    } else if (Map::Building* hq = Map::GetHQ()) {
+        Render::CenterOn((hq->minX + hq->maxX) * 0.5f, hq->maxY, true);
+    }
+}
 
 WindowManager::FunctionalWindow* Queue() {
     if (!g_queue) {
@@ -113,7 +223,7 @@ void Init() {
     g_shopText->SetText(StringTable::GetString("main_menu_button_shop"));
 
     g_compass = GUI::GetWindowTyped<Window>(g_root, "button_world_map_compass");
-    g_compass->SetOnClick([] {});
+    g_compass->SetOnClick(OnReturn);
     g_compassBg = GUI::GetWindowTyped<Window>(g_root, "button_world_map_compass.button_nav_world_map_bg");
     g_compassText = GUI::GetWindowTyped<Textfield>(g_root, "hud_vanigation_name_overlay.text_03");
     g_compassText->SetText(StringTable::GetString("main_menu_button_shop"));   // replaced by Update
@@ -151,13 +261,17 @@ void Init() {
     // UNVERIFIED: Setting("campaign_to_city_direct") comes from dynamic_config (milestone 3).
     g_campaignToCityDirect = false;
     // The two featured-quest holders (Quest_featured_holder.xml) start hidden; they follow with
-    // the quest system (milestone 4).
+    // the featured quests (milestone 5).
 }
 
-// @0x277c60: slide in from the right. (The original also skips this while a second global is in
-// 0x91..0x9d; that state belongs to later milestones.)
+// @0x277c60: slide in from the right, in the city after the tutorial's first level (at step 0x34
+// for tutorial types 1 and 2), not during the second tutorial's steps 0x91..0x9d.
+// (GUI::PreloadWindow: the port's textures are loaded already.)
 void Show() {
-    if (!g_root || !GameState::IsPlayerCity() || GameState::TutorialStep() <= 0x36) return;
+    if (!g_root || !GameState::IsPlayerCity()) return;
+    const int type = GameState::GetTutorialType();
+    if (!(GameState::tutorial > 0x36 || ((type == 1 || type == 2) && GameState::tutorial == 0x34))) return;
+    if ((unsigned)(GameState::secondTutorial - 0x91) <= 0xc) return;
     if (g_effect->active && g_effect->hideAtEnd) g_root->SetVisibility(false);
     Queue()->MoveWindowOnTop(true);
     int W = GUI::ScreenWidth();
@@ -165,7 +279,7 @@ void Show() {
     g_root->SetVisibility(true);
 }
 
-// @0x277b6c (featured holders: milestone 4)
+// @0x277b6c (the featured holders' reset: milestone 5)
 void Hide() {
     if (!g_root || !g_root->visibleSelf) return;
     int W = GUI::ScreenWidth();
@@ -183,21 +297,63 @@ void SetZ(float) {
     }
 }
 
-// @0x278e40, the parts whose inputs exist so far. UNVERIFIED stand-ins: TaskCompleted(...) is
-// true (a finished tutorial), no combat, no farm, no notifications; tutorial arrows, the starter
-// chest timer and the PvP state follow with quests/combat (milestones 3-4).
+// @0x278e40: the buttons' states, the tutorial's arrows at the compass (its tap is the compass's)
+// and, once a second, the shop's. UNVERIFIED (milestone 5): the two featured-quest holders (their
+// slide, pulse and timers, ActivateFeatureHolders every 300 s, the featured tasks list) and the
+// compass blink (BlinkCompass).
 void Update(float) {
     if (!g_root || !g_root->visibleSelf) return;
-    bool arena = GameState::GetCurrentLocation() == 3;   // || (campaign_to_city_direct && a campaign map)
-    bool cityIdle = GameState::IsPlayerCity();          // && !combat && !farm
-    bool friendsUnlocked = true;                        // TaskCompleted(Setting "task_friends_enable")
+    const unsigned shown = WindowManager::GetShownWindowCount();
+    const unsigned before = g_shownWindows;
+    if (shown < g_shownWindows) g_shownWindows = shown;
+    if (BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback && before < shown && GameState::tutorial != 0x5b)
+        BuildingHovers::HideArrow();
+    const bool toCastle = GameState::GetCurrentLocation() == 3 ||
+                          (g_campaignToCityDirect && Locations::GetCampaignForMap(GameState::GetCurrentMapID()));
+    const bool cityIdle = !GameState::IsCombatActive() && GameState::IsPlayerCity() && !Map::GetCurrentFarm();
+    const bool canTravel = !GameState::IsCombatActive() || GameState::GetActiveCombat()->GetType() < 3;
+    const bool friendsOn = GameState::TaskCompleted((unsigned)Setting("task_friends_enable").GetInt());
     g_friends->SetEnabled(cityIdle);
-    g_friendsBg->SetEnabled(cityIdle && friendsUnlocked);
-    g_friendsIcon->SetEnabled(cityIdle && friendsUnlocked);
-    g_friendsText->SetEnabled(cityIdle && friendsUnlocked);
-    g_friendsNotify->SetVisibility(false);              // pending friend requests (online)
-    g_compass->SetEnabled(true);                        // not in a late combat phase
-    g_compassText->SetText(StringTable::GetString(arena ? "WORLD_NAV_TO_CASTLE" : "CONTROL_BATTLE_ATTACK"));
+    g_friendsBg->SetEnabled(cityIdle && friendsOn);
+    g_friendsIcon->SetEnabled(cityIdle && friendsOn);
+    g_friendsText->SetEnabled(cityIdle && friendsOn);
+    g_friendsNotify->SetVisibility(g_friendRequests != 0 && cityIdle && friendsOn);
+    g_friendsNotifyText->SetText(ToWideString(g_friendRequests));
+    g_compass->SetEnabled(canTravel);
+    g_compassText->SetText(StringTable::GetString(toCastle ? "WORLD_NAV_TO_CASTLE" : "CONTROL_BATTLE_ATTACK"));
+    const bool pvpOn = canTravel && GameState::TaskCompleted(0x74d) && !Map::GetCurrentFarm();
+    g_pvpBg->SetEnabled(pvpOn);
+    g_pvpIcon->SetEnabled(pvpOn);
+    g_pvpText->SetEnabled(pvpOn);
+
+    // The tutorial's way to the world map: an arrow under the compass.
+    const int step = GameState::tutorial;
+    const bool firstTravel = GameState::GetTutorialType() == 1 && GameState::GetCurrentMapID() == 0 && step == 0x37 &&
+                             !GameState::TaskCompleted(0x237);
+    const bool arrow = (step == 0x67 && WindowManager::GetShownWindowCount() == 0) ||
+                       (step == 0x80 && GameState::secondTutorial == 0x81 && GameState::GetCurrentMapID() == 0 &&
+                        WindowManager::GetShownWindowCount() == 0) ||
+                       (firstTravel && WindowManager::GetShownWindowCount() == 0);
+    if (arrow) {
+        if (BuildingHovers::GetArrowClickCallbackID() != g_arrowCallback)
+            g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnReturn));
+        if (step == 0x67) GUI::SetInteractionObjectLock(g_compass, nullptr);
+        BuildingHovers::ArrowAt((float)(g_compass->x + g_root->x + g_compass->w / 2),
+                                (float)(g_compass->y + g_root->y + g_compass->h), false, false, false, true, true, false,
+                                false);
+    }
+    if (!GameState::IsPlayerCity()) return;   // (the featured holders are reset: milestone 5)
+    if (GameState::GetCurrentMapID() != g_blinkMap) {
+        g_compass->SetAlpha(1.f, true);
+        g_blinkMap = 0;
+    }
+    if (Timer::GetGlobalTime() == g_lastSecond) return;
+    g_lastSecond = Timer::GetGlobalTime();
+    g_shop->SetEnabled(!GameState::IsPvPCombatActive() && GameState::IsPlayerCity());
+    const bool shopOn = GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt());
+    g_shopBg->SetEnabled(shopOn);
+    g_shopIcon->SetEnabled(shopOn);
+    g_shopText->SetEnabled(shopOn);
 }
 
 }  // namespace CastleTopWindow

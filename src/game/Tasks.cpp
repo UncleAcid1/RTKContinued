@@ -637,8 +637,23 @@ bool RequiredStepsDone(const TaskInfo* t, const TaskSubtask& s) {
 unsigned GetCurrentTasks(TaskInfo** out, unsigned max, bool forHud, bool all) {
     unsigned count = 0;
     const int location = GameState::GetCurrentLocation();
-    // UNVERIFIED (milestone 5): with forHud outside the campaign and the farm, the world map's
-    // campaign tasks come first (GlobalMapWindow::GetCampaignTasks; priority 5, f_1e4).
+    // For the HUD outside the campaign maps and the farm, the world map's campaign tasks come
+    // first (priority 5; timed-out ones are left out). f_1e4: a counted campaign's task, else a
+    // mission's that is not a side quest.
+    if (forHud && !all && location != 2 && location != 1) {
+        TaskInfo* campaignTasks[0x20] = {};
+        const unsigned n = GlobalMapWindow::GetCampaignTasks(campaignTasks, 0x20);
+        for (unsigned i = 0; i < n; ++i) {
+            TaskInfo* t = campaignTasks[i];
+            t->RefreshCampaignInfo();
+            if (t->HasTimeout() && t->GetRemainingTime() == 0) continue;
+            if (count >= max) continue;
+            t->priority = 5;
+            const bool flag = (t->campaign != 0 && !t->doNotCount) || (t->mission != 0 && !t->sidequest);
+            out[count++] = t;
+            t->f_1e4 = flag;
+        }
+    }
     const uint32_t curMap = GameState::GetCurrentMapID();
     const uint32_t campaign = Locations::GetCampaignForMap(curMap), mission = Locations::GetMissionForMap(curMap);
     const uint32_t level = (uint32_t)GameState::GetLevel();
@@ -884,7 +899,7 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     GameState::CompleteTask(id, setBegin);
     Map::OnTaskCompleted(id);
     EntityManager::OnTaskCompleted(id);
-    // UNVERIFIED (milestone 5): GlobalMapWindow::OnTaskCompleted(id).
+    GlobalMapWindow::OnTaskCompleted(id);
     BuildingHovers::HideWorldDialogByTask(id);
     if ((int)id == Setting("squad_slot_02_quest_unlock").GetInt() ||
         (int)id == Setting("squad_slot_03_quest_unlock").GetInt()) {
@@ -1287,7 +1302,8 @@ void Update(bool force) {
         }
         if (done && !t->tutorialType && !t->isHint) {
             if (t->chapter) {
-                // The chapter banner, unless an edit mode is up (or the world map: milestone 5).
+                // The chapter banner, unless the world map or an edit mode is up.
+                if (GlobalMapWindow::IsVisible()) return;
                 if (BuildingPlacement::Activated() || BuildingMovement::Activated()) return;
                 ChapterWindow::SetParameters(t->id);
                 ChapterWindow::Show();

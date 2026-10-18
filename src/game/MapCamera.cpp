@@ -31,7 +31,7 @@ struct CameraPoint {        // 0x30 bytes
     float travel = 0.f;     // +0x0c seconds on the way there
     bool keepHero = false;  // +0x10 the hero is not stopped
     int arrowX = 0, arrowY = 0;   // +0x14 +0x18 world point of the help arrow (0, 0: none)
-    int f1c = 0;            // +0x1c (handed to Render::CenterOn)
+    int f1c = 0;            // +0x1c the glide's mode (Render::CenterOn: 1 linear)
     float zoom = 1.f;       // +0x20 the zoom factor on the way
     bool returnToPlayer = false;  // +0x24 after the last point the view goes back to the hero
     float fogRadius = 0.f;  // +0x28 added to the opened fog's radius
@@ -176,7 +176,7 @@ void UpdateCamera(float dt) {
                         Entity* player = EntityManager::GetPlayer();
                         if (player && player->GetSprite()) {
                             Render::Sprite* s = player->GetSprite();
-                            Render::CenterOn(s->x + s->w * 0.5f, s->y - s->h);   // (animated in the original: 1 s)
+                            Render::CenterOn(s->x + s->w * 0.5f, s->y - s->h, true, 1.f);
                         }
                     }
                 }
@@ -186,8 +186,8 @@ void UpdateCamera(float dt) {
             int wx = p.x, wy = p.y;
             g_timer = p.travel;
             TileCoordinatesToWorld(wx, wy);
-            // (animated in the original: over p.travel seconds, with p.f1c, zooming unless p.zoom is 1)
-            Render::CenterOn((float)wx, (float)wy);
+            // (the glide leaves the zoom to the travel's cosine zoom when p.zoom is not 1)
+            Render::CenterOn((float)wx, (float)wy, true, p.travel, p.f1c, p.zoom != 1.f);
             if (!GameState::IsPvPTutorial()) GUI::SetInteractionLock(true);
             if (!p.keepHero) {
                 Entity* player = EntityManager::GetPlayer();

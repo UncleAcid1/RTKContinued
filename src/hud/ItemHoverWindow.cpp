@@ -51,9 +51,8 @@ bool RaidInfoWindowIsVisible() { return false; }           // RaidInfoWindow::Is
 bool ChestsWindowIsVisible() { return false; }             // ChestsWindow::IsVisible (5)
 bool IsChestItem(uint32_t) { return false; }               // Chests::IsChestItem (5)
 bool ItemCanBeBought(uint32_t) { return false; }           // ItemShopWindow::ItemCanBeBought (5)
-uint32_t GetMissionMapForItem(uint32_t) { return 0; }      // GlobalMapWindow::GetMissionMapForItem (5)
-uint32_t GetMapForCraftItem(uint32_t) { return 0; }        // GlobalMapWindow::GetMapForCraftItem (5)
-bool IsTaskActive(unsigned) { return false; }              // Tasks::IsTaskActive (4c)
+uint32_t GetMissionMapForItem(uint32_t id) { return GlobalMapWindow::GetMissionMapForItem(id, 0); }
+uint32_t GetMapForCraftItem(uint32_t id) { return GlobalMapWindow::GetMapForCraftItem(id, 0); }
 
 // @0x27b958 CharacterInfoWindow::IsItemEquipped(ItemData*): in the window's ten equipment holders
 // or on the belt. UNVERIFIED (milestone 5): the holders (0x619440..) are filled by the window's
@@ -98,8 +97,7 @@ const char32_t* GetProbabilityString(unsigned p) {
 void ItemPlaceContinuation() {
     PopupWindow::Hide();
     // UNVERIFIED (milestone 5): CharacterInfoWindow::Hide (the window is not ported).
-    // UNVERIFIED (milestone 4c): Tasks::HelpWithMapSwitchTo(0, true, true, 0) travels home; the city
-    // is the only map the port loads so far.
+    Tasks::HelpWithMapSwitchTo(0, true, true, 0);   // home
 }
 
 // ---- construction and layout ----
@@ -777,7 +775,7 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
         o.icon->SetTexture(IconManager::GetIcon("gold_place"), false);
         o.text->SetText(StringTable::GetString("PERFORM_OPEN"));
     }
-    if (inf->id == 0x211 && IsTaskActive(0x6b4) && !ChestsWindowIsVisible() && !noDescription) {
+    if (inf->id == 0x211 && Tasks::IsTaskActive(0x6b4, true) && !ChestsWindowIsVisible() && !noDescription) {
         ItemButton& o = buttons[kOpen];
         o.root->SetVisibility(true);
         o.green->SetEnabled(true);
@@ -1051,9 +1049,20 @@ void ItemHoverWindow::OnFind() {
         uint32_t id = info->id;
         if (info->packId && info->packItems && info->packItems->GetChild(0))
             id = info->packItems->GetChild(0)->GetChild(0)->GetInt();
-        // UNVERIFIED (milestone 5): a mission map with the item (GlobalMapWindow::CenterOnMap and the
-        // RaidInfoWindow for its location) or a crafting map (GlobalMapWindow::ArrowAtMap).
-        if (!GetMissionMapForItem(id) && !GetMapForCraftItem(id)) NeedItemWindow::OnProduce(id);
+        // A mission map with the item: the world map on it; a crafting map: the world map's arrow
+        // at it; else its building. (CharacterInfoWindow::Hide: milestone 5.) UNVERIFIED
+        // (milestone 5): the mission map's RaidInfoWindow showing the item.
+        if (uint32_t map = GetMissionMapForItem(id)) {
+            Hide();
+            GlobalMapWindow::Show();
+            GlobalMapWindow::CenterOnMap(map);
+        } else if (uint32_t craft = GetMapForCraftItem(id)) {
+            Hide();
+            GlobalMapWindow::Show();
+            GlobalMapWindow::ArrowAtMap(craft, false, true);
+        } else {
+            NeedItemWindow::OnProduce(id);
+        }
     }
     if (GameState::GetCurrentMapID() == 0) HealSquadWindow::Hide();
     Hide();

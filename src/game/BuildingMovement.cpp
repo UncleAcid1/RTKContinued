@@ -432,7 +432,7 @@ bool Accept() {
         }
         if (!allFit) {
             if (anyOnScreen) return false;
-            Render::CenterOn(fx, fy);   // UNVERIFIED: animated, zoom 0.4 (the port's CenterOn is instant)
+            Render::CenterOn(fx, fy, true);
             return false;
         }
     }
@@ -760,7 +760,7 @@ bool Click(int x, int y, bool pressed, bool moving) {
         Popup("PEOPLE_LIMIT_LOW");
         return false;
     }
-    // UNVERIFIED (milestone 4): PresentsContainer::WAREHOUSE_ID is also refused; no warehouse yet.
+    // UNVERIFIED (milestone 5, the presents): PresentsContainer::WAREHOUSE_ID is also refused.
     bool refuse = b->data->IsHQ() || !b->IsOpened();
     if (!refuse) {
         if (!b->HasActiveContract()) {
@@ -773,7 +773,7 @@ bool Click(int x, int y, bool pressed, bool moving) {
         FlyText(b->baseX, b->minY, g_mode == kWarehouse ? "CANT_MOVE_TO_INV" : "FLY_CANTDELETE");
         return false;
     }
-    // UNVERIFIED (milestone 4): PresentsContainer::ToggleWarehouseAnim.
+    // UNVERIFIED (milestone 5, the presents): PresentsContainer::ToggleWarehouseAnim.
     g_removeBuilding = b;
     AskRemove(RemoveQuestion(b->data->name));
     return true;

@@ -371,25 +371,22 @@ void OnProduce(uint32_t item) {
     Map::Building* b = Map::GetBuildingWithID(producer);
     if (!b) {
         if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
-        // UNVERIFIED (milestone 5): GlobalMapWindow::Hide.
+        GlobalMapWindow::Hide();
         ShopWindow::Show();
         ShopWindow::OnSelectItemID(producer);
         ShopWindow::ShowArrowOnItem(producer);
         return;
     }
-    // UNVERIFIED (milestone 5): GlobalMapWindow::Hide.
+    GlobalMapWindow::Hide();
     if (slot == 0xffffffff || !b->IsOpened() || b->data->buildingClass == 0xd ||
         (b->HasActiveContract() && b->contractDone && (unsigned)b->GetMissionID() == slot)) {
-        // UNVERIFIED: Render::CenterOn(x, y, true, true, 0.4, 0, false) animates to zoom 0.4; the
-        // port's CenterOn is the instant path.
-        Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f);
+        Render::CenterOn(b->baseX, (b->maxY + b->minY) * 0.5f, true);
         int sx = (int)b->minX, sy = (int)b->minY;
         Map::WorldCoordinatesToScreen(sx, sy);
         BuildingHovers::SetArrowClickCallback(new GUI::Callback([b, sx, sy] { BuildingHovers::OnBuildingClick(b, sx, sy); }));
         BuildingHovers::ArrowAt(b->baseX, b->minY, false, false, false, false, false, false, false);
     } else {
         BuildingHovers::AllowWindowOverHoverOnce();
-        // UNVERIFIED: CenterOn(x, y - 100, true, false, 0.4, 0, false) (the instant path).
         Render::CenterOn(b->baseX, b->minY - 100.f);
         BuildingHovers::OnBuildingClick(b, GUI::ScreenWidth() / 2, GUI::ScreenHeight() / 2);
         BuildingHovers::ShowArrowAtFactoryContract(slot, true);

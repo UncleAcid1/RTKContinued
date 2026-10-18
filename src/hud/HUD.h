@@ -182,6 +182,7 @@ void HideQuickTaskDescription();
 
 namespace CastleTopWindow {
 inline void HideTools() {}         // @0x2769cc (empty in 5.11)
+void OnFindPlayer();               // @0x2772e8
 }
 
 namespace BottomCityWindow {

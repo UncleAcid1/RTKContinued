@@ -7,6 +7,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Resources.h"
 #include "engine/Text.h"
 #include "engine/Timer.h"
 #include "game/Building.h"
@@ -26,6 +27,7 @@
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
+#include "game/SoldierSlots.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/TextStyleManager.h"
@@ -92,6 +94,7 @@ std::vector<HoverInfo*> g_hoverData;   // BuildingHovers::hoverData (sgl::vector
 std::vector<TextInfo> g_itemInfo;      // BuildingHovers::itemInfo
 std::vector<ItemMove> g_itemMoves;     // BuildingHovers::itemMoves
 std::vector<ItemDrop> g_itemDrops;     // BuildingHovers::itemDrops
+bool g_rubyDropped = false;            // 0x6188e0 a ruby lies on the ground (CheckForSpecialDrops)
 BuildingHoverWindow* g_currentHover = nullptr;   // 0x618980 the tapped building's info window
 // The info windows (Init), shown one at a time as g_currentHover.
 FactoryHoverWindow* g_factoryWindow = nullptr;            // BuildingHovers::factoryWindow
@@ -123,6 +126,9 @@ struct HelperArrow {
     bool mirror = false, flip = false; // +0x05 +0x06
     float x = 0.f, y = 0.f;            // +0x08 +0x0c the anchor, world space unless screenSpace
     GUI::Callback* onClick = nullptr;  // +0x10 SetArrowClickCallback (owned)
+    Render::Sprite* ring1 = nullptr;   // +0x18 the attention rings round the target (tablets)
+    Render::Sprite* ring2 = nullptr;   // +0x1c
+    float ringTime = 0.f;              // +0x20 their pulse, 0..2 s
     bool itemArrow = false;            // +0x24 it waits for the item dropped on the emperor's map (0xb)
     Entity* entity = nullptr;          // +0x28 the entity it follows (FollowEntity)
     Map::Decor* decor = nullptr;       // +0x2c the decoration it points at (FollowDecor)
@@ -264,6 +270,22 @@ bool ArrowVisible() {
 
 bool CanAutoHideArrow() { return g_canHideArrow; }
 
+void MoveRectIntoView(int x0, int y0, int x1, int y1, bool full) {
+    int sx0 = x0, sy0 = y0, sx1 = x1, sy1 = y1;
+    Map::WorldCoordinatesToScreen(sx0, sy0);
+    Map::WorldCoordinatesToScreen(sx1, sy1);
+    const int W = GUI::ScreenWidth(), H = GUI::ScreenHeight();
+    const int left = full ? 0 : 0x32, top = full ? 0 : 0x4b, right = full ? W : W - 0x32, bottom = full ? H : H - 0x32;
+    int ltx = left, lty = top, rbx = right, rby = bottom;   // the margins' corners in the world
+    Map::MouseCoordinatesToWorld(ltx, lty);
+    Map::MouseCoordinatesToWorld(rbx, rby);
+    int dx = left > sx0 ? x0 - ltx : 0;
+    if (right < sx1) dx = x1 - rbx;
+    int dy = top > sy0 ? y0 - lty : 0;
+    if (bottom < sy1) dy = y1 - rby;
+    if (dx != 0 || dy != 0) Render::CenterOn((float)dx - Render::offsetX, (float)dy + Render::offsetY, true);
+}
+
 void PreventArrowAutoHide() { g_canHideArrow = false; }
 
 GUI::Callback* GetClickCallback() { return g_arrows.back()->onClick; }
@@ -368,22 +390,102 @@ bool ClickOnArrow(int x, int y, bool pressed) {
 
 void HideArrow() {
     for (size_t i = 1; i < g_arrows.size(); ++i) {
-        if (!g_arrows[i]) continue;
-        Render::RemoveSprite(g_arrows[i]->sprite);
-        delete g_arrows[i];
+        HelperArrow* a = g_arrows[i];
+        if (!a) continue;
+        a->sprite = Render::RemoveSprite(a->sprite);
+        a->ring1 = Render::RemoveSprite(a->ring1);
+        a->ring2 = Render::RemoveSprite(a->ring2);
+        delete a;
     }
     g_arrows.resize(1);
     HelperArrow* a = g_arrows[0];
     if (a->sprite) Render::SetVisibility(a->sprite, false);
+    if (a->ring1) Render::SetVisibility(a->ring1, false);
+    if (a->ring2) Render::SetVisibility(a->ring2, false);
+    delete a->onClick;
+    a->onClick = nullptr;
+    a->decor = nullptr;
     a->itemArrow = false;
+    a->entity = nullptr;
     ++g_arrowCallbackID;
 }
 
+// The rings go transparent (alpha 0) whatever a is.
 void SetArrowAlpha(float a) {
     for (HelperArrow* h : g_arrows) {
         if (!h->sprite) continue;
         Render::SetShaderType(h->sprite, a != 1.f ? 1 : 0);
         Render::SetAlpha(h->sprite, a);
+        if (h->ring1) Render::SetAlpha(h->ring1, 0.f);
+        if (h->ring2) Render::SetAlpha(h->ring2, 0.f);
+    }
+}
+
+// (Part of Update @0x26e460) the attention rings round the arrow's point pulse every 2 s: the first
+// grows from nothing with the time, fades in over the first second, stays, fades out from 1.25 s;
+// the second starts at 0.3 s at 1.5 times the size. Both follow the arrow's visibility.
+void UpdateArrowRings(float dt) {
+    for (HelperArrow* a : g_arrows) {
+        if (!a->ring1 || !a->ring1->visible || !a->sprite) continue;
+        Render::Sprite* s = a->sprite;
+        Render::SetVisibility(a->ring1, s->visible);
+        Render::SetVisibility(a->ring2, s->visible);
+        float px = a->x, py = a->y;
+        if (!a->left) {
+            px += s->w * 0.5f;
+            if (a->flip) py -= s->h;
+        } else {
+            py += s->h * -0.5f;
+            if (a->mirror) px += s->w;
+        }
+        if (s->screenSpace) {
+            int ix = (int)px, iy = (int)py;
+            Map::MouseCoordinatesToWorld(ix, iy);
+            px = (float)ix;
+            py = (float)iy;
+        }
+        float t = a->ringTime;
+        Render::Sprite* r = a->ring1;
+        if (t < 1.f) {
+            Render::SetShaderType(r, 1);
+            Render::SetAlpha(r, 1.f - std::sqrt(1.f - t * t));
+        } else if (t < 1.25f) {
+            Render::SetShaderType(r, 0);
+            Render::SetAlpha(r, 1.f);
+        } else if (t < 2.f) {
+            Render::SetShaderType(r, 1);
+            const float u = (t - 1.25f) / 0.75f - 1.f;
+            Render::SetAlpha(r, 1.f - std::sqrt(1.f - u * u));
+        }
+        t = a->ringTime;
+        r->w = (float)r->tex->w * t * GUI::GetHoverScaleFactor(1.f, 1.f);
+        r->h = (float)r->tex->h * t * GUI::GetHoverScaleFactor(1.f, 1.f);
+        Render::SetPosition(r, px + r->w * -0.5f, py + r->h * 0.5f, 0.5f);
+        r = a->ring2;
+        t = a->ringTime;
+        float k = -1.f;
+        if (t < 0.3f) {
+            Render::SetShaderType(r, 1);
+            Render::SetAlpha(r, 0.f);
+        } else if (t < 1.f) {
+            k = (t - 0.3f) / 0.7f;
+            Render::SetShaderType(r, 1);
+            Render::SetAlpha(r, 1.f - std::sqrt(1.f - k * k));
+        } else if (t < 2.f) {
+            const float u = t - 2.f;
+            Render::SetShaderType(r, 1);
+            Render::SetAlpha(r, 1.f - std::sqrt(1.f - u * u));
+            k = t;
+        }
+        if (k >= 0.f) {
+            r->h = k * (float)r->tex->h * 1.5f;
+            r->w = (float)r->tex->w * k * 1.5f;
+        }
+        r->w *= GUI::GetHoverScaleFactor(1.f, 1.f);
+        r->h *= GUI::GetHoverScaleFactor(1.f, 1.f);
+        Render::SetPosition(r, px + r->w * -0.5f, py + r->h * 0.5f, 0.5f);
+        a->ringTime += dt;
+        if (a->ringTime > 2.f) a->ringTime = 0.f;
     }
 }
 
@@ -427,14 +529,20 @@ void UpdateArrow() {
 
 void ArrowAt(float x, float y, bool hide, bool left, bool mirror, bool flip, bool screenSpace, bool tablet,
              bool newArrow) {
+    // The attention rings: asked for (or second-tutorial steps 0x86, 0x87), on a tablet.
+    const bool rings = (tablet || (unsigned)(GameState::secondTutorial - 0x86) < 2) && GUI::IsTabletVersion();
     if (hide) {
         HideArrow();
         return;
     }
     if (newArrow) g_arrows.push_back(new HelperArrow());
     HelperArrow* a = g_arrows.back();
-    a->decor = nullptr;
     if (!a->sprite) a->sprite = Render::CreateSprite(IconManager::GetIcon("Arrow_show"), Render::kLayer15, false, false);
+    if (rings && !a->ring1) {
+        Render::Texture* t = Resources::GetDirectImage("images/attention_ring2.jpg");
+        a->ring1 = Render::CreateSprite(t, Render::kLayer15, false, false);
+        a->ring2 = Render::CreateSprite(t, Render::kLayer15, false, false);
+    }
     Render::Sprite* s = a->sprite;
     Render::SetTexture(s, IconManager::GetIcon(left ? "Arrow_show_left" : "Arrow_show"));
     Render::SetMirror(s, mirror, flip);
@@ -460,10 +568,24 @@ void ArrowAt(float x, float y, bool hide, bool left, bool mirror, bool flip, boo
     }
     s->screenSpace = screenSpace;
     Render::SetVisibility(s, true);
-    // UNVERIFIED (tutorial): the tablet attention rings (tablet, or second tutorial 0x86/0x87 on a
-    // tablet) and, after the tutorial (0x100) in a combat with more than two sides, centring the
-    // camera on an arrow off screen.
+    a->decor = nullptr;
+    a->entity = nullptr;
+    if (rings) {
+        if (!a->ring1->visible) a->ringTime = 0.f;
+        Render::SetVisibility(a->ring1, !GameState::IsPaused());
+        Render::SetVisibility(a->ring2, !GameState::IsPaused());
+    }
     g_canHideArrow = true;
+    // After the tutorial, in a boss or arena fight, a world arrow off screen brings the camera to
+    // it.
+    if (!screenSpace && GameState::secondTutorial == 0x100 && GameState::IsCombatActive() &&
+        GameState::GetActiveCombat()->GetType() > 2) {
+        int sx = (int)a->x, sy = (int)a->y;
+        Map::WorldCoordinatesToScreen(sx, sy);
+        const bool onScreen = sx > -1 && (float)sx + s->w <= (float)GUI::ScreenWidth() && (float)sy - s->h >= 0.f &&
+                              sy <= GUI::ScreenHeight();
+        if (!onScreen) Render::CenterOn(a->x, a->y, true);
+    }
     UpdateArrow();
 }
 
@@ -862,8 +984,8 @@ void UpdateHovers() {
         Entity* e = h->entity;
         Map::Decor* d = h->decor;
         if (b && GameState::GetCurrentMapID() == 0 && GameState::IsPlayerCity()) {
-            // UNVERIFIED (milestone 4): during a city battle (g_Combat) damaged buildings show the
-            // tiny health bar (0xe) instead.
+            // (During a city battle, GameState::g_Combat, damaged buildings show the tiny health bar
+            // (0xe) instead: the siege system, dead in 5.11.)
             int step = GameState::TutorialStep();
             if (b->needsBuilder == 0 && b->upgrading == 0) {
             idle:
@@ -889,9 +1011,8 @@ void UpdateHovers() {
                 } else if (cls == 2) {
                     if (b->data->delivery && !b->HasActiveContract()) h->SetHoverType(kDelivery);
                     else h->SetHoverType(kNone);
-                } else if (cls == 0xc && !GameState::IsCityTutorial()) {
-                    // UNVERIFIED (milestone 4): only with no soldier slot occupied
-                    // (SoldierSlots::GetOccupiedSlotCount() == 0); there are no soldiers yet.
+                } else if (cls == 0xc && SoldierSlots::GetOccupiedSlotCount() == 0 && !GameState::IsCityTutorial()) {
+                    // A training ground calls for soldiers while the squad's slots are empty.
                     h->SetHoverType(kTraining);
                 } else {
                     h->SetHoverType(kNone);
@@ -976,7 +1097,7 @@ void UpdateHovers() {
             }
             h->SetHoverType(kNone);
         } else {
-            // UNVERIFIED (milestone 4+): visiting a friend, their goblins (class 0x16) show 0x13.
+            // (Visiting a friend's city, their goblins (class 0x16) show 0x13: online.)
         }
     checked:
         BuildingHoverWindow* w = g_hoverData[i]->window;
@@ -1022,7 +1143,7 @@ void ItemDrop::Animate(float dt) {
             int sx = (int)(x + sprite->w * 0.5f), sy = (int)(y + sprite->h * -0.5f);
             Map::WorldCoordinatesToScreen(sx, sy);
             if (!(0x4a < sx && sx < Render::ScreenWidth() - 0x4a && 0x4a < sy && sy < Render::ScreenHeight() - 0x4a))
-                Render::CenterOn(x + sprite->w * 0.5f, y - 180.f);   // (animated on the original)
+                Render::CenterOn(x + sprite->w * 0.5f, y - 180.f, true);
         }
         animating = false;
     }
@@ -1079,13 +1200,16 @@ void ItemDrop::Collect(bool automatic, bool) {
         ShowTextHoverWithStyle(x, y, text.c_str(), style, 2.f, 50.f, false, false);
         // SoundsManager::PlaySound(type == GOLD ? "collect_gold" : "collect_resource", 1, false):
         // sounds are not ported yet.
-        // UNVERIFIED (milestone 4): on other maps GameState::AddMapResourceCollectionInfo.
+        // Off the city the map's loot list counts it (FoundItemsWindow shows it at the end).
+        if (GameState::GetCurrentMapID() != 0)
+            GameState::AddMapResourceCollectionInfo((uint32_t)GameState::GetCurrentMapID(), type, (int)amount);
     }
     if (kind == 1) {
         uint32_t id = item->id;
         // UNVERIFIED (milestone 5, chests and quests): the starter chest 0x2b6 opens ChestsWindow
         // (SetStarterChestMode 0x35, or 0x3f with "starter_chest_b") and restarts task 0x75b.
-        bool timesOnly = id - 0x16cu < 2;   // (also clears 0x6188e0)
+        bool timesOnly = id - 0x16cu < 2;
+        if (timesOnly) g_rubyDropped = false;
         // UNVERIFIED (milestone 5): profession point items (Professions::GetProfessionForPointItem)
         // add profession points and show them at the belt; without professions they are items.
         if (id == 0x26a) {
@@ -1177,6 +1301,33 @@ void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* 
     if (GameState::tutorial == 0x48) GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
 }
 
+// @0x26fafc: with quest 0x4d7 (or 0x4d9) running, a drop may come with a ruby (0x16c, or 0x16d),
+// at "ruby_find_chance" percent; one at a time (picking it up allows the next).
+void CheckForSpecialDrops(float x, float y) {
+    for (const auto& [task, id] : {std::pair<uint32_t, uint32_t>{0x4d7, 0x16c}, {0x4d9, 0x16d}}) {
+        if (!Tasks::IsTaskActive(task, true) || g_rubyDropped) continue;
+        const long roll = Rand48::lrand48();
+        if (!((float)(roll % 100) < GameState::GetSetting("ruby_find_chance"))) continue;
+        g_rubyDropped = true;
+        Items::ItemInfo* info = Items::GetItemInfo(id);
+        g_itemDrops.emplace_back();
+        ItemDrop& d = g_itemDrops.back();
+        d.kind = 1;
+        d.item = info;
+        d.amount = 1;
+        d.sprite = Render::CreateSprite(info->GetDropIcon(), 0xc, false, false);
+        long r = Rand48::lrand48();
+        float vx;
+        if (!GameState::IsTutorial()) vx = (float)(r % 0x3c) - 30.f;
+        else vx = (float)(Rand48::lrand48() % 0x28) - 10.f;
+        const float hw = (float)(info->GetDropIcon()->w / 2), hh = (float)(info->GetDropIcon()->h / 2);
+        d.StartAnimation(x - hw, y - hh, vx, 0.f, (int)(Rand48::lrand48() % 0x28) + 0x5a);
+        d.glow = Render::CreateSprite(IconManager::GetIcon("Pickup_item_glow"), 0xb, false, false);
+        Render::SetShaderType(d.glow, 8);
+        Render::SetVisibility(d.glow, false);
+    }
+}
+
 void DropResource(float x, float y, int type, unsigned amount, bool collectNow, bool bonus) {
     if (amount == 0) return;
     do {
@@ -1231,8 +1382,7 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
         }
     } while (amount != 0);
     // SoundsManager::PlaySound("item_dropped_light", 1, false): sounds are not ported yet.
-    // CheckForSpecialDrops (0x26fafc): ruby finds while the quests 0x4d7/0x4d9 are active
-    // (Tasks::IsTaskActive). UNVERIFIED (milestone 4): quests are not ported, so it drops nothing.
+    CheckForSpecialDrops(x, y);
     if (GameState::tutorial == 0x14) GUI::SetInteractionLock(false);
     if (GameState::tutorial == 0x21 && type == GameState::kGold)
         GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
@@ -1292,7 +1442,8 @@ void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigne
             d.glow = Render::CreateSprite(IconManager::GetIcon("Pickup_item_glow"), 0xb, false, false);
             Render::SetShaderType(d.glow, 8);
             Render::SetVisibility(d.glow, false);
-            // CheckForSpecialDrops (see DropResource). SoundsManager::PlaySound("chest_opened" for
+            CheckForSpecialDrops(x, y);
+            // SoundsManager::PlaySound("chest_opened" for
             // type 8, else item_level 0 "item_dropped_light" / "item_dropped_special"): no sounds yet.
             if (GameState::tutorial == 0x56) GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
             // The emperor's map: the arrow's tap picks the item up (see UpdateTutorialDrops).
@@ -1445,7 +1596,7 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
             AIBaseState* ai = EntityManager::GetPlayer()->GetAI();
             SetArrowClickCallback(new GUI::Callback([ai, wolf] { ai->ClickedEntity(wolf); }));
             ArrowAt(wolf->worldX, wolf->worldY - wolf->GetIdleHeight(), false, false, false, false, false, false, false);
-            Render::CenterOn(wolf->worldX - 100.f, wolf->worldY);   // (animated over 0.4 s on the original)
+            Render::CenterOn(wolf->worldX - 100.f, wolf->worldY, true);
         }
         if (GameState::tutorial == 0x17) PlayerTopWindow::SetParameters(StringTable::GetString("DESC1911"), 0, false, true);
     }
@@ -1537,8 +1688,25 @@ void ShowWorldDialog(Entity* e, const char32_t* text, uint32_t task, bool arrow,
     if (!nextButton) g_worldDialog->HideNextButton();
     if (setSide) g_worldDialog->SetDefaultSideLeft(sideLeft);
     UpdateHovers();
-    // UNVERIFIED (milestone 4h): for task 0x427 (before task 0x429 is done) the sawmill's (0x6b) and
-    // the farm's (0x13) running contracts are taken back with their costs refunded.
+    // Task 0x427's dialog (before task 0x429 is done): a sawmill (0x6b) or farm (0x13, its first
+    // patch) running its second order switches to the first; the second's costs come back and
+    // the first's are paid.
+    if (task == 0x427 && !GameState::TaskCompleted(0x429)) {
+        auto swap = [](Map::Building* b, int& slot) {
+            if (slot != 2) return;
+            slot = 1;
+            const Contracts::Contract* c = b->data->delivery;
+            if (!c) return;
+            const Contracts::ContractMission& first = c->missions[0];
+            const Contracts::ContractMission& second = c->missions[1];
+            GameState::ChangeResourceAmount(second.priceResource, (int)second.priceResourceCount);
+            GameState::ChangeResourceAmount(GameState::kGold, (int)second.price);
+            GameState::ChangeResourceAmount(first.priceResource, -(int)first.priceResourceCount);
+            GameState::ChangeResourceAmount(GameState::kGold, -(int)first.price);
+        };
+        if (Map::Building* b = Map::GetBuildingWithID(0x6b)) swap(b, b->contract);
+        if (Map::Building* b = Map::GetBuildingWithID(0x13)) swap(b, b->patchContract[0]);
+    }
 }
 
 // @0x263a6c BuildingHovers::HideWorldDialog
@@ -1688,7 +1856,7 @@ void Update(double dtIn, bool force) {
     if (WindowManager::GetShownWindowCount() > g_arrowVisibleWindowLimit && ArrowVisible() &&
         !BuildingMovement::Activated() && !BuildingPlacement::Activated() && !GameState::IsTutorial())
         HideArrow();
-    // UNVERIFIED (tutorial): the tablet attention rings' animation.
+    UpdateArrowRings(fdt);
     g_worldDialog->Update(dt);
     UpdateHoverPositions();
     if (Timer::GetGlobalTime() != g_lastTime || force) {
@@ -1794,7 +1962,7 @@ bool Click(int x, int y, bool pressed) {
                     return true;
                 }
                 if (t == kHireTroops) {
-                    // UNVERIFIED (milestone 4): HireTroopsWindow::ShowForBuilding(tutorial 0x61 ? 0x8f : id).
+                    // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(tutorial 0x61 ? 0x8f : id).
                     return true;
                 }
                 if (b) {
@@ -1817,7 +1985,7 @@ bool Click(int x, int y, bool pressed) {
         int r = OnEntityClick(e, x, y);
         if (r != 2) return r != 0;
     }
-    // UNVERIFIED (milestone 4): in a city battle (g_Combat) a building with an active hover is tapped too.
+    // (In a city battle, g_Combat, a building with an active hover is tapped too: dead in 5.11.)
     if (b && !pressed && !BuildingHasActiveHover(b) && OnBuildingClick(b, x, y)) return true;
     if (d && !pressed) return OnDecorClick(d, x, y);
     return false;
@@ -1901,10 +2069,12 @@ bool OnDecorClick(Map::Decor* d, int x, int y) {
         w = g_currentHover = g_decorationWindow;
     }
     if (!w) {
-        // UNVERIFIED (milestone 4): a tap the city does not take goes to EntityManager::OnClick at the
-        // decoration's tile when (x, y) is (0, 0).
-        (void)x;
-        (void)y;
+        // Without a window the tap goes on to the entities: when (x, y) is (0, 0), at the
+        // decoration's tile.
+        if (x != 0 || y != 0) return false;
+        int wx = d->x, wy = d->y;
+        Map::TileCoordinatesToWorld(wx, wy);
+        EntityManager::OnClick(wx, wy);
         return false;
     }
     bool wasShown = g_wnd->shown;
@@ -1975,7 +2145,8 @@ int OnEntityClick(Entity* e, int x, int y) {
         }
     }
     if (!g_currentHover) {
-        // UNVERIFIED (milestone 4): on campaign maps (location 2) a live, active entity takes the tap.
+        // On campaign maps (location 2) a live, active entity's tap is not taken here.
+        if (GameState::GetCurrentLocation() == 2 && e->IsActive() && !e->IsDead()) return 0;
         return 2;
     }
     g_wnd->shown = true;
@@ -1990,7 +2161,7 @@ int OnEntityClick(Entity* e, int x, int y) {
 
 // @0x26726c: the tapped building's info window, placed over it. Returns whether the tap was taken.
 bool OnBuildingClick(Map::Building* b, int, int) {
-    // UNVERIFIED (milestone 4): in a city battle CombatManager::OnBuildingClicked takes the tap.
+    // (In a city battle CombatManager::OnBuildingClicked takes the tap: the siege system, dead in 5.11.)
     if (GameState::tutorial == 0x3a) {
         HideArrow();
         HideWorldDialog(nullptr);
@@ -2021,7 +2192,7 @@ bool OnBuildingClick(Map::Building* b, int, int) {
         } else if (b->IsOpened() && b->id == 99) {
             g_currentHover = g_castleWindow;
         } else if (b->IsOpened() && b->id == 0x8f) {
-            // UNVERIFIED (milestone 4): HireTroopsWindow::ShowForBuilding(id, false).
+            // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(id, false).
         } else if (cls == 4) {
             OnResourceAssign(b);
         } else if (b->IsOpened() && cls == 0) {
@@ -2032,11 +2203,11 @@ bool OnBuildingClick(Map::Building* b, int, int) {
             if (tutorialFarmLock && (unsigned)(GameState::tutorial - 0x3a) > 0x1b) return true;
             g_currentHover = g_factoryWindow;
         } else if (b->IsOpened() && cls == 0xc) {
-            // UNVERIFIED (milestone 4): the tavern's HireTroopsWindow (Setting "always_open_tavern"
+            // UNVERIFIED (milestone 5): the tavern's HireTroopsWindow (Setting "always_open_tavern"
             // == 1 outside tutorial step 0x61: building 0x8f's).
         }
     }
-    // UNVERIFIED (milestone 4): on other maps the campaign buildings' windows.
+    // (Off the city only the hover already chosen, if any, shows.)
     BuildingHoverWindow* w = g_currentHover;
     if (!w) return false;
     bool wasShown = g_wnd->shown;
@@ -2171,7 +2342,7 @@ void OnBuildingFinishedClick(Map::Building* b) {
 // A decoration's taxes: its chest (Chests, not ported yet), gold and XP drop at its sprite.
 void CreateDecorationDrop(Map::Decor* d) {
     if (!d || !d->data || !d->sprite) return;
-    // UNVERIFIED (milestone 4): a "collect_chest" opens ChestOpenedWindow with the chest's contents.
+    // UNVERIFIED (milestone 5): a "collect_chest" opens ChestOpenedWindow with the chest's contents.
     Render::Sprite* s = d->sprite;
     if (d->data->collectMoney != 0)
         DropResource(s->x + s->w * 0.5f, s->y + s->h * -0.5f, GameState::kGold, d->data->collectMoney, false, false);

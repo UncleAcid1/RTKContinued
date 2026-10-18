@@ -101,11 +101,14 @@ extern float aspect;             // 0x60f044
 void SetViewportMapBounds(int minX, int minY, int maxX, int maxY);   // @0x1f5ce4 (tiles)
 void ApplyViewportLimit();       // @0x1f5d08 keeps the view inside the map bounds, clamps the zoom
 float GetDefaultZoom();          // @0x1f6084
-// @0x1f60c0 CenterOn(x, y, _, animate=false, ...): the instant path. UNVERIFIED: the animated path
-// (camera tween in Render::Update) is not ported; its callers come with milestones 3-4.
-void CenterOn(float x, float y);
-// @0x1f5ccc: an animated CenterOn is still moving the view. The port's CenterOn is instant, so never.
-inline bool CenteringInProgress() { return false; }
+// @0x1f60c0 CenterOn(x, y, _, animate, duration, mode, keepZoom): the view on world (x, y) at the
+// default zoom; at once, or glided there over `duration` seconds (UpdateCamera). Mode 1 glides
+// linearly, else easing out (1 - (1-t)^4); keepZoom leaves the zoom as it is.
+void CenterOn(float x, float y, bool animate = false, float duration = 0.4f, int mode = 0, bool keepZoom = false);
+// @0x1f5ccc: an animated CenterOn is still moving the view (0x613fdc).
+bool CenteringInProgress();
+// Render::Update's camera step @0x1f92c0 (before ApplyViewportLimit): the CenterOn glide.
+void UpdateCamera(float dt);
 void SetForceLinear(bool on);   // @0x201514
 void SetMagnifyFilter(Texture* t, bool nearest);   // @0x2017f0 Texture::SetMagnifyFilter
 bool GetForceLinear();          // @0x201528

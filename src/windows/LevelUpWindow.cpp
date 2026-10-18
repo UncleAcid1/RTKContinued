@@ -146,10 +146,10 @@ void OnTweenOut() {
     GameState::DropGamePauseState();
     int cb = LevelUpCrystals();
     if (GameState::tutorial != 0x35) {
-        if (Entity* player = EntityManager::GetPlayer()) {   // UNVERIFIED (milestone 4): no hero yet
+        if (Entity* player = EntityManager::GetPlayer()) {
             for (int i = 0; i < cb; ++i)
                 BuildingHovers::DropResource(player->worldX, player->worldY, GameState::kCrystal, 1, false, false);
-            Render::CenterOn(player->worldX, player->worldY);   // UNVERIFIED: animated, zoom 0.4
+            Render::CenterOn(player->worldX, player->worldY, true);
             return;
         }
     }
@@ -382,8 +382,8 @@ void Hide() {
         g_root->SetZ(g_root->z);
         Render::SortRenderLayer(Render::kLayerGUI, 1);
     }
-    // UNVERIFIED (milestone 4): with GameState::GetTutorialType() 1 or 2 at tutorial step 0x34,
-    // CastleTopWindow::Show.
+    const int type = GameState::GetTutorialType();
+    if ((type == 1 || type == 2) && GameState::tutorial == 0x34) CastleTopWindow::Show();
 }
 
 }  // namespace LevelUpWindow

@@ -1154,7 +1154,7 @@ void PvPArenaCombat::Update(float dt) {
                             SWPrintf(0x100, StringTable::GetString("ASSASIN_DAIL"), {GameState::GetPlayerName()});
                         BuildingHovers::ShowWorldDialog(enemySquad->GetOwner(), text.c_str(), 0x772, true, true, true, 0, false,
                                                         true);
-                        Render::CenterOn(797.f, 282.f);   // (animated over 0.4 s on the original)
+                        Render::CenterOn(797.f, 282.f, true);
                     }
                 } else if (!GameState::TaskCompleted(0x5cd)) {
                     if (!PlayerTopWindow::IsPlayerDialogVisible() && !BuildingHovers::IsWorldDialogVisible()) {
@@ -1244,7 +1244,7 @@ void PvPArenaCombat::PostCombat() {
         int y = GameState::mBossMapPositions[9];
         if (y != 0) {
             Map::TileCoordinatesToWorld(x, y);
-            Render::CenterOn((float)x, (float)y);   // (animated over 0.4 s on the original)
+            Render::CenterOn((float)x, (float)y, true);
         }
     }
     completed = true;

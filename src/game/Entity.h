@@ -118,9 +118,8 @@ public:
     // @0x14ff94: the entity's own data (a PartialClone), deleted with it.
     void SetCustomEntityData(EntityData* d) { data = d; ownsData = true; }
     bool IsPlayer() const { return player; }     // @0x1505b0
-    // @0x15058c: spawned by a spawn point flagged NPC (+0x10). UNVERIFIED (milestone 4): spawn
-    // points are not ported, so no entity is an NPC yet.
-    bool IsNPC() const { return false; }
+    // @0x15058c: spawned by a spawn point flagged NPC (+0x10).
+    bool IsNPC() const;
     bool IsEnemy() const;                        // @0x150534 class 9, not of an NPC spawn point
     uint32_t GetGUID() const { return guid; }    // @0x1508bc
     void SetGUID(uint32_t g) { guid = g; }       // @0x1508b4
@@ -274,6 +273,10 @@ public:
     void CheckAggro() {}                                         // @0x150af8
     void MoveAwayAfterAnimation() { walkAwayOnEnd = true; }      // @0x1508a8
     static bool IsDeathAnimationRunning();                       // @0x1508d4 a boss is dying
+    static bool g_deathAnimation;    // 0x6119ac (OnDying a boss; Update ends it)
+    static Entity* g_dyingBoss;      // 0x6119d0
+    static float g_dyingBossTime;    // 0x6119d4
+    void UpdatePatrol(float dt);     // (part of Update @0x15ba40)
     void SetAggro(int range);                    // @0x151558 its spawn point's range (one is made if needed)
     // @0x1515a0: against an opponent of `level` (0: as it is). Three or more levels apart the hero's
     // falls (x0.75 / 0.5 / 0.3 at 2 / 3 / more) and a monster's rises (x1.25 / 1.5 / 1.75).
@@ -335,7 +338,9 @@ public:
     Render::Sprite* debugText = nullptr; // +0x80 (Map::debugEntity overlay, off)
     int f84 = 0, f88 = 0, f8c = 0;   // +0x84 defense, +0x88 attack, +0x8c crit chance (combat additions)
     float f90 = 1.f;                 // +0x90
-    bool f94 = false, f95 = false, f96 = false;   // +0x94..+0x96
+    bool patrolOnce = false;         // +0x94 the patrol is dropped after its last point
+    bool patrolHideAtEnd = false;    // +0x95 and the entity goes with it
+    bool f96 = false;                // +0x96
     Entity* nextParticle = nullptr;  // +0x98 the next particle entity of its decoration
     bool f9c = true;                 // +0x9c
     Render::Sprite* glow = nullptr;  // +0xa0
@@ -406,7 +411,7 @@ public:
     void* hoverWindow = nullptr;     // +0x1a0 the hover window that follows it (SetHoverWindowPositionHandling)
     bool removeSpriteOnEnd = false;  // +0x1a8
     bool walkAwayOnEnd = false;      // +0x1a9
-    bool f1aa = true;                // +0x1aa
+    bool wanders = true;             // +0x1aa it wanders round its spawn point (RemovePatrol stops it)
     Projectile* projectile = nullptr;   // +0x1ac its arrow in flight
     int overrideAttack = 0, overrideDefense = 0;   // +0x1bc +0x1c0
     uint32_t uniqueId = 0;           // +0x1c4

@@ -113,7 +113,7 @@ void WorldHintHoverWindow::SetParameters(const char32_t* str, uint32_t taskId, u
     special = specialId;
     if (GameState::tutorial == 0x51) {
         GameState::tutorial = 0x52;
-        Render::CenterOn(entity->worldX, entity->worldY - 80.f);   // (animated in the original: 0.4 s)
+        Render::CenterOn(entity->worldX, entity->worldY - 80.f);   // (at once)
         BuildingHovers::HideArrow();
         Tasks::Update(true);
         fixedSide = true;
@@ -190,12 +190,11 @@ void WorldHintHoverWindow::CenterIfOffScreen() {
         // Too high: the view goes up.
         int mx = sx, my = sy - 0x5f + H / 2;
         Map::MouseCoordinatesToWorld(mx, my);
-        // (animated in the original: 0.4 s)
-        if (GameState::secondTutorial != 0x8d) Render::CenterOn(-Render::offsetX, (float)my);
-        else Render::CenterOn((float)(root->x - 0x32), (float)my);
+        if (GameState::secondTutorial != 0x8d) Render::CenterOn(-Render::offsetX, (float)my, true);
+        else Render::CenterOn((float)(root->x - 0x32), (float)my, true);
         return;
     }
-    Render::CenterOn((float)root->x + (float)root->w * 0.5f, (float)root->y + (float)root->h * 0.5f);
+    Render::CenterOn((float)root->x + (float)root->w * 0.5f, (float)root->y + (float)root->h * 0.5f, true);
 }
 
 // @0x39b2e8 WorldHintHoverWindow::OnClose: its task is completed (unless the next task already

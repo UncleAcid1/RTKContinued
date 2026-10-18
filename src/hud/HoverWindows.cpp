@@ -232,7 +232,7 @@ bool BubbleHoverWindow::Click(int x, int y, bool pressed) {
                 return true;
             }
             if (cls == 0xc) {
-                // UNVERIFIED (milestone 4): HireTroopsWindow::ShowForBuilding(b->id, false).
+                // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(b->id, false).
                 return true;
             }
         }
@@ -566,7 +566,7 @@ void TaxesHoverWindow::OnCollect() {
         BuildingHovers::CreateDecorationDrop(decor);
     }
     Hide();
-    // BuildingHovers::HideWorldDialog(nullptr): the world dialog is not ported yet.
+    BuildingHovers::HideWorldDialog(nullptr);
 }
 
 void TaxesHoverWindow::Update(float dt) {
@@ -753,7 +753,7 @@ void ResourceRestoreHoverWindow::OnSpeedUp(bool confirmed) {
         NotEnoughWindow::AddItemRequirement(boostItem, (unsigned)boostAmount);
         if (!NotEnoughWindow::CheckRequirements()) {
             BuildingHovers::Hide();
-            // UNVERIFIED (milestone 4, Items): ItemShopWindow::Show + ShowShopItem(boostItem).
+            // UNVERIFIED (milestone 5): ItemShopWindow::Show + ShowShopItem(boostItem).
             return;
         }
     }
@@ -1002,8 +1002,28 @@ void BuildProgressHoverWindow::SetEntity(Entity* e) {
 void BuildProgressHoverWindow::SetDecoration(Map::Decor* d) {
     itemBoosts = (int)(GameState::GetSetting("item_boosts") + 0.5f) == 1;
     BuildingHoverWindow::SetDecoration(d);
-    // UNVERIFIED (milestone 3c, decoration jobs): a decoration's job (hint message or name, the
-    // tutorial's automatic speed-up, MoveRectIntoView) is not ported yet.
+    if (!decor) return;
+    const char32_t* hint = decor->GetHintMessage();
+    jobText->SetText(hint ? hint : decor->GetName());
+    canSpeedUp = GetSpeedUpCost() != 0 && GameState::tutorial > 0x3a;
+    Relayout(expanded && canSpeedUp);
+    // The tutorial's first two jobs (steps 0x1e and 0x3a) are hurried at once.
+    int& step = GameState::tutorial;
+    if (step < 0x5f && GetSpeedUpCost() > 0) {
+        left = 1.f;
+        if (step == 0x1e) step = 0x1f;        // (SoundsManager: milestone 6)
+        else if (step == 0x3a) step = 0x3b;
+        OnSpeedUp(true);
+    }
+    // The box is kept on screen (unless the camera is already moving).
+    if (!screen && decor->sprite && !Render::CenteringInProgress()) {
+        Render::Sprite* sp = decor->sprite;
+        const int w = root->w;
+        int x = (int)((sp->x + sp->w * 0.5f) - (float)(w / 2));
+        int y = (int)((sp->y - sp->h) - (float)(border->h + footer->h - 10));
+        BuildingHovers::MoveRectIntoView(x, y, x + w, y + root->h, false);
+    }
+    Update(0.f);
 }
 
 int BuildProgressHoverWindow::GetSpeedUpCost() {
@@ -1015,12 +1035,12 @@ int BuildProgressHoverWindow::GetSpeedUpCost() {
             cost = building->GetContractSpeedUpCost();
         return GameState::AdjustCrystalCost(cost);
     }
-    // UNVERIFIED (decoration jobs): AdjustCrystalCost(decor +0x54).
+    if (decor) return GameState::AdjustCrystalCost((int)decor->f54);
     return 0;
 }
 
 int BuildProgressHoverWindow::GetRemainingTime() {
-    if (!building) return 0;   // UNVERIFIED (decoration jobs): the decoration's job end - now
+    if (!building) return decor ? (int)(decor->collectStart + decor->f50 + 1 - Timer::GetGlobalTime()) : 0;
     int t = (int)std::ceil(building->buildLeft);
     unsigned cls = building->data->buildingClass;
     if ((cls == 2 || cls == 0xc) && building->HasActiveContract())
@@ -1067,7 +1087,7 @@ void BuildProgressHoverWindow::OnSpeedUp(bool confirmed) {
         NotEnoughWindow::AddItemRequirement(boostItem, (unsigned)boostAmount);
         if (!NotEnoughWindow::CheckRequirements()) {
             BuildingHovers::Hide();
-            // UNVERIFIED (milestone 4, Items): ItemShopWindow::Show + ShowShopItem(boostItem).
+            // UNVERIFIED (milestone 5): ItemShopWindow::Show + ShowShopItem(boostItem).
             return;
         }
     }
@@ -1079,7 +1099,7 @@ void BuildProgressHoverWindow::OnSpeedUp(bool confirmed) {
     if (step == 0x1f || step == 0x3b || step == 0x54 || step == 0x5f) {
         GUI::SetInteractionLock(true);
         BuildingHovers::HideArrow();
-        // UNVERIFIED (milestone 4): at 0x1f and 0x5f BuildingHovers::HideWorldDialog(nullptr) too.
+        if (step == 0x1f || step == 0x5f) BuildingHovers::HideWorldDialog(nullptr);
     }
 }
 
@@ -1090,8 +1110,7 @@ void BuildProgressHoverWindow::OnSpeedUpFinished() {
     } else if (step == 0x3b) {
         step = 0x3c;
     } else if (step == 0x54) {
-        // UNVERIFIED: the animated CenterOn at zoom 0.4 (the port's is instant).
-        Render::CenterOn(building->baseX, (building->maxY + building->minY) * 0.5f);
+        Render::CenterOn(building->baseX, (building->maxY + building->minY) * 0.5f, true);
         BuildingHovers::Hide();
         step = 0x55;
     } else if (step == 0x5f) {
@@ -1285,8 +1304,60 @@ void BuildProgressHoverWindow::Update(float dt) {
         clip.right = (int)((float)clip.left + (float)bar->w * (0.125f + v * 0.75f));
         bar->UpdatePosition();
     }
-    // UNVERIFIED (decoration jobs): the decoration branch (job progress, goblin horn / hourglass
-    // items, GetProgressMessage).
+    if (Map::Decor* d = decor) {   // a decoration's job
+        const uint32_t now = Timer::GetGlobalTime();
+        const uint32_t end = d->collectStart + d->f50 + 1;   // the second after the job's end
+        int price = 0;
+        if (Entity* w = d->GetWorker()) {
+            const bool goblin = w->GetEntityData()->name == "goblin";
+            itemIcon->SetTexture(IconManager::GetIcon(goblin ? "goblin_horn_35" : "hourglass_speed_35"), true);
+            boostItem = goblin ? 0x263 : 0x264;
+            boostAmount = Items::GetAmountToBoostTime(boostItem, end - now);
+            price = boostAmount;
+        }
+        if (!itemBoosts) price = GameState::AdjustCrystalCost((int)d->f54);
+        priceText->SetText(ToWideString(price));
+        const float total = (float)(d->f50 + 1);
+        left = 1.f - (float)(int)(now - d->collectStart) / total;
+        leftNext = 1.f - (float)(int)(now - d->collectStart + (uint32_t)HUDWindow::GetDeltaTimeMultiplier()) / total;
+        if (!d->WorkerIsWorking()) left = leftNext = 1.f;
+        if (speedingUp) left = 1.f - speedT;
+        if (left < 0.f) left = 0.f;
+        if (leftNext < 0.f) leftNext = 0.f;
+        float share;
+        std::u32string time;
+        if (!speedingUp) {
+            share = 1.f - (left + (leftNext - left) * secondFrac);
+            time = StringTable::GetNumericTimeString((int)(end - now), false);
+        } else {
+            share = 1.f - left;
+            time = StringTable::GetNumericTimeString((int)(left * total), false);
+        }
+        std::u32string text = SWPrintf(0x100, d->GetProgressMessage(), {time.c_str()});
+        size_t cut = text.find(U'%');
+        if (cut != std::u32string::npos) text.resize(cut);
+        textUnder->SetText(text.c_str());
+        textOver->SetText(text.c_str());
+        float v;
+        if (!speedingUp) {
+            float tick = dt + barTick;
+            if (!barStarted) barValue = share;
+            barStarted = true;
+            barTick = tick;
+            if (tick > 1.f / 30.f) {
+                barTick = 0.f;
+                barValue = (float)((double)barValue + (double)-(share - barValue) * -0.1339745962155614);
+            }
+            v = barValue;
+        } else {
+            v = speedT;
+            barValue = speedT;
+            barStarted = false;
+            barTick = 0.f;
+        }
+        clip.right = (int)((float)clip.left + (float)bar->w * (0.125f + v * 0.75f));
+        bar->UpdatePosition();
+    }
 }
 
 // ---- PlaceBuildingHoverWindow ----

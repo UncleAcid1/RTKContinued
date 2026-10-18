@@ -82,8 +82,8 @@ bool Click(int, int, bool) { return g_visible; }   // @0x366200
 void SetZ(float) {}                                // @0x366214
 void Hide() { g_visible = false; }                 // @0x366218
 
-// (Render::CenterOn's glide over 0.4 s is not in the port's renderer yet: it jumps.)
-void CenterOn(float x, float y) { Render::CenterOn(x, y); }
+// The camera glides there (over 0.4 s); the steps that jump call Render::CenterOn themselves.
+void CenterOn(float x, float y) { Render::CenterOn(x, y, true); }
 
 void Say(Entity* who, const char* key, uint32_t task, bool arrow, bool next, bool setSide, bool noCenter, bool left) {
     BuildingHovers::ShowWorldDialog(who, StringTable::GetString(key), task, arrow, next, setSide, 0, noCenter, left);

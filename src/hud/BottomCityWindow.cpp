@@ -5,8 +5,12 @@
 #include <vector>
 
 #include "engine/IconManager.h"
+#include "game/Building.h"
+#include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
+#include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Map.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
@@ -25,6 +29,7 @@ std::vector<Window*> g_windows;                       // +0x00 the seven button 
 GUI::MovementEffect* g_instrumentEffects[5] = {};     // +0x10 Move, Rotate, Sell, Confirm, Cancel
 int g_mode = 0;                                       // +0x24 0 move, 1 rotate, 2 demolish (pulses)
 float g_pulseTime = 0.f;                              // +0x28
+int g_arrowCallback = 0;                              // +0x2c the tutorial arrow's callback id
 ButtonBuildingControls g_build;                       // +0x30
 ButtonBuildingControls g_edit;                        // +0x5c
 ButtonBuildingControls g_move;                        // +0x88
@@ -309,9 +314,27 @@ void Update(float dt) {
         b.green->SetAlpha(a, true);
         b.icon->SetAlpha(a, true);
     }
-    // UNVERIFIED (milestone 4): at tutorial steps 0x5a/0x5b (0x5b only while the shop is closed) the
-    // tutorial points an arrow at the Build button, or assigns a worker to the building at (0x1a, 0x11)
-    // and moves on to step 0x5d. Needs Map buildings, BuildingHovers and entities.
+    // The tutorial's second building: an arrow at the Build button (its tap opens the shop) until
+    // the building at (0x1a, 0x11) is placed; then a worker is sent to it.
+    int& step = GameState::tutorial;
+    if (step == 0x5a || (step == 0x5b && !ShopWindow::IsVisible())) {
+        Map::Building* b = Map::GetBuilding(0x1a, 0x11);
+        if (!b) {
+            if (BuildingHovers::GetArrowClickCallbackID() != g_arrowCallback)
+                g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnBuild));
+            GUI::SetInteractionObjectLock(g_build.clickArea, nullptr);
+            Window* r = g_build.root;
+            BuildingHovers::ArrowAt((float)(r->x + r->w / 2), (float)r->y, false, false, false, false, true, false,
+                                    false);
+            BuildingHovers::SetArrowVisibleWindowLimit(1);
+            step = 0x5b;
+        } else {
+            b->needsBuilder = 1;
+            b->AssignWorker(EntityManager::GetEntityByClass(0, false, true), 0);
+            GUI::SetInteractionLock(true);
+            step = 0x5d;
+        }
+    }
 }
 
 }  // namespace BottomCityWindow

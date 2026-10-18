@@ -448,7 +448,7 @@ void Decor::TeleportPlayerTile(int tx, int ty) {
     Entity::UpdateSafePos(player);
     player->GetSquad()->MoveTo(AI::GetWaypoint(tx, ty, false));
     TileCoordinatesToWorld(tx, ty);
-    Render::CenterOn((float)tx, (float)ty);   // (animated over 0.4 s on the original)
+    Render::CenterOn((float)tx, (float)ty, true);
 }
 
 // @0x13391c Map::Decor::TeleportAction
@@ -670,7 +670,7 @@ void Decor::Update(double dt) {
             int sx = (int)worker->worldX, sy = (int)worker->worldY;
             WorldCoordinatesToScreen(sx, sy);
             if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
-                Render::CenterOn(worker->worldX, worker->worldY);   // (animated over 0.4 s on the original)
+                Render::CenterOn(worker->worldX, worker->worldY, true);
         }
         if (Timer::GetGlobalTime() > f50 + collectStart) {
             RemoveWorker();
@@ -752,7 +752,7 @@ void Decor::TrapDamage(const MetaData* d) {
         int sx = (int)e->worldX, sy = (int)e->worldY;
         WorldCoordinatesToScreen(sx, sy);
         if (sx < 0x32 || sx >= Render::ScreenWidth() - 0x31 || sy < 0x32 || sy >= Render::ScreenHeight() - 0x31)
-            Render::CenterOn(e->worldX, e->worldY);   // (animated over 0.4 s on the original)
+            Render::CenterOn(e->worldX, e->worldY, true);
     }
     const int damage = d->GetChild(0)->GetInt();
     if (damage < e->GetHP()) {

@@ -459,7 +459,10 @@ void AIBaseState::UpdateWalking(float dt, int depth) {
     x = tx;
     y = ty;
     runTime = 0.f;
-    // UNVERIFIED (milestone 4): the player's sprint costs AP off the city and map 0xb.
+    // UNVERIFIED (milestone 5, running on the rage bar's centre button): the hero's sprint
+    // (Entity::IsSpeedRunning) doubles his speed in the city and on map 0xb from level 5, and
+    // elsewhere costs AP every "player_sprint_cost" tiles (out of AP: the squad stops running,
+    // BottomBattleWindow::EnableFuryGlow).
     current = nxt;
     if (repathing) repathing = false;
     entity->SetPos(nxt->x, nxt->y);
@@ -506,8 +509,8 @@ void AIWorker::StartWorking() {
     entity->OnStartedToWork();
     if (Map::Building* b = entity->GetWorkplace()) {
         b->WorkStarted();
-    } else if (entity->GetWorkplaceDecoration()) {
-        // UNVERIFIED (milestone 3, decorations): Decor::WorkStarted unless offline.
+    } else if (Map::Decor* d = entity->GetWorkplaceDecoration()) {
+        if (!entity->GetOfflineMode()) d->WorkStarted();
     } else {
         std::fprintf(stderr, "ERROR: AIWorker::StartWorking() Cannot start work, no target specified\n");
     }
@@ -531,11 +534,22 @@ void AIWorker::StartWorking() {
         entity->SetDirection(3);
         entity->SetAnimationP("build", true, false, false);
     }
-    // (tutorial step 0x5d centres the camera on (2150, 258) and moves to 0x5e)
+    // The tutorial's second building is started: the camera goes over to it.
+    if (GameState::tutorial == 0x5d) {
+        Render::CenterOn(2150.f, 258.f, true);
+        GameState::tutorial = 0x5e;
+    }
 }
 
 void AIWorker::WalkCompleted() {
-    // (tutorial steps 0x1c, 0x23, 0x26 and 0x2b advance here)
+    // The city tutorial waits for the guide's walks.
+    int& step = GameState::tutorial;
+    if (step == 0x1c) step = 0x1d;
+    else if (step == 0x23) step = 0x24;
+    else if (step == 0x26) {
+        BuildingHovers::HideWorldDialog(nullptr);
+        step = 0x2a;
+    } else if (step == 0x2b) step = 0x2c;
     if (entity) {
         if (entity->GetWorkplace() || entity->GetWorkplaceDecoration()) StartWorking();
         if (entity && entity->disappearOnArrival) {
@@ -549,8 +563,8 @@ void AIWorker::WalkCompleted() {
 void AIWorker::RemoveFromJob() {
     if (Map::Building* b = entity->GetWorkplace()) {
         b->WorkEnded();
-    } else if (entity->GetWorkplaceDecoration()) {
-        // UNVERIFIED (milestone 3, decorations): Decor::WorkEnded.
+    } else if (Map::Decor* d = entity->GetWorkplaceDecoration()) {
+        d->WorkEnded();
     } else {
         std::fprintf(stderr, "ERROR: AIWorker::RemoveFromJob() Cannot start work, no target specified\n");
     }
@@ -597,8 +611,9 @@ void AIWorker::RemoveFromJob() {
 bool AIWorker::AssignToJob(Map::Decor* d) {
     speed = 140.f;
     job = 1;
-    // UNVERIFIED (milestone 3, decorations): the action point is Decor::GetActionPoint(x, y, 0).
-    AI::Waypoint* wp = AI::GetWaypoint(d->x, d->y, false);
+    int ax = 0, ay = 0;
+    d->GetActionPoint(ax, ay, 0);
+    AI::Waypoint* wp = AI::GetWaypoint(ax, ay, false);
     Reset(true);
     repathing = false;
     entity->disappearOnArrival = false;
@@ -608,7 +623,11 @@ bool AIWorker::AssignToJob(Map::Decor* d) {
         WalkTo(wp->x, wp->y);
         ChangeState(5);
     }
-    // (tutorial step 0x1e locks the GUI and hides the arrow and dialog)
+    if (GameState::tutorial == 0x1e) {   // the tutorial's first decoration job
+        GUI::SetInteractionLock(true);
+        BuildingHovers::HideArrow();
+        BuildingHovers::HideWorldDialog(entity);
+    }
     return true;
 }
 
@@ -771,9 +790,23 @@ void AIGoblin::WalkCompleted() {
                 return;
             }
         }
-    } else if (step == 5) {
-        // UNVERIFIED (milestone 3, decorations): the goblin's decoration job (search/build
-        // animation, Decor::WorkStarted, facing the decoration, state 8).
+    } else if (step == 5) {   // at a decoration: its job starts
+        Map::Decor* d = entity->GetWorkplaceDecoration();
+        const char* anim = d->GetGoblinSearchAnimation();
+        if (!anim) {
+            entity->SetAnimationP("search_low", true, false, false);
+        } else {
+            // UNVERIFIED (milestone 6): "building_build_start" when anim is "build".
+            entity->SetAnimationP(anim, true, false, false);
+        }
+        ChangeState(8);
+        entity->OnStartedToWork();
+        if (!entity->GetOfflineMode()) entity->GetWorkplaceDecoration()->WorkStarted();
+        int bw = 0, bh = 0, bx = 0, by = 0;
+        entity->GetWorkplaceDecoration()->GetBuildZone(bw, bh);
+        entity->GetWorkplaceDecoration()->GetStartTile(bx, by);
+        TurnTo(entity->tileX, entity->tileY, bx, by, bw, bh);
+        BuildingHovers::Update(0.0, true);
         return;
     } else if (step == 3) {
         SetCarryAnimation(this, order->type);
@@ -785,7 +818,8 @@ void AIGoblin::WalkCompleted() {
             return;
         }
     } else {
-        // (step 1, a pile delivered: tutorial step 0x30 moves to 0x33)
+        // (step 1, a pile delivered)
+        if (GameState::tutorial == 0x30) GameState::tutorial = 0x33;
         {
             std::string n = std::to_string(order->amount);
             std::u32string text = U"+" + std::u32string(n.begin(), n.end()) + U" ";   // "+%d %s"
@@ -809,11 +843,12 @@ void AIGoblin::WalkCompleted() {
 }
 
 bool AIGoblin::AssignToJob(Map::Decor* d) {
-    // UNVERIFIED (milestone 3, decorations): the action point is Decor::GetActionPoint(x, y, 0).
+    int ax = 0, ay = 0;
+    d->GetActionPoint(ax, ay, 0);
     SetSpeed(100.f);
     entity->SetAlpha(0.f);
     entity->Appear(false, true);
-    AI::Waypoint* wp = AI::GetWaypoint(d->x, d->y, false);
+    AI::Waypoint* wp = AI::GetWaypoint(ax, ay, false);
     if (!wp) wp = AI::GetWaypointNearDecoration(d, false);
     if (!wp) return false;
     path.clear();
@@ -824,7 +859,7 @@ bool AIGoblin::AssignToJob(Map::Decor* d) {
 }
 
 void AIGoblin::RemoveFromJob() {
-    // UNVERIFIED (milestone 3, decorations): Decor::WorkEnded on the workplace decoration.
+    BuildingHovers::Update(0.f, true);   // Decor::WorkEnded @0x1317a4 (it does not use its decoration)
     ChangeState(0);
     entity->SetAnimationP("idle_1", true, false, false);
     entity->Disappear();

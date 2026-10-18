@@ -703,11 +703,54 @@ void ApplyViewportLimit() {
 
 float GetDefaultZoom() { return g_baseZoom / (float)(g_screenW / 2); }
 
-void CenterOn(float x, float y) {
-    float z = GetDefaultZoom();
-    offsetX = -x;
-    offsetY = y;
-    zoom = z;
+namespace {
+// The CenterOn glide (0x613fd4..): from (start) to (target) over g_centerDuration seconds.
+bool g_centering = false;         // 0x613fdc
+float g_centerT = 0.f;            // 0x613ff0 0..1
+float g_centerDuration = 0.4f;    // 0x60f038 (back to 0.4 at the end)
+float g_startZoom = 0.f, g_startX = 0.f, g_startY = 0.f;     // 0x613ff4 0x613ff8 0x613ffc
+float g_targetZoom = 0.f, g_targetX = 0.f, g_targetY = 0.f;  // 0x614000 0x614004 0x614008
+int g_centerMode = 0;             // 0x61400c 1 linear
+bool g_centerKeepZoom = false;    // 0x614010
+}  // namespace
+
+void CenterOn(float x, float y, bool animate, float duration, int mode, bool keepZoom) {
+    if (!animate) {
+        g_centering = false;
+        offsetX = -x;
+        offsetY = y;
+        zoom = GetDefaultZoom();
+        return;
+    }
+    g_centerT = 0.f;
+    g_centerDuration = duration;
+    g_centering = true;
+    g_startZoom = zoom;
+    g_startX = offsetX;
+    g_startY = offsetY;
+    g_targetZoom = GetDefaultZoom();
+    g_centerKeepZoom = keepZoom;
+    g_targetX = -x;
+    g_targetY = y;
+    g_centerMode = mode;
+}
+
+bool CenteringInProgress() { return g_centering; }
+
+void UpdateCamera(float dt) {
+    if (!g_centering) return;
+    float t = dt / g_centerDuration + g_centerT;
+    g_centerT = t;
+    if (t > 1.f) {
+        g_centerT = 1.f;
+        g_centering = false;
+        g_centerDuration = 0.4f;
+        t = 1.f;
+    }
+    float e = g_centerMode == 1 ? g_centerT : 1.f - std::pow(1.f - t, 4.f);
+    if (!g_centerKeepZoom) zoom = e * g_targetZoom + (1.f - e) * g_startZoom;
+    offsetY = e * g_targetY + (1.f - e) * g_startY;
+    offsetX = e * g_targetX + (1.f - e) * g_startX;
 }
 
 size_t SpriteCount() {
