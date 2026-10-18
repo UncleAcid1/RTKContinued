@@ -6,7 +6,8 @@
 //
 // Milestone 5a: the window, its parts, opening, tabs, scrolling, the soldier drag; 5b: UpdateContents
 // (the cards, the slots); 5c-1: Train and Hire, the hire glide, Update, OnTweenIn's tutorial arrows.
-// UNVERIFIED (milestone 5c): the other buttons' actions.
+// UNVERIFIED (milestone 5c-3): the build / upgrade / task button.
+// 5c-2: the cost cells' hints, refresh, the squad / reserve slots' hints (move, dismiss, unlock).
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -284,7 +285,7 @@ unsigned g_poolSlot = 0xffffffff;        // 0x60f288 the reserve slot SoldierMov
 int g_respawn[6] = {0, 0xa8c, 0xa8c, 0xe10, 0, 1};
 float g_scale = 1.f;                     // 0x60f2a4
 unsigned g_squadSlot = 0xffffffff;       // 0x60f2a8 the squad slot a dragged soldier left
-int g_unk60f2ac = -1;                    // 0x60f2ac (Show: -1)
+int g_tappedUnit = -1;                   // 0x60f2ac the tapped slot's unit id (-1: none; only written)
 bool g_tablet = true;                    // 0x60f2b0
 
 int g_lastSecond = 0;                    // 0x622a60 the global second Update last refreshed the contents in
@@ -294,13 +295,15 @@ void OnHire(unsigned n, bool confirmed);
 void Update(float dt);
 void OnTweenIn();
 
-// UNVERIFIED (milestone 5c): the other buttons' actions are not ported yet.
-void OnItem(unsigned, unsigned) {}       // (0x2ceca4)
+void OnItem(unsigned n, unsigned k);
+void OnRefresh(unsigned n, bool confirmed);
+void OnSquad(unsigned n);
+void OnReserve(unsigned n);
+void OnHintGold(bool confirmed);
+void OnHintDismissContinue();
+
+// UNVERIFIED (milestone 5c-3): the build / upgrade / task button is not ported yet.
 void OnBlueButton(unsigned) {}           // (0x2d03f4)
-void OnRefresh(unsigned, bool) {}        // (0x2d8830)
-void OnSquad(unsigned) {}                // (0x2d80d0)
-void OnReserve(unsigned) {}              // (0x2d7d08)
-void OnHintGold(bool) {}                 // (0x2d7ae8)
 
 bool InRect(const Window* w, int x, int y) {
     const int l = g_root->x + w->x, t = g_root->y + w->y;
@@ -677,7 +680,7 @@ void Show() {
     g_root->SetVisibility(true);
     {
         Timer::TimeCompensationBlock block;
-        g_unk60f2ac = -1;
+        g_tappedUnit = -1;
         // (EntityFactory::SetTransactionTime(Timer::GetGlobalTime()): the server's clock, online.)
         UpdateContents();
         const bool full = GameState::tutorial != 0x61;
@@ -1672,6 +1675,194 @@ void OnTweenIn() {
         BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnBlueButton(0); }));
         g_arrowOnBuild = false;
     }
+}
+
+}  // namespace
+
+// @0x2d8788: the soldier of the tapped squad slot goes to the reserve, else the tapped reserve
+// soldier joins the squad.
+void OnHintMove() {
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    if (g_squadSlot != 0xffffffff) {
+        SoldierMove(SoldierSlots::GetSoldierBySlot(g_squadSlot)->GetEntityData()->id);
+        return;
+    }
+    if (g_poolSlot < g_reserveList.size()) SoldierMove(g_reserveList[g_poolSlot].entity);
+}
+
+// @0x2cea28: "dismiss <name>?" for the tapped reserve soldier.
+void OnHintDismiss() {
+    if (g_poolSlot >= g_reserveList.size()) return;
+    Entity* e = g_reserveList[g_poolSlot].soldier;
+    if (!e) return;
+    PopupWindow::Show(
+        SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_DISMISS_CONFIRM"), {e->GetEntityData()->title}).c_str(),
+        OnHintDismissContinue, PopupWindow::Hide, nullptr);
+}
+
+namespace {
+
+// @0x2d7ca8: the popup's yes: the soldier leaves for good.
+void OnHintDismissContinue() {
+    if (g_poolSlot >= g_reserveList.size()) return;
+    Entity* e = g_reserveList[g_poolSlot].soldier;
+    if (!e) return;
+    SoldierPool::RemoveSoldier(e);
+    EntityManager::RemoveEntity(e, true);
+    UpdateContents();
+}
+
+// The hint popup over window w (from below), on top.
+void ShowHoverAt(const Window* w) {
+    const int x = g_root->x + w->x, y = g_root->y + w->y;
+    g_hover->SetTargetRect(x, y, x + w->w, y + w->h, ItemHoverWindow::kS);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
+
+// @0x2ceca4: card n's cost cell k: the item (0), gold (1) or the resource (2).
+void OnItem(unsigned n, unsigned k) {
+    const EntityData* d = EntityFactory::GetEntityByID((int)g_offers[g_scroller.firstIndex + n]->entity);
+    if (!d) return;
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    g_hover->Show();
+    if (k == 0) {
+        if (Items::ItemInfo* info = Items::GetItemInfo((uint32_t)d->itemCostId))
+            g_hover->SetItem(nullptr, nullptr, info, false, true, nullptr, false, false, false, false);
+    } else if (k == 1) {
+        g_hover->SetResource(8, true);
+    } else if (k == 2) {
+        g_hover->SetResource(d->resourceCostType, true);
+    }
+    ShowHoverAt(g_warriors[n].costs[k].root);
+}
+
+// @0x2d8830: card n's "new offer now" for crystals (asks first): the tab's respawn time counts as
+// passed and the next HP is drawn.
+void OnRefresh(unsigned n, bool confirmed) {
+    NotEnoughWindow::ResetRequirements();
+    const int price = GameState::AdjustCrystalCost(GetResetCost(g_tab));
+    NotEnoughWindow::AddRequirement(9, (unsigned)price);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return;
+    }
+    if (!confirmed) {
+        ConfirmPurchaseWindow::SetParameters([n] { OnRefresh(n, true); }, (unsigned)price, true);
+        ConfirmPurchaseWindow::Show();
+        return;
+    }
+    // (FileManager::OnItemBought and Billing::LogCBPurchase(0x1a, ...): purchase statistics,
+    // removed.) UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+    GameState::ChangeResourceAmount(9, -price);
+    Tavern::TavernInfo* offer = g_offers[g_scroller.firstIndex + n];
+    GameState::SetTavernWarriorTS(offer->entity, (uint32_t)(Timer::GetGlobalTime() - g_respawn[g_tab]));
+    GameState::SetTavernWarriorHP(offer->entity, offer->GenerateHP());
+    UpdateContents();
+}
+
+// @0x2d7ae8: the unlock slot's "Unlock" (the hurry bubble's button) for crystals, asking first:
+// one more reserve slot ("reserve_slot_cost" from "reserve_slot_start" on).
+void OnHintGold(bool confirmed) {
+    if (g_poolSlot < g_reserveList.size()) return;
+    NotEnoughWindow::ResetRequirements();
+    Setting costs("reserve_slot_cost");
+    const int price =
+        GameState::AdjustCrystalCost(costs.GetChild((unsigned)((int)g_poolSlot - Setting("reserve_slot_start").GetInt())).GetInt());
+    NotEnoughWindow::AddRequirement(9, (unsigned)price);
+    g_speedup->SetVisibility(false);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return;
+    }
+    if (!confirmed) {
+        ConfirmPurchaseWindow::SetParameters([] { OnHintGold(true); }, (unsigned)price, true);
+        ConfirmPurchaseWindow::Show();
+        return;
+    }
+    // (FileManager::OnItemBought("reserve_slot", ...) and Billing::LogCBPurchase(0x1b, ...): purchase
+    // statistics, removed.) UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+    GameState::ChangeResourceAmount(9, -price);
+    GameState::SetSoldierReserveSlots(GameState::GetSoldierReserveSlots() + 1);
+    UpdateContents();
+}
+
+// @0x2d7d08: reserve slot n: a soldier's hint (Move / Dismiss) unless it is out working (on the
+// city map: one at the training building); the first slot past the open ones shows the unlock
+// bubble with its price.
+void OnReserve(unsigned n) {
+    Entity* e = nullptr;
+    int unit = 0;
+    if (n < g_reserveList.size()) {
+        e = g_reserveList[n].soldier;
+        unit = (int)g_reserveList[n].entity;
+    }
+    g_poolSlot = n;
+    g_squadSlot = 0xffffffff;
+    g_tappedUnit = unit;
+    // (The original then calls SoldierSlots::GetFirstSoldierByID(unit) once per squad slot and drops
+    // the results.)
+    if (!e) {
+        const unsigned open = GameState::GetSoldierReserveSlots();
+        if (n >= open && open == n && n < 5) {
+            // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+            g_speedup->SetVisibility(true);
+            const Window* s = g_reserve[n].root;
+            g_speedup->SetPosition(s->x + g_root->x + s->w / 2 - g_speedup->w / 2, g_root->y + s->y + 0xf - g_speedup->h);
+            g_speedupJob->SetText(StringTable::GetString("HIRE_TROOPS_RESERVE_EXPAND"));
+            g_hurryText->SetText(StringTable::GetString("HIRE_TROOPS_UNLOCK"));
+            Setting costs("reserve_slot_cost");
+            g_hurryPrice->SetText(ToWideString(GameState::AdjustCrystalCost(
+                costs.GetChild(n - (unsigned)Setting("reserve_slot_start").GetInt()).GetInt())));
+        }
+        UpdateContents();
+        return;
+    }
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    const bool city = GameState::GetCurrentMapID() == 0;
+    if (e->workType == 1 && (!city || e->GetAI()->GetState() != 0x1d)) {
+        UpdateContents();
+        return;
+    }
+    if (city && e->GetAI()->GetState() == 0x1d) {
+        UpdateContents();
+        return;
+    }
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    g_hover->Show();
+    g_hover->SetEntity(e, e->GetEntityData(), false, true);
+    ShowHoverAt(g_reserve[n].root);
+    UpdateContents();
+}
+
+// @0x2d80d0: squad slot n: its soldier's hint (Move / Dismiss); a locked slot (past the open
+// ones) tells the quest that unlocks it ("squad_slot_02/03_quest_unlock").
+void OnSquad(unsigned n) {
+    g_tappedUnit = -1;
+    g_squadSlot = n;
+    g_poolSlot = 0xffffffff;
+    Entity* e = SoldierSlots::GetSoldierBySlot(n);
+    if (!e && n < GameState::GetSoldierSlotCount()) {
+        UpdateContents();
+        return;
+    }
+    const Tasks::TaskInfo* task =
+        Tasks::GetTask((uint32_t)Setting(n == 1 ? "squad_slot_02_quest_unlock" : "squad_slot_03_quest_unlock").GetInt());
+    const std::u32string lock = task ? SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {task->name})
+                                     : SWPrintf(0x100, StringTable::GetString("SHOP_UNLOCK_TASK"));
+    if (!e) {
+        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+        g_hover->Show();
+        g_hover->SetText(StringTable::GetString("WAR_SLOT_LOCKED"), lock.c_str());
+    } else {
+        g_tappedUnit = (int)e->GetEntityData()->id;
+        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+        g_hover->Show();
+        g_hover->SetEntity(e, e->GetEntityData(), false, true);
+    }
+    ShowHoverAt(g_squad[n].root);
+    UpdateContents();
 }
 
 }  // namespace

@@ -191,6 +191,8 @@ removed  ^Tasks::SendTasksFootprint$   # sent with a real-money purchase (Exchan
 5   ^Tasks::ShowWarriorSlotUnlock$   # CraftSuccessWindow::SetParameters(0) and Show: with the craft windows
 4d  ^Tasks::(TaskSubtask::OnHelp|HelpWithLocation|HelpWithMapSwitchTo|HelpWithMapSwitchToContinuation|RunLastSubTaskHelp|ShowWarriorSlotUnlock)$   # the task window's "Go" button (TaskInfoWindow::OnHelpActual) and what it navigates with; moved from 4c part 4
 util  ^TaskHolderWindow::FUN_(00355298|00355bc4|00355c64|00355df8)$   # std::sort with TaskOrdering (insertion sort, heap, introsort)
+util  ^HireTroopsWindow::FUN_(002d00d4|002d0174|002d0260)$   # std::sort with SortTavernInfoBySlot (insertion sort, heap adjust, heap select)
+dead  ^HireTroopsWindow::OnMove$   # nothing calls it in 5.11 (only its symbol)
 util  ^Tasks::FUN_(0022f610|0023590c|00235e44)$   # callback object factories of OnHelp's arrows (lambdas in the port)
 util  ^Tasks::FUN_(0023583c|00235eac)$   # a name hash map's insert and clear
 4c  ^(Tasks|Override)::

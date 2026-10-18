@@ -441,4 +441,6 @@ void OnTab(unsigned tab, bool arrowOnBuild);   // @0x2d8f04
 void UpdateContents();                      // @0x2d05e4
 void ShowSlot(unsigned n);                  // @0x2cee94 the strip scrolls to card slot n
 void ShowEntity(uint32_t entity);           // @0x2d913c the strip scrolls to the offer of that unit
+void OnHintMove();                          // @0x2d8788 the tapped soldier changes sides (ItemHoverWindow's Move)
+void OnHintDismiss();                       // @0x2cea28 asks before dismissing the tapped reserve soldier
 }

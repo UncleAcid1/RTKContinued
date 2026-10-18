@@ -26,6 +26,7 @@
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "hud/HUD.h"
+#include "game/Tavern.h"
 #include "windows/Windows.h"
 
 namespace {
@@ -1107,8 +1108,16 @@ void ItemHoverWindow::OnAskFriends() {
 // @0x384c6c
 void ItemHoverWindow::OnTrain() {
     if (!unitData) return;
-    // UNVERIFIED (milestone 5): HireTroopsWindow for the unit's building (EntityData +0x130) or its
-    // tavern tab (Tavern::GetForEntity), then ShowEntity(unit id).
+    // The unit's training building, else the tab of its tavern offer.
+    if (unitData->trainingObjType == 0) {
+        const Tavern::TavernInfo* t = Tavern::GetForEntity(unitData->id);
+        if (!t) return;
+        HireTroopsWindow::Show();
+        HireTroopsWindow::OnTab(t->type, false);
+    } else {
+        HireTroopsWindow::ShowForBuilding((uint32_t)unitData->trainingObjType, false);
+    }
+    HireTroopsWindow::ShowEntity(unitData->id);
     Hide();
 }
 
@@ -1124,9 +1133,15 @@ void ItemHoverWindow::OnHeal() {
     Hide();
 }
 
-// @0x384bb4 / @0x384b94: HireTroopsWindow::OnHintMove / OnHintDismiss (milestone 5: UNVERIFIED).
-void ItemHoverWindow::OnMove() { Hide(); }
-void ItemHoverWindow::OnDismiss() { Hide(); }
+// @0x384bb4 / @0x384b94
+void ItemHoverWindow::OnMove() {
+    HireTroopsWindow::OnHintMove();
+    Hide();
+}
+void ItemHoverWindow::OnDismiss() {
+    HireTroopsWindow::OnHintDismiss();
+    Hide();
+}
 
 // @0x3849d8: the tame tutorial on map 0xd feeds the wolf.
 void ItemHoverWindow::OnFeed() {

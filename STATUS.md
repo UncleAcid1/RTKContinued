@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5c-2 (5c split 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5c-3 (5c split 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1688,10 +1688,22 @@ Milestones:
                    step 0x62 -> 0x63; OnContractCompleted's class 0xc note).
                    Note: "TutorialWindow::UpdateCity() Amount of lumber after tutorial (311) ..." is
                    printed at f=780 of case 2/3 already (before this step).
-              5c-2 [ ] OnSquad, OnReserve, OnRefresh, OnMove, the hints (OnHintGold / OnHintMove /
-                   OnHintDismiss / OnHintDismissContinue), OnBlueButton, OnItem, FUN_002d00d4 /
-                   FUN_002d0174 / FUN_002d0260.
-              5c-3 [ ] OnUpgrade (+Continuation), CheckUpgradeRequirements, OnBuild (g_buildTask),
+              5c-2 [x] (2026-10-18) OnItem (cost cell hints: item / gold / resource), OnRefresh (new
+                   offer for crystals: the tab's respawn counts as passed), OnSquad (soldier hint with
+                   Move / Dismiss, locked slot: WAR_SLOT_LOCKED + HIRE_TROOPS_TASK_LOCK or
+                   SHOP_UNLOCK_TASK), OnReserve (soldier hint unless working; the first closed slot ->
+                   the hurry bubble HIRE_TROOPS_RESERVE_EXPAND / UNLOCK with reserve_slot_cost), OnHintGold
+                   (buys the reserve slot), OnHintMove, OnHintDismiss (+Continue: removes the soldier);
+                   ItemHoverWindow::OnTrain / OnMove / OnDismiss now call the window. g_unk60f2ac is
+                   g_tappedUnit (only written). port_plan: FUN_002d00d4/0174/0260 util (std::sort with
+                   SortTavernInfoBySlot), OnMove dead (no caller). OnBlueButton moved to 5c-3 (it routes
+                   to OnBuild / OnUpgrade / OnTaskDo). VERIFIED (case 3 with a temporary full layout and
+                   no input lock, reverted): the Cookie cell hint (Food / Bakery), the locked squad slot
+                   ("Locked / Complete Quest": squad_slot_0x_quest_unlock is a server setting, 0 offline,
+                   as in BattleBarWindow), the reserve unlock bubble (Unlock 5 crystals), Unlock -> 0
+                   crystals and Slots Taken 0/3. NOT tested: Move / Dismiss (no soldier in reserve yet),
+                   OnRefresh.
+              5c-3 [ ] OnBlueButton, OnUpgrade (+Continuation), CheckUpgradeRequirements, OnBuild (g_buildTask),
                    OnTaskDo, ExecuteFirstHelp, HUDWindow::GameReload (AddSoldiersToSquad was done in 5a).
        5d [ ] the tutorial's end: play steps 0x61 -> 0x80 (warrior trained and walking out, the envoy,
               the compass, the world map); a save round trip on a copy. The opening tutorial is done.
