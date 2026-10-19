@@ -59,6 +59,7 @@ GUI::MovementEffect* g_craftEffect = nullptr;
 ItemHoverWindow* g_hover = nullptr;       // 0x617c14 the card of the tapped slot's item
 int g_arrowCallback = 0;                  // 0x617dc4 the id of the arrow callback that points at a slot
 int g_barNameX = 0;                       // 0x617e08 text_bar_name's laid-out x
+Shared::BuffHolderManager* g_buffs = nullptr;   // 0x617e20 the running potions above the belt
 int g_lastSecond = 0;                     // 0x617e24
 // The flying picture (an item icon, or the fury potion's in the second tutorial) that goes from a
 // slot to a point: set by RunRageAnimation, moved by Update.
@@ -295,14 +296,14 @@ void Init() {
     }
     Queue()->fn.update = Update;
     Queue()->fn.show = Show;
-    // Shared::BuffHolderManager(0x18, 2, -1, 0) (active buffs above the belt) follows with items.
+    g_buffs = new Shared::BuffHolderManager(0x18, 2, -1, 0);
 }
 
 // @0x250444: slide in from the right
 void Show() {
     if (!g_root || !GameState::IsPlayerCity()) return;
     if (g_effect->active && g_effect->hideAtEnd) g_root->SetVisibility(false);
-    if (GameState::TutorialStep() <= 0x13) return;   // (also not while placing a building)
+    if (GameState::TutorialStep() <= 0x13 || BuildingPlacement::Activated()) return;
     Queue()->MoveWindowOnTop(true);
     const int W = GUI::ScreenWidth(), H = GUI::ScreenHeight();
     if (!g_root->visibleSelf) {
@@ -311,8 +312,13 @@ void Show() {
         g_root->SetVisibility(true);
         UpdateContents();
     }
-    // UNVERIFIED: the Crafting button visibility (TaskCompleted(Setting "craft_unlock_task")) and the
-    // boss-combat lock follow with quests; the button stays as laid out.
+    g_craftLock->SetVisibility(!GameState::TaskCompleted((unsigned)Setting("craft_unlock_task").GetInt()));
+    const bool craftOn = !GameState::IsBossCombatActive() && !g_craftLock->visibleSelf;
+    g_craftIcon->SetEnabled(craftOn);
+    g_craftBg->SetEnabled(craftOn);
+    g_buffs->SetVisibility(true);
+    g_root->PreloadTextures();   // GUI::PreloadWindow
+    // UNVERIFIED (5l): the original also clears the raised belt's timer (RaiseWindow's) here.
 }
 
 // @0x24d1d4
@@ -329,6 +335,7 @@ void SetZ(float) {
     float z = HUDWindow::GetZ();
     if (g_craftBar) g_craftBar->SetZ(z + 0.001f);
     g_root->SetZ(z);
+    g_buffs->SetZ(z);
     if (!g_effect->active) {
         const int W = GUI::ScreenWidth(), H = GUI::ScreenHeight();
         if (!g_root->visibleSelf) g_root->SetPosition(W, (g_offsetY + H) - g_root->h);
@@ -551,8 +558,7 @@ void UpdateContents() {
 
 // @0x24f744. UNVERIFIED (milestone 5): the profession point's flight to the crafting bar
 // (ShowProfessionPoint), an item dragged out of the belt, the raised window's timer (RaiseWindow),
-// the flight's end at step 0x88 (CharacterInfoWindow::Hide) and the row of running buffs
-// (Shared::BuffHolderManager, 5k-3).
+// and the flight's end at step 0x88 (CharacterInfoWindow::Hide).
 void Update(float dt) {
     if (!g_root) return;
     if (g_hover->shownHover) {
@@ -576,6 +582,8 @@ void Update(float dt) {
         }
         s.SetFillPercent(g.shown);
     }
+    g_buffs->SetPosition(g_root->x + g_inventoryIcon->x + g_inventoryIcon->w, g_root->y);
+    g_buffs->Update(dt);
     if (g_flyActive && g_flySprite) {
         const float t = g_flyTime / g_flyDuration;
         if (t < 1.f) {

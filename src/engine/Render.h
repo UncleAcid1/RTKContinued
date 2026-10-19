@@ -69,6 +69,9 @@ void SetFrame(Sprite* s, int frameHeight, int frame);    // @0x1fe940 (one-file 
 // @0x1fe940 Sprite::SetFrame(h, w, frame), the general form (sets size and v range of the frame).
 void SetFrame(Sprite* s, float h, float w, int frame);
 void SetShaderType(Sprite* s, int type);    // @0x1fe580
+// @0x1fe5a0: the second texture some shaders read (unit 1).
+void SetColorMask(Sprite* s, Texture* mask);
+Texture* CreateCustomTexture(const uint8_t* rgba, int w, int h);   // @0x201c80
 void SetVisibility(Sprite* s, bool v);      // @0x1fdfac
 void SetColor(Sprite* s, float r, float g, float b);  // @0x1fde78
 void SetAlpha(Sprite* s, float a);          // @0x1fde3c (all four corners)

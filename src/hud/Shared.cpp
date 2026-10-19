@@ -3,9 +3,14 @@
 #include "engine/Render.h"
 
 #include "engine/IconManager.h"
+#include "engine/Timer.h"
+#include "game/GameState.h"
 #include "game/Items.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "gui/GUI.h"
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -480,6 +485,171 @@ void BottomSlotInfo::SetFillPercent(float f) {
     progress->h = (int16_t)(int)(h * keep);
     progress->SetPosition(progress->x, (int)((float)(unsigned)progressY + h * f));
     if (progress->sprite) progress->sprite->h = keep * h;
+}
+
+// ---- BuffHolder / BuffHolderManager ----
+
+void BuffHolder::LoadFrom(Window* parent, const char* prefix, int size) {
+    root = prefix ? GUI::GetWindowTypedF<Window>(parent, "%s", prefix) : parent;
+    const char* name = size == 0x10 ? "icon_holder_16x16_pure" : size == 0x18 ? "icon_holder_24" : "icon_holder_60";
+    if (size != 0x10 && size != 0x18 && size != 0x3c) {
+        icon = root;   // UNVERIFIED: the original takes a template window for any other size
+    } else if (prefix) {
+        icon = GUI::GetWindowTypedF<Window>(parent, "%s.%s", prefix, name);
+    } else {
+        icon = GUI::GetWindowTypedF<Window>(parent, "%s", name);
+    }
+    icon->takesZ = true;
+    if (prefix) {
+        effect = GUI::GetWindowTypedF<Window>(parent, "%s.effect_square_black", prefix);
+        clickArea = GUI::GetWindowTypedF<GUI::Button>(parent, "%s.clickArea", prefix);
+    } else {
+        effect = GUI::GetWindowTypedF<Window>(parent, "effect_square_black");
+        clickArea = GUI::GetWindowTypedF<GUI::Button>(parent, "clickArea");
+    }
+}
+
+BuffHolderManager::BuffHolderManager(int size, int columns, int dirX, int dirY)
+    : size(size), columns(columns), dirX(dirX), dirY(dirY) {
+    const char* layout = size == 0x10   ? "../resource/kingdom_ui/1Original/Buff_holder_16.xml"
+                         : size == 0x18 ? "../resource/kingdom_ui/1Original/Buff_holder_24.xml"
+                                        : "../resource/kingdom_ui/1Original/Buff_holder_60.xml";
+    if (size != 0x10 && size != 0x18 && size != 0x3c)
+        std::printf("ERROR: BuffHolderManager is initialized with incorrect size of %d\n", size);
+    for (int i = 0; i < 10; ++i) {
+        Slot& s = slots[i];
+        Window* w = GUI::RegisterUI(layout, "", 1.f, 0, 0, 0, 0, false, 1.f);
+        s.holder.LoadFrom(w, nullptr, size);
+        s.holder.root->SetAlpha(0.f, true);
+        s.holder.root->SetVisibility(false);
+        s.order = i;
+    }
+    // The clock's mask: the angle round the middle of a 24 x 24 square, 0 .. 255 once round.
+    uint8_t px[24 * 24 * 4];
+    for (int row = 0; row < 24; ++row) {
+        for (int col = 0; col < 24; ++col) {
+            float angle = std::atan2(2.f * ((float)col / 23.f) - 1.f, 2.f * ((float)row / 23.f) - 1.f);
+            float f = 1.f + (angle / 3.14159274f) * -0.5f + 0.5f;
+            f = f - std::floor(f);
+            uint8_t v = 0;
+            if (!(f < 0.f)) v = f <= 1.f ? (uint8_t)(int)(f * 255.f) : 255;
+            uint8_t* p = px + (row * 24 + col) * 4;
+            p[0] = p[1] = p[2] = p[3] = v;
+        }
+    }
+    mask = Render::CreateCustomTexture(px, 24, 24);
+}
+
+void BuffHolderManager::SetPosition(int nx, int ny) {
+    if (x == nx && y == ny) return;
+    x = nx;
+    y = ny;
+    dirty = true;
+}
+
+void BuffHolderManager::SetZ(float z) {
+    for (Slot& s : slots) s.holder.root->SetZ(z);
+}
+
+void BuffHolderManager::SetVisibility(bool v) {
+    visible = v;
+    if (v) return;
+    for (Slot& s : slots) s.holder.root->SetVisibility(false);
+}
+
+namespace {
+// `v` moves towards `target` by at most `step`.
+float Approach(float v, float target, float step) {
+    if (v == target) return v;
+    if (v < target) return v + step < target ? v + step : target;
+    return v - step > target ? v - step : target;
+}
+}  // namespace
+
+void BuffHolderManager::Update(float dt) {
+    for (Slot& s : slots) {
+        Window* w = s.holder.root;
+        const int line = s.order / columns, place = s.order % columns;
+        const int cellH = w->h + 4, cellW = w->w + 4;
+        int tx = 0, ty = 0;
+        if (dirX != 0) {
+            tx = (dirX < 1 ? ~line : line) * cellW;
+            ty = place * cellH;
+        }
+        if (dirY != 0) {
+            tx = place * cellW;
+            ty = (dirY < 1 ? ~line : line) * cellH;
+        }
+        s.targetX = (float)tx;
+        s.targetY = (float)ty;
+        if (s.curX != s.targetX || s.curY != s.targetY || dirty) {
+            s.curX = Approach(s.curX, s.targetX, dt * 100.f);
+            s.curY = Approach(s.curY, s.targetY, dt * 100.f);
+            w->SetPosition((int)((float)x + s.curX), (int)((float)y + s.curY));
+        }
+        // Fades in while it runs, out when it is over; hidden when gone.
+        w->SetAlpha(Approach(w->alpha, s.item == 0 ? 0.f : 1.f, dt * 4.f), true);
+        if (w->alpha == 0.f) {
+            w->SetVisibility(false);
+        } else {
+            w->SetVisibility(visible);
+            if (Render::Sprite* sp = s.holder.effect->sprite) {
+                float ratio = (float)s.remaining / (float)s.total;
+                if (ratio > 1.f) ratio = 1.f;
+                sp->extra = 1.f - ratio;
+                Render::SetShaderType(sp, 5);
+            }
+        }
+    }
+    dirty = false;
+    // Once a second the holders follow the buffs that run.
+    if (lastTime == Timer::GetGlobalTime()) return;
+    lastTime = Timer::GetGlobalTime();
+    int used = 0;
+    for (Slot& s : slots)
+        if (s.item != 0) ++used;
+    bool freed = false;
+    for (unsigned i = 0; Items::ItemInfo* info = Items::EnumItemInfo(i); ++i) {
+        if (info->type != 0xe) continue;
+        const int left = (int)GameState::GetItemBuffRemainingTime(info->id);
+        if (left < 1) {
+            for (Slot& s : slots)
+                if (s.item == info->id) {
+                    s.item = 0;
+                    freed = true;
+                }
+            continue;
+        }
+        Slot* free = nullptr;
+        bool known = false;
+        for (Slot& s : slots)
+            if (s.item == info->id) {
+                s.remaining = left;
+                known = true;
+                break;
+            }
+        if (known) continue;
+        for (Slot& s : slots)
+            if (s.item == 0) {
+                free = &s;
+                break;
+            }
+        if (!free) continue;
+        free->order = used++;
+        free->item = info->id;
+        if (info->meta)
+            if (const MetaData* d = info->meta->FindChildData(0x2e)) free->total = d->GetInt();
+        free->remaining = left;
+        free->holder.root->SetAlpha(0.f, false);
+        free->holder.icon->SetTexture(info->GetBuffIcon(size), false, 0, 0, false, 0);
+        if (!free->holder.effect->sprite) continue;
+        Render::SetColorMask(free->holder.effect->sprite, mask);
+    }
+    if (freed) {
+        int n = 0;
+        for (Slot& s : slots)
+            if (s.item != 0) s.order = n++;
+    }
 }
 
 }  // namespace Shared

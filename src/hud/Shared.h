@@ -364,4 +364,44 @@ struct PlayerHolder {
                              const char* variant);   // @0x344d78
 };
 
+// Shared::BuffHolder: one running buff's small icon (Buff_holder_16 / _24 / _60.xml) with its dark
+// clock square (shader 5: the part of the clock already gone is cut away).
+struct BuffHolder {
+    GUI::Window* root = nullptr;         // +0x00 the layout itself, or "%s"
+    GUI::Window* icon = nullptr;         // +0x04 icon_holder_<size>
+    GUI::Window* effect = nullptr;       // +0x08 effect_square_black
+    GUI::Window* clickArea = nullptr;    // +0x0c clickArea (a Button)
+    void LoadFrom(GUI::Window* parent, const char* prefix, int size);   // @0x342774
+    void SetPercent(float) {}            // @0x340b0c (does nothing)
+};
+
+// Shared::BuffHolderManager (0x204 bytes): the row of running timed potions (items of type 0xe):
+// ten holders that glide to their places (`columns` to a line, `dirX` / `dirY`: which way the lines
+// and the columns grow, 0 none, negative backwards), fade in and out and show the time left as a
+// clock. Once a second the holders are matched with the buffs that run.
+class BuffHolderManager {
+public:
+    BuffHolderManager(int size, int columns, int dirX, int dirY);   // @0x3428f0 (also @0x342bf0)
+    ~BuffHolderManager() = default;        // @0x341ec0 (also @0x341f00); the windows stay in the UI list
+    void SetPosition(int x, int y);        // @0x341f40
+    void SetZ(float z);                    // @0x341f7c
+    void SetVisibility(bool visible);      // @0x341fb8
+    void Update(float dt);                 // @0x346138
+    int size;                              // +0x00 the icons' size: 16, 24 or 60
+    int columns, dirX, dirY;               // +0x04 +0x08 +0x0c
+    int x = 0, y = 0;                      // +0x10 +0x14
+    bool dirty = true;                     // +0x18 the places are worked out again
+    bool visible = false;                  // +0x19
+    int lastTime = 0;                      // +0x1c
+    struct Slot {                          // 0x30 bytes from +0x20
+        BuffHolder holder;                 // +0x00
+        float curX = 0, targetX = 0, curY = 0, targetY = 0;   // +0x10 .. +0x1c
+        uint32_t item = 0;                 // +0x20 the buff's item (0: free)
+        int total = 1;                     // +0x24 its length in seconds ("buff time" of the item)
+        int remaining = 0;                 // +0x28 seconds left
+        int order = 0;                     // +0x2c its place in the row
+    } slots[10];
+    Render::Texture* mask = nullptr;       // +0x200 the clock's mask
+};
+
 }  // namespace Shared

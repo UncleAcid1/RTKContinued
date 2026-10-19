@@ -273,8 +273,8 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 //     (the transforms are set in Frame).
 //   Sprites: @0x1fded0 Sprite::SetShader and @0x1fdef0 GetShaderType (Sprite::shaderType),
 //     @0x1fdee0 MarkDirty (nothing to mark), @0x1fe4d8 AllocateSprite / @0x1fe29c DeallocateSprite
-//     (the pool), @0x1fe5a0 SetColorMask (Sprite::colorMask). UNVERIFIED (milestone 5): the mask shader
-//     path (GUI::Window::ApplyMask, the colour mask on texture unit 1) waits for its callers.
+//     (the pool), @0x1fe5a0 SetColorMask (Sprite::colorMask, bound on texture unit 1 by Frame; the buffs'
+//     clock, shader 5). UNVERIFIED (milestone 5): GUI::Window::ApplyMask waits for its callers.
 //   Textures: @0x201450 IsLoaded / @0x2027e0 ForceLoad (always loaded), @0x20149c AddRef /
 //     @0x2014d8 ReleaseRef, @0x201550 EnumTexture, @0x201654 AllocateTexture / @0x201998
 //     DeallocateTexture, @0x201894 Texture::Remove, @0x2018e8 Texture::Set, @0x201be4 (the texture
@@ -301,6 +301,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(2, "mainVS.txt", "mainPS.txt") && ok;
     ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
     ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
+    ok = LoadShader(5, "ringVS.txt", "ringPS.txt") && ok;       // the buff clock: shown where `extra` > the colour mask
     ok = LoadShader(6, "boss_introVS.txt", "boss_introPS.txt") && ok;   // BossIntroEffect: 4 taps, color = (scale, spread, add)
     ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
     ok = LoadShader(9, "textVS.txt", "sepiaPS.txt") && ok;      // GlobalMapWindow's screen capture
@@ -600,6 +601,12 @@ Texture* CreateTextureRGBA(int w, int h, const uint8_t* rgba, bool nearest, cons
     return g_textures.back().get();
 }
 
+// @0x201c80 (no atlas): a texture from RGBA bytes (the mask of the buffs' clock).
+Texture* CreateCustomTexture(const uint8_t* rgba, int w, int h) { return CreateTextureRGBA(w, h, rgba, false, "custom"); }
+
+// @0x1fe5a0
+void SetColorMask(Sprite* s, Texture* mask) { s->colorMask = mask; }
+
 // @0x202820: a 1x1 texture of one colour (components 0..1, times 255, negatives 0).
 Texture* CreateSolidFillTexture(float r, float g, float b, float a) {
     auto c = [](float v) { v *= 255.f; return (uint8_t)(v > 0.f ? (int)v : 0); };
@@ -862,6 +869,7 @@ void Frame() {
         // Layer::Prepare @0x1fd028: 6 vertices per sprite; GUI sprites get a +0.25 offset.
         // Vertex y is negated (y-up clip space): bottom edge at -y, top edge at h - y.
         Texture* cur = nullptr;
+        Texture* curMask = nullptr;
         int curShader = -1;
         bool curScreen = false;
         verts.clear();
@@ -873,6 +881,10 @@ void Frame() {
                 glUniform4f(sp.uTransform, -g_screenW * 0.5f, g_screenH * 0.5f, 2.f / g_screenW, 2.f / g_screenH);
             else
                 glUniform4f(sp.uTransform, offsetX + 0.25f, offsetY + 0.25f, zoom, zoom * aspect);
+            if (curMask) {
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, curMask->glId);
+            }
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, cur->glId);
             glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(verts.size() * sizeof(float)), verts.data(), GL_STREAM_DRAW);
@@ -881,9 +893,10 @@ void Frame() {
         };
         for (Sprite* s : L.sprites) {
             if (!s->visible || !s->tex) continue;
-            if (s->tex != cur || s->shaderType != curShader || s->screenSpace != curScreen) {
+            if (s->tex != cur || s->shaderType != curShader || s->screenSpace != curScreen || s->colorMask != curMask) {
                 flush();
                 cur = s->tex;
+                curMask = s->colorMask;
                 curShader = s->shaderType;
                 curScreen = s->screenSpace;
             }

@@ -17,6 +17,7 @@
                     for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k)
                         std::printf("[t] ent id=%u %s at %d,%d hp=%d/%d ranged=%d enemy=%d boss=%d\n", e->GetEntityData()->id, e->GetEntityData()->name.c_str(), e->tileX, e->tileY, e->GetHP(), e->GetHpMax(), e->GetAttackRanged(), (int)e->IsEnemy(), (int)e->IsBoss());
                 if (envi("RTK_BELT1", 0)) { GameState::AddItem((uint32_t)envi("RTK_BELT1", 0), 3, false, false, false); GameState::BindBeltItemTo(1, (uint32_t)envi("RTK_BELT1", 0)); BeltBarWindow::UpdateBeltItems(); BeltBarWindow::UpdateContents(); }
+                if (envi("RTK_BUFF", 0)) { GameState::ActivateItemBuff(683, (uint32_t)envi("RTK_BUFF", 0)); GameState::ActivateItemBuff(684, (uint32_t)envi("RTK_BUFF", 0) / 2); }
                 if (envi("RTK_SECOND", 0)) GameState::secondTutorial = envi("RTK_SECOND", 0);
                 if (envi("RTK_LEVEL", 0)) GameState::SetResourceAmountValidated(GameState::kLevel, (uint32_t)envi("RTK_LEVEL", 0));
                 if (envi("RTK_HP", 0)) pl->SetHP(envi("RTK_HP", 0));

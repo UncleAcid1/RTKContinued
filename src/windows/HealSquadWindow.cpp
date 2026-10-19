@@ -147,6 +147,7 @@ std::vector<Items::ItemInfo*> g_items;    // 0x620fcc the healing items offered
 std::vector<Flying> g_flying;             // 0x620fd8
 int g_broken = 0;                         // 0x620fe8 worn items that are broken (counted on Show)
 Window* g_buffHolder = nullptr;           // 0x620ff0
+Shared::BuffHolderManager* g_buffs = nullptr;   // the hero's running potions
 ItemHoverWindow* g_hover = nullptr;       // 0x620ff4
 Window* g_close = nullptr;                // 0x620ffc
 Textfield* g_name = nullptr;              // 0x621000
@@ -326,7 +327,7 @@ void OnTweenOut() {
     WindowManager::WindowHide(false);
     g_queue->shown = false;
     g_queue->MoveWindowDown(true);
-    // (Shared::BuffHolderManager::SetVisibility(false): with the belt's buffs.)
+    g_buffs->SetVisibility(false);
     GameState::DropGamePauseState();
     Entity* player = EntityManager::GetPlayer();
     if (g_attacker) {
@@ -374,6 +375,7 @@ void SetZ(float z) {
     if (!g_queue->shown) return;
     g_root->SetZ(z);
     g_root->SetPosition(g_tween->GetCenteredX(), g_tween->GetCenteredY());
+    g_buffs->SetZ(g_buffHolder->z);
 }
 
 void Update(float dt);
@@ -437,8 +439,7 @@ void Init() {
     g_repairText = GUI::GetWindowTypedF<Textfield>(g_root, "button_hp_items_broken.text_repairs");
     g_buffHolder = GUI::GetWindowTypedF<Window>(g_root, "buff_holder_01");
     g_buffHolder->takesZ = true;
-    // UNVERIFIED (milestone 5): the row of running buffs (Shared::BuffHolderManager(0x18, 1,
-    // 0, 1)) at buff_holder_01.
+    g_buffs = new Shared::BuffHolderManager(0x18, 1, 0, 1);
     g_itemHolder = GUI::RegisterUI("../resource/kingdom_icons/1Original/Character_item_holder.xml", "", 1.f, 0, 0, 0, 0,
                                    false, 1.f);
     g_queue->fn.show = Show;
@@ -460,6 +461,7 @@ void Show() {
     const bool wasShown = g_root->visibleSelf;
     if (!wasShown) WindowManager::WindowShow(false);
     g_root->SetVisibility(true);
+    g_buffs->SetVisibility(true);
     g_queue->shown = true;
     g_queue->MoveWindowOnTop(true);
     if (!wasShown) g_tween->AnimateIn();
@@ -600,6 +602,8 @@ void Update(float dt) {
             Render::SortRenderLayer(0xe, 1);
         }
     }
+    g_buffs->SetPosition(g_buffHolder->x + g_root->x, g_buffHolder->y + g_root->y);
+    g_buffs->Update(dt);
     g_time += dt;
     Entity* player = EntityManager::GetPlayer();
     // The bar glides to his health; the window closes by itself when it becomes full.
