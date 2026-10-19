@@ -40,6 +40,7 @@
 #include "engine/Text.h"
 #include "engine/TextInput.h"
 #include "game/StringTable.h"
+#include "game/Collections.h"
 #include "game/Contracts.h"
 #include "engine/Timer.h"
 #include "game/Combat.h"
@@ -60,6 +61,7 @@
 #include "game/Locations.h"
 #include "game/Spells.h"
 #include "game/Setting.h"
+#include "game/Sets.h"
 #include "gui/GUI.h"
 #include "gui/TextStyleManager.h"
 #include "gui/WindowManager.h"
@@ -699,7 +701,7 @@ int main_Loop_Init() {
         !LoadSystemConfiguration(Locations::Init, "locations.xml", "L", "Locations::Init", 12.0 / 46.0, 0xd, 0xd))
         return 1;
     Locations::InitSpecial();
-    // UNVERIFIED (milestone 5): Sets::Init "sets.xml" (13/46).
+    if (!LoadSystemConfiguration(Sets::Init, "sets.xml", "L", "Sets::Init", 13.0 / 46.0, 0x7df, 0xe)) return 1;
     if (!LoadSystemConfiguration(Contracts::Init, "deliveries.xml", "L", "Contracts::Init", 14.0 / 46.0, 0x11,
                                  0x11))
         return 1;
@@ -707,8 +709,10 @@ int main_Loop_Init() {
     if (!LoadSystemConfiguration(GameData::LoadBuildings, "buildings.xml", "L", "Map::LoadBuildingList",
                                  15.0 / 46.0, 0x12, 0x12))
         return 1;
-    // UNVERIFIED (their milestones): PresentsContainer::LoadPresentPacks "shop_packs.xml" (16/46),
-    // Collections::Init "collections.xml" (17/46).
+    // UNVERIFIED (its milestone): PresentsContainer::LoadPresentPacks "shop_packs.xml" (16/46).
+    if (!LoadSystemConfiguration(Collections::Init, "collections.xml", "L", "Collections::Init", 17.0 / 46.0, 0x7e4,
+                                 0x14))
+        return 1;
     if (!LoadSystemConfiguration(Tasks::Init, "tasks.xml", "L", "Tasks::Init", 18.0 / 46.0, 0x15, 0x15)) return 1;
     // UNVERIFIED (their milestones): Professions::Init "professions.xml" (19/46), Chests::Init "chests.xml" (20/46).
     if (!LoadSystemConfiguration(ProjectileData::Init, "projectiles.xml", "L", "ProjectileData::Init", 21.0 / 46.0,

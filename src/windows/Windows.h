@@ -8,6 +8,8 @@ namespace WindowManager { class FunctionalWindow; }
 namespace Map { struct Building; struct Decor; }
 namespace Render { struct Texture; }
 namespace Locations { struct LocationInfo; }
+namespace GameState { struct PlayerItem; }
+namespace Items { struct ItemInfo; }
 class Entity;
 
 namespace CityRenameWindow {
@@ -340,6 +342,7 @@ void RunLastHelpItem();                     // @0x2f6568
 // CharacterInfoWindow: the hero's equipment and inventory window (windows/CharacterInfoWindow.cpp).
 // 5l-1: the window opens and closes; its contents (5l-2) and the item moves (5l-3) come next.
 class ItemHoverWindow;
+namespace PvP { struct PlayerEquipmentInfo; }
 namespace CharacterInfoWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CharacterInfo" (FUN_0027ca3c)
 void Init();                                // @0x27dc98
@@ -352,6 +355,28 @@ void ShowInventoryTab(unsigned tab);        // @0x28407c
 void RemovePreviewItems();                  // @0x27afc4
 // @0x27bae4: the potion the card was opened for flies to the belt's buff row.
 void ShowBuffAnimation(ItemHoverWindow* hover);
+// The selected piece: the owned item (null for a piece not owned) and its info.
+struct SelectedItem {
+    GameState::PlayerItem* data = nullptr;
+    Items::ItemInfo* info = nullptr;
+};
+SelectedItem GetSelectedItem();                                  // @0x27b020
+void SetLastProfession(uint32_t profession);                    // @0x27b00c
+uint32_t GetToolOverride(uint32_t profession);                  // @0x27f2f4
+GameState::PlayerItem* GetItemAt(unsigned binding);             // @0x27d60c (10: the tool)
+GameState::PlayerItem* GetUniqueItemAt(const PvP::PlayerEquipmentInfo& info, unsigned binding);   // @0x27d710
+bool IsItemEquipped(const Items::ItemInfo* info);               // @0x27b0e0
+bool IsItemEquipped(const GameState::PlayerItem* item);         // @0x27b958 (also on the belt)
+unsigned GetItemSlot(const Items::ItemInfo* info);              // @0x27b878
+bool ItemHasSlot(const Items::ItemInfo* info);                  // @0x27b8a8
+int GetItemPositionInCurrentTab(const GameState::PlayerItem* data, const Items::ItemInfo* info);   // @0x27af24
+bool CheckIfItemImprovementLineHasItem(uint32_t a, uint32_t b); // @0x27bd98
+void CompleteEquipTaskFor(uint32_t id);                         // @0x27bdec
+bool CanMoveIntoEquippedBelt(int& x, int& y);                   // @0x27ba6c
+bool HasMovedIntoInventory(int x, int y);                       // @0x27bba8
+bool IsValidItemForTabAndMode(const GameState::PlayerItem* data, const Items::ItemInfo* info, unsigned tab);   // @0x27be48
+void GetItemsForTabAndMode(unsigned tab);                       // @0x27fda8
+void UpdateItemTimers();                                        // @0x283e4c
 // @0x28047c, the stat part: the player's stats again from its level (ResetStats, the HP bar too),
 // its soldiers' (not HP), then the effects of the unbroken equipment (bindings 0..9) and
 // customisations (1..9), the complete sets and the running buffs. Map::Load runs it, as do the

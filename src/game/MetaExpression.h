@@ -78,6 +78,8 @@ public:
     // @0x1d1a68: adds every part's stat to e (equipment, buffs, potions). PARTY: the rest of the
     // expression goes to e's squad members instead (the soldiers from index 1).
     void OnApplyItemEffect(Entity* e);
+    // @0x1d14d0: the same parts on an 11-value effect record (see MetaExpression.cpp).
+    void OnApplyItemEffect(int* stats, bool add);
     // @0x1d17fc: the percentage parts (HEALTH_PC, *_DAMAGE_PC) of a buff.
     void OnApplyItemBuffEffect(Entity* e);
 

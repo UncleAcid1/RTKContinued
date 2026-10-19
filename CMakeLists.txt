@@ -49,6 +49,8 @@ add_executable(rtk
   src/game/BuildingPlacement.cpp
   src/game/HiddenObjects.cpp
   src/game/Contracts.cpp
+  src/game/Sets.cpp
+  src/game/Collections.cpp
   src/game/EntityData.cpp
   src/game/Animation.cpp
   src/game/AI.cpp

@@ -420,6 +420,35 @@ void MetaExpression::OnApplyItemEffect(Entity* e) {
     }
 }
 
+// @0x1d14d0: the same on an effect record (the ItemEffect order of GetItemEffectName: health,
+// damage, magic damage (the character window keeps the leadership there), initiative, melee /
+// ranged dodge, melee / ranged absorb, belt slots, belt size, HP regeneration), added or taken
+// away; no value goes below 0. PARTY ends it (the squad's part is not counted).
+void MetaExpression::OnApplyItemEffect(int* stats, bool add) {
+    const int sign = add ? 1 : -1;
+    for (MetaExpression* x = this; x && x->data; x = x->next) {
+        const MetaData* d = x->data;
+        switch (d->type) {
+        case kExpInitiative: stats[3] += Value(d) * sign; break;
+        case kExpHpMax: stats[0] += Value(d) * sign; break;
+        case kExpMeleeAttack: stats[1] += Value(d) * sign; break;
+        case kExpMeleeDefense: stats[4] += Value(d) * sign; break;
+        case kExpMeleeAbsorb: stats[6] += Value(d) * sign; break;
+        case kExpRangedDefense: stats[5] += Value(d) * sign; break;
+        case kExpRangedAbsorb: stats[7] += Value(d) * sign; break;
+        case kExpParty: return;
+        case kExpHpRegen:
+            stats[10] = (EntityManager::GetPlayer()->GetEntityData()->hpRate - Value(d)) * sign;
+            break;
+        case kExpBeltSlots: stats[8] += Value(d) * sign; break;
+        case kExpBeltSize: stats[9] += Value(d) * sign; break;
+        default: break;
+        }
+        for (int i = 0; i != 11; ++i)
+            if (stats[i] < 0) stats[i] = 0;
+    }
+}
+
 void MetaExpression::OnApplyItemBuffEffect(Entity* e) {
     for (MetaExpression* x = this; x && x->data; x = x->next) {
         const MetaData* d = x->data;
