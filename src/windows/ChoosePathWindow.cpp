@@ -22,6 +22,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Locations.h"
+#include "game/Professions.h"
 #include "game/Map.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -463,7 +464,7 @@ void Update(float dt) {
     arena.desc2->SetAlpha(alpha, false);
     if (Items::ItemInfo* item = Items::GetItemInfo(event == 1 ? 0x1bb : 0x1ba))
         arena.icon->SetTexture(item->GetIcon(), true);
-    // UNVERIFIED (milestones 5n / 5s): with Professions::GetProfession(3 - event) (the event's
+    // UNVERIFIED (milestone 5s): with Professions::GetProfession(3 - event) (the event's
     // reputation: 2 for event 1, 1 for event 2), desc = its name and desc2 = ArenaEventWindow::IsEventActive(event) ?
     // "%s (%s)" (CAMPAIGN_INFO_RESUME, the GetTimeString of GetEventRemainingTime(event)) :
     // START_CAMP. No profession is known until then, which the original skips the same way.
@@ -695,12 +696,11 @@ void UpdateContents() {
     pvp.lock->SetVisibility(false);
     pvp.icon->SetTexture(IconManager::GetIcon("rep_pvp_valor_60", false), true);
     pvp.pvp->SetEnabled(GameState::TaskCompleted(0x74d));
-    // UNVERIFIED (milestone 5n): the level is Professions::GetPlayerProfessionLevel(7) and the rank
-    // the name of its Professions::GetProfessionLevel(7, level) ("RANK_NONE" without one);
-    // professions are not ported, so the hero has none.
-    const int valorLevel = 0;
+    const uint32_t valorLevel = Professions::GetPlayerProfessionLevel(7);
+    Professions::ProfessionLevel* rank = Professions::GetProfessionLevel(7, valorLevel);
     pvp.desc->SetText(ToWideString(U"%s - %s (%d)", {StringTable::GetString("rep_pvp_valor"),
-                                                     StringTable::GetString("RANK_NONE"), valorLevel}));
+                                                     rank ? rank->name : StringTable::GetString("RANK_NONE"),
+                                                     (int)valorLevel}));
     pvp.desc2->SetText(StringTable::GetString("START_CAMP"));
     WhereToFeaturedHolder& arena = g_featured[1];
     arena.oneLine->SetText(StringTable::GetString("MAP_ARENA"));

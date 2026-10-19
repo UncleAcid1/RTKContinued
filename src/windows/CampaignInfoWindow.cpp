@@ -14,6 +14,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Locations.h"
+#include "game/Professions.h"
 #include "game/MetaData.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -517,9 +518,11 @@ void UpdateContents() {
         for (unsigned i = 0; i < list->GetChildrenCount(); ++i) {
             Items::ItemInfo* item = Items::GetItemInfo((uint32_t)list->GetChild(i)->GetChild(0)->GetInt());
             if (!item) continue;
-            // UNVERIFIED (milestone 5n): an item of a profession (reputationId) is listed only when
-            // Professions::GetProfession finds none, or it IsUnlocked and GetPlayerProfessionLevel
-            // >= reputationLevel; professions are not ported, so every item is listed.
+            // (an item of a profession only once it is unlocked and at the item's level)
+            if (Professions::Profession* p = Professions::GetProfession(item->reputationId))
+                if (!p->IsUnlocked() ||
+                    Professions::GetPlayerProfessionLevel(item->reputationId) < item->reputationLevel)
+                    continue;
             g_findable.push_back(item);
         }
         g_items.scroller.itemCount = complete ? 0 : (unsigned)g_findable.size();

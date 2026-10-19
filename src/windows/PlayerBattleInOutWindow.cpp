@@ -5,9 +5,9 @@
 // winner's / loser's medal over each, the valor bar, and FoundItemsWindow's loot strip with its
 // buttons. A tap (intro) or the strip's buttons (outro) fade it out.
 // Port of PlayerBattleInOutWindow (libkingdom.so 5.11), 0x2fe2c8..0x301ad8. Statics at 0x625e34.
-// UNVERIFIED (milestone 5): the outro's valor bar progress (Professions: profession 7, its level
-// points; Update @0x300338 animates it), PlayerInfoWindow (the opponent's profile, OnInfo).
+// UNVERIFIED (milestone 5): PlayerInfoWindow (the opponent's profile, OnInfo).
 // (milestone 6: SoundsManager "arena_win".) Online (dormant): PvP::ReportStateToServer.
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -24,6 +24,7 @@
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/PlayerEquipmentInfo.h"
+#include "game/Professions.h"
 #include "game/PvP.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
@@ -189,7 +190,7 @@ Render::Sprite* g_goldBottom = nullptr;    // 0x626294
 VersusWindow g_vs;                   // 0x626298
 TapToContinue g_tap;                 // 0x6262c8
 Window* g_itemHolder = nullptr;      // 0x6262d4 Character_item_holder.xml (the figures' item cell)
-const void* g_profession = nullptr;  // 0x6262d8 Professions::ProfessionInfo* (7, milestone 5)
+Professions::Profession* g_profession = nullptr;   // 0x6262d8 profession 7, valor (the outro)
 uint32_t g_points = 0;               // 0x6262dc its points before the fight
 uint32_t g_target = 0;               // 0x6262e0 and after (with the fight's valor)
 float g_barTimer = 0.f;              // 0x6262e4
@@ -365,12 +366,46 @@ void Update(float dt) {
     g_flag2.redGlow->SetRotation(g_time * 0.25f);
     g_tap.text->SetAlpha(std::fabs(std::cos(g_time * 3.f) * 0.7f), false);
     if (!g_intro && g_profession) {
-        // UNVERIFIED (milestone 5): the valor bar fills from the points before the fight to after
-        // (g_barTimer from -0.5, at half speed) towards the next level of profession 7, with
-        // "ARENA_WAVE_GAINED" / "PVP_WAVE_GAINED_NEXT" on it, and pulses once full.
+        // The valor bar fills in 2 s (after half a second) from the points before the fight towards
+        // those after, up to the next rank: "gained x / y" ("x / y" after a loss), or the next
+        // rank's name once reached, when it pulses.
         g_barTimer += dt;
-        (void)g_points;
-        (void)g_target;
+        float t = g_barTimer * 0.5f;
+        t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+        const uint32_t level = Professions::GetPlayerProfessionLevel(g_profession->id);
+        Professions::ProfessionLevel* next = Professions::GetProfessionLevel(g_profession->id, level + 1);
+        if (!next) next = Professions::GetProfessionLevel(g_profession->id, level);
+        if (next) {
+            const float from = (float)g_points;
+            const float value = from + t * ((float)std::min(next->points, g_target) - from);
+            Professions::ProfessionLevel* cur = Professions::GetProfessionLevel(g_profession->id, level);
+            const int prev = cur ? (int)cur->points : 0;
+            int shown = (int)(value + 0.5f);
+            std::u32string text;
+            if ((int)next->points <= shown) {
+                text = SWPrintf(0x100, StringTable::GetString("PVP_WAVE_GAINED_NEXT"), {g_profession->title, next->name});
+                shown = (int)next->points;
+            } else if (!EnemyDefeated()) {
+                text = SWPrintf(0x100, U"%s: %s/%s",
+                                {g_profession->title60, ToWideString(shown), ToWideString((int)next->points)});
+            } else {
+                text = SWPrintf(0x100, StringTable::GetString("ARENA_WAVE_GAINED"),
+                                {g_profession->title60, ToWideString(shown), ToWideString((int)next->points)});
+            }
+            g_header.bar.textUnder->SetText(text.c_str());
+            g_header.bar.textOver->SetText(text.c_str());
+            if (prev != (int)next->points) {
+                g_header.bar.SetProgress((value - (float)(uint32_t)prev) / (float)(uint32_t)((int)next->points - prev));
+                if (!g_animating) {
+                    Window* bar = g_header.bar.root;
+                    if (t < 1.f || (int)next->points == shown)
+                        bar->SetAlpha(std::fabs(std::cos(g_time * 3.f) * 0.3f) + 1.f, true);
+                    else if (bar->alpha > 1.f)
+                        bar->SetAlpha(std::max(bar->alpha - dt, 1.f), true);
+                }
+                g_header.root->UpdatePosition();
+            }
+        }
     }
     const int now = Timer::GetGlobalTime();
     if (now != g_lastSecond) {
@@ -629,9 +664,8 @@ void Show() {
                                             StringTable::GetString(g_won ? "ARENA_WAVE_FOUND" : "ARENA_WAVE_DEFEAT_HEADER"));
             FoundItemsWindow::Show();
             FoundItemsWindow::SetZ(GetZ());
-            // UNVERIFIED (milestone 5): g_profession = Professions::GetProfession(7) and g_points
-            // its points (GameState::GetProfessionPoints); without professions there is no bar.
-            g_profession = nullptr;
+            g_profession = Professions::GetProfession(7);
+            g_points = GameState::GetProfessionPoints(g_profession->id);
             // (milestone 6: SoundsManager "arena_win" on a win.)
             g_target = (uint32_t)GameState::GetMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), 0x249) +
                        g_points;

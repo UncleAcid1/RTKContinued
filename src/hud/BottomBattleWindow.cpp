@@ -11,9 +11,9 @@
 // OnSpell / HelpWithSpell, the run / walk switch of the centre button, the stances of every
 // fight, the tutorial's arrow at the first slot, EnableFuryGlow.
 // UNVERIFIED (milestone 5): SpellMovement (5k: placing an area spell in the arenas, the large
-// buttons' accept / decline, the second tutorial's step 0x9e), the spell drag in Click, hurrying a
-// search job with fury (Professions, 5n), the mana potion hints' actions (5k, 5l, 5q), the round
-// mask on the centre button's icon, showing the bar on every campaign map (Map::Load).
+// buttons' accept / decline, the second tutorial's step 0x9e), the spell drag in Click, the mana
+// potion hints' actions (5k, 5l, 5q), the round mask on the centre button's icon, showing the bar
+// on every campaign map (Map::Load).
 // (milestone 6: the "ui_click" sound and the spells' sounds and particles.)
 #include "hud/HUD.h"
 
@@ -38,7 +38,9 @@
 #include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Professions.h"
 #include "game/Rand48.h"
+#include "game/Setting.h"
 #include "game/SoldierSlots.h"
 #include "game/SpellMovement.h"
 #include "game/Spells.h"
@@ -535,10 +537,23 @@ int UpdateManaBars(float dt, Entity* player) {
     return mana;
 }
 
-// The big centre button outside fights: the net while there is a target and a net, else the run /
-// walk switch. UNVERIFIED (milestone 5, 5n): a search job the hero works is hurried with fury
-// (the profession's tool as the icon, "BUILDING_BOOST" / "HEAL_SCREEN_FOR" with the cost in
-// mana): Professions are not ported.
+// The fury a search job the hero works costs to finish now (search_to_fury_mult per second left),
+// with its profession; 0 when there is none, it is free or the hero has too little fury. (Inlined
+// in Update and OnCenter.)
+int SearchFuryCost(Entity* player, Professions::Profession*& prof) {
+    prof = nullptr;
+    Map::Decor* d = player->GetWorkplaceDecoration();
+    if (!d) return 0;
+    Professions::Profession* p = Professions::GetProfessionForObject(d->id);
+    const uint32_t end = d->f50 + d->collectStart + 1;
+    const int cost = (int)((float)(end - (uint32_t)Timer::GetGlobalTime()) * Setting("search_to_fury_mult").GetFloat());
+    if (cost <= 0 || cost > player->GetAP() || !p) return 0;
+    prof = p;
+    return cost;
+}
+
+// The big centre button outside fights: the net while there is a target and a net, else hurrying
+// the hero's search job with fury, else the run / walk switch.
 void UpdateCentre(Entity* player) {
     g_left.root->SetVisibility(false);
     g_right.root->SetVisibility(false);
@@ -546,6 +561,9 @@ void UpdateCentre(Entity* player) {
     g_centre.active->SetVisibility(false);
     uint32_t net = 0;
     bool offer = false;
+    Professions::Profession* fury = nullptr;
+    int furyCost = 0;
+    if (g_netTarget == 0) furyCost = SearchFuryCost(player, fury);
     if (g_netTarget != 0) {
         net = Items::GetPlayersBestNet();
         if (!net) {
@@ -568,6 +586,19 @@ void UpdateCentre(Entity* player) {
             // (button_large_round_mask.png, GUI::Window::ApplyMask).
         }
         g_stance->SetText(StringTable::GetString("TAME_HINT"));
+    } else if (fury) {
+        // The profession's best tool as the icon, "boost for <cost>".
+        g_centre.SetColor(1);
+        g_centre.active->SetVisibility(true);
+        g_centre.active->SetAlpha(Pulse(8.f), false);
+        if (Items::ItemInfo* info = Items::GetItemInfo(Professions::GetProfessionTool(fury->id, false, nullptr, true))) {
+            g_centre.icon->SetTexture(info->GetIcon(), true);
+            // UNVERIFIED (milestone 5, the mask shader): masked round (button_large_round_mask.png).
+        }
+        g_stance->SetText(SWPrintf(0x100, U"%s %s %s",
+                                   {StringTable::GetString("BUILDING_BOOST"),
+                                    StringTable::GetString("HEAL_SCREEN_FOR"), ToWideString(furyCost)})
+                              .c_str());
     } else {
         // Running: the icon offers walking and the line says "run".
         bool running = player->IsSpeedRunning();
@@ -1192,11 +1223,17 @@ uint32_t GetNetTargetSpawnID() { return g_root && g_root->visibleSelf ? g_netTar
 
 // @0x2588b4: with a net target the net is thrown at it and the hero cheers; without one the hero
 // starts or stops running (running costs mana: with none, the hint says so).
-// UNVERIFIED (milestone 5, 5n): a search job the hero works is first hurried with fury
-// (search_to_fury_mult, Professions::GetProfessionForObject): Professions are not ported.
+// Outside fights a search job the hero works is first finished with fury when it can be.
 void OnCenter() {
     Entity* player = EntityManager::GetPlayer();
     if (g_netTarget == 0) {
+        Professions::Profession* prof = nullptr;
+        if (int cost = SearchFuryCost(player, prof)) {
+            Map::Decor* d = player->GetWorkplaceDecoration();
+            d->collectStart = (uint32_t)Timer::GetGlobalTime() + ~d->f50;
+            player->AddAP(-cost);
+            return;
+        }
         const Window* b = g_centre.root;
         int x = g_root->x + b->x + b->w / 2, y = g_root->y + b->y;
         Map::MouseCoordinatesToWorld(x, y);

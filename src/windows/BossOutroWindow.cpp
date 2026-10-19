@@ -4,11 +4,10 @@
 // and the map the fight started from is loaded again (OnTweenOut).
 // Port of BossOutroWindow (libkingdom.so 5.11), 0x253a54..0x255080. Statics at 0x617f9c.
 //
-// UNVERIFIED (milestone 5n, Professions): the arena's reputation screen: Show's profession
-// (Professions::GetProfession(1), its points, the map's 0x1ba items, the sound and StopMusic) and
-// Update's bar (the profession level's text and progress), so the bar stays hidden and idle.
-// UNVERIFIED (milestone 6): the arena sound "arena_..." (0x579790) in Show.
+// UNVERIFIED (milestone 6): the arena's sound "arena_win" and SoundsManager::StopMusic in Show.
+#include <algorithm>
 #include <cstdio>
+#include <string>
 
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -19,6 +18,7 @@
 #include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Map.h"
+#include "game/Professions.h"
 #include "game/Rand48.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
@@ -45,6 +45,11 @@ GUI::MovementEffect* g_effect = nullptr;   // 0x617fe0
 Textfield* g_text1 = nullptr;         // 0x617fe4 text_01: the header
 Render::Texture* g_blackTex = nullptr;   // 0x617fe8
 float g_time = 0.f;                   // 0x617fec (the arena's bar: only counts while one window is up)
+// The arena's reputation bar: profession 1 (the Bloodletters) from its points before to those plus
+// the map's reputation items (0x1ba).
+Professions::Profession* g_profession = nullptr;   // 0x617ff0
+uint32_t g_startPoints = 0;           // 0x617ff4
+uint32_t g_endPoints = 0;             // 0x617ff8
 int g_bandY = 0;                      // 0x617ffc small screens: the slid-down window's y
 bool g_tablet = false;                // 0x60f0ec
 float g_rootScale = 1.f;              // 0x60f0e8
@@ -102,9 +107,9 @@ void UpdateContents() {
 
 }  // namespace
 
-// @0x2540f0: the band's texture comes back after a context loss. UNVERIFIED (milestone 5n): in an
-// arena the reputation bar fills over time (time / 0.5 s, the profession level's points) with its
-// text "level progress".
+// @0x2540f0: the band's texture comes back after a context loss. In an arena the reputation bar
+// fills in 2 s (after half a second) towards the next level's points, with "gained x / y" (or "next
+// rank" once they are reached).
 void Update(float dt) {
     if (!g_queue->shown || !g_black) return;
     if (!g_blackTex || g_blackTex->glId == 0) {
@@ -112,6 +117,30 @@ void Update(float dt) {
         Render::SetTexture(g_black, g_blackTex);
     }
     if (WindowManager::GetShownWindowCount() < 2) g_time += dt;
+    if (!g_profession) return;
+    float t = g_time * 0.5f;
+    t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+    const uint32_t level = Professions::GetPlayerProfessionLevel(g_profession->id);
+    Professions::ProfessionLevel* next = Professions::GetProfessionLevel(g_profession->id, level + 1);
+    if (!next) next = Professions::GetProfessionLevel(g_profession->id, level);
+    if (!next) return;
+    const float from = (float)g_startPoints;
+    const float value = from + t * ((float)std::min(next->points, g_endPoints) - from);
+    Professions::ProfessionLevel* cur = Professions::GetProfessionLevel(g_profession->id, level);
+    const int shown = (int)(value + 0.5f);
+    const int prev = cur ? (int)cur->points : 0;
+    std::u32string text;
+    if ((int)next->points <= shown)
+        text = SWPrintf(0x100, StringTable::GetString("ARENA_WAVE_GAINED_NEXT"), {g_profession->title});
+    else
+        text = SWPrintf(0x100, StringTable::GetString("ARENA_WAVE_GAINED"),
+                        {g_profession->title60, ToWideString(shown), ToWideString((int)next->points)});
+    g_bar.textUnder->SetText(text.c_str());
+    g_bar.textOver->SetText(text.c_str());
+    if (prev != (int)next->points) {
+        g_bar.SetProgress((value - (float)(uint32_t)prev) / (float)(uint32_t)((int)next->points - prev));
+        g_root->UpdatePosition();
+    }
 }
 
 // @0x2547a4: the arena's music stops; the loot strip rises (the map's pick-ups, "BOSS_OUTRO_FOUND"),
@@ -119,9 +148,14 @@ void Update(float dt) {
 void Show() {
     if (g_queue->shown) return;
     if (ArenaTurnWindow::IsVisible()) ArenaTurnWindow::Hide();
-    // UNVERIFIED (milestone 5n): with an arena fight active the profession of the reputation bar is
-    // chosen here (Professions::GetProfession(1), its points + the map's 0x1ba items, g_time = -0.5),
-    // the sound plays and the music stops.
+    if (GameState::IsArenaCombatActive()) {
+        g_profession = Professions::GetProfession(1);
+        g_startPoints = GameState::GetProfessionPoints(g_profession->id);
+        const int found = GameState::GetMapItemCollectionInfo(GameState::GetCurrentMapID(), 0x1ba);
+        g_time = -0.5f;
+        g_endPoints = (uint32_t)found + g_startPoints;
+        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("arena_win", 1, false), StopMusic.
+    }
     FoundItemsWindow::SetParameters((uint32_t)GameState::GetCurrentMapID(), g_boss,
                                     StringTable::GetString(GameState::IsArenaCombatActive() ? "ARENA_WAVE_FOUND" : "BOSS_OUTRO_FOUND"));
     FoundItemsWindow::Show();

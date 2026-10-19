@@ -36,6 +36,7 @@
 #include "hud/HUD.h"
 #include "game/Items.h"
 #include "game/Locations.h"
+#include "game/Professions.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -446,10 +447,10 @@ void GiveCollectedToPlayer(bool drop, Entity* at, bool noCrystalCap) {
                     BuildingHovers::DropItem(at->worldX, at->worldY, Items::GetItemInfo(c.id), 0, n);
                 }
             } else {
-                // UNVERIFIED (milestone 5): a profession point item
-                // (Professions::GetProfessionForPointItem) adds profession points instead
-                // (Professions::AddProfessionPoint); without professions it is an item.
-                if (c.id == 0x26a) {   // a healing: the player's HP (a dead player stands up)
+                // (a profession's point item gives its points)
+                if (Professions::Profession* p = Professions::GetProfessionForPointItem(c.id)) {
+                    Professions::AddProfessionPoint(p->id, (uint32_t)c.amount);
+                } else if (c.id == 0x26a) {   // a healing: the player's HP (a dead player stands up)
                     if (Entity* p = EntityManager::GetPlayer()) {
                         if (p->IsDead()) Render::ChangeLayer(p->GetSprite(), Render::kLayerObjects);
                         p->AddHP(c.amount);

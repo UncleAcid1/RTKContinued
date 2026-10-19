@@ -275,7 +275,7 @@ dead  ^CallbackAssignWorker::   # never constructed in 5.11 (no call of its cons
 # ---- 4h: the new game ---------------------------------------------------------------------------
 5n-1  ^Professions::   # the professions and reputations (professions.xml); 5n-1 2026-10-19
 5n-1  ^GameState::(GetProfessionPoints|AddProfessionPoints)$
-5n-2  ^BossIntroWindow::SetReputation$   # the arena's reputation screens: one line on top of Professions::GetProfession (5n; moved from 5i-2 on 2026-10-18)
+5n-2b  ^BossIntroWindow::SetReputation$   # the arena's reputation screens: one line on top of Professions::GetProfession (5n; moved from 5i-2 on 2026-10-18)
 implicit  ^GlobalMapWindow::FUN_(002bdd9c|002bddd4|002bde08|002be1c4)   # the location arrays' and the arrow vector's static destructors
 4h  ^(GlobalMapWindow|BossIntroWindow)::   # the world map and its ambush banner: the tutorial's way home (user, 2026-10-14); their milestone-5 satellites (campaign/raid info, ChoosePath, the sultan's window, PvP travel, reputation screens) are notes in the code
 4h  ^(Shared::EndscreenProgressBar::|SetInfoWindow::GetPlayerItemOrBetter$|GameState::(ResetBossFightsOnMap|GetEventCompletionCount)$|Render::(CreateScreenTexture|IsLowPerformanceDevice)$|Timer::AddDeltaTimeCompensation$)   # what the world map and BossIntroWindow use

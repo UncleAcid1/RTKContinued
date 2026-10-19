@@ -23,7 +23,9 @@
 #include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Professions.h"
 #include "game/Setting.h"
+#include "game/Sets.h"
 #include "game/SoldierSlots.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -484,11 +486,28 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
     classText[inf->itemLevel]->SetText(inf->title);
 
     unsigned n = 0;   // the next effect line
-    // UNVERIFIED (milestone 5): the set line (Sets::GetSetForItem, also through
-    // Collections::GetCollectionStart: the set's name, no icon) and the profession line
-    // (Professions::GetProfession / GetProfessionLevel of reputation_id / reputation_level: the
-    // level's name with the profession's icon). Neither system is ported, so neither line shows.
-    bool hasProfession = false;   // Professions::GetProfession(inf->reputationId) != null
+    // The set line (the set of the item, or of the first item of its improvement chain): the set's
+    // name, no icon.
+    Sets::Set* set = Sets::GetSetForItem(inf->id);
+    Collections::Collection* start = Collections::GetCollectionStart(inf->id);
+    if (start && !set) set = Sets::GetSetForItem(start->from);
+    if (set) {
+        EffectLine& l = lines[n++];
+        l.root->SetVisibility(true);
+        l.text->SetText(set->name);
+        l.icon->SetVisibility(false);
+    }
+    // The profession line: the rank needed, with the profession's small icon.
+    Professions::Profession* prof = Professions::GetProfession(inf->reputationId);
+    const bool hasProfession = prof != nullptr;
+    Professions::ProfessionLevel* rank = Professions::GetProfessionLevel(inf->reputationId, inf->reputationLevel);
+    if (rank && prof) {
+        EffectLine& l = lines[n++];
+        l.root->SetVisibility(true);
+        l.text->SetText(rank->name);
+        l.icon->SetVisibility(true);
+        l.icon->SetTexture(prof->smallIcon, prof->icon != prof->smallIcon);
+    }
 
     // The item's type, with the building that makes it (a pack: its first item).
     uint32_t madeId = inf->id;
@@ -674,7 +693,7 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
         // Repair: some durability used (a profession tool only with a crystal price).
         ItemButton& rep = buttons[kRepair];
         bool repairable = durabilityMax != 0 && (int)durabilityLeft < (int)durabilityMax;
-        if (repairable && it->info->IsProfessionTool() && it->info->cost2 == 0) repairable = false;
+        if (repairable && Professions::IsProfessionTool(it->info->id) && it->info->cost2 == 0) repairable = false;
         rep.root->SetVisibility(repairable);
         rep.green->SetVisibility(false);
         rep.icon->SetTexture(IconManager::GetIcon("gold_repair"), true);
@@ -706,7 +725,7 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
             // sells them (or a pack with them).
             ItemButton& shop = buttons[kShop];
             unsigned t = inf->type;
-            bool kind = t == 3 || t == 7 || (inf->IsProfessionTool() && broken) || !inv;
+            bool kind = t == 3 || t == 7 || (Professions::IsProfessionTool(inf->id) && broken) || !inv;
             shop.root->SetVisibility(kind && (ItemCanBeBought(inf->id) || Items::GetItemPackWithItem(inf->id)));
             shop.root->SetEnabled(!GameState::IsArenaCombatActive() &&
                                   GameState::TaskCompleted(Setting("shop_unlock_task").GetInt()));
@@ -714,9 +733,13 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
             shop.icon->SetTexture(IconManager::GetIcon("profession_hauler"), true);
             shop.text->SetText(StringTable::GetString("PERFORM_BUY"));
         }
-        if (!noReputation && hasProfession && !LevelInfoWindowIsVisible()) {
-            // UNVERIFIED (milestone 5): the Valor button for a profession of type 1 (its icon
-            // +0x1c and LEVEL_INFO_HEADER_REP); no professions yet.
+        // The reputation button (a reputation's item: its levels in LevelInfoWindow).
+        if (!noReputation && hasProfession && prof->type == Professions::kReputation && !LevelInfoWindowIsVisible()) {
+            ItemButton& r = buttons[kReputation];
+            r.root->SetVisibility(true);
+            r.green->SetVisibility(false);
+            r.icon->SetTexture(prof->icon, false);
+            r.text->SetText(StringTable::GetString("LEVEL_INFO_HEADER_REP"));
         }
     }
 
@@ -965,7 +988,7 @@ void ItemHoverWindow::OnUnequip() {
 void ItemHoverWindow::OnRepair() {
     if (!item || !inventory) return;
     if (item->f0c == item->info->durability) return;
-    if (item->info->IsProfessionTool() && item->info->cost2 == 0) return;
+    if (Professions::IsProfessionTool(item->info->id) && item->info->cost2 == 0) return;
     BuildingHovers::HideArrow();
     RepairWindow::SetParameters(item);
     RepairWindow::Show();
@@ -976,7 +999,7 @@ void ItemHoverWindow::OnRepair() {
 void ItemHoverWindow::OnRemove() {
     if (!item || !inventory) return;
     BuildingHovers::HideArrow();
-    if (!item->info->IsProfessionTool()) {
+    if (!Professions::IsProfessionTool(item->info->id)) {
         PopupSelectionWindow::Show(StringTable::GetString(""), StringTable::GetString("INVENTORY_REMOVE_CONFIRM"),
                                    StringTable::GetString("HUD_OK"), IconManager::GetIcon("gold_confirm"),
                                    [this] { OnRemoveActual(); }, StringTable::GetString("CANCEL"),

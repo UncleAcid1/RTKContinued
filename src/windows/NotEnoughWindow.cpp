@@ -18,6 +18,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/Professions.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -589,7 +590,7 @@ bool CheckRequirements() {
         if (need != 0 && (int)GameState::GetResourceAmount(i) < need) ++g_missing;
     }
     if (g_level != 0 && (unsigned)GameState::GetLevel() < g_level) ++g_missing;
-    // UNVERIFIED (milestone 5): the profession level (Professions::GetPlayerProfessionLevel).
+    if (g_profession != 0 && Professions::GetPlayerProfessionLevel(g_profession) < g_professionLevel) ++g_missing;
     for (auto& [id, n] : g_items)
         if ((unsigned)GameState::GetItemAmount(id, false) < n) ++g_missing;
     if (g_population != 0 &&
@@ -665,7 +666,37 @@ void UpdateContents() {
         canBuyAll = false;
         l.type = kLevel;
     }
-    // UNVERIFIED (milestone 5): the profession line ("REQUIRES_REPUTATION_LEVEL", type 4).
+    // The profession line: its icon and "requires <rank> of <profession>".
+    if (g_profession != 0 && Professions::GetPlayerProfessionLevel(g_profession) < g_professionLevel) {
+        Line& l = g_lines[n];
+        l.root->SetVisibility(true);
+        Professions::Profession* p = Professions::GetProfession(g_profession);
+        Professions::ProfessionLevel* rank = Professions::GetProfessionLevel(g_profession, g_professionLevel);
+        l.icon->SetVisibility(true);
+        std::u32string text;
+        if (!p) {
+            l.icon->SetTexture(nullptr, true);
+        } else {
+            l.icon->SetTexture(p->icon, true);
+            if (rank)
+                text = SWPrintf(0x100, StringTable::GetString("REQUIRES_REPUTATION_LEVEL"), {p->title, rank->name});
+        }
+        if (Professions::GetPlayerProfessionLevel(g_profession) < g_professionLevel) {
+            canBuyAll = false;
+            l.levelShort->SetVisibility(true);
+            l.levelShort->SetText(text.c_str());
+            l.find->SetVisibility(true);
+            l.findText->SetText(StringTable::GetString("PERFORM_FIND"));
+        } else {
+            l.level->SetVisibility(true);
+            l.level->SetText(text.c_str());
+            l.complete->SetVisibility(true);
+            l.complete->SetTexture(IconManager::GetIcon("gold_confirm"), false);
+        }
+        l.profession = g_profession;
+        l.type = kProfession;
+        ++n;
+    }
     // The item lines: the name in the colour of its quality, the count (short: with Find); the
     // crystal price of the shortfall joins Buy all.
     for (auto& [id, count] : g_items) {

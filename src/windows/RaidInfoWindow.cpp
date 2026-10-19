@@ -24,6 +24,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Locations.h"
+#include "game/Professions.h"
 #include "game/MetaData.h"
 #include "game/SaveManager.h"
 #include "game/Setting.h"
@@ -270,12 +271,16 @@ void SetZ(float z) {
 // @0x32f24c
 float ZRange() { return g_wnd->shown ? 0.06f : 0.01f; }
 
-// @0x32f804: how likely item is to drop at that star: 0 high, 1 medium, 2 low. The location's own
-// drop table first; else the best chance among its enemies' drops (> 10: high, > 4: medium).
+// @0x32f804: how likely item is to drop at that star: 0 high, 1 medium, 2 low. An item of a
+// profession: its gathering chance (> 50: high, > 19: medium). Else the location's own drop table
+// first; else the best chance among its enemies' drops (> 10: high, > 4: medium).
 int GetItemDropProbability(Locations::LocationInfo* loc, unsigned star, uint32_t item) {
-    // UNVERIFIED (milestone 5n): an item of a profession (Professions::GetProfession(reputationId))
-    // takes Professions::GetItemProbability instead (> 50: high, > 19: medium, else low); no
-    // profession is known until then.
+    if (Items::ItemInfo* info = Items::GetItemInfo(item)) {
+        if (Professions::GetProfession(info->reputationId)) {
+            const unsigned p = (unsigned)Professions::GetItemProbability(info->reputationId, item);
+            return p > 50 ? 0 : (p > 19 ? 1 : 2);
+        }
+    }
     if (loc->HadItemDropChance(item, star)) return loc->GetItemDropChance(item, star);
     if (!loc->enemies) return 2;
     const unsigned s = std::min(star, 2u);
@@ -740,9 +745,9 @@ void UpdateContents() {
             const MetaData* c = list->GetChild(i);
             if (c->GetChildrenCount() == 0) break;
             Items::ItemInfo* item = Items::GetItemInfo((uint32_t)c->GetChild(0)->GetInt());
-            // UNVERIFIED (milestone 5n): an item whose profession (reputationId) is not unlocked or
-            // below reputationLevel is left out too; professions are not ported.
-            if (!item) {
+            Professions::Profession* prof = item ? Professions::GetProfession(item->reputationId) : nullptr;
+            if (!item || (prof && (!prof->IsUnlocked() || Professions::GetPlayerProfessionLevel(item->reputationId) <
+                                                              item->reputationLevel))) {
                 --fl.scroller.itemCount;
                 continue;
             }
@@ -992,11 +997,12 @@ void UpdateContents() {
                 need = c->GetChild(1)->GetInt();
                 enough = need <= (int)GameState::GetResourceAmount(type);
             } else {
-                // UNVERIFIED (milestone 5n): the profession's icon (Professions::GetProfession, its
-                // +0x1c image at 1.5 times the layout height) and Professions::GetPlayerProfessionLevel;
-                // no profession is known, so the level is 0.
+                // REPUTATION: the profession's icon and its level.
+                const uint32_t id = (uint32_t)c->GetChild(1)->GetChild(0)->GetInt();
+                if (Professions::Profession* p = Professions::GetProfession(id))
+                    r.icon->SetTexture(p->icon, true, 0, (unsigned)(int)((float)r.icon->origH * 1.5f), true);
                 need = c->GetChild(1)->GetChild(1)->GetInt();
-                enough = need <= 0;
+                enough = need <= (int)Professions::GetPlayerProfessionLevel(id);
             }
         } else if (c->GetChild(0)->type == 1) {
             if (Items::ItemInfo* item = Items::GetItemInfo((uint32_t)c->GetChild(0)->GetInt()))

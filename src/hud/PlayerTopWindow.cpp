@@ -13,6 +13,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/MetaExpression.h"
+#include "game/Professions.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "hud/HoverWindows.h"
@@ -313,12 +314,11 @@ void Update(float dt) {
         }
     }
 
-    // The bars glide to the real values (30 steps a second, 13.4% of the way each).
-    // UNVERIFIED (milestone 5, Professions): the valor bar's value is profession 7's points
-    // (GameState::GetProfessionPoints) between its level thresholds; it stays empty.
+    // The bars glide to the real values (30 steps a second, 13.4% of the way each); the valor bar
+    // is profession 7's points.
     if (g_wasPlayerCity != GameState::IsPlayerCity() || !g_cityKnown) {
         g_wasPlayerCity = GameState::IsPlayerCity();
-        g_rep = 0.f;
+        g_rep = (float)GameState::GetProfessionPoints(7);
         g_xp = (float)(int)GameState::GetResourceAmount(10);
         g_hp = (float)player->GetHP();
     }
@@ -326,6 +326,7 @@ void Update(float dt) {
     g_smoothTime += dt;
     if (g_smoothTime > 0.0333333f) {
         g_smoothTime = 0.f;
+        g_rep = g_rep - ((float)GameState::GetProfessionPoints(7) - g_rep) * -0.133975f;
         g_xp = g_xp - ((float)(int)GameState::GetResourceAmount(10) - g_xp) * -0.133975f;
         float hp = 0.f;
         if (!player->IsActuallyDying()) hp = (float)(GameState::IsPlayerCity() ? player->GetHP() : player->GetHpMax());
@@ -352,7 +353,15 @@ void Update(float dt) {
     }
 
     g_level->SetText(SWPrintf(0x100, U"%d", {GameState::GetLevel()}).c_str());
-    float fRep = 0.f;
+    // Valor between its rank's points and the next rank's.
+    Professions::ProfessionLevel* repCur =
+        Professions::GetProfessionLevel(7, Professions::GetPlayerProfessionLevel(7));
+    Professions::ProfessionLevel* repNext =
+        Professions::GetProfessionLevel(7, Professions::GetPlayerProfessionLevel(7) + 1);
+    const uint32_t repFrom = repCur ? repCur->points : 0;
+    const uint32_t repTo = repNext ? repNext->points : 0;
+    float fRep = (g_rep - (float)repFrom) / (float)(repTo - repFrom);
+    fRep = fRep > 1.f ? 1.f : (fRep < 0.f ? 0.f : fRep);
     unsigned level = (unsigned)GameState::GetLevel();
     float fXp = Clamp01((g_xp - (float)GameState::GetLevelXP(level - 1)) /
                         (float)(GameState::GetLevelXP(level) - GameState::GetLevelXP(level - 1)));
@@ -372,7 +381,7 @@ void Update(float dt) {
     }
     if (write) {
         if (g_lastRep != fRep || g_lastXp != fXp || g_lastHp != fHp || player->GetHpOverlimit() != g_lastOverlimit) {
-            SetBoth(g_repBg, g_repText, SWPrintf(0x100, U"%d/%d", {(int)(g_rep + 0.5f), 0}).c_str());
+            SetBoth(g_repBg, g_repText, SWPrintf(0x100, U"%d/%d", {(int)(g_rep + 0.5f), (int)repTo}).c_str());
             g_repClip.right = (int)((float)g_repClip.left + (float)g_repBar->w * fRep);
             SetBoth(g_xpBg, g_xpText,
                     SWPrintf(0x100, U"%d/%d", {(int)(g_xp + 0.5f), (int)GameState::GetLevelXP(level)}).c_str());

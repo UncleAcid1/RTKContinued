@@ -25,6 +25,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/Professions.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/SoldierSlots.h"
@@ -1220,9 +1221,14 @@ void ItemDrop::Collect(bool automatic, bool) {
         // (SetStarterChestMode 0x35, or 0x3f with "starter_chest_b") and restarts task 0x75b.
         bool timesOnly = id - 0x16cu < 2;
         if (timesOnly) g_rubyDropped = false;
-        // UNVERIFIED (milestone 5): profession point items (Professions::GetProfessionForPointItem)
-        // add profession points and show them at the belt; without professions they are items.
-        if (id == 0x26a) {
+        if (Professions::Profession* p = Professions::GetProfessionForPointItem(id)) {
+            // A profession's point item: its points (a tap on a profession's shows them at the belt).
+            if (!automatic && p->type == Professions::kProfession) {
+                // UNVERIFIED (milestone 5o, the belt's crafting bar): BeltBarWindow::ShowProfessionPoint
+                // (the drop's screen position, p, GameState::GetProfessionPoints(p->id)).
+            }
+            Professions::AddProfessionPoint(p->id, amount);
+        } else if (id == 0x26a) {
             EntityManager::GetPlayer()->AddHP((int)amount);
         } else {
             GameState::AddItem(id, (int)amount, false, timesOnly, false);
@@ -1538,8 +1544,11 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
         }
     }
     else {
-        // UNVERIFIED (milestone 5): profession point items fly to the badge (235 x the HUD scale).
-        if ((item == 0xaf && GameState::tutorial == 0x15) || GameState::tutorial == 0x57) {
+        if (Professions::GetProfessionForPointItem(item)) {
+            // A profession's point item flies to the crafting bar's badge.
+            m.endX = GUI::GetHudScaleFactor() * 235.f;
+            m.endY = sprite->h;
+        } else if ((item == 0xaf && GameState::tutorial == 0x15) || GameState::tutorial == 0x57) {
             // The tutorial's piece flies to the hero's portrait.
             m.endX = 18.f;
             m.endY = sprite->h + 18.f;
