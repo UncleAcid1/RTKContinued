@@ -473,6 +473,25 @@ void Hide();                                // @0x32fe84
 bool IsVisible();                           // @0x32f1f4
 }
 
+// The sultan on his way to the desert (windows/SultanArrivingWindow.cpp).
+namespace SultanArrivingWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "SultanArrivingWindow"
+void Init();                                // @0x3502d8
+void Show();                                // @0x34ff7c
+void Hide();                                // @0x350028
+bool IsVisible();                           // @0x34f758
+void RunLastHelp();                         // @0x34ff38 (Map::Load) quest 0x591's help after "Arrive now"
+}
+
+// The "loading" card Map::Load shows (windows/LoadingScreenWindow.cpp).
+namespace LoadingScreenWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LoadingScreenWindow"
+void Init();                                // @0x2f42e4
+void Show();                                // @0x2f4144
+void Hide();                                // @0x2f4210
+bool IsVisible();                           // @0x2f4084
+}
+
 // "Campaign complete!" at a campaign's end (windows/CampaignCompleteWindow.cpp).
 namespace CampaignCompleteWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CampaignCompleteWindow"

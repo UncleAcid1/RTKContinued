@@ -296,7 +296,7 @@ void OnTravel(unsigned type) {
         }
         if (!GameState::TaskCompleted(0x5c9)) {
             if (!GlobalMapWindow::IsVisible()) GlobalMapWindow::Show();
-            // UNVERIFIED (milestone 5h): SultanArrivingWindow::Show.
+            SultanArrivingWindow::Show();
             HUDWindow::UpdateTasks();
             Hide();
             return;

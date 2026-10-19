@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5h-2 (LoadingScreenWindow, SultanArrivingWindow). (5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5i (bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect, FastBossIntroEffect, BossIntroWindow::SetReputation). (5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1886,7 +1886,7 @@ Milestones:
                    world map; at level 30 two "Start" arrows on the open missions; X (805:188)
                    closes it. Not played: a real mission's end (its end tasks) and quitting while
                    the banner is up.
-       5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
+       5h [x] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
               SPLIT (2026-10-18, about 56 functions):
               5h-1 [x] (2026-10-18) windows/CampaignCompleteWindow.cpp (Endscreen_campaign_end.xml)
                    and windows/CampaignPerfectedWindow.cpp (Endscreen_campaign_100_percent.xml),
@@ -1911,7 +1911,32 @@ Milestones:
                    home, "Select a path!" after the city loads (from the city itself the same-map
                    switch only hides the world map: faithful). "Ultimate Completion!", "Progress:
                    100%", the reward strip; Ok -> "Done task 1056", crystals 6 -> 12, LevelUpWindow.
-              5h-2 [ ] LoadingScreenWindow, SultanArrivingWindow.
+              5h-2 [x] (2026-10-18) windows/LoadingScreenWindow.cpp (Visit_friend_loading_screen.xml:
+                   small logo moved to layer 0xf, the loading cogs, "GOTOBATTLEMAP") and Map::Load's
+                   loading frames: the flag 0x60f014 (cleared when the world map is not visible at
+                   the start; IsVisible is false during the sepia, so animated switches never show
+                   it, as on the original), two frames first, then Show + minLayer 0xe +
+                   clearColor off + a frame, a Render::Update between the stages (10 on the
+                   original; the port's Map::Load is laid out differently, so they sit at the
+                   nearest matching points), at the end minLayer 0, a frame and Hide, the flag
+                   set again. windows/SultanArrivingWindow.cpp (Window_ariving.xml, "New
+                   Campaign"): the time left of "sultan_move_time" from event 0x5dd on the clipped
+                   progress bar ("SULTAN_ARRIVES_IN"), refreshed every second; "Arrive now" for
+                   "sultan_unlock" crystals (NotEnoughWindow when short) completes 0x5c9, centres
+                   on 0x53, the sultan's movement and SwitchMapAnimated to 0xb, then RunLastHelp
+                   (Map::Load's end) runs quest 0x591's help; "Collect items" opens TaskInfoWindow
+                   for 0x5c9. Wired: the world map's sultan marker (OnSultan 0x2bf434), the desert
+                   node, ChoosePathWindow's desert slot, CastleTopWindow::OnReturn, Map::Load.
+                   PORT (online): the Expansions checks, Billing::LogCBPurchase. UNVERIFIED: the
+                   sounds (6). VERIFIED (the 5d-2 save; test aids RTK_SULTAN=1 opens it,
+                   RTK_SULTANT=s starts event 0x5dd s seconds ago, RTK_WORLD=1 opens the world map
+                   at frame 30): "Sultan arrives in: 7 days 00:00:00" (not started), "3 days
+                   12:00:00" with the bar half orange and the text split at its edge; Arrive now
+                   (520:560) with 100 crystals -> "Done task 1481", 50 crystals, the trip to the
+                   Imperial Palace (map 11), the elephant, the help arrow on quest 0x591. The
+                   loading card ("Traveling the Empire...", the logo, the cogs) seen with a
+                   temporary edit that kept it after RTK_WORLD=1 RTK_GOMAP=14; the animated switch
+                   above skips it (faithful).
        Fights:
        5i [ ] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,
               FastBossIntroEffect, BossIntroWindow::SetReputation.

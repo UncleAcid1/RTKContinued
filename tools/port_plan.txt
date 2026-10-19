@@ -141,6 +141,7 @@ dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever sho
 4g  ^TapHoverWindow::   # the belt's tap hint, created by BeltBarWindow::Init (4g)
 implicit ^(CampaignCompleteWindow::(FUN_00271ddc|_INIT_70)|CampaignPerfectedWindow::FUN_00275ae8)\b   # the static FunctionalWindows (Queue()); _INIT_70 is not a function: Ghidra cut Show (0x272460..0x272770) there
 5  ^(CampaignCompleteWindow|CampaignPerfectedWindow)::   # only the global map shows them (GlobalMapWindow::*::ShowCompletionWindow / OnTaskCompleted)
+implicit ^LoadingScreenWindow::FUN_002f4098\b   # the static FunctionalWindow (Queue())
 5  ^LoadingScreenWindow::   # Map::Load shows it only when the switch starts from the open global map; the other users are online (friends' cities)
 implicit ^CampaignInfoWindow::(FUN_00272cd4|FlagInfo::~FlagInfo|_INIT_71)$   # the static FunctionalWindow (Queue()) with its scrollers and vectors, the flag's destructor; _INIT_71 is not a function: Ghidra cut UpdateContents (0x2731a8..0x2742f4) there
 implicit ^ChoosePathWindow::(FUN_00295378|_INIT_78)$   # the static FunctionalWindow (Queue()) with its scroller and vectors; _INIT_78 is not a function: Ghidra cut Update (0x298690..0x298df0) there

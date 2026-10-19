@@ -148,7 +148,7 @@ void OnReturn() {
             GameState::GetEventStartTime(0x5dd) == 0) {
             GameState::SetEventStartTime(0x5dc, now);
             GlobalMapWindow::CenterOnSultan();
-            // UNVERIFIED (milestone 5): SultanArrivingWindow::Show.
+            SultanArrivingWindow::Show();
             return;
         }
         if (0x14370u < now - GameState::GetEventStartTime(2000)) {

@@ -78,6 +78,13 @@ bool g_bossReward = false;                      // 0x61365a a boss reward waits 
 float g_loadQueuedDelay = 0.f;                  // 0x61365c
 int g_loadQueuedMap = -1;                       // 0x60eff8
 bool g_loading = false;                         // 0x61368c (Map::Load is running)
+// 0x60f014: Map::Load shows LoadingScreenWindow (cleared when the load does not start from the open
+// world map; set again at its end).
+bool g_loadScreen = true;
+// One frame of the loading screen between Map::Load's stages (Render::Update(0, 1.5)).
+void LoadScreenFrame() {
+    if (g_loadScreen) Render::Update();
+}
 bool g_newGameLoad = false;                     // 0x6137f8 Map::Load's third argument
 bool g_storedPosition = false;                  // 0x6136c0
 int g_storedX = -1, g_storedY = -1;             // 0x60f00c 0x60f010
@@ -2044,9 +2051,14 @@ void Free() {
 
 bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromCache) {
     g_loading = true;
+    // The loading screen only shows when the switch starts from the open world map (drawn twice
+    // first, the world map still up).
+    if (!GlobalMapWindow::IsVisible()) g_loadScreen = false;
+    if (gameLoaded && g_loadScreen) {
+        Render::Update();
+        Render::Update();
+    }
     // What is left of the map being left.
-    // UNVERIFIED (milestone 5): the loading screen (LoadingScreenWindow, with Render::minLayer 0xe)
-    // only shows when the switch starts from the open global map.
     ClearCameraPoints();
     CastleTopWindow::HideTools();
     HUDWindow::HideLocators();
@@ -2056,6 +2068,12 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     BuildingMovement::Decline();
     BuildingPlacement::Decline();
     ClearCameraPoints();
+    if (g_loadScreen) {
+        LoadingScreenWindow::Show();
+        Render::minLayer = 0xe;
+        Render::clearColor = false;
+        Render::Update();
+    }
     Free();
     Rand48::srand48((long)time);
     g_loaded = false;
@@ -2181,6 +2199,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     }
     Fog::Update(128.f);
     if (g_mapId == 0) AssignUniqueIDs();   // (the end of LoadPlayer)
+    LoadScreenFrame();
     // (back in Map::Load) the queued switch is over.
     g_loadQueuedMap = -1;
     g_loadQueuedDelay = 0.f;
@@ -2194,13 +2213,17 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     Rand48::srand48((long)time);
     std::printf("Map %u: %dx%d tileset %d, %zu patches, %zu sprites\n", g_mapId, g_gridW, g_gridH, g_tileset,
                 g_patches.size(), Render::SpriteCount());
+    LoadScreenFrame();
+    LoadScreenFrame();   // (after Background::CreateLand on the original; the port creates the land earlier)
     CreateRoadAI();
+    LoadScreenFrame();
     if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
     // (ProcessOfflineContracts @0x1b7434 is empty.) Music: milestone 6.
     GameState::RefreshOfflineGoblins();
     AssignEntities();
     LinkPortals();
     UpdateSpawns();
+    LoadScreenFrame();
     if (Entity* player = EntityManager::GetPlayer()) {
         if (GameState::GetCurrentMapID() == 0) player->SetSpawnPoint(nullptr);
         player->GetAI()->RemoveActionMarker();
@@ -2220,6 +2243,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         }
         if (GameState::tutorial == 9) Render::CenterOn(392.f, 201.f);
     }
+    LoadScreenFrame();
     // "auto_fix_map_reset": a quest decoration of maps 0x52..0x59 that kept a use although its quest
     // is done loses it.
     if (GameState::SettingExists("auto_fix_map_reset") && Setting("auto_fix_map_reset").GetInt() == 1) {
@@ -2247,6 +2271,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     AI::LinkAdjacentWaypoints();
     SpawnEntities();
     EntityManager::UpdateAggroZone();
+    LoadScreenFrame();
     PrepareImages();
     if (GameState::GetCurrentMapID() == 0) {
         int x = 0x1e, y = 0xc;
@@ -2262,6 +2287,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     HUDWindow::RemoveTaskArrows();
     BuildingHovers::Update(0.0, true);
     BeltBarWindow::Show();
+    LoadScreenFrame();
     // From tileset 2 on, or off mission maps, the clouds.
     const bool missionMap = Locations::IsMissionMap(GameState::GetCurrentMapID());
     if ((unsigned)g_tileset >= 2 || !missionMap) CreateClouds();
@@ -2272,6 +2298,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerObjects, 0);
     Render::SortRenderLayer(Render::kLayerObjects, 1);
+    LoadScreenFrame();
     // The map's name; a boss or arena fight with an enemy squad shows its intro instead: the PvP
     // one the players' (PlayerBattleInOutWindow; a real opponent is told online, dormant),
     // UNVERIFIED (milestone 5) the others the boss's banner (BossIntroWindow with the boss name).
@@ -2293,7 +2320,14 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     AllowBuildingVisibilityUpdate(true);
     AllowDecorationVisibilityUpdate(true);
     Update(0.0);
-    // (the loading screen closes here: LoadingScreenWindow::Hide, milestone 5)
+    if (gameLoaded) {
+        Render::minLayer = 0;
+        if (g_loadScreen) {
+            Render::Update();
+            LoadingScreenWindow::Hide();
+        }
+    }
+    g_loadScreen = true;
     if (GameState::tutorial == 9) {
         GameState::tutorial = 10;
     } else if (GameState::tutorial == 0x67 && GameState::GetCurrentMapID() == 0xe) {
@@ -2320,7 +2354,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     TaskListWindow::RunLastHelpItem();
     Tasks::RunLastSubTaskHelp();
     FoundItemsWindow::RunPostAction();
-    // UNVERIFIED (milestone 5h): SultanArrivingWindow::RunLastHelp.
+    SultanArrivingWindow::RunLastHelp();
     ChoosePathWindow::RunShowOnLoad();
     g_mapTimer = missionMap ? 360.f : 0.f;
     GameState::ResetTimeModifier();

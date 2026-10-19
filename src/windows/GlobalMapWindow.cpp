@@ -2,7 +2,7 @@
 // and the missions' side nodes over a scrolling parchment; the hero's marker travels between them.
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
-// UNVERIFIED (milestone 5): the windows its nodes open (SultanArrivingWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
+// UNVERIFIED (milestone 5): the windows its nodes open (PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
 // Sounds and music: milestone 6 (each call site is noted).
@@ -227,8 +227,8 @@ bool OnBack() { return false; }
 // @0x2bf3b0: the "Navigate" button opens ChoosePathWindow.
 void OnNavigate() { ChoosePathWindow::Show(); }
 
-// @0x2bf434. UNVERIFIED (milestone 5): SultanArrivingWindow (Show and UpdateContents).
-void OnSultan() {}
+// @0x2bf434: the sultan's marker.
+void OnSultan() { SultanArrivingWindow::Show(); }
 
 }  // namespace
 
@@ -684,7 +684,7 @@ void CoreLocation::OnClick() {
         }
     }
     if (Locations::GetLocationType(info) && Tasks::IsTaskActive(0x5c9, false) && !GameState::TaskCompleted(0x5c9)) {
-        // UNVERIFIED (milestone 5): SultanArrivingWindow::Show.
+        SultanArrivingWindow::Show();
         return;
     }
     if (!Locations::GetLocationType(info)) {

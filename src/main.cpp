@@ -743,6 +743,7 @@ int main_Loop_Init() {
     LandExpandedWindow::Queue();
     LandWindow::Queue();
     LevelUpWindow::Queue();
+    LoadingScreenWindow::Queue();
     NeedItemWindow::Queue();
     HealSquadWindow::Queue();
     HireTroopsWindow::Queue();
@@ -758,6 +759,7 @@ int main_Loop_Init() {
     SettingsWindow::Queue();
     ShopWindow::Queue();
     StartRaidingWindow::Queue();
+    SultanArrivingWindow::Queue();
     TaskCompleteWindow::Queue();
     TaskHolderWindow::Queue();
     TaskInfoWindow::Queue();

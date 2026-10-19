@@ -24,6 +24,9 @@
                 if (envi("RTK_REPAIR", 0)) { for (unsigned k = 0; Items::ItemInfo* in = Items::EnumItemInfo(k); ++k) if (in->durability >= 10 && in->cost > 0) { GameState::PlayerItem* it = GameState::AddItem(in->id, 1, false, false, false); if (it) { it->f10 = in->durability - 4; it->f0c = in->durability / 3; std::printf("[t] repair item %u dur %u/%u/%u cost %u/%u\n", in->id, it->f0c, it->f10, in->durability, in->cost, in->cost2); RepairWindow::SetParameters(it); RepairWindow::Show(); } break; } }
                 if (envi("RTK_RAID", 0)) { int n = envi("RTK_RAID", 0); for (unsigned k = 0; Locations::LocationInfo* l = Locations::EnumLocationInfo(k); ++k) if (l->mission && l->startMap && --n == 0) { std::printf("[t] raid location %u map %u\n", l->id, l->startMap); RaidInfoWindow::SetParameters(l, l->startMap, envi("RTK_RAIDDONE", 0) != 0); RaidInfoWindow::Show(); break; } }
                 if (envi("RTK_RAIDEND", 0)) { int n = envi("RTK_RAIDEND", 0); for (unsigned k = 0; Locations::LocationInfo* l = Locations::EnumLocationInfo(k); ++k) if (l->mission && l->startMap && --n == 0) { std::printf("[t] raid end location %u map %u count %d\n", l->id, l->startMap, GameState::GetMapCompletionCount(l->maps[0].id)); RaidCompleteWindow::SetParameters(l->id); RaidCompleteWindow::Show(); break; } }
+                if (envi("RTK_SULTANT", 0)) GameState::SetEventStartTime(0x5dd, (uint32_t)Timer::GetGlobalTime() - (uint32_t)envi("RTK_SULTANT", 0));
+                if (envi("RTK_SULTAN", 0)) SultanArrivingWindow::Show();
+                if (envi("RTK_WORLD", 0)) GlobalMapWindow::Show();
                 if (envi("RTK_GOMAP", 0)) GlobalMapWindow::SwitchMap((uint32_t)envi("RTK_GOMAP", 0), false, false);
             }
             if (i == envi("RTK_AT", 30)) {
