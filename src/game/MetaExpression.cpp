@@ -449,6 +449,30 @@ void MetaExpression::OnApplyItemEffect(int* stats, bool add) {
     }
 }
 
+// @0x1d11fc
+void MetaExpression::OnApplyItemSquadEffect(int* stats, bool add, bool party) {
+    const int sign = add ? 1 : -1;
+    int counted = party ? 1 : 0;
+    for (MetaExpression* x = this; x && x->data; x = x->next) {
+        const MetaData* d = x->data;
+        switch (d->type) {
+        case kExpInitiative: stats[3] += sign * counted * Value(d); break;
+        case kExpHpMax: stats[0] += sign * counted * Value(d); break;
+        case kExpMeleeAttack: stats[1] += sign * counted * Value(d); break;
+        case kExpMeleeDefense: stats[4] += sign * counted * Value(d); break;
+        case kExpMeleeAbsorb: stats[6] += sign * counted * Value(d); break;
+        case kExpRangedDefense: stats[5] += sign * counted * Value(d); break;
+        case kExpRangedAbsorb: stats[7] += sign * counted * Value(d); break;
+        case kExpParty: counted = 1; break;
+        case kExpBeltSlots: stats[8] += sign * counted * Value(d); break;
+        case kExpBeltSize: stats[9] += sign * counted * Value(d); break;
+        default: break;
+        }
+        for (int i = 0; i != 11; ++i)
+            if (stats[i] < 0) stats[i] = 0;
+    }
+}
+
 void MetaExpression::OnApplyItemBuffEffect(Entity* e) {
     for (MetaExpression* x = this; x && x->data; x = x->next) {
         const MetaData* d = x->data;

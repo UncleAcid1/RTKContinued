@@ -80,6 +80,9 @@ public:
     void OnApplyItemEffect(Entity* e);
     // @0x1d14d0: the same parts on an 11-value effect record (see MetaExpression.cpp).
     void OnApplyItemEffect(int* stats, bool add);
+    // @0x1d11fc: the same on a squad's effect record: party false counts only the parts after
+    // PARTY (the squad's share), true counts them all.
+    void OnApplyItemSquadEffect(int* stats, bool add, bool party);
     // @0x1d17fc: the percentage parts (HEALTH_PC, *_DAMAGE_PC) of a buff.
     void OnApplyItemBuffEffect(Entity* e);
 

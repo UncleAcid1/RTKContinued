@@ -2,17 +2,16 @@
 // replaced); three flags, one per bonus, each with three item slots. A slot opens the character
 // window on the owned piece, or shows where to get it. Port of SetInfoWindow (libkingdom.so 5.11,
 // @0x33b0b8..0x33ddcc; statics 0x62cc34..0x62d018 and 0x60f384..0x60f38c).
-//
-// UNVERIFIED (milestone 5, 5m-2): UpdateContents (@0x33b6a0), which fills the tabs, the flags and
-// the slot lists below, is not ported yet.
 #include <cstdio>
 
+#include "engine/IconManager.h"
 #include "game/BuildingHovers.h"
 #include "game/Collections.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/Sets.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -92,7 +91,7 @@ struct SetGroupStatsHolder {
     Window* root = nullptr;        // +0x00
     Window* icon[3] = {};          // +0x04 icon_stats_01..03
     Textfield* text[3] = {};       // +0x10 text_param_01..03_white
-    unsigned shown = 0;            // +0x1c
+    int shown = 0;                 // +0x1c the lines' centring offset
 
     void LoadFrom(Window* w, const char* name) {
         root = GUI::GetWindowTypedF<Window>(w, "%s", name);
@@ -116,7 +115,7 @@ struct SetFlagHolder {
     Window* goldBorder = nullptr;  // +0xb8 char_bg_gold_border
     Window* parameters = nullptr;  // +0xbc info_parameters
     SetGroupStatsHolder stats;     // +0xc0 set_bonus_stat_01
-    unsigned state = 0;            // +0xe0
+    int state = 0;                 // +0xe0 the slots' centring offset
 
     void LoadFrom(Window* w, const char* name) {
         char sub[0x40];
@@ -144,6 +143,7 @@ float g_scale = 1.f;                   // 0x60f38c the layout's scale
 SetTabInfo g_tabs[7];                  // 0x62cc34 tab_01..07
 SetFlagHolder g_flags[3];              // 0x62ccdc set_info_flag_holder_01..03
 MetaData* g_slots[9] = {};             // 0x62cf88 per item slot (flag * 3 + i): its item list (UpdateContents)
+MetaData* g_replacedSlots[9] = {};     // 0x62cfac the same for the replaced set (UpdateContents)
 Items::ItemInfo* g_slotItems[9] = {};  // 0x62cfd0 per item slot: the item shown (UpdateContents)
 Window* g_root = nullptr;              // 0x62cff4
 Sets::Set* g_set = nullptr;            // 0x62cff8 the shown set
@@ -354,8 +354,198 @@ void SelectItem(uint32_t item) {
     }
 }
 
-// @0x33b6a0. UNVERIFIED (milestone 5, 5m-2): not ported yet; the window shows its layout as loaded.
-void UpdateContents() {}
+// @0x33b6a0: the tabs (each with its set's first piece that is not a ring / amulet, the
+// selected one raised), the set's name, then per flag (bonus): its slots' items (the owned piece
+// or one it improves into, else the replaced set's, else the set's own), the owned / worn marks,
+// what activates the bonus, and its stats (centred when fewer than three lines).
+void UpdateContents() {
+    if (!g_set) return;
+    for (unsigned i = 0; i != 7; ++i) {
+        SetTabInfo& t = g_tabs[i];
+        t.root->SetVisibility(t.set != 0);
+        t.icon->RestorePosition();
+        if (i == g_tab && t.icon->root) t.icon->MoveWindow(0, (int)(t.icon->root->scale * -4.f));
+        t.icon->UpdatePosition();
+        t.active->SetVisibility(i == g_tab);
+        t.inactive->SetVisibility(i != g_tab);
+        if (Sets::Set* set = Sets::GetSet(t.set)) {
+            for (MetaData* list : set->slots) {
+                if (!list) continue;
+                Items::ItemInfo* info = Items::GetItemInfo((uint32_t)list->GetChild(0)->GetInt());
+                if (!info || GameState::ExternalItemBindingToInternal(info->slot) != 0) continue;
+                t.icon->SetTexture(info->GetIcon(), true);
+                break;
+            }
+        }
+    }
+    g_title->SetText(StringTable::GetString("SET_TITLE"));
+    // PORT: a missing bonus list counts 0 (the original reads it without a check).
+    auto count = [](const MetaData* list) { return list ? list->GetChildrenCount() : 0u; };
+    unsigned expected[3];   // the slots of bonuses 1..k
+    expected[0] = count(g_set->bonusSlots[0]);
+    expected[1] = expected[0] + count(g_set->bonusSlots[1]);
+    expected[2] = expected[1] + count(g_set->bonusSlots[2]);
+    for (MetaData*& m : g_slots) m = nullptr;
+    for (MetaData*& m : g_replacedSlots) m = nullptr;
+    for (Items::ItemInfo*& p : g_slotItems) p = nullptr;
+    // Each bonus' slot numbers (1..9) to the set's slot lists, three per flag.
+    unsigned found = 0;
+    for (unsigned k = 0; k != 3; ++k) {
+        if (const MetaData* list = g_set->bonusSlots[k])
+            for (unsigned j = 0; j < list->GetChildrenCount(); ++j)
+                if (MetaData* m = g_set->slots[list->GetChild(j)->GetInt() - 1]) {
+                    g_slots[k * 3 + j] = m;
+                    ++found;
+                }
+        if (found != expected[k]) {
+            std::fprintf(stderr,   // ErrorReporter::Printf
+                         "ERROR: SetInfoWindow::UpdateContents() Set %d has an incorrect item requirements for bonus %d\n",
+                         g_set->id, k + 1);
+            return;
+        }
+    }
+    found = 0;
+    for (unsigned k = 0; k <= 2 && g_replaced; ++k) {
+        if (const MetaData* list = g_replaced->bonusSlots[k])
+            for (unsigned j = 0; j < list->GetChildrenCount(); ++j)
+                if (MetaData* m = g_replaced->slots[list->GetChild(j)->GetInt() - 1]) {
+                    g_replacedSlots[k * 3 + j] = m;
+                    ++found;
+                }
+        if (found != expected[k]) {
+            std::fprintf(stderr,   // ErrorReporter::Printf
+                         "ERROR: SetInfoWindow::UpdateContents() Set %d has an incorrect item requirements for bonus %d "
+                         "(old)\n",
+                         g_replaced->id, k + 1);
+            return;
+        }
+    }
+    g_levelDesc->SetText(g_set->name);
+    static const char* const kBonusNames[3] = {"SET_BASIC", "SET_ADVANCED", "SET_COMPLETE"};   // 0x60180c
+    const bool shopLocked = !(GameState::secondTutorial == 0x100 &&
+                              GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt()));
+    for (unsigned f = 0; f != 3; ++f) {
+        SetFlagHolder& fl = g_flags[f];
+        // The flag's name in the colour of its lowest item class.
+        unsigned cls = 4;
+        for (unsigned j = 0; j != 3; ++j)
+            if (MetaData* list = g_slots[f * 3 + j])
+                if (Items::ItemInfo* info = Items::GetItemInfo((uint32_t)list->GetChild(0)->GetInt()))
+                    if (info->itemLevel <= cls) cls = info->itemLevel;
+        for (unsigned k = 0; k != 5; ++k) fl.names.text[k]->SetVisibility(k == cls);
+        fl.names.text[cls]->SetText(SWPrintf(0x100, U"%s", {StringTable::GetString(kBonusNames[f])}).c_str());
+        // Fewer than three slots are centred.
+        const int spacing = fl.items[1].root->x - fl.items[0].root->x;
+        unsigned offset = 0;
+        if (const MetaData* list = g_set->bonusSlots[f])
+            offset = (unsigned)(spacing * (3 - (int)list->GetChildrenCount())) >> 1;
+        const int delta = (int)offset - fl.state;
+        if (delta != 0)
+            for (SetItemHolder& h : fl.items) h.root->MoveWindow(delta, 0);
+        fl.state += delta;
+        unsigned shown = 0, owned = 0, worn = 0;
+        for (unsigned j = 0; j != 3; ++j) {
+            SetItemHolder& h = fl.items[j];
+            const unsigned slot = f * 3 + j;
+            MetaData* list = g_slots[slot];
+            if (j >= count(g_set->bonusSlots[f]) || slot > 8 || !list) {
+                h.root->SetVisibility(false);
+                continue;
+            }
+            Items::ItemInfo* info = Items::GetItemInfo((uint32_t)list->GetChild(0)->GetInt());
+            if (!info) continue;
+            GameState::PlayerItem* item = nullptr;
+            for (unsigned k = 0; k < list->GetChildrenCount() && !item; ++k)
+                item = GetPlayerItemOrBetter((uint32_t)list->GetChild(k)->GetInt());
+            if (!item && g_replaced && g_replacedSlots[slot]) {
+                MetaData* old = g_replacedSlots[slot];
+                info = Items::GetItemInfo((uint32_t)old->GetChild(0)->GetInt());
+                for (unsigned k = 0; k < old->GetChildrenCount() && !item; ++k)
+                    item = GetPlayerItemOrBetter((uint32_t)old->GetChild(k)->GetInt());
+            }
+            ++shown;
+            if (item) {
+                info = item->info;
+                ++owned;
+                if (GameState::IsItemBinded(item)) ++worn;
+            } else if (g_replaced) {
+                info = Items::GetItemInfo((uint32_t)list->GetChild(0)->GetInt());
+            }
+            h.root->SetVisibility(true);
+            h.locked->SetVisibility(false);
+            for (unsigned k = 0; k != 5; ++k) h.itemClass[k]->SetVisibility(info->itemLevel == k);
+            info->PutImageInHolder(h.icon);
+            h.owned->SetVisibility(item && GameState::IsItemBinded(item));
+            h.goldOwned->SetVisibility(false);
+            if (!item) {
+                h.find->SetVisibility(!shopLocked);
+                h.allItems->SetVisibility(false);
+            } else {
+                h.find->SetVisibility(false);
+                h.allItems->SetVisibility(!shopLocked && !GameState::IsItemBinded(item));
+            }
+            g_slotItems[slot] = info;
+        }
+        const char* bonus = worn == shown ? "ITEM_BONUS_ACTIVE" : owned == shown ? "EQUIP_TO_ACTIVATE" : "COLLECT_TO_ACTIVATE";
+        fl.bonus->SetText(StringTable::GetString(bonus));
+        fl.bg->SetVisibility(owned == 0 || worn == shown);
+        fl.bg->SetEnabled(owned == shown);
+        fl.bgUnequipped->SetVisibility(worn != shown && owned != 0);
+        fl.goldBorder->SetVisibility(owned == shown);
+        fl.parameters->SetVisibility(owned != shown);
+        // The bonus' stats: its own lines, "party bonus" when part of it goes to the squad, then
+        // the squad's lines, at most three.
+        SetGroupStatsHolder& st = fl.stats;
+        for (Window* w : st.icon) {
+            w->SetVisibility(false);
+            w->MoveWindow(0, -st.shown);
+        }
+        for (Textfield* t : st.text) {
+            t->SetVisibility(false);
+            t->MoveWindow(0, -st.shown);
+        }
+        st.shown = 0;
+        int own[11] = {}, squad[11] = {};
+        if (MetaExpression* e = g_set->bonus[f]) {
+            e->OnApplyItemEffect(own, true);
+            e->OnApplyItemSquadEffect(squad, true, false);
+        }
+        unsigned line = 0;
+        bool party = false;
+        auto show = [&](unsigned effect, int value) {
+            st.icon[line]->SetVisibility(true);
+            st.text[line]->SetVisibility(true);
+            st.icon[line]->SetTexture(
+                IconManager::GetIcon(MetaExpression::GetItemEffectIconName(effect), false), true);
+            st.text[line]->SetText(
+                SWPrintf(0x100, U"+%d %s", {value, StringTable::GetString(MetaExpression::GetItemEffectName(effect))})
+                    .c_str());
+            ++line;
+        };
+        for (unsigned i = 0; i != 11; ++i) {
+            if (squad[i] != 0) party = true;
+            if (own[i] != 0) show(i, own[i]);
+            if (i != 10 && line > 2) break;
+        }
+        if (party && line <= 2) {
+            st.text[line]->SetVisibility(true);
+            st.text[line]->SetText(StringTable::GetString("ITEM_BONUS_PARTY"));
+            ++line;
+        }
+        if (line <= 2) {
+            for (unsigned i = 0; i != 6; ++i) {
+                if (squad[i] != 0) show(i, squad[i]);
+                if (i != 5 && line > 2) break;
+            }
+            if (line != 0 && line <= 2)
+                st.shown = ((st.text[2]->y + st.text[2]->h - st.text[line]->y) / 2);
+        }
+        for (unsigned k = 0; k != 3; ++k) {
+            st.icon[k]->MoveWindow(0, st.shown);
+            st.text[k]->MoveWindow(0, st.shown);
+        }
+    }
+}
 
 // @0x33ceb4
 void OnTab(unsigned tab) {
