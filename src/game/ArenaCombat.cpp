@@ -449,8 +449,7 @@ void ArenaCombat::BeginCombat(BaseSquad* player, BaseSquad* enemy) {
 // turn time to choose a stance, else the last one is kept. The arena's lessons (tasks 0x5d0,
 // 0x5cd, 0x5ce, 0x5d7) show the attack, block and magic buttons in turn.
 void ArenaCombat::Update(float dt) {
-    if (!ArenaTurnWindow::IsVisible() && !BossIntroWindow::IsVisible() && !killedBoss)
-        // (and BossOutroWindow not visible: milestone 5)
+    if (!ArenaTurnWindow::IsVisible() && !BossIntroWindow::IsVisible() && !BossOutroWindow::IsVisible() && !killedBoss)
         ArenaTurnWindow::Show();
     if (TopCityWindow::IsVisible() && !killedBoss) TopCityWindow::Hide();
     ArenaTurnWindow::SetHeader(SWPrintf(0x80, StringTable::GetString("ARENA_TURN_NUM"), {ToWideString((turn + 1) / 2)}).c_str());

@@ -88,10 +88,8 @@ void BossCombat::BeginCombat(BaseSquad* player, BaseSquad* enemy) {
 // @0x116c44: the turn window (turn number, whose turn, the player's time left), the battle bar's
 // buttons, then the states; 0x10 is the run to the places.
 void BossCombat::Update(float dt) {
-    if (!ArenaTurnWindow::IsVisible() && !BossIntroWindow::IsVisible() && !killedBoss) {
-        // UNVERIFIED (milestone 5i-2): BossOutroWindow::IsVisible also keeps the window away.
+    if (!ArenaTurnWindow::IsVisible() && !BossIntroWindow::IsVisible() && !BossOutroWindow::IsVisible() && !killedBoss)
         ArenaTurnWindow::Show();
-    }
     if (TopCityWindow::IsVisible() && !killedBoss) TopCityWindow::Hide();
     ArenaTurnWindow::SetHeader(
         SWPrintf(0x80, StringTable::GetString("ARENA_TURN_NUM"), {ToWideString(turn + 1)}).c_str());
@@ -309,7 +307,7 @@ void BossCombat::EndCombat() {
             // UNVERIFIED (milestone 5s): GameState::AddArena1WinByBoss(boss id), AddArena1WinByLevel(level).
             arenaWon = true;
         } else {
-            // UNVERIFIED (milestone 5i-2): BossOutroWindow::Show.
+            BossOutroWindow::Show();
         }
     }
     if (enemySquad && enemySquad->GetAliveSoldierCount() != 0) {
@@ -379,7 +377,7 @@ void BossCombat::RestoreBossCombat() {
     playerSquad->SpawnAt(AI::GetWaypoint(hero->tileX, hero->tileY, false));
     Entity* boss = enemySquad->GetOwner();
     enemySquad->SpawnAt(AI::GetWaypoint(boss->tileX, boss->tileY, false));
-    // UNVERIFIED (milestone 5i-2): BossOutroWindow::SetBossName(boss name, boss id).
+    BossOutroWindow::SetBossName(boss->GetEntityData()->title, boss->GetEntityData()->id);
     if (BossCombatData::mLastBossMeta) {
         enemySquad->GetOwner()->SetForeignMetaExpression(BossCombatData::mLastBossMeta);
         enemySquad->GetOwner()->OnSetup();

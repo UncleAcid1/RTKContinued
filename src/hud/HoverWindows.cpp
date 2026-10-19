@@ -1477,6 +1477,78 @@ void PlaceBuildingHoverWindow::OnAccept() {
 
 UseItemHoverWindow::~UseItemHoverWindow() { delete root; }
 
+// ---- BossTimeHoverWindow ----------------------------------------------------------------------
+
+// @0x36ff50
+BossTimeHoverWindow::~BossTimeHoverWindow() {
+    delete root;
+    root = nullptr;
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
+}
+
+// @0x36fd94: the cogs' holder with the green button hidden, the sand clock and the red text.
+void BossTimeHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Button_work_here_holder.xml",
+                           "Button_work_here_holder.png", 1.f, 0, 0, 0, 0, false, 1.f);
+    root->SetVisibility(false);
+    root->SetScreenSpace(false);
+    GUI::GetWindowTyped<GUI::Window>(root, "button_work_here.button_bg_green")->SetVisibility(false);
+    GUI::GetWindowTyped<GUI::Window>(root, "button_work_here.icon_work_here")
+        ->SetTexture(IconManager::GetSandClockIcon(), false);
+    text = GUI::GetWindowTyped<GUI::Textfield>(root, "button_work_here.text_red");
+    text->SetWorldOverscale(true);
+}
+
+// @0x36fb3c
+void BossTimeHoverWindow::SetZ(float z) { root->SetZ(z); }
+
+// @0x36fb58: shown while the boss is not under the fog; the text is the time left until it returns
+// (its fight's start time + restore_time - now, not below 0).
+void BossTimeHoverWindow::Update(float) {
+    if (!entity) return;
+    if (Render::Sprite* s = entity->GetSprite())
+        root->SetVisibility(Fog::IsVisible((int)s->x, (int)(s->y - s->h), (int)(s->x + s->w), (int)s->y));
+    int start = (int)GameState::GetBossFightStartTime((uint32_t)GameState::GetCurrentMapID(), entity->GetSpawnPointID());
+    if (start == 0) return;
+    int left = start + entity->GetEntityData()->restoreTime - Timer::GetGlobalTime();
+    text->SetText(StringTable::GetNumericTimeString(left < 0 ? 0 : left, false).c_str());
+}
+
+// @0x36fc50
+void BossTimeHoverWindow::SetEntity(Entity* e) {
+    BuildingHoverWindow::SetEntity(e);
+    if (e) return;
+    root->SetVisibility(false);
+}
+
+// @0x36fc84: 10 above the head.
+void BossTimeHoverWindow::SetPosition(int x, int y) {
+    BuildingHoverWindow::SetPosition(x, y - 10);
+    root->SetPosition(x - root->w / 2, (y - 10) - root->h);
+}
+
+// @0x36fcc8 (the original returns what the button's Click did; a tap is not taken when hidden)
+bool BossTimeHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    int wx = x, wy = y;
+    Map::MouseCoordinatesToWorld(wx, wy);
+    return root->Click(wx, wy, pressed, false);
+}
+
+// @0x36fd28
+void BossTimeHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+// @0x36fd60
+void BossTimeHoverWindow::Show() {
+    if (shownHover) return;
+    BuildingHoverWindow::Show();
+    root->SetVisibility(true);
+}
+
 // ---- TalkHoverWindow ---------------------------------------------------------------------------
 
 TalkHoverWindow::~TalkHoverWindow() {

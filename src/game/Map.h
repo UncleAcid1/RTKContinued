@@ -389,6 +389,7 @@ void StoreDecorationInfo();
 void RestoreDecorationInfo();
 void RemoveHoldOfEntities();                // @0x1b8300 every building and decoration forgets its entities
 void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile and the spawn points' entities
+void DropBossReward(Entity* boss, uint32_t map);   // @0x1b98d8 a won boss's loot drops where it lies
 // ---- spawn points and portals (MapSpawn.cpp)
 void LoadSpawnPoints(SaveManager::SaveBlock* block);   // @0x1bc0b0
 void SaveSpawnPoints();                                // @0x1b9630

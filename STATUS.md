@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5i-2 (BossOutroWindow, the return from a won boss fight: Map::UpdateSpawns' boss part and Map::DropBossReward, BossTimeHoverWindow, BossIntroWindow::SetReputation). (5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5i-3 (BossCombatWaves, BossIntroEffect, FastBossIntroEffect). (5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1966,8 +1966,21 @@ Milestones:
                    shield pause -> SwitchToBossFight -> map 108 -> BossCombat; the two 473 skeletons
                    and the boss take their places, "Turn 1 / Your turn", the countdown, the hero's
                    turn when it runs out, a skeleton killed, "Turn 2" with 8 s left.
-              5i-2 [ ] BossOutroWindow, the return: Map::UpdateSpawns' won-boss part, Map::DropBossReward,
-                   BossTimeHoverWindow, BossIntroWindow::SetReputation.
+              5i-2 [x] (2026-10-18) BossOutroWindow (windows/BossOutroWindow.cpp: "Victory! You have defeated"
+                   banner over the black band, the squad cheers, FoundItemsWindow's loot strip; OnTweenOut
+                   loads mReturnMapID again; OnBack; queue between BossIntro and BottomBattle), BossTimeHoverWindow
+                   (hud/HoverWindows, hover type 0x10, wired in UpdateHovers / SetHoverType), Map::DropBossReward,
+                   Map::UpdateSpawns' boss part (a saved fight with 0 HP = dead boss + reward + subtasks; a won
+                   combat ends: boss dead at mLastBossXY, hero back, victory pose, reward) and the
+                   "pending arena reward" drop. Hooked into FoundItemsWindow::OnClose, HUD darkening,
+                   BossCombat / ArenaCombat Update, BossCombat::EndCombat / RestoreBossCombat.
+                   MOVED to 5n: BossIntroWindow::SetReputation (needs Professions::GetProfession).
+                   UNVERIFIED: the arena parts of Show / Update (profession bar, 5n) and the arena sound (6);
+                   PORT: OG / OG2 requests (online). Not ported: UpdateSpawns' PvP shadow part (4h/5s).
+                   VERIFIED (same save, RTK_GOMAP=15 RTK_AT=150 RTK_BOSS=1, new test aid RTK_WIN=250 sets the
+                   enemies to 1 HP, SL sleeps every 15 frames from 160, about 3000 frames): the outro
+                   appears with the dropped loot strip; tapping Ok (640:770) at frame 3000 slides it away,
+                   map 15 loads, combat ends, the boss lies dead, its armor drops with the helper arrow.
               5i-3 [ ] BossCombatWaves, BossIntroEffect, FastBossIntroEffect.
        5j [ ] spells 1: Spells, AISpell, Entity's magic (OnSpellCast, OnHitMagic, ...), the rage bar's rest
               (BottomBattleWindow).

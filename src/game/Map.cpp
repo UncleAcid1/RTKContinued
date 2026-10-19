@@ -34,6 +34,7 @@
 #include "game/Game.h"
 #include "game/SoldierSlots.h"
 #include "game/SpawnPoint.h"
+#include "game/Items.h"
 #include "game/Tasks.h"
 #include "game/Squad.h"
 #include "gui/GUI.h"
@@ -2530,11 +2531,52 @@ void UpdateSpawns() {
             if (e->GetSprite()) Render::ChangeLayer(e->GetSprite(), 6);
         }
         if (s->corpseTaken != 0) e->SetActive(false, true);
-        // UNVERIFIED (milestone 5): a boss whose saved fight (GameState::mBossFights) has no HP left
-        // dies here with its reward and subtasks (0x1f, 0x3d, 0x3f); a combat won against this spawn
-        // point ends here (EndActiveCombat, the boss dead at mLastBossXY, the hero back at
-        // mLastBossPlayerXY facing mLastPlayerDir). (milestone 5, PvP): a player shadow that was
-        // defeated (PlayerCompetitionWindow) gets its death time, the selected one its GUID.
+        // UNVERIFIED (milestone 5, PvP): a player shadow that was defeated (PlayerCompetitionWindow)
+        // gets its death time, the selected one its GUID: it follows the boss part below.
+        if (!e->IsBoss()) continue;
+        // A boss whose saved fight (GameState::mBossFights) has no HP left is dead, with its reward
+        // and subtasks (0x1f the boss, 0x3d the spawn point, 0x3f its kind).
+        if (!GameState::IsCombatActive() && !e->IsDead()) {
+            const int key = (int)(s->id | (uint32_t)GameState::GetCurrentMapID() << 16);
+            if (GameState::HasBossFight(key)) {
+                unsigned hp = 0;
+                for (const auto& m : GameState::BossFight(key)) hp += m.second;
+                if (hp == 0) {
+                    e->SetAnimationOnce("death", false, false, true, true);
+                    e->SetHP(0);
+                    Render::ChangeLayer(e->GetSprite(), 6);
+                    DropBossReward(e, e->GetBossMapID());
+                    Tasks::CompleteSubtask(0x1f, e->GetEntityData()->id, 1);
+                    Tasks::CompleteSubtask(0x3d, e->GetSpawnPointID(), 1);
+                    Tasks::CompleteSubtask(0x3f, e->GetEntityData()->enemyClass, 1);
+                }
+            }
+        }
+        // A won boss fight against this spawn point ends here: the boss lies dead where it fell, the
+        // hero is back where he stood, and the victory pose follows (SpawnEntities).
+        if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 2 &&
+            GameState::GetActiveCombat()->KilledBoss((int)s->id)) {
+            GameState::EndActiveCombat(false);
+            g_startX = GameState::mLastBossPlayerXY[0];
+            g_startY = GameState::mLastBossPlayerXY[1];
+            defDir = GameState::mLastPlayerDir;
+            e->SetPos(GameState::mLastBossXY[0], GameState::mLastBossXY[1]);
+            e->SetAnimationOnce("death", false, false, true, true);
+            e->SetHP(0);
+            Render::ChangeLayer(e->GetSprite(), 6);
+            g_victoryPose = true;
+            // PORT (online removed): OG::MakeRequest(0, 0, boss id, -1, 0) and, for a spawn point,
+            // OG2::MakeRequest(2, 1, spawn id, male, 1).
+            DropBossReward(e, e->GetBossMapID());
+            Tasks::CompleteSubtask(0x1f, e->GetEntityData()->id, 1);
+            Tasks::CompleteSubtask(0x3d, e->GetSpawnPointID(), 1);
+            Tasks::CompleteSubtask(0x3f, e->GetEntityData()->enemyClass, 1);
+        }
+        if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 4 &&
+            GameState::GetActiveCombat()->KilledBoss((int)s->id)) {
+            GameState::EndActiveCombat(false);
+            Tasks::CompleteSubtask(0x3d, e->GetSpawnPointID(), 1);
+        }
     }
     if (GetMapID() == 0) {
         defY = 0xd;
@@ -2578,7 +2620,26 @@ void UpdateSpawns() {
         else if (defDir > 0) e->SetDirection(defDir);
         if (BaseSquad* sq = e->GetSquad()) sq->ClearDeadSoldiers();
     }
-    // UNVERIFIED (milestone 5): a pending boss reward is dropped here (DropBossReward(player, 0x70)).
+    if (g_bossReward) {   // the arena's: what was picked up on map 0x70 goes to the hero
+        DropBossReward(player, 0x70);
+        g_bossReward = false;
+    }
+}
+
+// @0x1b98d8: what was picked up on the boss's map (resources, then items) drops where the boss lies;
+// on the arena's map (0x70) it goes straight to the hero.
+void DropBossReward(Entity* boss, uint32_t map) {
+    if (map == 0x70) {
+        FoundItemsWindow::GiveCollectedToPlayer(true, EntityManager::GetPlayer(), false);
+    } else {
+        for (int type = 0; type < 0xb; ++type)
+            if (int n = GameState::GetMapResourceCollectionInfo(map, type))
+                BuildingHovers::DropResource(boss->worldX, boss->worldY, type, (unsigned)n, false, false);
+        for (unsigned i = 0; Items::ItemInfo* info = Items::EnumItemInfo(i); ++i)
+            for (int n = GameState::GetMapItemCollectionInfo(map, info->id); n > 0; --n)
+                BuildingHovers::DropItem(boss->worldX, boss->worldY, Items::GetItemInfo(info->id), 0, 1);
+    }
+    GameState::ResetMapCollectionInfo(map);
 }
 
 // @0x1c0460: the player and its squad appear at the player's tile, whose waypoint gets weight 5 (the

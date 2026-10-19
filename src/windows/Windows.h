@@ -417,6 +417,20 @@ int GetTotalWaves();                        // @0x251804
 void SetAmbush();                           // @0x251818
 }
 
+// "Boss defeated!" after a won boss fight, and the end of an arena event (windows/BossOutroWindow.cpp).
+namespace BossOutroWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "BossOutroWindow"
+void Init();                                // @0x254df4
+void Deinit();                              // @0x254d90
+void Show();                                // @0x2547a4
+void Hide();                                // @0x254b5c
+void SetZ(float z);                         // @0x254c44
+bool Click(int x, int y, bool pressed);     // @0x254d74
+void Update(float dt);                      // @0x2540f0
+bool IsVisible();                           // @0x253a54
+void SetBossName(const char32_t* name, uint32_t id);   // @0x253a68 the boss's name and entity id
+}
+
 // The arena's turn banner at the top (windows/ArenaTurnWindow.cpp).
 namespace ArenaTurnWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaTurnWindow"

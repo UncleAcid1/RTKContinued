@@ -209,10 +209,11 @@ void HoverInfo::SetHoverType(int t) {
     else if (t == kHealthbarTiny)
         w = new HealthbarTinyHoverWindow();
     // (HealthbarHoverWindow, 0xd, is never asked for in 5.11.) UNVERIFIED (milestone 5):
-    // BossTimeHoverWindow (0x10) comes before the sleeping window; PlayerNameHoverWindow (0x11),
-    // FriendInfoHoverWindow (0x13) after it.
+    // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13) come after the sleeping window.
     else if (t == kUseItem)
         w = new UseItemHoverWindow();
+    else if (t == kBossTime)
+        w = new BossTimeHoverWindow();
     else if (t == kFarmSleeping || t == kDelivery)
         w = new SleepingHoverWindow();
     else
@@ -1090,8 +1091,14 @@ void UpdateHovers() {
                     }
                     goto checked;
                 }
-                // UNVERIFIED (milestone 5): a boss's timer (0x10) and, for an entity with a GUID in
-                // view, the player's name (0x11) come before the farm's.
+                // A boss that is coming back shows its timer once a fight against it has started.
+                if (e->IsBoss() && e->IsActive() && !e->IsDead() && e->GetEntityData()->restoreTime != 0) {
+                    if (GameState::GetBossFightStartTime((uint32_t)GameState::GetCurrentMapID(), e->GetSpawnPointID()) != 0)
+                        h->SetHoverType(kBossTime);
+                    goto checked;
+                }
+                // UNVERIFIED (milestone 5): for an entity with a GUID in view, the player's name
+                // (0x11) comes before the farm's.
                 // A ripe soil patch on the farm view shows its crop.
                 if (e->GetAI() && e->GetAI()->GetState() == 0x19 && Map::GetCurrentFarm()) {
                     h->SetHoverType(kFarmReady);

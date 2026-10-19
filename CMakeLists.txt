@@ -121,6 +121,7 @@ add_executable(rtk
   src/windows/CharacterInfoWindow.cpp
   src/windows/GlobalMapWindow.cpp
   src/windows/BossIntroWindow.cpp
+  src/windows/BossOutroWindow.cpp
   src/windows/ArenaTurnWindow.cpp
   src/windows/PlayerBattleInOutWindow.cpp
   src/windows/SetInfoWindow.cpp

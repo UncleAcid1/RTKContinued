@@ -414,8 +414,7 @@ void KeyDown(int scancode) {
     }
     if (scancode == SDL_SCANCODE_AC_BACK || scancode == SDL_SCANCODE_Y) {
         // Not taken by a window (and no death animation or camera move): an open
-        // popup closes, else the exit question. UNVERIFIED (milestone 5i): BossOutroWindow also
-        // blocks the question.
+        // popup closes, else the exit question.
         if (WindowManager::ProcessBack() || Entity::IsDeathAnimationRunning() || Map::IsCameraMoving()) return;
         if (!GUI::IsAnyAnimationActive() && !GUI::CanInteractWith(nullptr) && PopupWindow::IsVisible()) {
             PopupWindow::Hide();
@@ -423,7 +422,7 @@ void KeyDown(int scancode) {
         }
         if (GUI::IsAnyAnimationActive()) return;
         if (RaidCompleteWindow::IsVisible() || CampaignCompleteWindow::IsVisible() ||
-            CampaignPerfectedWindow::IsVisible())
+            CampaignPerfectedWindow::IsVisible() || BossOutroWindow::IsVisible())
             return;
         PopupWindow::Show(StringTable::GetString("MOBILE_EXIT_CONFIRM"), ExitWithSendSave, PopupWindow::Hide,
                           nullptr);
@@ -724,6 +723,7 @@ int main_Loop_Init() {
     BattleBarWindow::Queue();
     BeltBarWindow::Queue();
     BossIntroWindow::Queue();
+    BossOutroWindow::Queue();
     BottomBattleWindow::Queue();
     BottomCityWindow::Queue();
     BottomFarmWindow::Queue();

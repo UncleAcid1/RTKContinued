@@ -142,6 +142,26 @@ public:
     int baseY = 0;                     // +0x40
 };
 
+// The sand clock over a boss that is coming back (Button_work_here_holder.xml, world space): the
+// time until it can be fought again, counting down from its restore_time. Port of
+// BossTimeHoverWindow (0x3c bytes).
+class BossTimeHoverWindow : public BuildingHoverWindow {
+public:
+    BossTimeHoverWindow() { name = "BossTimeHoverWindow"; }   // @0x37003c (also @0x37008c)
+    ~BossTimeHoverWindow() override;             // @0x36ff50 (deleting @0x36ffb8, @0x36ffd4)
+    void Init() override;                        // +0x08 @0x36fd94
+    void SetZ(float z) override;                 // +0x10 @0x36fb3c
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x36fcc8
+    void Show() override;                        // +0x1c @0x36fd60
+    void Hide() override;                        // +0x20 @0x36fd28
+    void Update(float dt) override;              // +0x24 @0x36fb58
+    void SetPosition(int x, int y) override;     // +0x3c @0x36fc84
+    void SetEntity(Entity* e) override;          // +0x44 @0x36fc50
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Textfield* text = nullptr;    // +0x38 button_work_here.text_red
+};
+
 // The hero's own speech bubble, next to his portrait (PlayerTopWindow::SetParameters): a quest's
 // text without a giver, tutorial hints. Port of PlayerHintHoverWindow (@0x390ee4..0x3917b0,
 // Dialog_hint_hd.xml, 0x68 bytes).
