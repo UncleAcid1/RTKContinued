@@ -5,8 +5,7 @@
 //
 // PORT (user 2026-10-19): the crystal "Buy now" buttons of the missing parts are not offered (as in
 // CraftingWindow); OnBuy does nothing.
-// Milestone 5o-5: the window opens and closes and its parts are laid out. STUBS (empty, no @0x so
-// inventory still lists them): UpdateContents (5o-6), OnCraft, OnFind (5o-7).
+// UNVERIFIED (milestone 5q): OnFind's item shop (ItemShopWindow::ItemCanBeBought / Show / ShowShopItem).
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -16,11 +15,14 @@
 #include "engine/Render.h"
 #include "engine/StlSort.h"
 #include "engine/Text.h"
+#include "game/AIState.h"
 #include "game/BuildingHovers.h"
 #include "game/Collections.h"
+#include "game/Entity.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/MetaExpression.h"
 #include "game/Professions.h"
 #include "game/Setting.h"
@@ -814,9 +816,118 @@ void OnResult() {
     ShowItemHover(c->to, g_craftableItem.root);
 }
 
-// STUBS (5o-7).
-void OnCraft() {}                         // 0x29fb54
-void OnFind(unsigned) {}                  // 0x2a03ec
+// @0x29fb54: the selected recipe is made: its parts are taken and the item given; what is missing
+// is shown instead (NotEnoughWindow, whose action crafts again). The parts' pictures fly from the
+// result's slot, and the second after, Update collects the item.
+void OnCraft() {
+    if (g_collections.size() <= g_selected) return;
+    Collections::Collection* c = g_collections[g_selected];
+    if (!c) return;
+    Items::ItemInfo* info = Items::GetItemInfo(c->to);
+    if (!info) return;
+    NotEnoughWindow::ResetRequirements();
+    for (const Collections::Collection::Part& part : c->parts)
+        if (part.item != 0) NotEnoughWindow::AddItemRequirement(part.item, part.amount);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::SetDescriptionText(
+            SWPrintf(0x100, StringTable::GetString("REQUIREMENT_CRAFT_ITEM"), {info->title}).c_str(), nullptr);
+        NotEnoughWindow::SetActionCallback(OnCraft, StringTable::GetString("CRAFT_ITEM_CREATE"), false);
+        NotEnoughWindow::Show();
+        return;
+    }
+    UpdateContents();
+    NotEnoughWindow::Hide();
+    for (const Collections::Collection::Part& part : c->parts)
+        if (part.item != 0) GameState::RemoveItem(part.item, (int)part.amount);
+    GameState::AddItem(c->to, 1, false, false, false);
+    Tasks::CompleteSubtask(0x3a, c->to, 1);
+    CharacterInfoWindow::UpdateContents();
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_improve", 1, false).
+    GUI::SetInteractionLock(true);
+    g_crafting = true;
+    g_craftTime = 0.f;
+    Window* from = g_result.item.icon;
+    for (RequiredItemInfo& r : g_required)
+        if (r.root->visibleSelf)
+            BuildingHovers::AddItemMovement(r.item.icon->sprite, g_root->x + from->x, g_root->y + from->y, true, 1.f, -1,
+                                            -1, false, true);
+}
+
+// @0x2a03ec: where to get part `part` of the selected recipe: a building that makes it, a drop on
+// the map (the arrow points at it), somebody who drops it, the mission or the gathering map that
+// gives it, the item shop, else the hint that it cannot be found now.
+void OnFind(unsigned part) {
+    if (GameState::IsBossCombatActive() || GameState::IsArenaCombatActive()) {
+        PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    if (g_collections.size() <= g_selected) return;
+    Collections::Collection* c = g_collections[g_selected];
+    if (!c) return;
+    Items::ItemInfo* info = Items::GetItemInfo(c->parts[part].item);
+    if (!info) return;
+    // UNVERIFIED (milestone 5q): ItemShopWindow::ItemCanBeBought(info->id, 0), false until the shop.
+    const bool canBuy = false;
+    unsigned slot = 0;
+    if ((info->type == 6 || info->type == 9) &&
+        (NeedItemWindow::GetBuildingThatProducesItem(info->id, slot) != 0 || canBuy)) {
+        // Made in a building (or sold): the building, else the "item needed" dialog.
+        Hide();
+        CharacterInfoWindow::Hide();
+        if (NeedItemWindow::GetBuildingThatProducesItem(info->id, slot) != 0) {
+            NeedItemWindow::OnProduce(info->id);
+        } else if (canBuy) {
+            NeedItemWindow::SetParameters(info->id, nullptr);
+            NeedItemWindow::Show();
+        }
+        return;
+    }
+    float x, y;
+    if (BuildingHovers::HasDroppedItem(info->id, x, y)) {
+        Hide();
+        CharacterInfoWindow::Hide();
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback(BuildingHovers::CollectAll));
+        Tasks::HelpWithLocation((int)x, (int)y, 0, 0);
+        return;
+    }
+    if (Entity* e = EntityManager::GetEntityWithDrop(info->id)) {
+        Hide();
+        CharacterInfoWindow::Hide();
+        // The arrow's tap sends the hero to it (the player's AI, virtual +0x50 ClickedEntity).
+        AIBaseState* ai = EntityManager::GetPlayer()->GetAI();
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([ai, e] { ai->ClickedEntity(e); }));
+        BuildingHovers::FollowEntity(e);
+        Tasks::HelpWithLocation((int)e->worldX, (int)e->worldY, 0, 0);
+        return;
+    }
+    if (uint32_t map = GlobalMapWindow::GetMissionMapForItem(info->id, 0)) {
+        Hide();
+        CharacterInfoWindow::Hide();
+        GlobalMapWindow::Show();
+        GlobalMapWindow::CenterOnMap(map);
+        if (Locations::LocationInfo* location = Locations::GetLocationWithMap(map)) {
+            RaidInfoWindow::SetParameters(location, map, false);
+            RaidInfoWindow::Show();
+            RaidInfoWindow::SetAnimationOnce();
+            RaidInfoWindow::ShowItem(info->id);
+        }
+        return;
+    }
+    if (uint32_t map = GlobalMapWindow::GetMapForCraftItem(info->id, 0)) {
+        // A gathering resource: the map where it grows.
+        Hide();
+        CharacterInfoWindow::Hide();
+        GlobalMapWindow::Show();
+        GlobalMapWindow::ArrowAtMap(map, false, true);
+        return;
+    }
+    if (canBuy) {
+        // UNVERIFIED (milestone 5q): Hide(), ItemShopWindow::Show(), ShowShopItem(info->id, 0, true, -1).
+        return;
+    }
+    PopupWindow::Show(StringTable::GetString("HELP_FIND_RUBY"), PopupWindow::Hide, nullptr, nullptr);
+}
+
 // @0x29ff94 OnBuy: PORT (crystal purchases not offered, see the top).
 void OnBuy(unsigned, bool) {}
 
