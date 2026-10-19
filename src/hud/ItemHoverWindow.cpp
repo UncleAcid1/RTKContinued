@@ -16,6 +16,7 @@
 #include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/Fog.h"
+#include "game/Chests.h"
 #include "game/GameState.h"
 #include "game/Tasks.h"
 #include "game/Items.h"
@@ -54,7 +55,6 @@ void SetLine(ItemHoverWindow::EffectLine& l, const char32_t* text, const char* i
 bool LevelInfoWindowIsVisible() { return LevelInfoWindow::IsVisible(); }
 bool RaidInfoWindowIsVisible() { return RaidInfoWindow::IsVisible(); }
 bool ChestsWindowIsVisible() { return false; }             // ChestsWindow::IsVisible (5)
-bool IsChestItem(uint32_t) { return false; }               // Chests::IsChestItem (5)
 bool ItemCanBeBought(uint32_t) { return false; }           // ItemShopWindow::ItemCanBeBought (5)
 uint32_t GetMissionMapForItem(uint32_t id) { return GlobalMapWindow::GetMissionMapForItem(id, 0); }
 uint32_t GetMapForCraftItem(uint32_t id) { return GlobalMapWindow::GetMapForCraftItem(id, 0); }
@@ -594,14 +594,21 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
         char key[0x80];
         std::snprintf(key, sizeof key, "%s_DESC", inf->name);
         const char32_t* desc = nullptr;
+        bool chest = false;
         if (StringTable::StringNotEmpty(key)) {
             desc = StringTable::GetStringF("%s_DESC", inf->name);
-            // UNVERIFIED (milestone 5): a chest item's description takes the chest's crystal price
-            // (Chests::GetChestForItem / GetChestInfo +0x20); no chests yet.
-            (void)IsChestItem;
+            chest = desc && *desc && Chests::IsChestItem(inf->id);
         }
         const MetaData* luckData = inf->meta ? inf->meta->FindChildData(kExpLuck) : nullptr;
-        if (luckData) {
+        if (chest) {
+            // A chest item: "... contains %s random items" (the chest's most items). (Without its
+            // chest the text is left as it was, as the original.)
+            if (Chests::ChestInfo* c = Chests::GetChestInfo(Chests::GetChestForItem(inf->id))) {
+                std::u32string s = SWPrintf(0x100, desc, {ToWideString((int)c->countMax)});
+                descText->SetText(s.c_str());
+                descWin->SetVisibility(true);
+            }
+        } else if (luckData) {
             std::u32string s = SWPrintf(0x100, desc, {ToWideString(luckData->GetInt())});
             descText->SetText(s.c_str());
             descWin->SetVisibility(true);
@@ -770,7 +777,7 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
         p.icon->SetTexture(IconManager::GetIcon("gold_build"), true);
         p.text->SetText(StringTable::GetString("PERFORM_PLACE"));
     }
-    if (inv && IsChestItem(inf->id)) {
+    if (inv && Chests::IsChestItem(inf->id)) {
         ItemButton& o = buttons[kOpen];
         o.root->SetVisibility(true);
         o.green->SetEnabled(!GameState::IsCombatActive());

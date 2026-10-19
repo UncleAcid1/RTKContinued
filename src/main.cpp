@@ -40,6 +40,7 @@
 #include "engine/Text.h"
 #include "engine/TextInput.h"
 #include "game/StringTable.h"
+#include "game/Chests.h"
 #include "game/Collections.h"
 #include "game/Contracts.h"
 #include "engine/Timer.h"
@@ -718,7 +719,7 @@ int main_Loop_Init() {
     if (!LoadSystemConfiguration(Professions::Init, "professions.xml", "L", "Professions::Init", 19.0 / 46.0, 0x7e7,
                                  0))
         return 1;
-    // UNVERIFIED (its milestone): Chests::Init "chests.xml" (20/46).
+    if (!LoadSystemConfiguration(Chests::Init, "chests.xml", "L", "Chests::Init", 20.0 / 46.0, 0x7e8, 0)) return 1;
     if (!LoadSystemConfiguration(ProjectileData::Init, "projectiles.xml", "L", "ProjectileData::Init", 21.0 / 46.0,
                                  0x18, 0x18))
         return 1;

@@ -50,6 +50,7 @@ add_executable(rtk
   src/game/HiddenObjects.cpp
   src/game/Contracts.cpp
   src/game/Sets.cpp
+  src/game/Chests.cpp
   src/game/Collections.cpp
   src/game/Professions.cpp
   src/game/EntityData.cpp

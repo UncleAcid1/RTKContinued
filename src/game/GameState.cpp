@@ -116,6 +116,9 @@ uint32_t g_timeStart = 0;       // 0x612d98 GetGameStartTime
 uint32_t g_tutorialType = 0;    // 0x6129d4
 uint32_t g_dailyBonus[2];       // chunk 0x36
 uint32_t g_dailyBonusCount = 0; // 0x612d84
+bool g_dailyChestProcessing = false;   // 0x612d88 IsDailyChestRequestProcessing (online)
+uint32_t g_processedChest = 0;  // 0x612d8c GetProcessedChest
+bool g_dailyChestFailure = false;      // 0x612d90 Get/SetDailyChestFailure
 uint32_t g_mainExpansionBackgroundLoad = 0;   // 0x612f44
 bool g_socnetConnections[2];    // chunk 0x3c
 // UNVERIFIED (offline port): the expansion pack versions the save keeps
@@ -2023,6 +2026,28 @@ uint32_t GetMonsterKilledCount(uint32_t id) {
     return it == g_monsterKills.end() ? 0 : it->second;
 }
 void MonsterKilled(uint32_t id) { ++g_monsterKills[id]; }
+
+void SetChestEntityReceivedCount(uint32_t id, uint32_t count) { g_chestEntityReceived[id] = count; }
+uint32_t GetChestEntityReceivedCount(uint32_t id) {
+    auto it = g_chestEntityReceived.find(id);
+    return it == g_chestEntityReceived.end() ? 0 : it->second;
+}
+void SetChestBuildingReceivedCount(uint32_t id, uint32_t count) { g_chestBuildingReceived[id] = count; }
+uint32_t GetChestBuildingReceivedCount(uint32_t id) {
+    auto it = g_chestBuildingReceived.find(id);
+    return it == g_chestBuildingReceived.end() ? 0 : it->second;
+}
+void SetChestItemReceivedCount(uint32_t id, uint32_t count) { g_chestItemReceived[id] = count; }
+uint32_t GetChestItemReceivedCount(uint32_t id) {
+    auto it = g_chestItemReceived.find(id);
+    return it == g_chestItemReceived.end() ? 0 : it->second;
+}
+
+void FinishDailyChestItems() { g_dailyChestProcessing = false; }
+uint32_t GetProcessedChest() { return g_processedChest; }
+void SetDailyChestFailure(bool failed) { g_dailyChestFailure = failed; }
+bool GetDailyChestFailure() { return g_dailyChestFailure; }
+void AddDailyChestItem(uint32_t, uint32_t, ResourceType, uint32_t) {}
 
 bool GetCampaignCompletionStatus(uint32_t campaign) { return g_campaignCompletion[campaign] != 0; }
 void SetCampaignCompletionStatus(uint32_t campaign) { g_campaignCompletion[campaign] = 1; }

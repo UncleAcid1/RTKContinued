@@ -129,6 +129,21 @@ int GetMapCompletionCount(uint32_t map);          // @0x199590 how often a missi
 void AddMapCompletion(uint32_t map);              // @0x1995c4
 uint32_t GetMonsterKilledCount(uint32_t id);      // @0x197a6c
 void MonsterKilled(uint32_t id);                  // @0x197b24
+// How many times a chest gave an object (entity), a building or an item; kept in the save.
+void SetChestEntityReceivedCount(uint32_t id, uint32_t count);   // @0x198ad8
+uint32_t GetChestEntityReceivedCount(uint32_t id);               // @0x198b14
+void SetChestBuildingReceivedCount(uint32_t id, uint32_t count); // @0x198bcc
+uint32_t GetChestBuildingReceivedCount(uint32_t id);             // @0x198c08
+void SetChestItemReceivedCount(uint32_t id, uint32_t count);     // @0x198cc0
+uint32_t GetChestItemReceivedCount(uint32_t id);                 // @0x198cfc
+// The daily chest: on the original a server request (SendDailyChestRequest, online) that sets the
+// chest and its items; offline nothing sets them.
+void FinishDailyChestItems();             // @0x191230 the request is no longer processing
+uint32_t GetProcessedChest();             // @0x191248
+void SetDailyChestFailure(bool failed);   // @0x19125c
+bool GetDailyChestFailure();              // @0x191270
+// @0x191edc: empty in this build (the server's items came through FileManager).
+void AddDailyChestItem(uint32_t chest, uint32_t item, ResourceType type, uint32_t amount);
 bool GetCampaignCompletionStatus(uint32_t campaign);   // @0x197e54
 void SetCampaignCompletionStatus(uint32_t campaign);   // @0x197e90
 // @0x191ba0: the chapter number of the last completed chapter task (in id order; tasks 0x4e7..0x696

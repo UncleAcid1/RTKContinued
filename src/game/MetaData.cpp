@@ -158,6 +158,51 @@ MetaData* ParseColonDividedList(const char*& p, bool wrap) {
     return node;
 }
 
+// @0x1d28dc: terminals split by '|'.
+MetaData* ParseItemDropWallDividedList(const char*& p, bool wrap) {
+    MetaData* node = ParseTerminal(p);
+    if (*p == '|' || wrap) {
+        MetaData* list = new MetaData(MetaData::kList);
+        list->AppendChild(node);
+        node = list;
+    }
+    while (*p == '|') {
+        ++p;
+        if (MetaData* m = ParseTerminal(p)) node->AppendChild(m);
+    }
+    return node;
+}
+
+// @0x1d2980: wall lists split by '=' (the wrap flag also goes to each wall list).
+MetaData* ParseItemDropEqualityDividedList(const char*& p, bool wrap) {
+    MetaData* node = ParseItemDropWallDividedList(p, wrap);
+    if (*p == '=' || wrap) {
+        MetaData* list = new MetaData(MetaData::kList);
+        list->AppendChild(node);
+        node = list;
+    }
+    while (*p == '=') {
+        ++p;
+        if (MetaData* m = ParseItemDropWallDividedList(p, wrap)) node->AppendChild(m);
+    }
+    return node;
+}
+
+// @0x1d2a2c: equality lists split by ',' (the wrap flag also goes to each equality list).
+MetaData* ParseItemDropCommaDividedList(const char*& p, bool wrap) {
+    MetaData* node = ParseItemDropEqualityDividedList(p, wrap);
+    if (*p == ',' || wrap) {
+        MetaData* list = new MetaData(MetaData::kList);
+        list->AppendChild(node);
+        node = list;
+    }
+    while (*p == ',') {
+        ++p;
+        if (MetaData* m = ParseItemDropEqualityDividedList(p, wrap)) node->AppendChild(m);
+    }
+    return node;
+}
+
 // @0x1d2d78: colon lists split by '|'.
 MetaData* ParseWallDividedList(const char*& p, bool wrap) {
     MetaData* node = ParseColonDividedList(p, false);

@@ -43,6 +43,11 @@ MetaData* ParseTerminal(const char*& p);  // @0x1d2710 an integer, else an ident
 MetaData* ParseColonDividedList(const char*& p, bool wrap);       // @0x1d2cd4
 MetaData* ParseWallDividedList(const char*& p, bool wrap);        // @0x1d2d78
 MetaData* ParseSemicolonDividedList(const char*& p, bool wrap);   // @0x1d2e28
+// The chests' drop lists: terminals split by '|'; wall lists split by '=' (the wrap flag also goes
+// to each wall list); equality lists split by ','. (Nothing in this build calls them.)
+MetaData* ParseItemDropWallDividedList(const char*& p, bool wrap);       // @0x1d28dc
+MetaData* ParseItemDropEqualityDividedList(const char*& p, bool wrap);   // @0x1d2980
+MetaData* ParseItemDropCommaDividedList(const char*& p, bool wrap);      // @0x1d2a2c
 // @0x1d2ed4: p starts with type (ASCII case-insensitive) followed by '=' or ',' (prefix: anything,
 // also the end); p then moves past the type and an '='.
 bool ParseType(const char*& p, const char* type, bool prefix);
