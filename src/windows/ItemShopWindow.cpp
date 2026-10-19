@@ -23,6 +23,7 @@
 #include "game/Chests.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/MetaData.h"
 #include "game/Professions.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -40,8 +41,8 @@ namespace {
 
 // A cell of the shop's list (8 bytes).
 struct MixedItem {
-    uint32_t f0 = 0;                   // +0x00 (0 for every listed item)
-    Items::ItemInfo* info = nullptr;   // +0x04
+    GameState::PlayerItem* item = nullptr;   // +0x00 an owned item (none in the shop's lists)
+    Items::ItemInfo* info = nullptr;         // +0x04
 };
 
 std::vector<MixedItem> g_items;        // 0x622cd0 (data +0x10, inline buffer +0x14, cap +0x1c, count +0x20)
@@ -429,7 +430,7 @@ struct ItemInfo {
     Window* discountHolder = nullptr; // +0xb8 <holder>.discount_label_holder
     Shared::DiscountInfo discount[4]; // +0xbc its discount_label_blue, _green, _purple, _red
     Textfield* quantity = nullptr;    // +0xdc <icon>.text_quantity
-    // (+0xe0: not set by LoadFrom.)
+    uint32_t itemId = 0;              // +0xe0 the item shown (UpdateContents)
 
     void LoadFrom(Window* w, const char* p) {
         char sub[0x100];
@@ -493,7 +494,7 @@ int g_d10 = 0;                         // 0x623d10 (Show: 0; 5q-3)
 float g_holdTime = 0.f;                // 0x623d14 a held count button's time
 Window* g_holdButton = nullptr;        // 0x623d18 the count button held
 int g_d64 = 0;                         // 0x623d64 (Show: 0; 5q-3)
-int g_f2b4 = -1;                       // 0x60f2b4 (Show: -1; 5q-3)
+int g_selected = -1;                   // 0x60f2b4 the selected cell (an index of the list; -1 none)
 int g_arrowItem = -1;                  // 0x60f2b8 OnTweenIn points the arrow at this cell
 bool g_tablet = true;                  // 0x60f2bc
 float g_scale = 1.f;                   // 0x60f2c0 the root's scale
@@ -520,15 +521,15 @@ void GetItemsForTabAndMode(unsigned tab) {
         if (info->type == 0x10 && !Setting("item_boosts").GetInt()) continue;
         if (tab == 0) {
             if (info->premium || info->shopTab == 1 || info->type == 7 || info->type == 0x80)
-                PushItem({0, info});
+                PushItem({nullptr, info});
             continue;
         }
         if (tab == 7) {
-            if (info->reputationId == 7) PushItem({0, info});
+            if (info->reputationId == 7) PushItem({nullptr, info});
             continue;
         }
         if (info->shopTab) {
-            if (info->shopTab - 1 <= 8 && kTabOfShopTab[info->shopTab - 1] == tab) PushItem({0, info});
+            if (info->shopTab - 1 <= 8 && kTabOfShopTab[info->shopTab - 1] == tab) PushItem({nullptr, info});
             continue;
         }
         bool rest = false;   // 0x2e12bc: not crafted, no profession tool, not tab 6
@@ -547,14 +548,14 @@ void GetItemsForTabAndMode(unsigned tab) {
             break;
         case 5:
             if (info->isCraft || Professions::IsProfessionTool(info->id) || info->type == 9)
-                PushItem({0, info});
+                PushItem({nullptr, info});
             continue;
         default:
             rest = true;
             break;
         }
         if (rest && !info->isCraft && !Professions::IsProfessionTool(info->id) && tab != 6)
-            PushItem({0, info});
+            PushItem({nullptr, info});
     }
     std::stable_sort(g_items.begin(), g_items.end(),
                      tab ? SortItemsByPriority : SortItemsByTypeAndPriority);
@@ -609,7 +610,231 @@ void PrepareSpecialEventCost() {
 
 namespace {
 
-void UpdateContents() {}               // STUB (5q-3)
+void UpdateCard() {}                   // STUB (5q-3b): the selected item's card, UpdateContents' rest
+
+// One cell of the grid (part of UpdateContents): the item's price (the cost item's, else gold, else
+// crystals; the discounted one and the full one), what is owned, the names in the item's quality,
+// the icon, the marks, and the discount or "NEW" label.
+void UpdateCell(ItemInfo& c, unsigned index) {
+    if (index >= g_items.size()) {
+        c.root->SetVisibility(false);
+        c.itemId = 0;
+        return;
+    }
+    GameState::PlayerItem* const item = g_items[index].item;
+    Items::ItemInfo* const info = g_items[index].info;
+    const bool noItem = item == nullptr;
+    const bool equipment = info->type == 8;
+    const int amount = GameState::GetItemAmount(info->id, false);
+    const int price = info->GetCostItem(false)   ? (int)info->GetCostItem(false)
+                      : info->GetCostGold(false) ? (int)info->GetCostGold(false)
+                                                 : (int)info->GetCostCrystals(false);
+    const int full = info->GetCostItem(false)   ? (int)info->GetCostItem(true)
+                     : info->GetCostGold(false) ? (int)info->GetCostGold(true)
+                                                : (int)info->GetCostCrystals(true);
+    int kind;   // 0xb an item, else GameState::kGold / kCrystal
+    bool canPay, canPayFull;
+    if (info->GetCostItem(false)) {
+        kind = 0xb;
+        const unsigned have = (unsigned)GameState::GetItemAmount(info->costItem, false);
+        canPay = info->GetCostItem(false) <= have;
+        canPayFull = info->GetCostItem(false) <= have;
+    } else if (info->GetCostGold(false)) {
+        kind = GameState::kGold;
+        canPay = (int)info->GetCostGold(false) <= (int)GameState::GetResourceAmount(kind);
+        canPayFull = (int)info->GetCostGold(true) <= (int)GameState::GetResourceAmount(kind);
+    } else {
+        kind = GameState::kCrystal;
+        canPay = (int)info->GetCostCrystals(false) <= (int)GameState::GetResourceAmount(kind);
+        canPayFull = (int)info->GetCostCrystals(true) <= (int)GameState::GetResourceAmount(kind);
+    }
+    const bool broken = item && item->IsBroken();
+    const bool locked = info->IsLocked();
+    const bool pack = info->packId != 0;
+    Professions::Profession* const prof = Professions::GetProfession(info->reputationId);
+    // The label: purple below 50 %, blue below 75 %, green below 100 % (of the price), else "NEW"
+    // (red) for a new item. Only without a discount does an owned item count as owned.
+    int label;
+    bool owned = false;
+    if (info->GetDiscountSize(0xffffffff) < 50) label = 2;
+    else if (info->GetDiscountSize(0xffffffff) < 75) label = 0;
+    else if (info->GetDiscountSize(0xffffffff) < 100) label = 1;
+    else {
+        label = info->isNew ? 3 : -1;
+        owned = item || amount != 0;
+    }
+    int count = GameState::GetItemAmount(info->id, false);
+    if (equipment && CharacterInfoWindow::IsItemEquipped(item)) --count;
+    if (info->durability && item) count = 1;
+    if (pack && info->packItems && info->packItems->GetChildrenCount())
+        count = info->packItems->GetChild(0)->GetChild(1)->GetInt();
+    c.root->SetVisibility(true);
+    // ownedMark: the "owned" line and the bought background; shopNames: the names over the price.
+    bool ownedMark, shopNames;
+    if (!noItem) {
+        ownedMark = shopNames = info->type == 3 || count > 1;
+    } else {
+        shopNames = true;
+        ownedMark = equipment && owned;
+    }
+    const bool ownedEquipment = equipment && owned;   // a bought piece is not for sale again
+    c.boughtBg->SetVisibility(ownedMark);
+    auto setCostIcon = [&](Window* icon) {
+        Items::ItemInfo* costItem = kind == 0xb ? Items::GetItemInfo(info->costItem) : nullptr;
+        if (costItem)
+            icon->SetTexture(costItem->GetIcon(), false);
+        else
+            icon->SetTexture(IconManager::GetIcon(GameState::GetResourceIconName(kind), false), true);
+    };
+    PriceInfo& p = c.price;
+    p.plain->SetVisibility(price == full);
+    if (p.plain->visibleSelf) {
+        bool notEnough, icon;
+        if (!noItem || ownedEquipment) {
+            notEnough = icon = false;
+            p.price->SetVisibility(false);
+            p.price->SetText(ToWideString(price));
+            p.priceCrystal->SetVisibility(false);
+        } else if (!canPay) {
+            notEnough = icon = true;
+            p.price->SetVisibility(false);
+            p.price->SetText(ToWideString(price));
+            p.priceCrystal->SetVisibility(false);
+        } else {
+            notEnough = false;
+            icon = true;
+            p.price->SetVisibility(kind == GameState::kGold || kind == 0xb);
+            p.price->SetText(ToWideString(price));
+            p.priceCrystal->SetVisibility(kind == GameState::kCrystal);
+        }
+        p.priceCrystal->SetText(ToWideString(price));
+        p.notEnough->SetVisibility(notEnough);
+        p.notEnough->SetText(ToWideString(price));
+        p.icon->SetVisibility(icon);
+        setCostIcon(p.icon);
+    }
+    p.discounted->SetVisibility(price != full);
+    if (p.discounted->visibleSelf) {
+        const bool forSale = noItem && canPayFull && !ownedEquipment;
+        p.discPrice->SetVisibility(forSale && (kind == GameState::kGold || kind == 0xb));
+        p.discPrice->SetAlignment(1, 1);
+        p.discPrice->SetText(ToWideString(full));
+        p.discPriceCrystal->SetVisibility(forSale && kind == GameState::kCrystal);
+        p.discPriceCrystal->SetAlignment(1, 1);
+        p.discPriceCrystal->SetText(ToWideString(full));
+        p.discNotEnough->SetVisibility(noItem && !canPayFull && !ownedEquipment);
+        p.discNotEnough->SetAlignment(1, 1);
+        p.discNotEnough->SetText(ToWideString(full));
+        if (!noItem) {
+            p.realPrice->SetVisibility(false);
+            p.realPrice->SetText(ToWideString(price));
+            p.realPriceCrystal->SetVisibility(false);
+            p.realPriceCrystal->SetText(ToWideString(price));
+            p.realNotEnough->SetVisibility(false);
+            p.realNotEnough->SetText(ToWideString(price));
+            p.discIcon->SetVisibility(false);
+        } else if (!canPay) {
+            p.realPrice->SetVisibility(false);
+            p.realPrice->SetText(ToWideString(price));
+            p.realPriceCrystal->SetVisibility(false);
+            p.realPriceCrystal->SetText(ToWideString(price));
+            p.realNotEnough->SetVisibility(!ownedEquipment);
+            p.realNotEnough->SetText(ToWideString(price));
+            p.discIcon->SetVisibility(!ownedEquipment);
+        } else {
+            p.realPrice->SetVisibility(!ownedEquipment && (kind == GameState::kGold || kind == 0xb));
+            p.realPrice->SetText(ToWideString(price));
+            p.realPriceCrystal->SetVisibility(!ownedEquipment && kind == GameState::kCrystal);
+            p.realPriceCrystal->SetText(ToWideString(price));
+            p.realNotEnough->SetVisibility(false);
+            p.realNotEnough->SetText(ToWideString(price));
+            p.discIcon->SetVisibility(!ownedEquipment);
+        }
+        setCostIcon(p.discIcon);
+    }
+    p.requiresLevel->SetVisibility(ownedMark);
+    // The confirm mark: a bought piece of equipment.
+    p.confirm->SetVisibility(noItem && equipment && owned);
+    // The names: over the price (shop) when shopNames, else (or when none shows) under the icon (bag).
+    bool shopShown = false;
+    for (int i = 0; i != 5; ++i) {
+        c.shopName[i]->SetVisibility(shopNames && (int)info->itemLevel == i);
+        if (c.shopName[i]->visibleSelf) shopShown = true;
+    }
+    if (shopShown) {
+        for (int i = 0; i != 5; ++i) c.bagName[i]->SetVisibility(false);
+    } else {
+        for (int i = 0; i != 5; ++i) c.bagName[i]->SetVisibility((int)info->itemLevel == i);
+    }
+    if (noItem)
+        p.requiresLevel->SetText(StringTable::GetString("INVENTORY_SHOP_OWNED"));
+    else if (info->type == 3 || count > 1)
+        p.requiresLevel->SetText(
+            SWPrintf(0x100, U"%s: %d", {StringTable::GetString("INVENTORY_SHOP_OWNED"), count}).c_str());
+    else
+        p.requiresLevel->SetText(StringTable::GetString("INVENTORY_SHOP_EQUIPPED"));
+    if (c.shopName[info->itemLevel]->visibleSelf) c.shopName[info->itemLevel]->SetText(info->title);
+    if (c.bagName[info->itemLevel]->visibleSelf) c.bagName[info->itemLevel]->SetText(info->title);
+    c.itemId = info->id;
+    c.icon->SetVisibility(info->GetIcon() != nullptr);
+    if (info->GetIcon()) info->PutImageInHolder(c.icon);
+    c.quantity->SetVisibility(pack && count >= 2);
+    c.quantity->SetText(SWPrintf(0x80, U"x%d", {count}).c_str());
+    c.bg->SetVisibility((int)index == g_selected);
+    c.selected->SetVisibility(false);
+    c.emptyBg->SetVisibility(false);
+    c.broken->SetVisibility(broken);
+    c.locked->SetVisibility(locked);
+    c.repOverlay->SetVisibility(info->reputationId != 0);
+    for (int i = 0; i != 5; ++i) c.itemClass[i]->SetVisibility(!locked && !broken && (int)info->itemLevel == i);
+    c.lock->SetVisibility(false);
+    c.lockSmall->SetVisibility(locked);
+    c.levelReq->SetVisibility(locked && info->IsLockedByLevel());
+    if (c.levelReq->visibleSelf)
+        c.levelReq->SetText(
+            SWPrintf(0x100, StringTable::GetString("LVL_HEAD"), {ToWideString((int)info->level)}).c_str());
+    c.recommended->SetVisibility(info->premium);
+    c.owned->SetVisibility(false);
+    if (!prof) {
+        c.repProf->SetVisibility(false);
+    } else {
+        c.repProf->SetVisibility(prof->type == Professions::kReputation || prof->id == 6);
+        c.repProf->SetTexture(prof->smallIcon, prof->icon != prof->smallIcon);
+    }
+    for (int i = 0; i != 4; ++i) c.discount[i].root->SetVisibility(false);
+    if (label == -1) return;
+    c.discount[label].root->SetVisibility(true);
+    if (label == 3)
+        c.discount[3].text->SetText(StringTable::GetString("NEW"));
+    else
+        c.discount[label].text->SetText(
+            SWPrintf(0x80, U"-%d%%", {100 - info->GetDiscountSize(0xffffffff)}).c_str());
+}
+
+}  // namespace
+
+// @0x2e1538 (5q-3a: the header, the tabs and the grid; the card is 5q-3b, UpdateCard). The
+// server's discount clock (Items::SetTransactionTime) is not ported: no discount offline.
+void UpdateContents() {
+    static const char* const kTabIcons[8] = {"tab_shop_discounts", "tab_inv_gear",      "tab_shop_armor",
+                                             "tab_inv_cons",       "tab_shop_accessories", "tab_inv_acc_craft",
+                                             "tab_shop_weapons",   "pvp_valor_35"};
+    static const char* const kTabNames[8] = {"ITEM_SHOP_CAT_01", "ITEM_SHOP_CAT_02",      "ITEM_SHOP_CAT_03",
+                                             "ITEM_SHOP_CAT_04", "ITEM_SHOP_CAT_05",      "ITEM_SHOP_CAT_08",
+                                             "LEVEL_INFO_HEADER_REP", "LEVEL_INFO_HEADER_REP"};   // 0x601778
+    for (unsigned i = 0; i != 9; ++i) g_tabs[i].SetMode(i == g_tab, i == 7);
+    for (unsigned i = 0; i != 8; ++i) g_tabs[i].icon->SetTexture(IconManager::GetIcon(kTabIcons[i], false), true);
+    g_tabs[8].root->SetVisibility(false);
+    g_playerName->SetText(StringTable::GetString("SQ_SHOP"));
+    g_tabName->SetText(StringTable::GetString(kTabNames[g_tab]));
+    GetItemsForTabAndMode(g_tab);
+    g_scroller.itemCount = (unsigned)g_items.size();
+    g_scroller.UpdateScroll();
+    for (unsigned i = 0; i != 12; ++i) UpdateCell(g_cells[i], i + g_scroller.firstIndex);
+    UpdateCard();
+}
+
+namespace {
 void OnTab(unsigned) {}                // STUB (5q-4)
 void OnItem(unsigned) {}               // STUB (5q-4)
 void OnUserItem() {}                   // STUB (5q-4)
@@ -870,7 +1095,7 @@ void Show() {
         g_tween->AnimateIn();
         if (GameState::GetCurrentLocation() == 2) GameState::RaiseGamePauseState();
     }
-    g_f2b4 = -1;
+    g_selected = -1;
     g_d10 = 0;
     g_scroller.firstIndex = 0;
     g_scroller.HandleMove(-g_scroller.offset);

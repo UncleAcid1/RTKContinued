@@ -205,6 +205,7 @@ WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ItemShop
 void Show();                                // @0x2e6858 (not in the tutorials)
 void Hide();                                // @0x2de34c
 bool IsVisible();                           // @0x2dd1bc
+void UpdateContents();                      // @0x2e1538
 float GetZ();                               // @0x2dd1a8
 // @0x2dd1d0: cb (owned) runs when the shop closes after its target was bought; set after Show.
 void SetContinuationAfterTargetIsPurchased(std::function<void()>* cb);
