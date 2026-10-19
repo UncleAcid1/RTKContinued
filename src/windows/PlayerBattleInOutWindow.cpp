@@ -425,7 +425,7 @@ void Init() {
     g_blackTop->screenSpace = true;
     Render::SetShaderType(g_blackTop, 1);
     Render::SetVisibility(g_blackTop, false);
-    Render::SetAlpha(g_blackTop, 1.f);
+    Render::SetAlpha(g_blackTop, 0.6f);
     g_goldTop = Render::CreateSprite(Resources::GetUIImage("Endscreen_goldline_scaler.png", false, false),
                                      Render::kLayerGUI, false, false);
     g_goldTop->screenSpace = true;
@@ -434,7 +434,7 @@ void Init() {
     g_blackBottom->screenSpace = true;
     Render::SetShaderType(g_blackBottom, 1);
     Render::SetVisibility(g_blackBottom, false);
-    Render::SetAlpha(g_blackBottom, 1.f);
+    Render::SetAlpha(g_blackBottom, 0.6f);
     g_goldBottom = Render::CreateSprite(Resources::GetUIImage("Endscreen_goldline_scaler.png", false, false),
                                         Render::kLayerGUI, false, false);
     g_goldBottom->screenSpace = true;

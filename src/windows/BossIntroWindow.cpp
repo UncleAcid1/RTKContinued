@@ -350,7 +350,7 @@ void Init() {
     g_black->screenSpace = true;
     Render::SetShaderType(g_black, 1);
     Render::SetVisibility(g_black, false);
-    Render::SetAlpha(g_black, 0.f);
+    Render::SetAlpha(g_black, 0.6f);
     g_goldline = Render::CreateSprite(Resources::GetUIImage("Endscreen_goldline_scaler.png", false, false), 0xe, false, false);
     g_goldline->screenSpace = true;
     Render::SetVisibility(g_goldline, false);
