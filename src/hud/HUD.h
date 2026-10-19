@@ -91,6 +91,10 @@ void UpdateBeltItems();              // @0x24d790 which items ride on the belt
 void OnUseSlot(unsigned slot);       // @0x24f05c the slot's potion is drunk
 void OnActivateSlot(unsigned slot);  // @0x24e944 the slot's orb goes on or off
 void HideHoverWindow();              // @0x24c63c
+void RunRageAnimation();             // @0x24c960 the second tutorial's fury potion flies to the rage bar
+void ArrowAtSlot(unsigned slot);     // @0x24cc44 the arrow at a slot, its tap drinks the potion
+// @0x24c678: where a w wide image goes at the right of the first slot, level with the inventory button.
+void GetAdjustedBuffZoneLocation(int& x, int& y, int w, int h);
 }
 // The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net and stance parts so far,
 // the spells with milestone 5).

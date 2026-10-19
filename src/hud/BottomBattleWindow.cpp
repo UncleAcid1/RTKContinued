@@ -764,13 +764,16 @@ void FlyNet(float dt) {
 }
 
 // @0x25769c (the belt's potion, else the inventory's, else the shop's): points the player at a
-// mana potion. UNVERIFIED (milestone 5): the actions are the later steps' (the belt's arrow
-// BeltBarWindow::ArrowAtSlot 5k, CharacterInfoWindow::Show / ShowInventoryItem(id, 4, item) 5l,
-// ItemShopWindow::Show / ShowShopItem(0x88, 0, true, -1) 5q); the answer is the original's.
+// mana potion. UNVERIFIED (milestone 5): the actions are the later steps' (CharacterInfoWindow::Show /
+// ShowInventoryItem(id, 4, item) 5l, ItemShopWindow::Show / ShowShopItem(0x88, 0, true, -1) 5q);
+// the answer is the original's.
 bool OnShowManaPotion(unsigned) {
     for (unsigned slot = 0; slot < GameState::GetBeltSlotCount(); ++slot) {
         GameState::PlayerItem* item = GameState::GetFirstItemByID(GameState::GetBeltItemAt(slot), true);
-        if (item && item->info->meta && item->info->meta->FindByType(kExpMana)) return true;
+        if (item && item->info->meta && item->info->meta->FindByType(kExpMana)) {
+            BeltBarWindow::ArrowAtSlot(slot);
+            return true;
+        }
     }
     if (GameState::IsArenaCombatActive()) return false;
     for (unsigned i = 0; GameState::PlayerItem* item = GameState::EnumItems(i); ++i)
@@ -1050,7 +1053,7 @@ void Deinit() {
 // @0x25cfd8: from the taming lesson on; it slides up from the bottom, centred.
 void Show() {
     if (GameState::tutorial <= 0x16 || !g_root) return;
-    // (second-tutorial step 0x97: BeltBarWindow::RunRageAnimation, milestone 5)
+    if (GameState::secondTutorial == 0x97) BeltBarWindow::RunRageAnimation();
     if (g_effect->active && g_effect->hideAtEnd) g_root->SetVisibility(false);
     g_queue->MoveWindowOnTop(true);
     if (!g_root->visibleSelf) {

@@ -60,6 +60,15 @@ ItemHoverWindow* g_hover = nullptr;       // 0x617c14 the card of the tapped slo
 int g_arrowCallback = 0;                  // 0x617dc4 the id of the arrow callback that points at a slot
 int g_barNameX = 0;                       // 0x617e08 text_bar_name's laid-out x
 int g_lastSecond = 0;                     // 0x617e24
+// The flying picture (an item icon, or the fury potion's in the second tutorial) that goes from a
+// slot to a point: set by RunRageAnimation, moved by Update.
+Render::Sprite* g_flySprite = nullptr;    // 0x617d98
+bool g_flyActive = false;                 // 0x617d9c
+float g_flyTime = 0.f;                    // 0x617da0
+float g_flyFromX = 0.f, g_flyFromY = 0.f; // 0x617da4 0x617da8
+float g_flyToX = 0.f, g_flyToY = 0.f;     // 0x617dac 0x617db0
+float g_flyDuration = 1.f;                // 0x60f0c4 seconds
+int g_flySlot = -1;                       // 0x60f0d0 the slot whose icon is hidden while it flies
 // Per slot (BottomSlotInfo +0x58..+0x60): the charge bar glides to progressValue.
 struct Glide { bool started = false; float shown = 0.f, time = 0.f; } g_glide[3];
 
@@ -154,6 +163,41 @@ bool IsVisible() { return g_root && g_root->visibleSelf; }
 void GetBeltItemLocation(int& x, int& y, int slot) {
     x = g_root->x + g_slots[slot].holder->x;
     y = g_root->y + g_slots[slot].holder->y;
+}
+
+// @0x24c678: where a w wide image goes at the right of the belt's first slot, level with the
+// inventory button (the row of running buffs).
+void GetAdjustedBuffZoneLocation(int& x, int& y, int w, int) {
+    x = g_slots[0].holder->x + g_inventoryIcon->x + g_slots[0].holder->w - w;
+    y = g_inventoryIcon->y;
+}
+
+// @0x24c960: the second tutorial's fury potion (the icon of belt slot 1) flies from its slot to the
+// bottom middle of the screen, where the rage bar rises; the tutorial goes on at its landing (0x9a).
+void RunRageAnimation() {
+    const Window* icon = g_slots[1].soldierFine;
+    g_flySprite = Render::CreateSprite(icon->texture, 0xf, false, false);
+    g_flySprite->screenSpace = true;
+    Render::SetShaderType(g_flySprite, 1);
+    Render::SetPosition(g_flySprite, (float)(g_root->x + icon->x), (float)(icon->h + icon->y + g_root->y), 0.001f);
+    g_flyActive = true;
+    GameState::secondTutorial = 0x99;
+    g_flySprite->w = (float)icon->w;
+    g_flySprite->h = (float)icon->h;
+    g_flyDuration = 1.f;
+    g_flyTime = 0.f;
+    g_flyFromX = g_flySprite->x;
+    g_flyFromY = g_flySprite->y;
+    g_flyToX = ((float)GUI::ScreenWidth() - (float)icon->w) * 0.5f;
+    g_flyToY = (float)GUI::ScreenHeight();
+}
+
+// @0x24cc44: the arrow points at the slot, its tap drinks the slot's potion.
+void ArrowAtSlot(unsigned slot) {
+    g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([slot] { OnUseSlot(slot); }));
+    const Window* h = g_slots[slot].holder;
+    BuildingHovers::ArrowAt((float)(g_root->x + h->x + h->w / 2), (float)(g_root->y + h->y), false, false, false,
+                            false, true, false, false);
 }
 
 void GetAdjustedSideButtonLocation(int& x, int& y, int w, int h) {
@@ -506,9 +550,9 @@ void UpdateContents() {
 }
 
 // @0x24f744. UNVERIFIED (milestone 5): the profession point's flight to the crafting bar
-// (ShowProfessionPoint), the fury flash (RunRageAnimation, with the spells), an item dragged out
-// of the belt, the raised window's timer (RaiseWindow) and the row of running buffs
-// (Shared::BuffHolderManager).
+// (ShowProfessionPoint), an item dragged out of the belt, the raised window's timer (RaiseWindow),
+// the flight's end at step 0x88 (CharacterInfoWindow::Hide) and the row of running buffs
+// (Shared::BuffHolderManager, 5k-3).
 void Update(float dt) {
     if (!g_root) return;
     if (g_hover->shownHover) {
@@ -531,6 +575,33 @@ void Update(float dt) {
             g.shown = g.shown - (s.progressValue - g.shown) * -0.133975f;
         }
         s.SetFillPercent(g.shown);
+    }
+    if (g_flyActive && g_flySprite) {
+        const float t = g_flyTime / g_flyDuration;
+        if (t < 1.f) {
+            if (GameState::secondTutorial == 0x99) {
+                Render::SetPosition(g_flySprite, g_flyFromX + t * (g_flyToX - g_flyFromX),
+                                    g_flyFromY + t * (g_flyToY - g_flyFromY), 0.001f);
+            } else {
+                // a quarter circle: fast at first, slowing into the target
+                const float k = std::sqrt(1.f - (t - 1.f) * (t - 1.f));
+                Render::SetPosition(g_flySprite, g_flyFromX + (g_flyToX - g_flyFromX) * k,
+                                    g_flyFromY + (g_flyToY - g_flyFromY) * k, 0.001f);
+            }
+        } else {
+            g_flySprite = Render::RemoveSprite(g_flySprite);
+            if (g_flySlot != -1) g_slots[g_flySlot].soldierFine->SetVisibility(true);
+            g_flySlot = -1;
+            if (GameState::secondTutorial == 0x88) {
+                // UNVERIFIED (milestone 5, 5l): CharacterInfoWindow::Hide
+                GUI::SetInteractionLock(false);
+                GameState::secondTutorial = 0x206;
+            } else if (GameState::secondTutorial == 0x99) {
+                GameState::secondTutorial = 0x9a;
+            }
+            g_flyActive = false;
+        }
+        g_flyTime += dt;
     }
     // The second tutorial's arrows at the inventory button (0xa3) and at slot 0 (0x86).
     int& st = GameState::secondTutorial;
