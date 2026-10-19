@@ -1179,7 +1179,7 @@ void ItemDrop::Animate(float dt) {
     Render::SetPosition(sprite, x, y, 0.2f);
 }
 
-void ItemDrop::Collect(bool automatic, bool) {
+void ItemDrop::Collect(bool automatic, bool showWindow) {
     for (int& s : subtasks) {
         if (s != 0) Tasks::CompleteSubtask(Tasks::kDeliveryMissionEnd, (uint32_t)s, 1);
         s = 0;
@@ -1220,8 +1220,18 @@ void ItemDrop::Collect(bool automatic, bool) {
     }
     if (kind == 1) {
         uint32_t id = item->id;
-        // UNVERIFIED (milestone 5, chests and quests): the starter chest 0x2b6 opens ChestsWindow
-        // (SetStarterChestMode 0x35, or 0x3f with "starter_chest_b") and restarts task 0x75b.
+        // The starter chest 0x2b6 (with showWindow: shown in the chests window, 0x3f with the setting
+        // starter_chest_b, else 0x35) starts its task 0x75b over, as featured now.
+        if (id == 0x2b6) {
+            if (showWindow) {
+                ChestsWindow::Show();
+                ChestsWindow::SetStarterChestMode(false, Setting("starter_chest_b").GetInt() ? 0x3f : 0x35);
+            }
+            GameState::ResetTask(0x75b);
+            GameState::StartTask(0x75b);
+            GameState::SetFeaturedTaskClickTime(0x75b, (uint32_t)Timer::GetGlobalTime());
+            HUDWindow::UpdateTasks();
+        }
         bool timesOnly = id - 0x16cu < 2;
         if (timesOnly) g_rubyDropped = false;
         if (Professions::Profession* p = Professions::GetProfessionForPointItem(id)) {

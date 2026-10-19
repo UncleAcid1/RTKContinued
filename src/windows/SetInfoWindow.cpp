@@ -604,8 +604,11 @@ void OnItem(unsigned slot) {
     // UNVERIFIED (milestone 5, 5q): ItemShopWindow::ItemCanBeBought(id, 0) -> Hide,
     // ItemShopWindow::Show and ShowShopItem(id, 0, true, -1). No item is for sale until then.
     if (g_set->id == 8 && Tasks::IsTaskActive(0x6b4, true)) {
-        // UNVERIFIED (milestone 5, 5p): Hide, CharacterInfoWindow::Hide, ChestsWindow::Show and
-        // SetChest(1).
+        // The Phoenix set (8) while the chests' task is on: the warrior chest.
+        Hide();
+        CharacterInfoWindow::Hide();
+        ChestsWindow::Show();
+        ChestsWindow::SetChest(1);
         return;
     }
     PopupWindow::Show(StringTable::GetString("HELP_FIND_SET"), PopupWindow::Hide, nullptr, nullptr);

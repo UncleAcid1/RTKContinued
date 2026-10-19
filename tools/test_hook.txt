@@ -113,6 +113,8 @@
                 std::printf("[t] chest selected %d visible=%d\n", c, (int)ChestsWindow::IsVisible());
             }
             if (i == envi("RTK_GIVECRYS", -1)) GameState::AddCrystals(envi("RTK_CRYS", 500));   // 5p-5
+            if (i == envi("RTK_TASKWIN", -1)) { TaskInfoWindow::SetTask((uint32_t)envi("RTK_TASKID", 0x75b), false); TaskInfoWindow::Show(); }   // 5p-5b
+            if (i == envi("RTK_ITEMCARD", -1)) { const uint32_t id = (uint32_t)envi("RTK_CARDID", 757); GameState::PlayerItem* p = GameState::GetFirstItemByID(id, false); if (!p) p = GameState::AddItem(id, 1, false, false, false); CharacterInfoWindow::Show(); CharacterInfoWindow::ShowInventoryItem(id, 0, p); }   // 5p-5b
             if (i == envi("RTK_ADVANCE", -1)) Timer::AdvanceGlobalTime((uint32_t)envi("RTK_ADV", 864000));   // 5p-5: the starter offer runs out
             if (i == envi("RTK_LUCKITEM", -1)) GameState::AddItem((uint32_t)envi("RTK_LUCKID", 0), 1, false, false, false);   // 5p-5: a luck item owned
             for (const char* key : {"RTK_BUYCHK", "RTK_BUYCHK2", "RTK_BUYCHK3"})   // 5p-5: a purchase's state

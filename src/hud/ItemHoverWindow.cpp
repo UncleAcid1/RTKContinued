@@ -1120,15 +1120,28 @@ void ItemHoverWindow::OnReputation() {
     Hide();
 }
 
-// @0x384d14
+// @0x384d14: 0x211 opens the collector chest; out of a fight the starter chest (0x2b6: 0x3f with
+// the setting starter_chest_b, else 0x35) opens in the chests window, another chest item is opened
+// (ChestsWindow::RollChest; on the original a server request, GameState::SendDailyChestRequest with
+// the chest item's unique id and the luck, then LoadingInternetWindow, online). In a fight:
+// "WEBVIEW_NOTNOW".
 void ItemHoverWindow::OnOpen() {
     if (!info) return;
-    // UNVERIFIED (milestone 5): 0x211 opens ChestsWindow (chest 3); otherwise, out of combat, the
-    // starter chest (0x2b6, ChestsWindow::SetStarterChestMode by "starter_chest_b") or a daily chest
-    // (on the original a server request: GameState::SendDailyChestRequest with
-    // ChestsWindow::GetBestLuckItem, then LoadingInternetWindow). In combat: "WEBVIEW_NOTNOW".
-    if (info->id != 0x211 && GameState::IsCombatActive())
+    if (info->id == 0x211) {
+        ChestsWindow::Show();
+        ChestsWindow::SetChest(3);
+    } else if (GameState::IsCombatActive()) {
         PopupWindow::Show(StringTable::GetString("WEBVIEW_NOTNOW"), PopupWindow::Hide, nullptr, nullptr);
+    } else if (info->id == 0x2b6) {
+        CharacterInfoWindow::Hide();
+        ChestsWindow::Show();
+        ChestsWindow::SetStarterChestMode(false, Setting("starter_chest_b").GetInt() ? 0x3f : 0x35);
+    } else {
+        // (GameState::IsDailyChestRequestProcessing(): never so offline.)
+        unsigned luck = 0;
+        ChestsWindow::GetBestLuckItem(luck);
+        if (GameState::GetFirstItemByID(info->id, false)) ChestsWindow::RollChest(Chests::GetChestForItem(info->id), luck);
+    }
     Hide();
 }
 

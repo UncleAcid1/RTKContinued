@@ -436,8 +436,6 @@ int g_selected = -1;                  // 0x60f1bc the selector chosen (-1: none)
 bool g_tablet = false;                // 0x60f1c0
 float g_rootScale = 1.f;              // 0x60f1c4
 
-uint32_t GetBestLuckItem(unsigned& luck);
-
 // The item card points at window w (below it) and comes in front.
 void PointHoverAt(const Window* w) {
     const int x = g_root->x + w->x, y = g_root->y + w->y;
@@ -567,17 +565,24 @@ void OnOpen() {
     UpdateContents();
 }
 
+}  // namespace
+
 // PORT (offline): the original asked the server to open the chest (GameState::SendDailyChestRequest
 // with the chest item's unique id, reroll and the best luck item's luck); its answer
 // (CMyServer::NET_GetServerChest_Callback) gave each item, object and resource to
 // GameState::AddDailyChestItem. Offline the chest is rolled here as the map chests are
-// (Chests::ChestInfo::GenerateContents). UNVERIFIED: the luck is not used (the server's rule for it
-// is unknown).
-void RollChest(uint32_t chest) {
+// (Chests::ChestInfo::GenerateContents). PORT (user 2026-10-19): the server's rule for the luck is
+// unknown; offline it raises every item's chance by that percent (+30: x1.3, at most always) for
+// this roll.
+void RollChest(uint32_t chest, unsigned luck) {
     GameState::SetProcessedChest(chest);
     if (Chests::ChestInfo* info = Chests::GetChestInfo(chest)) {
+        const std::vector<Chests::ChestItem> items = info->items;
+        for (Chests::ChestItem& it : info->items)
+            it.probability = std::min(10000, (int)((long long)it.probability * (100 + luck) / 100));
         Chests::DropItem drops[0x20];
         const unsigned n = info->GenerateContents(drops, 0x20, false);
+        info->items = items;
         for (unsigned i = 0; i != n; ++i)
             GameState::AddDailyChestItem(drops[i].item, drops[i].object, (GameState::ResourceType)drops[i].type,
                                          (uint32_t)drops[i].amount);
@@ -585,6 +590,8 @@ void RollChest(uint32_t chest) {
     GameState::SetDailyChestFailure(false);
     GameState::FinishDailyChestItems();
 }
+
+namespace {
 
 // @0x294438: pays the reroll (the chest's reroll_price, else the setting reroll_cost, at least 1)
 // and rolls the chest again; the new result replaces the one shown. (Billing::LogCBPurchase(0x23,
@@ -606,7 +613,7 @@ void OnReroll() {
     unsigned luck = 0;
     GetBestLuckItem(luck);
     if (GameState::GetFirstItemByID(Chests::GetItemForChest(GameState::GetProcessedChest()), false))
-        RollChest(GameState::GetProcessedChest());
+        RollChest(GameState::GetProcessedChest(), luck);
     UpdateContents();
 }
 
@@ -871,6 +878,8 @@ void Update(float dt) {
     }
 }
 
+}  // namespace
+
 // @0x289adc: the owned item with the most luck (its meta 0x29), and that luck.
 uint32_t GetBestLuckItem(unsigned& luck) {
     luck = 0;
@@ -883,6 +892,8 @@ uint32_t GetBestLuckItem(unsigned& luck) {
     }
     return best;
 }
+
+namespace {
 
 // UpdateContents (@0x28d204) is one function of 28 KB in the original; its parts follow.
 
@@ -1504,7 +1515,7 @@ bool OnChestBought(const char* sku, uint32_t chest) {
     }
     unsigned luck = 0;
     GetBestLuckItem(luck);
-    RollChest(Chests::GetChestForItem(p->id));
+    RollChest(Chests::GetChestForItem(p->id), luck);
     // (LoadingInternetWindow with the chest's drop icon and "WEBVIEW_LOADING": online.)
     return true;
 }

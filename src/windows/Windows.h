@@ -193,6 +193,10 @@ void StartLoading();                        // @0x289a30
 void AddRewardItem(uint32_t item, uint32_t object, uint32_t type, int amount);
 bool OnChestBought(const char* sku, uint32_t chest);   // @0x28aa68 false: not now, asked again
 void OnPaymentDataReceived();               // @0x294204 (real money: dormant)
+uint32_t GetBestLuckItem(unsigned& luck);   // @0x289adc the owned item with the most luck, and that luck
+// PORT (offline): a store chest opened (the server's request in the original), its result into the
+// window; luck raises the items' chances.
+void RollChest(uint32_t chest, unsigned luck);
 }
 
 // "<chest> opened": the loot of a chest (windows/ChestOpenedWindow.cpp).

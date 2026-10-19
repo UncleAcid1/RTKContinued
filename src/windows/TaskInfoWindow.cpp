@@ -745,8 +745,18 @@ void Show() {
         GameState::SetFeaturedTaskClickTime(t->id, (uint32_t)Timer::GetGlobalTime());
         HUDWindow::UpdateTasks();
     }
-    // UNVERIFIED (milestone 5): the tasks that open another window instead: 0x6b4 and 0x75b the
-    // chests (ChestsWindow), 0x77b the PvP button, 0x77c..0x780 the item shop's tabs and packs.
+    // The tasks that open another window instead: 0x6b4 the chests, 0x75b the starter chest (0x3f
+    // with the setting starter_chest_b, else 0x35). UNVERIFIED (milestone 5q / 5t): 0x77b the PvP
+    // button (CastleTopWindow::OnPvP(0x317)), 0x77c..0x780 the item shop's tabs and packs.
+    if (g_task == 0x6b4) {
+        ChestsWindow::Show();
+        return;
+    }
+    if (g_task == 0x75b) {
+        ChestsWindow::Show();
+        ChestsWindow::SetStarterChestMode(false, Setting("starter_chest_b").GetInt() ? 0x3f : 0x35);
+        return;
+    }
     if (!t || !t->quickTask) {
         bool wasShown = g_queue->shown;
         g_queue->shown = true;
