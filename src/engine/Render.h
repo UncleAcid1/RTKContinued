@@ -128,6 +128,8 @@ void Update();
 extern void (*presentHook)();
 // @0x1f79d4: a screen-sized texture holding what was drawn last (glCopyTexImage2D, RGB, clamped).
 Texture* CreateScreenTexture();
+void BlurTexture(Texture* t, int passes);   // @0x1f67dc
+inline void MarkDirty(Sprite*) {}           // @0x1fdee0 (nothing to mark: the port draws every sprite each frame)
 // @0x1f67c8 (Context::IsLowPerformanceDevice asks Android's Java side). PORT: a desktop is not.
 inline bool IsLowPerformanceDevice() { return false; }
 // @0x1fe378 (Render::Update, before drawing): sprites whose texture is a frame chain step to the

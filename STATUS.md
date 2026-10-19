@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5i-3 (BossCombatWaves, BossIntroEffect, FastBossIntroEffect). (5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5j (spells 1). (5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1938,7 +1938,7 @@ Milestones:
                    temporary edit that kept it after RTK_WORLD=1 RTK_GOMAP=14; the animated switch
                    above skips it (faithful).
        Fights:
-       5i [ ] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,
+       5i [x] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,
               FastBossIntroEffect, BossIntroWindow::SetReputation.
               SPLIT (2026-10-18, about 52 functions; BossCombat alone ~16 KB):
               5i-1 [x] (2026-10-18) BaseCombat::SwitchToBossFight (the boss map's load, mReturnMapID,
@@ -1981,7 +1981,18 @@ Milestones:
                    enemies to 1 HP, SL sleeps every 15 frames from 160, about 3000 frames): the outro
                    appears with the dropped loot strip; tapping Ok (640:770) at frame 3000 slides it away,
                    map 15 loads, combat ends, the boss lies dead, its armor drops with the helper arrow.
-              5i-3 [ ] BossCombatWaves, BossIntroEffect, FastBossIntroEffect.
+              5i-3 [x] (2026-10-18) BossCombatWaves (game/BossCombat.cpp, type 4: BeginCombat, WaitingForContinue
+                   leads the next wave in when the one in play is dead, OnEnemyDied, RestoreBossCombat sorts
+                   mBossWaves' groups into waves; wired in Map::SpawnEntities), BossIntroEffect +
+                   FastBossIntroEffect (game/BossIntroEffect.cpp: the 3.85 s zoom / blur / white transition
+                   around a boss map's load, wired in Map::Update; FastBossIntroEffect is empty in 5.11),
+                   Render::BlurTexture (PORT: on the CPU, same 5-tap sums), shader 6 (boss_intro) and
+                   Render::MarkDirty. PORT: the capture sprite has no flip (CreateScreenTexture flips rows).
+                   VERIFIED: the effect runs (120 frames, no shader errors; its look was NOT viewed: only the
+                   last frame is screenshotted); a forced two-wave fight (a temporary edit of
+                   SwitchToBossFight: waves {473, 0, 473, boss}, taken out again) goes type 4, wave 1,
+                   the next wave runs in (state 0x10), the boss, then BossOutroWindow.
+                   5i is DONE.
        5j [ ] spells 1: Spells, AISpell, Entity's magic (OnSpellCast, OnHitMagic, ...), the rage bar's rest
               (BottomBattleWindow).
        5k [ ] spells 2: SpellMovement, PlaceMagicHoverWindow, BeltBarWindow's spell/buff parts.

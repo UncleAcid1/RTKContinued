@@ -451,6 +451,19 @@ bool IsCameraMoving();                                 // @0x1b82c4
 }  // namespace Map
 
 // The world map's walk home at the end of the opening tutorial (Map::Update's queued load).
+// The transition into a boss fight (game/BossIntroEffect.cpp): Prepare and Run before the map is loaded
+// (Run returns once it has turned white), Continue and Run after it.
+namespace BossIntroEffect {
+void Prepare();   // @0x1b78b8
+void Continue();  // @0x1b7674
+void Run();       // @0x1bdbd0
+}
+namespace FastBossIntroEffect {   // slow devices: nothing happens
+void Prepare();   // @0x1b6748
+void Continue();  // @0x1b674c
+void Run();       // @0x1b6750
+}
+
 namespace FirstCityEnterEffect {
 extern double time, lastTime;   // 0x6138e8 0x6138f0
 void Run();                     // @0x1bae50

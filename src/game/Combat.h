@@ -194,6 +194,27 @@ public:
     int turn = 0;                        // +0x88
 };
 
+// BossCombatWaves (0x9c bytes, type 4): a boss fight whose enemies come in waves. The first wave stands
+// with the boss; when it is dead (WaitingForContinue) the next one is led in. The waves are the groups of
+// mBossWaves between its 0 entries; the boss comes last.
+class BossCombatWaves : public BossCombat {
+public:
+    BossCombatWaves();                                // @0x11a474 (also @0x11a4c4)
+    ~BossCombatWaves() override;                      // @0x11a514 (deleting @0x11ac04, @0x11acd0)
+    void BeginCombat(BaseSquad* player, BaseSquad* enemy) override;   // +0x0c @0x11a254
+    using BaseCombat::BeginCombat;
+    void OnEnemyDied() override;                      // +0x68 @0x11a888
+    void WaitingForContinue() override;               // +0xa8 @0x11a5e0
+    void RestoreBossCombat() override;                // +0xf4 @0x11acec
+
+    struct Wave {
+        unsigned index;                  // the position in mBossWaves of its first enemy
+        std::vector<Entity*> enemies;
+    };
+    int wave = 0;                        // +0x8c the wave in play
+    std::vector<Wave> waves;             // +0x90 the waves after the boss's own side
+};
+
 namespace PvP { struct PlayerInfo; }
 
 // ArenaCombat (@0xfa030..0xfee54, vtable 0x6077f0, 0xc0 bytes): the arenas' turn-based fight. The

@@ -383,3 +383,141 @@ void BossCombat::RestoreBossCombat() {
         enemySquad->GetOwner()->OnSetup();
     }
 }
+
+// ------------------------------------------------------------------------------- BossCombatWaves
+
+// @0x11a474
+BossCombatWaves::BossCombatWaves() { type = 4; }
+
+BossCombatWaves::~BossCombatWaves() = default;   // @0x11a514 (the waves go; BossCombat's goes after)
+
+// @0x11a254: as BossCombat's, but the boss's side comes as a formation: its squad takes its place
+// around the boss and the boss is ready at once.
+void BossCombatWaves::BeginCombat(BaseSquad* player, BaseSquad* enemy) {
+    enemySquad = enemy;
+    cancel = false;
+    paused = false;
+    pair = nullptr;
+    wp10 = nullptr;
+    playerSquad = player;
+    player->OnBeginCombat(this);
+    enemySquad->OnBeginCombat(this);
+    playerSquad->DisableSpeedRun();
+    const int* pos = GameState::mBossMapPositions;
+    playerSquad->GetOwner()->SetPos(pos[0], pos[1]);
+    enemySquad->GetOwner()->SetPos(pos[4], pos[5]);
+    enemySquad->GetOwner()->SetDirection(7);
+    RestoreBossCombat();
+    SwitchState(0x10);
+    playerSquad->MoveTo(AI::GetWaypoint(pos[2], pos[3], false));
+    enemySquad->MoveSquadTo(AI::GetWaypoint(pos[6], pos[7], false));
+    enemySquad->SetReady(enemySquad->GetOwner());
+    playerSquad->SetCurrentTarget(enemySquad->GetOwner());
+    enemySquad->SetCurrentTarget(playerSquad->GetOwner());
+    Entity* boss = enemySquad->GetOwner();
+    BRand::seed((uint32_t)(boss->tileY + boss->tileX + (int)boss->GetEntityData()->id + boss->GetHP() +
+                           (int)GameState::playerSeed));
+}
+
+namespace {
+// How many of the boss's side (not counting the boss) are dead.
+size_t DeadFollowers(BaseSquad* squad) {
+    size_t dead = 0;
+    const std::vector<Entity*>& soldiers = squad->GetSoldiers();
+    for (size_t i = 1; i < soldiers.size(); ++i)
+        if (squad->GetSoldier((unsigned)i)->IsDead()) ++dead;
+    return dead;
+}
+}  // namespace
+
+// @0x11a5e0: the wave in play is dead: it leaves, the next one is led in (the boss, after the last
+// wave) and the fight goes on; else as BossCombat's.
+void BossCombatWaves::WaitingForContinue() {
+    GameState::SetCurrentLocation(4);
+    const size_t dead = DeadFollowers(enemySquad);
+    if (wave < (int)waves.size() && dead == waves[(size_t)wave].enemies.size()) {
+        ++wave;
+        for (size_t n = enemySquad->GetSoldiers().size() - 1; n != 0; --n)
+            enemySquad->RemoveSoldier(enemySquad->GetSoldier((unsigned)n));
+        if (wave != (int)waves.size())
+            for (Entity* e : waves[(size_t)wave].enemies) enemySquad->AddSoldier(e);
+        enemySquad->SetAttackWP(nullptr);
+        enemySquad->SetCurrentTarget(nullptr);
+        const int* pos = GameState::mBossMapPositions;
+        enemySquad->SpawnSquadAt(AI::GetWaypoint(pos[4], pos[5], false));
+        SwitchState(0x10);
+        if (wave == (int)waves.size()) {
+            enemySquad->MoveTo(AI::GetWaypoint(pos[6], pos[7], false));
+        } else {
+            enemySquad->MoveSquadTo(AI::GetWaypoint(pos[6], pos[7], false));
+            enemySquad->SetReady(enemySquad->GetOwner());
+        }
+        enemySquad->SetCurrentTarget(playerSquad->GetOwner());
+        return;
+    }
+    BossCombat::WaitingForContinue();
+}
+
+// @0x11a888: once the wave in play is dead the fight is not paused any more.
+void BossCombatWaves::OnEnemyDied() {
+    BossCombat::OnEnemyDied();
+    if (wave < (int)waves.size() && DeadFollowers(enemySquad) == waves[(size_t)wave].enemies.size()) paused = false;
+}
+
+// @0x11acec: as BossCombat's, but the followers of mBossWaves are sorted into waves: those before the
+// first 0 stand with the boss at once, each later group waits in its wave (the record keeps them all).
+// A fight that was recorded already comes back with its living followers and no waves.
+void BossCombatWaves::RestoreBossCombat() {
+    const int key = FightKey();
+    const uint32_t started = GameState::GetBossFightTimer(key);
+    if (started != 0 && enemySquad->GetOwner()->GetEntityData()->restoreTime < (int)((uint32_t)Timer::GetGlobalTime() - started)) {
+        GameState::EraseBossFightTimer(key);
+        GameState::EraseBossFight(key);
+    }
+    if (GameState::HasBossFight(key)) {
+        for (unsigned i = 0; i < GameState::BossFight(key).size(); ++i) {
+            if (i == 0) {
+                enemySquad->GetOwner()->SetHP((int)GameState::BossFight(key)[0].second);
+                continue;
+            }
+            if (GameState::BossFight(key)[i].second == 0) continue;
+            Entity* e = EntityManager::CreateEntity(GameState::BossFight(key)[i].first, false, true);
+            enemySquad->AddSoldier(e);
+            e->SetHP((int)GameState::BossFight(key)[i].second);
+        }
+    } else {
+        Entity* boss = enemySquad->GetOwner();
+        GameState::BossFight(key) = {{boss->GetEntityData()->id, (uint32_t)boss->GetHP()}};
+        wave = 0;
+        const size_t n = GameState::mBossWaves.size();
+        if (n != 1) {
+            for (size_t i = 0; i < n - 1; ++i) {
+                if (GameState::mBossWaves[i] == 0) {
+                    ++wave;
+                    continue;
+                }
+                Entity* e = EntityManager::CreateEntity(GameState::mBossWaves[i], false, true);
+                if (wave == 0) enemySquad->AddSoldier(e);
+                e->f75 = true;
+                if (const int hp = GameState::mBossWavesHP[i]) {
+                    e->SetHpMax(hp);
+                    e->SetHP(GameState::mBossWavesHP[i]);
+                }
+                GameState::BossFight(key).push_back({e->GetEntityData()->id, (uint32_t)e->GetHP()});
+                if (wave == (int)waves.size()) waves.push_back({(unsigned)i, {e}});
+                else waves[(size_t)wave].enemies.push_back(e);
+            }
+        }
+        wave = 0;
+    }
+    if (!GameState::HasBossFightTimer(key)) GameState::SetBossFightTimer(key, (uint32_t)Timer::GetGlobalTime());
+    Entity* hero = playerSquad->GetOwner();
+    playerSquad->SpawnAt(AI::GetWaypoint(hero->tileX, hero->tileY, false));
+    Entity* boss = enemySquad->GetOwner();
+    enemySquad->SpawnAt(AI::GetWaypoint(boss->tileX, boss->tileY, false));
+    BossOutroWindow::SetBossName(boss->GetEntityData()->title, boss->GetEntityData()->id);
+    if (BossCombatData::mLastBossMeta) {
+        enemySquad->GetOwner()->SetForeignMetaExpression(BossCombatData::mLastBossMeta);
+        enemySquad->GetOwner()->OnSetup();
+    }
+}

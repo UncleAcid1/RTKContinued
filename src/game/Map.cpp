@@ -1847,9 +1847,15 @@ void Update(double dt) {
                 sepia = true;
             }
         } else {
-            // A boss fight: UNVERIFIED (milestone 5) BossIntroEffect::Prepare and Run
-            // (FastBossIntroEffect on a slow device) instead of the sepia.
+            // A boss fight: the intro effect instead of the sepia.
             BuildingHovers::HideArrow();
+            if (!Render::IsLowPerformanceDevice()) {
+                BossIntroEffect::Prepare();
+                BossIntroEffect::Run();
+            } else {
+                FastBossIntroEffect::Prepare();
+                FastBossIntroEffect::Run();
+            }
         }
         BuildingHovers::CollectAll();
         Tasks::CompleteSubtask(Tasks::kEnterMap, (uint32_t)g_loadQueuedMap, 1);
@@ -1869,7 +1875,13 @@ void Update(double dt) {
         Load(block, (uint32_t)Timer::GetGlobalTime(), false, cached);
         BaseCombat* c = GameState::GetActiveCombat();
         if (c && 2 < c->GetType()) {
-            // UNVERIFIED (milestone 5): BossIntroEffect::Continue and Run (FastBossIntroEffect).
+            if (!Render::IsLowPerformanceDevice()) {
+                BossIntroEffect::Continue();
+                BossIntroEffect::Run();
+            } else {
+                FastBossIntroEffect::Continue();
+                FastBossIntroEffect::Run();
+            }
         } else if (sepia) {
             g_visibilityTimer += 1.f;
             Update(0.0);
@@ -2650,11 +2662,11 @@ void SpawnEntities() {
     if (!player) return;
     // A boss or arena fight on its way (state 0x11, SwitchToBossFight & co.) is set up instead: the
     // old combat ends, the fight of mCurrentBossCombatType starts against the last entry of
-    // mBossWaves (its hero; the PvP one is no player). UNVERIFIED: BossCombatWaves (4, milestone
-    // 5i-3), ArenaCombat (5, milestone 5s).
+    // mBossWaves (its hero; the PvP one is no player). UNVERIFIED: ArenaCombat (5, milestone 5s).
     if (BaseCombat* c = GameState::GetActiveCombat(); c && c->GetState() == 0x11) {
         GameState::EndActiveCombat(true);
         if (GameState::mCurrentBossCombatType == 3) GameState::SetCombat(new BossCombat());
+        if (GameState::mCurrentBossCombatType == 4) GameState::SetCombat(new BossCombatWaves());
         if (GameState::mCurrentBossCombatType == 6) {
             PvP::PlayerInfo* opponent = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
             GameState::SetCombat(new PvPArenaCombat(opponent, false));

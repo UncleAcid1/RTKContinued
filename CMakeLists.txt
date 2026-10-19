@@ -30,6 +30,7 @@ add_executable(rtk
   src/game/SaveManager.cpp
   src/game/GameData.cpp
   src/game/Map.cpp
+  src/game/BossIntroEffect.cpp
   src/game/Fog.cpp
     src/game/Locations.cpp
     src/game/MapCamera.cpp

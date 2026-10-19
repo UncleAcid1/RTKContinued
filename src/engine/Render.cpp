@@ -301,6 +301,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(2, "mainVS.txt", "mainPS.txt") && ok;
     ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
     ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
+    ok = LoadShader(6, "boss_introVS.txt", "boss_introPS.txt") && ok;   // BossIntroEffect: 4 taps, color = (scale, spread, add)
     ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
     ok = LoadShader(9, "textVS.txt", "sepiaPS.txt") && ok;      // GlobalMapWindow's screen capture
     ok = LoadShader(10, "textVS.txt", "grayscaleTransitionPS.txt") && ok;   // alpha fades to grey
@@ -766,6 +767,45 @@ void (*presentHook)() = nullptr;
 void Update() {
     Frame();
     if (presentHook) presentHook();
+}
+
+// @0x1f67dc Render::BlurTexture(texture, passes): the picture is blurred by a 5-tap box in x, then in y,
+// at 1 pixel steps (taps -2, -1, 0, 1, 2); passes > 0 adds the same at 2 pixels, passes > 1 at 4
+// (the edge is clamped). PORT: the original draws a screen quad with blurPS and copies the screen
+// back (glCopyTexImage2D) after each axis; here the picture is blurred on the CPU, the same sums.
+void BlurTexture(Texture* t, int passes) {
+    const int w = t->w, h = t->h;
+    std::vector<unsigned char> a((size_t)w * h * 4), b(a.size());
+    glBindTexture(GL_TEXTURE_2D, t->glId);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, a.data());
+    auto axis = [&](int step, bool horizontal) {
+        const int n = horizontal ? w : h, other = horizontal ? h : w;
+        for (int o = 0; o < other; ++o)
+            for (int i = 0; i < n; ++i)
+                for (int c = 0; c < 4; ++c) {
+                    int sum = 0;
+                    for (int k = -2; k <= 2; ++k) {
+                        int j = i + k * step;
+                        j = j < 0 ? 0 : (j >= n ? n - 1 : j);
+                        sum += a[horizontal ? ((size_t)o * w + j) * 4 + c : ((size_t)j * w + o) * 4 + c];
+                    }
+                    b[horizontal ? ((size_t)o * w + i) * 4 + c : ((size_t)i * w + o) * 4 + c] = (unsigned char)(sum / 5);
+                }
+        a.swap(b);
+    };
+    axis(1, true);
+    axis(1, false);
+    if (passes > 0) {
+        axis(2, true);
+        axis(2, false);
+        if (passes != 1) {
+            axis(4, true);
+            axis(4, false);
+        }
+    }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, a.data());
 }
 
 Texture* CreateScreenTexture() {
