@@ -158,8 +158,13 @@ void OnTweenOut() {
     WindowManager::WindowHide(false);
     g_queue->shown = false;
     g_queue->MoveWindowDown(true);
-    // UNVERIFIED (milestone 5): for each step of the completed task (g_completed) of type 0x28
-    // with value % 10 == 3, SetInfoWindow::SelectSet(value / 10) and Show.
+    // A set completed (every bonus) opens the set window on it.
+    if (const Tasks::TaskInfo* t = Tasks::GetTask(g_completed))
+        for (const Tasks::TaskSubtask& s : t->subtasks)
+            if (s.type == Tasks::kCollectSet && s.value % 10 == 3) {
+                SetInfoWindow::SelectSet(s.value / 10);
+                SetInfoWindow::Show();
+            }
     GameState::DropGamePauseState();
 }
 

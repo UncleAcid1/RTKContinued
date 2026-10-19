@@ -516,9 +516,19 @@ void ScheduleReturn();                      // @0x2ffd88
 void OnContinue();                          // @0x2ffd5c
 }
 
+// The item set window (windows/SetInfoWindow.cpp).
 namespace GameState { struct PlayerItem; }
 namespace SetInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "SetInfoWindow"
 GameState::PlayerItem* GetPlayerItemOrBetter(uint32_t id);   // @0x33b3d4
+void SelectSet(uint32_t id);                // @0x33b484 the set's tab (a replaced set: its successor's)
+void ShowNextItemHelp();                    // @0x33b56c the next opening points at a missing piece
+void SelectItem(uint32_t item);             // @0x33b608 the next opening points at that item's slot
+void UpdateContents();                      // @0x33b6a0
+void OnTab(unsigned tab);                   // @0x33ceb4
+void Show();                                // @0x33cf38
+void Hide();                                // @0x33cfb8
+void OnItem(unsigned slot);                 // @0x33d004 slot: flag * 3 + item
 }
 
 // A mission's brief (windows/RaidInfoWindow.cpp).

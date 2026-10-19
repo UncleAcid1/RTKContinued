@@ -71,6 +71,7 @@
             if (i == envi("RTK_EQCHK", -1)) { for (unsigned b = 0; b < 10; ++b) if (GameState::PlayerItem* it = GameState::GetItemAt(b)) std::printf("[t] bind %u = %u\n", b, it->id); }
             if (i == envi("RTK_INV", -1)) { std::printf("[t] OnInventory\n"); BeltBarWindow::OnInventory(); std::printf("[t] char visible=%d\n", (int)CharacterInfoWindow::IsVisible()); }
             if (i == envi("RTK_INVTAB", -1)) { std::printf("[t] tab 3\n"); CharacterInfoWindow::ShowInventoryTab(3); }
+            if (i == envi("RTK_SETINFO", -1)) { std::printf("[t] SetInfo\n"); SetInfoWindow::SelectSet(1); SetInfoWindow::Show(); }
             if (i == envi("RTK_INVHIDE", -1)) { std::printf("[t] Hide\n"); CharacterInfoWindow::Hide(); }
             if (i == envi("RTK_INVCHK", -1)) std::printf("[t] char visible=%d z=%.4f raise=%d\n", (int)CharacterInfoWindow::IsVisible(), CharacterInfoWindow::IsVisible() ? CharacterInfoWindow::GetZ() : 0.f, (int)CharacterInfoWindow::CanRaiseBelt());
             if (i == envi("RTK_SLEEP", -1)) SDL_Delay(2100);

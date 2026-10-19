@@ -22,6 +22,8 @@
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Map.h"
+#include "game/MetaData.h"
+#include "game/Sets.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -576,6 +578,22 @@ bool TaskSubtask::OnHelp(bool arrow) {
         CharacterInfoWindow::ShowInventoryItem(value, 1, nullptr);
         return true;
     }
+    case kCollectSet: {   // the set window at a missing piece (a set already complete counts at once)
+        if (Sets::Set* set = Sets::GetSet(value / 10)) {
+            Sets::FindInventorySetState();
+            unsigned complete = 0;
+            for (unsigned k = 0; k != 3; ++k)
+                if (set->bonusSlots[k] && set->covered[k] == set->bonusSlots[k]->GetChildrenCount()) ++complete;
+            if (value % 10 <= complete) {
+                CompleteSubtask(kCollectSet, complete + set->id * 10, 1);
+                return true;
+            }
+        }
+        SetInfoWindow::SelectSet(value / 10);
+        SetInfoWindow::Show();
+        SetInfoWindow::ShowNextItemHelp();
+        return true;
+    }
     case kImproveItem:   // the character window on the item
         CharacterInfoWindow::Show();
         CharacterInfoWindow::ShowInventoryTab(0);
@@ -596,7 +614,6 @@ bool TaskSubtask::OnHelp(bool arrow) {
         return true;
     // UNVERIFIED (milestone 5): other windows.
     case kBuyOnMarketTask:     // the item shop on the item (CastleTopWindow::OnBuyItem for steps 0x42e / 0x42f)
-    case kCollectSet:          // SetInfoWindow on the set (a set already complete counts at once)
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
     case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item

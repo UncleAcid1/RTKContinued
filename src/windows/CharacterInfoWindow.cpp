@@ -587,9 +587,11 @@ void OnPreviewBuy(bool confirmed) {
 // @0x27dc88. UNVERIFIED (milestone 5, 5q): ItemShopWindow::Show.
 void OnShop() { Hide(); }
 
-// @0x27ba44. UNVERIFIED (milestone 5, 5m): SetInfoWindow::SelectSet(the shown set, else 1) and
-// SetInfoWindow::Show.
-void OnSetInfo() {}
+// @0x27ba44: the set window on the set panel's set (else the first set).
+void OnSetInfo() {
+    SetInfoWindow::SelectSet(g_shownSet ? g_shownSet : 1);
+    SetInfoWindow::Show();
+}
 
 // @0x2857bc
 void OnTab(unsigned tab) {

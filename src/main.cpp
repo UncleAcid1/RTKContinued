@@ -767,6 +767,7 @@ int main_Loop_Init() {
     RaidInfoWindow::Queue();
     RepairWindow::Queue();
     SelectHQWindow::Queue();
+    SetInfoWindow::Queue();
     SettingsWindow::Queue();
     ShopWindow::Queue();
     StartRaidingWindow::Queue();
