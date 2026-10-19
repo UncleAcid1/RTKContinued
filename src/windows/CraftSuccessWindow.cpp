@@ -6,8 +6,7 @@
 // PORT (online removed): the Facebook/Twitter share (OnShare's WallPost::PostForEvent from level 3,
 // the share ticks icon_social_03 and their toggles OnTwitterToggle (0x2a4634) / OnFacebookToggle
 // (0x2a4644)) is not offered; the share button is the plain "Ok" and the ticks stay hidden.
-// UNVERIFIED (milestone 5o): CraftItemWindow::Show / OnTab / OnListItem in Hide (CraftItemWindow
-// is not ported yet); (milestone 6): the sound.
+// UNVERIFIED (milestone 6): the sound.
 #include "engine/IconManager.h"
 #include "engine/Text.h"
 #include "engine/Timer.h"
@@ -256,8 +255,9 @@ void Hide() {
     if (g_profession) {
         if (Professions::GetPlayerProfessionLevel(g_profession->id) == 1) {
             if (g_profession->type != Professions::kReputation) {
-                // UNVERIFIED (milestone 5o): CraftItemWindow::Show(), CraftItemWindow::OnTab(0) and
-                // CraftItemWindow::OnListItem(g_profession->tab - 1); CraftItemWindow is not ported yet.
+                CraftItemWindow::Show();
+                CraftItemWindow::OnTab(0);
+                CraftItemWindow::OnListItem(g_profession->tab - 1);
             } else if (GameState::GetCurrentMapID() != 0x70) {
                 LevelInfoWindow::Show();
                 LevelInfoWindow::OnTab(g_profession->tab, false);

@@ -9,6 +9,7 @@
 #include "game/AI.h"
 #include "game/AIState.h"
 #include "game/Building.h"
+#include "game/Collections.h"
 #include "game/Combat.h"
 #include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
@@ -21,6 +22,7 @@
 #include "game/HiddenObjects.h"
 #include "game/Items.h"
 #include "game/MetaExpression.h"
+#include "game/Setting.h"
 #include "game/StringTable.h"
 #include "hud/HUD.h"
 #include "game/Map.h"
@@ -898,9 +900,20 @@ void AIPlayer::ProcessAction() {
                 NeedItemWindow::Show();
                 break;
             }
-            // UNVERIFIED (milestone 5): an item that a collection gives (Collections::
-            // GetCollectionWithResult) opens CraftingWindow on it (type 8) or, once
-            // "craft_unlock_task" is done, CraftItemWindow.
+            // An item that a collection gives: type 8 opens CraftingWindow on it, a crafting one
+            // (type 1), once "craft_unlock_task" is done, CraftItemWindow.
+            if (Collections::Collection* c = Collections::GetCollectionWithResult(item)) {
+                if (info && info->type == 8) {
+                    CraftingWindow::Show();
+                    CraftingWindow::SelectTabFor(nullptr, Items::GetItemInfo(c->from));
+                    break;
+                }
+                if (info && c->type == 1 && GameState::TaskCompleted((unsigned)Setting("craft_unlock_task").GetInt())) {
+                    CraftItemWindow::Show();
+                    CraftItemWindow::ShowItem(item);
+                    break;
+                }
+            }
         }
         if (d->sprite) {
             std::u32string text = d->GetMessage(0x80);

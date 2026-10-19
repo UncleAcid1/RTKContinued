@@ -97,6 +97,7 @@ add_executable(rtk
   src/hud/PlayerHolder.cpp
   src/windows/CityRenameWindow.cpp
   src/windows/ConfirmPurchaseWindow.cpp
+  src/windows/CraftItemWindow.cpp
   src/windows/CraftSuccessWindow.cpp
   src/windows/CraftingWindow.cpp
   src/windows/ExchangeWindow.cpp

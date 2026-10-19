@@ -1024,9 +1024,12 @@ void ItemHoverWindow::OnImprove() {
     BuildingHovers::HideArrow();
     if (Collections::GetCollectionWithSource(item->id)) {
         CharacterInfoWindow::OnImprove(item);
-        // UNVERIFIED (milestone 5, 5o): CraftingWindow::IsVisible -> CraftingWindow::HelpImprove.
-    } else if (Collections::GetCraftingCollectionForItem(item->id) || Collections::GetCollectionWithResult(item->id)) {
-        // UNVERIFIED (milestone 5, 5o): CraftItemWindow::Show + ShowCollection(collection id).
+        if (CraftingWindow::IsVisible()) CraftingWindow::HelpImprove();
+    } else if (Collections::Collection* c = Collections::GetCraftingCollectionForItem(item->id)
+                                                ? Collections::GetCraftingCollectionForItem(item->id)
+                                                : Collections::GetCollectionWithResult(item->id)) {
+        CraftItemWindow::Show();
+        CraftItemWindow::ShowCollection(c->id);
     }
     Hide();
 }
@@ -1040,8 +1043,9 @@ void ItemHoverWindow::OnFind() {
     if (!info && resource == 0xb) return;
     BuildingHovers::HideArrow();
     // The windows the popup may sit over are hidden first. UNVERIFIED (milestone 5): also
-    // ItemShopWindow, CraftItemWindow, ArenaDifficultyWindow, PlayerInfoWindow,
-    // PlayerCompetitionWindow (not ported yet).
+    // ItemShopWindow, ArenaDifficultyWindow, PlayerInfoWindow, PlayerCompetitionWindow (not
+    // ported yet).
+    CraftItemWindow::Hide();
     CharacterInfoWindow::Hide();
     HireTroopsWindow::Hide();
     LevelInfoWindow::Hide();

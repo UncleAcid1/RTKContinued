@@ -120,8 +120,9 @@ void OnCraftPanelMove() {
 // @0x24d038: a tap on the bar opens the profession's recipes.
 void OnMovingCraftPanel() {
     if (!g_craftProfession) return;
-    // UNVERIFIED (milestone 5o, CraftItemWindow is not ported yet): CraftItemWindow::Show(),
-    // CraftItemWindow::OnTab(0) and CraftItemWindow::OnListItem(g_craftProfession->tab - 1).
+    CraftItemWindow::Show();
+    CraftItemWindow::OnTab(0);
+    CraftItemWindow::OnListItem(g_craftProfession->tab - 1);
 }
 
 // @0x24d074: the Crafting button; locked until "craft_unlock_task" is done.
@@ -131,7 +132,7 @@ void OnCrafting() {
         PopupWindow::Show(StringTable::GetString("CRAFTING_LOCKED_HINT"), PopupWindow::Hide, nullptr, nullptr);
         return;
     }
-    // UNVERIFIED (milestone 5o, CraftItemWindow is not ported yet): CraftItemWindow::Show().
+    CraftItemWindow::Show();
 }
 
 // The bar's rank text and the points' fill, for `points` (a fraction while they count up).

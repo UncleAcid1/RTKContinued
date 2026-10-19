@@ -1568,10 +1568,17 @@ void OnRemove() {
 }
 
 // @0x2859b8: the item's improvement (from the start of its chain) in the crafting window.
-// UNVERIFIED (milestone 5, 5o): CraftingWindow::SetParameters / SelectTabFor / Show, and this
-// window's Hide.
+// @0x2859b8: the improvement window on the item's chain (from its first step).
 void OnImprove(GameState::PlayerItem* item) {
     if (!item) return;
+    Items::ItemInfo* info = item->info;
+    if (Collections::Collection* c = Collections::GetCollectionWithSource(info->id)) {
+        while (c->prev) c = c->prev;
+        CraftingWindow::SetParameters(c);
+        CraftingWindow::SelectTabFor(item, info);
+        CraftingWindow::Show();
+        Hide();
+    }
     UpdateContents();
 }
 

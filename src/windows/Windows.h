@@ -577,6 +577,20 @@ void Hide();                                // @0x2a7a14
 void OnTab(unsigned level);                 // @0x2a70a4
 }
 
+// The crafting window (windows/CraftItemWindow.cpp): the professions and their recipes.
+namespace CraftItemWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftItemWindow" (FUN_002a11cc)
+void Init();                                // @0x2a2398
+void Deinit();                              // @0x2a0a2c
+bool IsVisible();                           // @0x29c240
+void Show();                                // @0x2a0284
+void Hide();                                // @0x2a036c
+void OnTab(unsigned tab);                   // @0x2a2008 0: the professions, 1..5 a profession's recipes
+void OnListItem(unsigned index);            // @0x2a0100
+void ShowCollection(uint32_t id);           // @0x2a2264 the recipe, selected
+void ShowItem(uint32_t item);               // @0x2a233c the recipe that makes the item
+}
+
 // A mission's brief (windows/RaidInfoWindow.cpp).
 namespace RaidInfoWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RaidInfoWindow"
