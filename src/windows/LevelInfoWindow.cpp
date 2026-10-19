@@ -4,15 +4,24 @@
 // Port of LevelInfoWindow (libkingdom.so 5.11, @0x2ea3d8..0x2f13d8 and the LoadFroms; statics
 // 0x624014..0x6253f8).
 //
-// 5n-3: the window opens and closes. UpdateContents (5n-4) and the taps and helps (5n-5) are empty
-// stubs for now.
+// 5n-3: the window opens and closes; 5n-4: UpdateContents. The taps and helps (5n-5) are empty stubs
+// for now.
 #include <cstdio>
+#include <string>
+#include <vector>
 
 #include "engine/IconManager.h"
 #include "engine/Resources.h"
 #include "game/BuildingHovers.h"
+#include "game/Collections.h"
+#include "game/Contracts.h"
+#include "game/GameData.h"
 #include "game/GameState.h"
+#include "game/Items.h"
 #include "game/Professions.h"
+#include "game/PvP.h"
+#include "game/Setting.h"
+#include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
@@ -113,6 +122,7 @@ struct UnlockedItemsHolder {
     Window* root = nullptr;           // +0x00 "%s"
     Textfield* text = nullptr;        // +0x04 reputation_unlocked
     ItemInfo items[9];                // +0x08 reputation_already_unlocked_item_holder.inventory_slot_holder_%02d
+    std::vector<Items::ItemInfo*> list;   // +0x26c the items shown (UpdateContents)
     Shared::ContentScroller scroller; // +0x27c (scrollbar: scroll_bar_level_available.scroll_bar_tiny,
                                       // track and viewport: the holder's mask_universal)
 
@@ -167,6 +177,19 @@ struct LevelHolder {
     Window* idle[5] = {};             // +0x228 ...image_holder_idle_%02d (take a depth slot)
     Textfield* itemClass[5] = {};     // +0x23c rep_items_rank.text_item_class_%02d
     UnlockButton unlock[3];           // +0x250 button_unlock_item_01, _03, _02 (the original's order)
+    // +0x274 the slots of the items strip (UpdateContents): an item, or an order that makes one.
+    struct Slot {
+        Items::ItemInfo* item = nullptr;
+        const Contracts::ContractMission* order = nullptr;
+    };
+    std::vector<Slot> slots;
+    // +0x288 what the level opens: a building (kind 1: its first look, n + 1: its upgrade n) or a decoration.
+    struct Opens {
+        GameData::BuildingData* building = nullptr;
+        GameData::DecorData* decor = nullptr;
+        unsigned kind = 0;
+    };
+    std::vector<Opens> opens;
     Shared::ContentScroller scrollItems;   // +0x2a0 the items (scrollbar: scroll_bar_rank_unlocks.scroll_bar_tiny,
                                            // track and viewport: the holder's mask_universal)
     Shared::ContentScroller scrollIdle;    // +0x3ac the buildings (the same track and viewport)
@@ -252,6 +275,8 @@ struct GeneralHolder {
     UnlockedItemsHolder unlocked;     // +0x004 rep_items_un_holder
     PvPStatisticsHolder pvp;          // +0x38c rep_stats_holder
     LevelHolder level[3];             // +0x3bc rep_lvl_hold_%02d
+    std::vector<unsigned> levels;     // +0x11e4 the player levels (tab 0)
+    std::vector<Professions::ProfessionLevel*> ranks;   // +0x11f4 a reputation's ranks (the other tabs)
     Shared::ContentScroller scroller; // +0x1204 (scrollbar: scroll_bar_reputation_scroller.scroll_bar_tiny,
                                       // track and viewport: mask_universal)
 
@@ -316,7 +341,7 @@ Window* g_root = nullptr;                       // 0x624014
 GUI::TweenEffect* g_tween = nullptr;            // 0x624018
 Shared::TabHolder g_tabs[5];                    // 0x62401c tab_01..05
 GeneralHolder g_general;                        // 0x6240d0 rep_level_scr
-unsigned g_tab = 0;                             // 0x62... the shown tab (OnTab)
+unsigned g_tab = 0;                             // 0x6253e4 the shown tab (OnTab; HelpWith... sets it)
 Window* g_close = nullptr;                      // 0x6253ec x_button.clickArea
 Textfield* g_title = nullptr;                   // 0x6253f0 text_title
 Textfield* g_explained = nullptr;               // 0x6253f4 profession_explained
@@ -438,8 +463,342 @@ void OnShop(unsigned) {}
 // 0x2eb384 (5n-5): the help button. UNVERIFIED (milestone 5n-5): empty.
 void OnHelp() {}
 
-// 0x2ed6d0 (5n-4): the tabs, the bars, the rank holders. UNVERIFIED (milestone 5n-4): empty.
-void UpdateContents() {}
+// UpdateContents' pieces (one 15 KB function in the original).
+
+// A slot showing `item`: the class mark that fits, its icon and its id.
+void ShowItem(ItemInfo& s, Items::ItemInfo* item) {
+    for (unsigned j = 0; j != 5; ++j) s.itemClass[j]->SetVisibility(item->itemLevel == j);
+    s.icon->SetTexture(item->GetIcon(), true);
+    s.item = (int)item->id;
+}
+
+// The marks of a slot that the strips never show.
+void HideItemMarks(ItemInfo& s) {
+    s.goldOwned->SetVisibility(false);
+    s.redX->SetVisibility(false);
+    s.lock->SetVisibility(false);
+    s.recommended->SetVisibility(false);
+    s.locked->SetVisibility(false);
+}
+
+// The text of a bar (both of its texts show the same).
+void SetBarText(LevelHolder& l, const std::u32string& text) {
+    l.bar.textUnder->SetText(text.c_str());
+    l.bar.textOver->SetText(text.c_str());
+}
+
+// Tab 0: the player's levels, three holders at a time: the level number, the xp bar and what the
+// level unlocks (items, orders, buildings and decorations).
+void UpdateLevels() {
+    GeneralHolder& g = g_general;
+    g.unlocked.root->SetVisibility(false);
+    g_title->SetText(StringTable::GetString("LEVEL_INFO_HEADER"));
+    g_explained->SetText(StringTable::GetString("LEVEL_INFO_DESCRIPTION"));
+    for (unsigned k = 0; k != 3; ++k) {
+        LevelHolder& l = g.level[k];
+        l.root->SetVisibility(g.scroller.firstIndex + k < g.scroller.itemCount);
+        if (l.root->visibleSelf) {
+            const unsigned level = g.levels[g.scroller.firstIndex + k];
+            const unsigned current = (unsigned)GameState::GetLevel();
+            l.slots.clear();
+            l.opens.clear();
+            // Buildings (a building takes the level of its first look or of one of its upgrades)
+            // and decorations open here; each takes two empty slots of the items strip.
+            for (unsigned i = 0; GameData::BuildingData* b = GameData::EnumBuildings(i); ++i) {
+                if (b->tab >= 10 || !b->buy) continue;
+                unsigned kind = level == b->level;
+                for (unsigned u = 0; u < b->upgrades.size(); ++u)
+                    if (level == (unsigned)b->upgrades[u].level) kind = u + 2;
+                if (kind == 0) continue;
+                l.opens.push_back({b, nullptr, kind});
+                l.slots.push_back({});
+                l.slots.push_back({});
+            }
+            for (unsigned i = 0; GameData::DecorData* d = GameData::EnumDecors(i); ++i) {
+                if (d->tab >= 10 || !d->buy || level != (unsigned)d->needLevel) continue;
+                l.opens.push_back({nullptr, d, 1});
+                l.slots.push_back({});
+                l.slots.push_back({});
+            }
+            for (unsigned i = 0; Items::ItemInfo* it = Items::EnumItemInfo(i); ++i) {
+                Professions::Profession* p = Professions::GetProfession(it->reputationId);
+                if (it->level != level || !it->IsOnSale() || !it->GetIcon() || (p && p->type == Professions::kReputation))
+                    continue;
+                l.slots.push_back({it, nullptr});
+            }
+            for (unsigned i = 0; const Contracts::Contract* c = Contracts::EnumContract(i); ++i) {
+                if (!GameData::GetBuildingDataWithContract(c)) continue;
+                for (unsigned m = 0; m < c->count; ++m) {
+                    const Contracts::ContractMission& order = c->missions[m];
+                    if (order.playerLevel == level && order.item) l.slots.push_back({nullptr, &order});
+                }
+            }
+            l.scrollItems.itemCount = (unsigned)l.slots.size();
+            l.scrollIdle.itemCount = ((unsigned)l.slots.size() + 1) >> 1;   // (as in the original: not the buildings)
+            const bool reached = level <= current;
+            const bool passed = level < current;
+            l.levelText->SetVisibility(true);
+            l.digit1->SetVisibility(true);
+            l.digit2->SetVisibility(true);
+            l.rank->SetVisibility(false);
+            l.icon->SetVisibility(false);
+            l.rankNum->SetVisibility(false);
+            l.flag->SetEnabled(reached);
+            l.levelText->SetEnabled(reached);
+            l.digit1->SetEnabled(reached);
+            l.digit2->SetEnabled(reached);
+            l.levelText->SetText(StringTable::GetString("NEW_LEVEL_DESC_3"));
+            l.digit1->SetText(ToWideString((int)level));
+            l.digit2->SetText(ToWideString((int)level));
+            l.checkbox->SetVisibility(passed);
+            l.bar.lock->SetVisibility(level > current);
+            l.bar.root->SetEnabled(reached);
+            if (passed) {
+                l.unlocked->SetText(StringTable::GetString("LEVEL_INFO_DONE_ITEMS"));
+                SetBarText(l, SWPrintf(0x100, StringTable::GetString("LEVEL_INFO_DONE"),
+                                       {ToWideString((int)GameState::GetLevelXP(level))}));
+                l.bar.SetProgress(1.f);
+            } else if (reached) {   // the current level: the xp towards it
+                l.unlocked->SetText(StringTable::GetString("LEVEL_INFO_DONE_ITEMS"));
+                const unsigned before = GameState::GetLevelXP(level - 1);
+                const float progress = (float)(int)(GameState::GetResourceAmount(10) - before) /
+                                       (float)(unsigned)(GameState::GetLevelXP(level) - before);
+                const char32_t* have = ToWideString((int)GameState::GetResourceAmount(10));
+                const char32_t* need = ToWideString((int)GameState::GetLevelXP(level));
+                SetBarText(l, SWPrintf(0x100, StringTable::GetString("LEVEL_INFO_NEED"), {have, need}));
+                l.bar.SetProgress(progress);
+            } else {
+                l.unlocked->SetText(SWPrintf(0x100, StringTable::GetString("LEVEL_INFO_NEXT_ITEMS"),
+                                             {ToWideString((int)level)})
+                                        .c_str());
+                SetBarText(l, SWPrintf(0x100, StringTable::GetString("LEVEL_INFO_NEXT"),
+                                       {ToWideString((int)level - 1)}));
+                l.bar.SetProgress(0.f);
+            }
+            for (unsigned i = 0; i != 7; ++i) {
+                ItemInfo& s = l.items[i];
+                const unsigned at = i + l.scrollItems.firstIndex;
+                s.root->SetVisibility(at < l.slots.size());
+                s.root->SetEnabled(true);
+                if (!s.root->visibleSelf) continue;
+                const LevelHolder::Slot slot = l.slots[at];
+                HideItemMarks(s);
+                if (slot.item) {
+                    ShowItem(s, slot.item);
+                } else if (!slot.order) {
+                    s.root->SetVisibility(false);
+                    s.item = 0;
+                } else {
+                    for (unsigned j = 0; j != 5; ++j) s.itemClass[j]->SetVisibility(j == 0);
+                    if (slot.order->item) {
+                        s.icon->SetTexture(slot.order->item->GetIcon(), true);
+                        s.item = (int)slot.order->item->id;
+                    } else {
+                        s.item = 0;
+                    }
+                }
+            }
+            for (unsigned i = 0; i != 5; ++i) {
+                const unsigned at = i + l.scrollIdle.firstIndex;
+                l.idle[i]->SetVisibility(at < l.opens.size());
+                if (!l.idle[i]->visibleSelf) continue;
+                const LevelHolder::Opens& o = l.opens[at];
+                Render::Texture* image;
+                if (o.building)
+                    image = GameData::BuildingImage(o.building, o.kind - 1);
+                else if (o.decor)
+                    image = GameData::DecorImage(o.decor);
+                else
+                    continue;
+                GUI::FitImageIntoWindow(l.idle[i], image, true, true);
+            }
+            for (Textfield* t : l.itemClass) t->SetVisibility(false);
+            for (LevelHolder::UnlockButton& b : l.unlock) b.root->SetVisibility(false);
+        }
+        l.scrollItems.UpdateScroll();
+    }
+}
+
+// The other tabs: a reputation's ranks, three holders at a time: the rank, its points bar, the
+// items it unlocks and the shop buttons; the strip of the items already unlocked (or the PvP
+// statistics on the valor tab) over them.
+void UpdateReputation() {
+    GeneralHolder& g = g_general;
+    Shared::ContentScroller& s = g.scroller;
+    if (s.firstIndex == s.itemCount - 1 && s.offset == 0) s.HandleMove((int)(g_scale * 110.f));
+    Professions::Profession* profession =
+        g.ranks.empty() ? nullptr : Professions::GetProfession(g.ranks[0]->profession);
+    g_title->SetText(profession ? profession->title : StringTable::GetString("LEVEL_INFO_HEADER_REP"));
+    g_explained->SetText(StringTable::GetString(g_tab == 1   ? "LEVEL_INFO_REPUTATION_VALOR"
+                                                : g_tab == 2 ? "LEVEL_INFO_REPUTATION_DESCRIPTION"
+                                                             : "LEVEL_INFO_REPUTATION_DESCRIPTION2"));
+    for (unsigned k = 0; k != 3; ++k) {
+        LevelHolder& l = g.level[k];
+        l.root->SetVisibility(s.firstIndex + k < s.itemCount);
+        if (l.root->visibleSelf) {
+            const unsigned at = s.firstIndex + k;
+            const Professions::ProfessionLevel* rank = g.ranks[at];
+            const Professions::ProfessionLevel* before = at != 0 ? g.ranks[at - 1] : nullptr;
+            Professions::Profession* p = Professions::GetProfession(rank->profession);
+            const unsigned points = GameState::GetProfessionPoints(p->id);
+            const bool reached = rank->level <= Professions::GetPlayerProfessionLevel(p->id);
+            const bool near = (int)(rank->level - Professions::GetPlayerProfessionLevel(p->id)) <= 1;   // not locked yet
+            l.slots.clear();
+            l.opens.clear();
+            for (unsigned i = 0; Items::ItemInfo* it = Items::EnumItemInfo(i); ++i) {
+                if (it->reputationId != p->id || it->reputationLevel != rank->level || it->isCraft || !it->GetIcon() ||
+                    (!it->IsOnSale() && !Collections::GetCollectionWithResult(it->id)))
+                    continue;
+                l.slots.push_back({it, nullptr});
+            }
+            l.scrollItems.itemCount = (unsigned)l.slots.size();
+            l.flag->SetEnabled(near);
+            l.levelText->SetVisibility(false);
+            l.digit1->SetVisibility(false);
+            l.digit2->SetVisibility(false);
+            l.rank->SetVisibility(true);
+            l.icon->SetVisibility(true);
+            l.rankNum->SetVisibility(true);
+            l.rank->SetText(rank->name);
+            l.icon->SetTexture(p->iconLarge, true);
+            l.icon->SetEnabled(near);
+            l.rankNum->SetText(ToWideString((int)(s.firstIndex + 1 + k)));
+            l.checkbox->SetVisibility(reached);
+            const char32_t* rankWord = StringTable::GetString("ARENA_EVENT_RANK");
+            std::u32string text;
+            if (reached) {
+                l.unlocked->SetText(
+                    SWPrintf(0x100, StringTable::GetString("LEVEL_INFO_REPUTATION_ACHIEVED"), {rank->name}).c_str());
+                text = SWPrintf(0x100, U"%s %d - %s - %d/%d - %s",
+                                {rankWord, (int)rank->level, rank->name, (int)rank->points, (int)rank->points,
+                                 StringTable::GetString("CRAFT_ITEM_ACHIEVED")});
+            } else {
+                l.unlocked->SetText(
+                    SWPrintf(0x100, StringTable::GetString("LEVEL_INFO_REPUTATION_UNLOCKS"), {rank->name}).c_str());
+                if (near)
+                    text = SWPrintf(0x100, U"%s %d - %s - %d/%d",
+                                    {rankWord, (int)rank->level, rank->name, (int)points, (int)rank->points});
+                else
+                    text = SWPrintf(0x100, U"%s %d - %s", {rankWord, (int)rank->level, rank->name});
+            }
+            SetBarText(l, text);
+            l.bar.lock->SetVisibility(!near);
+            float progress = 0.f;
+            const unsigned base = before ? before->points : 0;
+            if (!before || base <= points) {
+                progress = (float)(unsigned)(points - base) / (float)(unsigned)(rank->points - base);
+                if (progress < 0.f)
+                    progress = 0.f;
+                else if (progress > 1.f)
+                    progress = 1.f;
+            }
+            l.bar.SetProgress(progress);
+            l.bar.root->SetEnabled(near);
+            Items::ItemInfo* last = nullptr;
+            for (unsigned i = 0; i != 7; ++i) {
+                ItemInfo& slot = l.items[i];
+                slot.root->SetVisibility(i + l.scrollItems.firstIndex < l.slots.size());
+                slot.root->SetEnabled(true);
+                if (!slot.root->visibleSelf) continue;
+                last = l.slots[i + l.scrollItems.firstIndex].item;
+                HideItemMarks(slot);
+                ShowItem(slot, last);
+            }
+            for (Window* w : l.idle) w->SetVisibility(false);
+            if (!last) {
+                for (Textfield* t : l.itemClass) t->SetVisibility(false);
+            } else {
+                for (unsigned j = 0; j != 5; ++j) l.itemClass[j]->SetVisibility(last->itemLevel == j);
+                l.itemClass[last->itemLevel]->SetText(last->title);
+            }
+            // The unlock help button (while no rank is reached) and the two shop buttons.
+            bool shop = GameState::secondTutorial == 0x100;
+            if (shop && g_tab == 1) shop = GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt());
+            const bool help = !reached && shop;
+            l.unlock[0].root->SetVisibility(help);
+            l.unlock[0].text->SetText(StringTable::GetString("ITEM_UNLOCK"));
+            l.unlock[1].root->SetVisibility(shop ? !help : false);
+            l.unlock[1].icon->SetTexture(IconManager::GetIcon("Icon_bottom_bar_shop", false), true);
+            l.unlock[1].text->SetText(StringTable::GetString("GO_TO_SHOP"));
+            l.unlock[2].root->SetVisibility(shop ? help : false);
+            l.unlock[2].icon->SetTexture(IconManager::GetIcon("Icon_bottom_bar_shop", false), true);
+            l.unlock[2].text->SetText(StringTable::GetString("GO_TO_SHOP"));
+        }
+        l.scrollItems.UpdateScroll();
+    }
+    if (g.ranks.empty()) return;
+    Professions::Profession* first = Professions::GetProfession(g.ranks[0]->profession);
+    g.unlocked.root->SetVisibility(g_tab != 1);
+    g.pvp.root->SetVisibility(g_tab == 1);
+    const unsigned level = Professions::GetPlayerProfessionLevel(first->id);
+    g.unlocked.list.clear();
+    for (unsigned i = 0; Items::ItemInfo* it = Items::EnumItemInfo(i); ++i) {
+        if (it->reputationId != first->id || it->reputationLevel > level || it->isCraft || !it->GetIcon() ||
+            (!it->IsOnSale() && !Collections::GetCollectionWithResult(it->id)))
+            continue;
+        g.unlocked.list.push_back(it);
+    }
+    g.unlocked.scroller.itemCount = (unsigned)g.unlocked.list.size();
+    if (g.unlocked.list.empty() && s.padStart != 0 && g_tab != 1) {
+        s.padStart = 0;
+        s.HandleMove(-s.offset);
+    }
+    g.unlocked.text->SetText(StringTable::GetString("LEVEL_INFO_DONE_ITEMS"));
+    for (unsigned i = 0; i != 9; ++i) {
+        ItemInfo& slot = g.unlocked.items[i];
+        slot.root->SetVisibility(i + g.unlocked.scroller.firstIndex < g.unlocked.list.size());
+        if (!slot.root->visibleSelf) continue;
+        Items::ItemInfo* it = g.unlocked.list[i + g.unlocked.scroller.firstIndex];
+        for (unsigned j = 0; j != 5; ++j) slot.itemClass[j]->SetVisibility(it->itemLevel == j);
+        slot.goldOwned->SetVisibility(false);
+        slot.redX->SetVisibility(false);
+        slot.lock->SetVisibility(false);
+        slot.recommended->SetVisibility(false);
+        slot.icon->SetTexture(it->GetIcon(), true);
+        slot.item = (int)it->id;
+    }
+    g.unlocked.scroller.UpdateScroll();
+    PvPStatisticsHolder& pvp = g.pvp;
+    pvp.unlocked->SetText(StringTable::GetString("PVP_YOUR_PATH"));
+    pvp.icon[0]->SetTexture(IconManager::GetIcon("rep_pvp_valor_60", false), true);
+    pvp.stat[0]->SetText(StringTable::GetString("PVP_RANK"));
+    pvp.num[0]->SetText(ToWideString((int)Professions::GetPlayerProfessionLevel(7)));
+    pvp.icon[1]->SetTexture(IconManager::GetIcon("pvp_won_60", false), true);
+    pvp.stat[1]->SetText(StringTable::GetString("PVP_VICTORIES"));
+    pvp.num[1]->SetText(ToWideString((int)PvP::GetVictoryCount()));
+    pvp.icon[2]->SetTexture(IconManager::GetIcon("pvp_lost_60", false), true);
+    pvp.stat[2]->SetText(StringTable::GetString("PVP_DEFEATS"));
+    pvp.num[2]->SetText(ToWideString((int)PvP::GetDefeatCount()));
+}
+
+// @0x2ed6d0: the tabs (the active one raised, a reputation's with its icon), the list the column
+// scrolls over (the levels, or the reputation's ranks), then the tab's holders.
+void UpdateContents() {
+    for (unsigned i = 0; i != 5; ++i) {
+        g_tabs[i].SetMode(g_tab == i, false);
+        Professions::Profession* p = i != 0 ? Professions::GetProfessionForTab(i, Professions::kReputation) : nullptr;
+        if (p) g_tabs[i].icon->SetTexture(p->icon, true, (unsigned)(g_tabs[i].icon->origW + 15), 0, false, 0);
+        g_tabs[i].root->SetVisibility(i == 0 || p);
+    }
+    GeneralHolder& g = g_general;
+    if (g_tab == 0) {
+        g.levels.clear();
+        for (unsigned n = 1; n <= (unsigned)GameState::maxLevel; ++n) g.levels.push_back(n);
+        g.scroller.itemCount = (unsigned)g.levels.size();
+    } else {
+        g.ranks.clear();
+        for (unsigned i = 0; Professions::Profession* p = Professions::EnumProfession(i); ++i)
+            if (p->type == Professions::kReputation && p->tab == g_tab)
+                for (Professions::ProfessionLevel* pl : p->levels) g.ranks.push_back(pl);
+        g.scroller.itemCount = (unsigned)g.ranks.size();
+    }
+    if (g_tab == 0)
+        UpdateLevels();
+    else
+        UpdateReputation();
+    g.scroller.UpdateScroll();
+    g_root->UpdatePosition();
+}
 
 // @0x2f1224: the tab's column starts at its top; the player's tab (0) at the player's level, a
 // profession's at its level (first: the strip of unlocked items stays in view when the level is 0).
