@@ -11,6 +11,7 @@ namespace Locations { struct LocationInfo; }
 namespace GameState { struct PlayerItem; }
 namespace Items { struct ItemInfo; }
 namespace Spells { struct SpellInfo; }
+namespace Collections { struct Collection; }
 namespace Professions { struct Profession; }
 struct EntityData;
 class Entity;
@@ -561,6 +562,19 @@ void SetParameters(WarriorSlotMode mode);               // @0x2a39d0
 void SetParameters(EntityData* entity);                 // @0x2a39fc
 void Show();                                // @0x2a4654
 void Hide();                                // @0x2a4718
+}
+
+// The item improvement window (windows/CraftingWindow.cpp): a collection's chain, by item level.
+namespace CraftingWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftingWindow" (FUN_002a512c)
+void Init();                                // @0x2a8408
+bool IsVisible();                           // @0x2a50ac
+void SetParameters(Collections::Collection* collection);   // @0x2a50c0 the chain (its first step)
+void HelpImprove();                         // @0x2a5104 the next opening points at the Craft button
+void SelectTabFor(GameState::PlayerItem* data, Items::ItemInfo* info);   // @0x2a7108
+void Show();                                // @0x2a797c
+void Hide();                                // @0x2a7a14
+void OnTab(unsigned level);                 // @0x2a70a4
 }
 
 // A mission's brief (windows/RaidInfoWindow.cpp).

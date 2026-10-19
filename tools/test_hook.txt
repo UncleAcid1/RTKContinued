@@ -85,6 +85,8 @@
                 else CraftSuccessWindow::SetParameters(EntityFactory::GetEntityByID(0x195));
                 CraftSuccessWindow::Show();
             }
+            if (i == envi("RTK_BELTPT", -1)) BeltBarWindow::ShowProfessionPoint(640.f, 400.f, Professions::GetProfession((uint32_t)envi("RTK_PTID", 4)), (uint32_t)envi("RTK_PTHAVE", 5));
+            if (i == envi("RTK_CRAFTWIN", -1)) { Collections::Collection* c = Collections::EnumCollection((unsigned)envi("RTK_COLL", 0)); std::printf("[t] collection %u type %u from %u to %u\n", c ? c->id : 0, c ? c->type : 0, c ? c->from : 0, c ? c->to : 0); CraftingWindow::SetParameters(c); if (envi("RTK_HELPIMP", 0)) CraftingWindow::HelpImprove(); CraftingWindow::Show(); }
             if (i == envi("RTK_LEVELINFO", -1)) { std::printf("[t] LevelInfo\n"); LevelInfoWindow::Show(); }
             if (i == envi("RTK_LEVELHIDE", -1)) { std::printf("[t] LevelInfo hide visible=%d\n", (int)LevelInfoWindow::IsVisible()); LevelInfoWindow::Hide(); }
             if (i == envi("RTK_INVHIDE", -1)) { std::printf("[t] Hide\n"); CharacterInfoWindow::Hide(); }

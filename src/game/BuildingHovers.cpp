@@ -1226,8 +1226,10 @@ void ItemDrop::Collect(bool automatic, bool) {
         if (Professions::Profession* p = Professions::GetProfessionForPointItem(id)) {
             // A profession's point item: its points (a tap on a profession's shows them at the belt).
             if (!automatic && p->type == Professions::kProfession) {
-                // UNVERIFIED (milestone 5o, the belt's crafting bar): BeltBarWindow::ShowProfessionPoint
-                // (the drop's screen position, p, GameState::GetProfessionPoints(p->id)).
+                int sx = (int)sprite->x, sy = (int)sprite->y;
+                Map::WorldCoordinatesToScreen(sx, sy);
+                BeltBarWindow::ShowProfessionPoint((float)sx, (float)sy, p, GameState::GetProfessionPoints(p->id));
+                automatic = true;   // the crafting bar takes the picture, it does not fly to the belt
             }
             Professions::AddProfessionPoint(p->id, amount);
         } else if (id == 0x26a) {

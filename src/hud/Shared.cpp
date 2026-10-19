@@ -283,6 +283,20 @@ void HouseLivingWorkerInfo::LoadFrom(Window* r, const char* p) {
     workers = GUI::GetWindowTypedF<Textfield>(r, "%s.text_worker", p);
 }
 
+// @0x344478
+void ButtonCraftBuyNow::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    text = GUI::GetWindowTypedF<Textfield>(r, "%s.text_button_2", p);
+    crystal = GUI::GetWindowTypedF<Window>(r, "%s.icon_35_crystal", p);
+    crystal->SetTexture(IconManager::GetIcon("35_crystal", false), true);
+    price = GUI::GetWindowTypedF<Textfield>(r, "%s.text_price", p);
+    crystalDiscount = GUI::GetWindowTypedF<Window>(r, "%s.icon_35_crystal_discount", p);
+    crystalDiscount->SetTexture(IconManager::GetIcon("35_crystal", false), true);
+    priceNew = GUI::GetWindowTypedF<Textfield>(r, "%s.text_price_new_discount", p);
+    priceOld = GUI::GetWindowTypedF<Textfield>(r, "%s.text_price_discount", p);
+    crossout = GUI::GetWindowTypedF<Window>(r, "%s.element_crossout", p);
+}
+
 // @0x3439cc
 void ButtonRaidStart::LoadFrom(Window* r, const char* p) {
     root = GUI::GetWindowTypedF<Window>(r, "%s", p);

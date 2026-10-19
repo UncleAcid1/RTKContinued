@@ -925,10 +925,7 @@ void Decor::Finish() {
                                                                    0xf, 2.f, 50.f, false, false);
                     int sx = wx, sy = wy;
                     WorldCoordinatesToScreen(sx, sy);
-                    // UNVERIFIED (milestone 5o, the belt's crafting bar): BeltBarWindow::ShowProfessionPoint
-                    // ((float)sx, (float)sy, p, GameState::GetProfessionPoints(p->id)).
-                    (void)sx;
-                    (void)sy;
+                    BeltBarWindow::ShowProfessionPoint((float)sx, (float)sy, p, GameState::GetProfessionPoints(p->id));
                     GameState::AddProfessionPoints(p->id, 1);
                     if (before < Professions::GetPlayerProfessionLevel(p->id) && GameState::TaskCompleted(0x5a8)) {
                         CraftSuccessWindow::SetParameters(p);

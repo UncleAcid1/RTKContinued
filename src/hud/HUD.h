@@ -7,6 +7,7 @@
 namespace WindowManager { class FunctionalWindow; }
 
 namespace Render { struct Texture; struct Sprite; }
+namespace Professions { struct Profession; }
 class Entity;
 
 namespace HUDWindow {
@@ -104,6 +105,7 @@ bool HasMovedIntoBelt(int x, int y, uint32_t id);
 // @0x24f4fc: the picture glides into belt slot "slot" (-1: the one under it, else it goes), which
 // takes the item.
 void MoveIntoBelt(Render::Sprite* sprite, uint32_t id, unsigned slot);
+void ShowProfessionPoint(float x, float y, Professions::Profession* p, uint32_t points);   // @0x24d264 the crafting bar
 void Move(int x, int y);             // @0x2507d0 an item dragged out of the belt (character window)
 bool Click(int x, int y, bool pressed);   // @0x2509ac
 }

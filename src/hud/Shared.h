@@ -208,6 +208,20 @@ struct ButtonRaidStart {
     void LoadFrom(GUI::Window* root, const char* prefix);
 };
 
+// Shared::ButtonCraftBuyNow (0x20 bytes): the crafting windows' "buy now" button with its crystal
+// price and the crossed-out discount. LoadFrom @0x344478 (SetCost @0x34422c: milestone 5o).
+struct ButtonCraftBuyNow {
+    GUI::Window* root = nullptr;             // +0x00 "%s"
+    GUI::Textfield* text = nullptr;          // +0x04 text_button_2
+    GUI::Window* crystal = nullptr;          // +0x08 icon_35_crystal
+    GUI::Textfield* price = nullptr;         // +0x0c text_price
+    GUI::Window* crystalDiscount = nullptr;  // +0x10 icon_35_crystal_discount
+    GUI::Textfield* priceNew = nullptr;      // +0x14 text_price_new_discount
+    GUI::Textfield* priceOld = nullptr;      // +0x18 text_price_discount
+    GUI::Window* crossout = nullptr;         // +0x1c element_crossout
+    void LoadFrom(GUI::Window* root, const char* prefix);
+};
+
 // Shared::DiscountInfo (8 bytes): a discount label. LoadFrom @0x343984.
 struct DiscountInfo {
     GUI::Window* root = nullptr;         // +0x00 "%s"

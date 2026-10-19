@@ -98,6 +98,7 @@ add_executable(rtk
   src/windows/CityRenameWindow.cpp
   src/windows/ConfirmPurchaseWindow.cpp
   src/windows/CraftSuccessWindow.cpp
+  src/windows/CraftingWindow.cpp
   src/windows/ExchangeWindow.cpp
   src/windows/FoundItemsWindow.cpp
   src/windows/ChapterWindow.cpp

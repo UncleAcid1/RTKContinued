@@ -5,6 +5,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Text.h"
 #include "engine/Timer.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
@@ -15,6 +16,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/Professions.h"
 #include "game/MetaExpression.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -56,6 +58,17 @@ Window* g_craftProgress = nullptr;
 GUI::ClipRect g_craftClip;
 Window* g_craftProfIcon = nullptr;
 GUI::MovementEffect* g_craftEffect = nullptr;
+// The crafting bar that slides out when a profession point is gained (ShowProfessionPoint): the
+// point's picture flies into the bar's icon, the points count up, the bar slides away.
+GUI::ClipRect g_craftPanelClip = {0, 0, 0, 0};   // 0x617d88, set by OnCraftPanelMove; nothing reads it
+bool g_craftActive = false;               // 0x617d80 the bar is out
+float g_craftTimer = 0.f;                 // 0x617d84 seconds since the last point
+Professions::Profession* g_craftProfession = nullptr;   // 0x617dc8
+Professions::ProfessionLevel* g_craftNext = nullptr;    // 0x617dd8 the next rank (else the current one)
+uint32_t g_craftNeed = 0;                 // 0x617ddc the points that rank needs
+uint32_t g_craftHave = 0;                 // 0x617de0 the points before this one
+Render::Sprite* g_craftSprite = nullptr;  // 0x617dec the flying picture
+float g_craftFromX = 0.f, g_craftFromY = 0.f;   // 0x617df0 0x617df4 where it starts (screen)
 ItemHoverWindow* g_hover = nullptr;       // 0x617c14 the card of the tapped slot's item
 int g_arrowCallback = 0;                  // 0x617dc4 the id of the arrow callback that points at a slot
 int g_barNameX = 0;                       // 0x617e08 text_bar_name's laid-out x
@@ -91,6 +104,44 @@ void SlotWorldPoint(unsigned i, int& x, int& y) {
     x = g_root->x + h->x + h->w / 2;
     y = g_root->y + h->y;
     Map::MouseCoordinatesToWorld(x, y);
+}
+
+// @0x24cf9c: the bar keeps to the screen left of the 30 px edge (a rectangle in the bar's own
+// coordinates).
+void OnCraftPanelMove() {
+    const int w = GUI::ScreenWidth(), h = GUI::ScreenHeight();
+    g_craftPanelClip.left = -g_craftBar->x;
+    g_craftPanelClip.top = -g_craftBar->y;
+    g_craftPanelClip.bottom = h - g_craftBar->y;
+    g_craftPanelClip.right = (w - (int)(GUI::GetHudScaleFactor() * 30.f)) - g_craftBar->x;
+    g_craftBar->UpdatePosition();
+}
+
+// @0x24d038: a tap on the bar opens the profession's recipes.
+void OnMovingCraftPanel() {
+    if (!g_craftProfession) return;
+    // UNVERIFIED (milestone 5o, CraftItemWindow is not ported yet): CraftItemWindow::Show(),
+    // CraftItemWindow::OnTab(0) and CraftItemWindow::OnListItem(g_craftProfession->tab - 1).
+}
+
+// @0x24d074: the Crafting button; locked until "craft_unlock_task" is done.
+void OnCrafting() {
+    if (GameState::IsBossCombatActive()) return;
+    if (!GameState::TaskCompleted((unsigned)Setting("craft_unlock_task").GetInt())) {
+        PopupWindow::Show(StringTable::GetString("CRAFTING_LOCKED_HINT"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    // UNVERIFIED (milestone 5o, CraftItemWindow is not ported yet): CraftItemWindow::Show().
+}
+
+// The bar's rank text and the points' fill, for `points` (a fraction while they count up).
+void SetCraftBarText(float points) {
+    const Professions::Profession* name = g_craftProfession;
+    const char32_t* title = g_craftNext ? g_craftNext->name : name->title;
+    const std::u32string text =
+        SWPrintf(0x80, U"%s - %d/%d", {title, (int)(points + 0.5f), (int)g_craftNeed});
+    g_craftBarText2->SetText(text.c_str());
+    g_craftBarText->SetText(text.c_str());
 }
 
 // @0x24c94c: the character window on its belt tab.
@@ -468,7 +519,7 @@ void Init() {
         g_slots[i].holder->SetOnClick([i] { OnSlot((unsigned)i); });
     }
     g_craft = GUI::GetWindowTyped<Window>(g_root, "hud_button_craft");
-    g_craft->SetOnClick([] {});             // OnCrafting
+    g_craft->SetOnClick(OnCrafting);
     g_craftBg = GUI::GetWindowTyped<Window>(g_root, "hud_button_craft.hud_button_small_round_blue");
     g_craftText = GUI::GetWindowTyped<Textfield>(g_root, "text_craft");
     g_craftIcon = GUI::GetWindowTyped<Window>(g_root, "hud_button_craft.icon_35");
@@ -484,7 +535,7 @@ void Init() {
     if (g_craftBar) {
         Queue()->RegisterTopWindow(g_craftBar);
         g_craftBar->SetVisibility(false);
-        g_craftBar->SetOnClick([] {});
+        g_craftBar->SetOnClick(OnMovingCraftPanel);
         g_craftProf = GUI::GetWindowTyped<Textfield>(g_craftBar, "text_prof");
         g_craftBarText2 = GUI::GetWindowTyped<Textfield>(g_craftBar, "pbar_craft.text_hp_bar_2");
         g_craftBarText = GUI::GetWindowTyped<Textfield>(g_craftBar, "pbar_craft.text_hp_bar");
@@ -495,7 +546,9 @@ void Init() {
         g_craftProgress->SetClipRect(&g_craftClip);
         g_craftProfIcon = GUI::GetWindowTyped<Window>(g_craftBar, "icon_prof");
         g_craftProfIcon->takesZ = true;
-        g_craftEffect = GUI::CreateMovementEffect(g_craftBar, [] {});   // OnCraftPanelMove
+        g_craftActive = false;
+        g_craftPanelClip = {0, 0, GUI::ScreenWidth() - (int)(GUI::GetHudScaleFactor() * 30.f), GUI::ScreenHeight()};
+        g_craftEffect = GUI::CreateMovementEffect(g_craftBar, OnCraftPanelMove);
         g_craftEffect->blocksInput = false;
     }
     Queue()->fn.update = Update;
@@ -762,8 +815,69 @@ void UpdateContents() {
     g_craftBg->SetEnabled(craftOn);
 }
 
-// @0x24f744. UNVERIFIED (milestone 5): the profession point's flight to the crafting bar
-// (ShowProfessionPoint), an item dragged out of the belt.
+// The bar's icon: where the point's picture lands (screen coordinates).
+void CraftIconTarget(float& x, float& y) {
+    x = (float)(g_craft->x + g_root->x + g_craftProfIcon->x + (int)(g_root->scale * 30.f) - g_craftBar->w);
+    y = (float)(g_craft->y + g_root->y + g_craftProfIcon->y + g_craftProfIcon->h + (g_craft->h - g_craftBar->h) / 2);
+}
+
+// @0x24f744 (a part of Update): for 0.7 s the point's picture flies from where it was gained to
+// the bar's icon in an arc; then it swells (0.25 s) and shrinks (0.25 s) there, the icon shows
+// again and the points count up; after 2 s the bar slides away.
+void UpdateCraftBar(float dt) {
+    if (!g_craftActive) return;
+    g_craftTimer += dt;
+    const float t = g_craftTimer;
+    float tx, ty;
+    CraftIconTarget(tx, ty);
+    if (t <= 0.7f) {
+        const float f = t / 0.7f;
+        float k = f, x = g_craftFromX + (tx - g_craftFromX) * f;
+        if (f > 1.f) {
+            x = g_craftFromX + (tx - g_craftFromX);
+            k = 1.f;
+        }
+        const float y = g_craftFromY + k * (ty - g_craftFromY) + sinf(f * 3.14159f) * -100.f;
+        if (g_craftSprite) Render::SetPosition(g_craftSprite, x, y, 0.0001f);
+        return;
+    }
+    const float u = t - 0.7f;
+    auto grow = [&](float k) {
+        Render::SetPosition(g_craftSprite, tx + k * -10.f, ty + k * 10.f, 0.001f);
+        Render::SetAlpha(g_craftSprite, k + 1.f);
+        g_craftSprite->h = (float)g_craftSprite->tex->h + k * 20.f;
+        g_craftSprite->w = (float)g_craftSprite->tex->w + k * 20.f;
+    };
+    bool hideIcon = true;
+    if (u < 0.25f) {
+        if (g_craftSprite) grow(u);
+    } else if (u < 0.5f) {
+        if (g_craftSprite) grow(0.25f - (u - 0.25f));
+    } else {
+        hideIcon = false;
+        if (g_craftSprite) {
+            g_craftSprite = Render::RemoveSprite(g_craftSprite);
+            g_craftProfIcon->SetVisibility(true);
+        }
+    }
+    if (hideIcon) g_craftProfIcon->SetVisibility(false);
+    const float f = u <= 1.f ? u : 1.f;
+    const float have = (float)g_craftHave;
+    const float points = have + f * ((float)(g_craftHave + 1) - have);
+    SetCraftBarText(points);
+    // PORT: a rank with no points needed (a profession without ranks) leaves the fill empty.
+    g_craftClip.right = g_craftNeed ? (int)((float)g_craftClip.left + ((float)g_craftProgress->w * points) / (float)g_craftNeed)
+                                    : g_craftClip.left;
+    g_craftBar->UpdatePosition();
+    if (u >= 2.f) {
+        const int y = g_craft->y + g_root->y + (g_craft->h - g_craftBar->h) / 2;
+        const int x = g_craft->x + g_root->x + (int)(g_root->scale * 30.f) - g_craftBar->w;
+        g_craftActive = false;
+        g_craftEffect->Animate(x, y, GUI::ScreenWidth(), y, false);
+    }
+}
+
+// @0x24f744. UNVERIFIED (milestone 5): an item dragged out of the belt.
 void Update(float dt) {
     if (!g_root) return;
     if (g_hover->shownHover) {
@@ -796,6 +910,7 @@ void Update(float dt) {
             Render::SortRenderLayer(0xe, 1);
         }
     }
+    UpdateCraftBar(dt);
     if (g_flyActive && g_flySprite) {
         const float t = g_flyTime / g_flyDuration;
         if (t < 1.f) {
@@ -845,6 +960,45 @@ void Update(float dt) {
         g_lastSecond = Timer::GetGlobalTime();
         UpdateContents();
     }
+}
+
+// @0x24d264: a profession point was gained at the screen point (x, y): the bar comes out (or its
+// timer is set back) and the point's picture flies to it; `points` are those before this one.
+void ShowProfessionPoint(float x, float y, Professions::Profession* p, uint32_t points) {
+    if (!p->icon) return;
+    if (p->id == 3 && !GameState::TaskCompleted(0x5a8)) return;
+    g_craftProfession = p;
+    g_craftHave = points;
+    const uint32_t level = Professions::GetPlayerProfessionLevel(p->id);
+    g_craftNext = Professions::GetProfessionLevel(p->id, level + 1);
+    if (!g_craftNext) g_craftNext = Professions::GetProfessionLevel(p->id, level);
+    g_craftNeed = g_craftNext ? g_craftNext->points : points;
+    g_craftProf->SetText(p->title);
+    g_craftProfIcon->SetTexture(p->icon, true);
+    g_craftClip.right = g_craftNeed ? (int)(((uint32_t)g_craftProgress->w * points) / g_craftNeed) + g_craftClip.left
+                                    : g_craftClip.left;
+    SetCraftBarText((float)points);
+    g_craftBar->UpdatePosition();
+    if (!g_craftActive) {
+        g_craftTimer = 0.f;
+        g_craftActive = true;
+        g_craftBar->SetVisibility(true);
+        g_craftBar->SetPosition(GUI::ScreenWidth(), g_craft->y + g_root->y);
+        g_craftEffect->duration = 0.5f;
+        const int barY = g_craft->y + g_root->y + (g_craft->h - g_craftBar->h) / 2;
+        g_craftEffect->Animate(GUI::ScreenWidth(), barY,
+                               (g_craft->x + g_root->x - g_craftBar->w) + (int)(g_root->scale * 30.f), barY, true);
+    } else if (g_craftTimer > 0.7f) {
+        g_craftTimer = 0.7f;
+    }
+    g_craftSprite = Render::RemoveSprite(g_craftSprite);
+    g_craftSprite = Render::CreateSprite(p->icon, 0xf, false, false);
+    g_craftSprite->screenSpace = true;
+    Render::SetShaderType(g_craftSprite, 1);
+    const float h = (float)p->icon->h;
+    Render::SetPosition(g_craftSprite, x, y - h, 0.001f);
+    g_craftFromY = y - h;
+    g_craftFromX = x;
 }
 
 }  // namespace BeltBarWindow
