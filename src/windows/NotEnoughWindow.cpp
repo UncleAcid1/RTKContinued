@@ -219,8 +219,13 @@ void OnFindActual(unsigned i) {
     case kLevel:
         break;
     case kProfession:
-        // UNVERIFIED (milestone 5, Professions): CraftItemWindow / LevelInfoWindow on the
-        // profession's tab.
+        // A reputation: the levels window on its tab. UNVERIFIED (milestone 5o): a profession opens
+        // CraftItemWindow::Show and its OnTab(0).
+        if (Professions::Profession* p = Professions::GetProfession(l.profession))
+            if (p->type != Professions::kProfession) {
+                LevelInfoWindow::Show();
+                LevelInfoWindow::OnTab(p->tab, true);
+            }
         break;
     case kBuildingCount:
         if (GameState::GetCurrentMapID() != 0) {   // home first

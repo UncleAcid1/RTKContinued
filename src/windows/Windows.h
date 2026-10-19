@@ -539,6 +539,9 @@ bool IsVisible();                           // @0x2ea470
 void Show();                                // @0x2f13d8
 void Hide();                                // @0x2eb070
 void OnLevel(unsigned level);               // @0x2f1204 the column starts at that level (1-based)
+void OnTab(unsigned tab, bool first);       // @0x2f1224
+void HelpWithArena(unsigned event);         // @0x2eb348
+void HelpWithPvP(bool open);                // @0x2eb368
 }
 
 // A mission's brief (windows/RaidInfoWindow.cpp).

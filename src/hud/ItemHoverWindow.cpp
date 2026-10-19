@@ -1040,10 +1040,11 @@ void ItemHoverWindow::OnFind() {
     if (!info && resource == 0xb) return;
     BuildingHovers::HideArrow();
     // The windows the popup may sit over are hidden first. UNVERIFIED (milestone 5): also
-    // ItemShopWindow, CraftItemWindow, LevelInfoWindow, ArenaDifficultyWindow, PlayerInfoWindow,
+    // ItemShopWindow, CraftItemWindow, ArenaDifficultyWindow, PlayerInfoWindow,
     // PlayerCompetitionWindow (not ported yet).
     CharacterInfoWindow::Hide();
     HireTroopsWindow::Hide();
+    LevelInfoWindow::Hide();
     CampaignInfoWindow::Hide();
     if (!info) {
         if (resource == 8) {
@@ -1100,7 +1101,11 @@ void ItemHoverWindow::OnShop() {
 void ItemHoverWindow::OnReputation() {
     if (!info) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 5): LevelInfoWindow on the item's profession tab and level.
+    if (Professions::Profession* p = Professions::GetProfession(info->reputationId)) {
+        LevelInfoWindow::Show();
+        LevelInfoWindow::OnTab(p->tab, true);
+        LevelInfoWindow::OnLevel(info->reputationLevel);
+    }
     Hide();
 }
 

@@ -612,12 +612,16 @@ bool TaskSubtask::OnHelp(bool arrow) {
         std::fprintf(stderr, "Tasks::TaskSubtask::OnHelp() cannot help with SUBTASK_REPAIR_ITEM - none of the equiped "
                              "items are broken\n");
         return true;
+    case kBalanceLevel:   // the levels window on that level
+        LevelInfoWindow::Show();
+        LevelInfoWindow::OnTab(0, true);
+        LevelInfoWindow::OnLevel((unsigned)value);
+        return true;
     // UNVERIFIED (milestone 5): other windows.
     case kBuyOnMarketTask:     // the item shop on the item (CastleTopWindow::OnBuyItem for steps 0x42e / 0x42f)
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
     case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item
-    case kBalanceLevel:        // LevelInfoWindow on that level (milestone 5)
     case kDealDamage:          // CastleTopWindow::HelpWithPvP
     case kWinInRow:            // CastleTopWindow::HelpWithPvP
     case kOpenWeb:             // HelpWindow::Show(value) (online: the help web view)

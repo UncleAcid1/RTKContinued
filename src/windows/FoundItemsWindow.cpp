@@ -356,7 +356,8 @@ void RunPostAction() {
         }
         PlayerCompetitionWindow::SetReturnWithoutWindow(false);
     } else if (g_postAction == 4) {
-        // UNVERIFIED (milestone 5): LevelInfoWindow::Show on the tab of profession 7.
+        LevelInfoWindow::Show();
+        if (Professions::Profession* valor = Professions::GetProfession(7)) LevelInfoWindow::OnTab(valor->tab, false);
     }
     g_postAction = 0;
 }

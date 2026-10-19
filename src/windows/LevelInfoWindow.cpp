@@ -4,8 +4,7 @@
 // Port of LevelInfoWindow (libkingdom.so 5.11, @0x2ea3d8..0x2f13d8 and the LoadFroms; statics
 // 0x624014..0x6253f8).
 //
-// 5n-3: the window opens and closes; 5n-4: UpdateContents. The taps and helps (5n-5) are empty stubs
-// for now.
+// 5n-3: the window opens and closes; 5n-4: UpdateContents; 5n-5: the taps and the help flow.
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -14,6 +13,8 @@
 #include "engine/Resources.h"
 #include "game/BuildingHovers.h"
 #include "game/Collections.h"
+#include "game/Entity.h"
+#include "game/EntityManager.h"
 #include "game/Contracts.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
@@ -22,9 +23,12 @@
 #include "game/PvP.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
+#include "engine/Render.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
+#include "hud/HUD.h"
 #include "hud/ItemHoverWindow.h"
 #include "hud/Shared.h"
 #include "windows/Windows.h"
@@ -44,7 +48,6 @@ void OnLevelHolderDown();
 void OnLevelHolderUp();
 void OnShop(unsigned holder);
 void OnHelp();
-void OnTab(unsigned tab, bool first);
 
 // @0x2eb83c (0x44 bytes): one item slot (Inventory_item_icon).
 struct ItemInfo {
@@ -346,6 +349,7 @@ Window* g_close = nullptr;                      // 0x6253ec x_button.clickArea
 Textfield* g_title = nullptr;                   // 0x6253f0 text_title
 Textfield* g_explained = nullptr;               // 0x6253f4 profession_explained
 ItemHoverWindow* g_hover = nullptr;             // 0x6253e0
+bool g_pvpOpen = false;                         // 0x6253e8 HelpWithPvP's argument
 bool g_helpPending = false;                     // 0x6253ed OnHelp: the window closes, then OnActualHelp
 WindowManager::FunctionalWindow* g_wnd = nullptr;   // 0x6253f8 "LevelInfoWindow"
 
@@ -427,9 +431,55 @@ void Update(float dt) {
     }
 }
 
-// 0x2eb14c (5n-5): closes the other windows and takes the player to what OnHelp asked about.
-// UNVERIFIED (milestone 5n-5): empty.
-void OnActualHelp() {}
+// @0x2eb14c: the help the window asked for (OnHelp, HelpWithArena, HelpWithPvP): the windows in
+// the way close, then the player is taken to the PvP arena's, the arena event's or the arena's
+// first quests. UNVERIFIED (milestones 5o / 5q / 5s / 5t): the closes of ItemShopWindow,
+// CraftItemWindow, ArenaDifficultyWindow, PlayerCompetitionWindow and PlayerInfoWindow; ArenaEventWindow's
+// Show / SetParameters and CastleTopWindow's HelpWithPvP / OnPvP.
+void OnActualHelp() {
+    CharacterInfoWindow::Hide();
+    HireTroopsWindow::Hide();
+    Hide();
+    CampaignInfoWindow::Hide();
+    if (GameState::GetCurrentMapID() == 0) {
+        HealSquadWindow::Hide();
+    } else if (Entity* player = EntityManager::GetPlayer()) {
+        if (!player->IsDead()) HealSquadWindow::Hide();
+    }
+    if (g_tab != 1) {
+        if (GameState::GetCurrentMapID() != 0x74) {   // the arena's map
+            GlobalMapWindow::Show();
+            GlobalMapWindow::SetArrowVisibleWindowLimit(5);
+            GlobalMapWindow::ArrowAtMap(0x74, false, true);
+            return;
+        }
+        if (g_tab == 2 && !GameState::TaskCompleted(0x50d)) {
+            TaskInfoWindow::SetTask(0x50d, false);
+            TaskInfoWindow::Show();
+            return;
+        }
+        if (g_tab == 3 && !GameState::TaskCompleted(0x5af)) {
+            TaskInfoWindow::SetTask(0x5af, false);
+            TaskInfoWindow::Show();
+            return;
+        }
+        // UNVERIFIED (milestone 5s): ArenaEventWindow::Show(); ArenaEventWindow::SetParameters(g_tab == 2).
+        return;
+    }
+    if (GameState::TaskCompleted(0x74d)) {
+        // UNVERIFIED (milestone 5t): g_pvpOpen ? CastleTopWindow::OnPvP(-1) : CastleTopWindow::HelpWithPvP().
+        return;
+    }
+    if (Tasks::IsTaskActive(0x74d, false)) {
+        TaskInfoWindow::SetTask(0x74d, false);
+        TaskInfoWindow::Show();
+    } else if (Tasks::IsTaskActive(0x509, false)) {
+        TaskInfoWindow::SetTask(0x509, false);
+        TaskInfoWindow::Show();
+    } else {
+        GameState::TryToHelpWithTask(0x74f);
+    }
+}
 
 // @0x2eb2f4
 void OnTweenOut() {
@@ -442,26 +492,132 @@ void OnTweenOut() {
     OnActualHelp();
 }
 
-// 0x2ea6ac (5n-5): an item of the unlocked strip. UNVERIFIED (milestone 5n-5): empty.
-void OnUnlockedItem(unsigned) {}
+// The item card over a slot (the slot's item, viewed only).
+void ShowItemCard(const ItemInfo& slot, Items::ItemInfo* info) {
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    g_hover->Show();
+    g_hover->SetItem(nullptr, nullptr, info, false, true, nullptr, false, false, false, false);
+    const Window* w = slot.root;
+    const int x = g_root->x + w->x, y = g_root->y + w->y;
+    g_hover->SetTargetRect(x, y, x + w->w, y + w->h, ItemHoverWindow::kS);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
 
-// 0x2ea7f4 (5n-5): an item a rank unlocks. UNVERIFIED (milestone 5n-5): empty.
-void OnItem(unsigned, unsigned) {}
+// @0x2ea6ac: an item of the unlocked strip.
+void OnUnlockedItem(unsigned slot) {
+    if (slot >= 9) return;
+    Items::ItemInfo* info = Items::GetItemInfo((uint32_t)g_general.unlocked.items[slot].item);
+    if (info) ShowItemCard(g_general.unlocked.items[slot], info);
+}
 
-// 0x2ea950 (5n-5): a building a rank opens. UNVERIFIED (milestone 5n-5): empty.
-void OnBuilding(unsigned, unsigned) {}
+// @0x2ea7f4: an item a rank unlocks.
+void OnItem(unsigned holder, unsigned slot) {
+    if (holder >= 3 || slot >= 7) return;
+    Items::ItemInfo* info = Items::GetItemInfo((uint32_t)g_general.level[holder].items[slot].item);
+    if (info) ShowItemCard(g_general.level[holder].items[slot], info);
+}
 
-// 0x2ead60 (5n-5). UNVERIFIED (milestone 5n-5): empty.
-void OnLevelHolderDown() {}
+// @0x2ea950: a building or decoration a level opens: its name and description.
+void OnBuilding(unsigned holder, unsigned slot) {
+    if (holder >= 3) return;
+    LevelHolder& l = g_general.level[holder];
+    const unsigned at = slot + l.scrollIdle.firstIndex;
+    if (at >= l.opens.size()) return;
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    g_hover->Show();
+    const LevelHolder::Opens& o = l.opens[at];
+    if (o.building || o.decor) {
+        const char* name = o.building ? o.building->name.c_str() : o.decor->name.c_str();
+        std::u32string title;
+        if (o.building)
+            title = SWPrintf(0x100, U"%s [%d]", {StringTable::GetString(name), (int)o.kind});
+        else
+            title = StringTable::GetString(name);
+        g_hover->SetText(title.c_str(), StringTable::GetStringF("%s_DESC", name));
+    }
+    const Window* w = l.idle[slot];
+    const int x = g_root->x + w->x, y = g_root->y + w->y;
+    g_hover->SetTargetRect(x, y, x + w->w, y + w->h, ItemHoverWindow::kS);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
 
-// 0x2eaebc (5n-5). UNVERIFIED (milestone 5n-5): empty.
-void OnLevelHolderUp() {}
+// The state the holders' scrollers had before the column moved by one holder (the original keeps
+// it in three spare fields of each scroller: +0x9c, +0xa8, +0xb8).
+struct ScrollerState {
+    unsigned itemCount = 0, firstIndex = 0;
+    int offset = 0;
+};
+ScrollerState g_saved[3][2];
 
-// 0x2eb0f0 (5n-5): the rank's shop button. UNVERIFIED (milestone 5n-5): empty.
-void OnShop(unsigned) {}
+void SaveHolderScrollers() {
+    for (unsigned k = 0; k != 3; ++k) {
+        LevelHolder& l = g_general.level[k];
+        g_saved[k][0] = {l.scrollItems.itemCount, l.scrollItems.firstIndex, l.scrollItems.offset};
+        g_saved[k][1] = {l.scrollIdle.itemCount, l.scrollIdle.firstIndex, l.scrollIdle.offset};
+    }
+}
 
-// 0x2eb384 (5n-5): the help button. UNVERIFIED (milestone 5n-5): empty.
-void OnHelp() {}
+// Holder `to` takes the saved scroll state of holder `from` (strip 0: the items, 1: the buildings).
+void TakeHolderScroll(unsigned to, unsigned from, unsigned strip) {
+    LevelHolder& l = g_general.level[to];
+    Shared::ContentScroller& s = strip == 0 ? l.scrollItems : l.scrollIdle;
+    s.itemCount = g_saved[from][strip].itemCount;
+    s.firstIndex = g_saved[from][strip].firstIndex;
+    s.HandleMove(g_saved[from][strip].offset - g_saved[to][strip].offset);
+}
+
+// @0x2ead60: the column went one holder down: each holder's strips follow their level to the next
+// holder, the first one starts at the left.
+void OnLevelHolderDown() {
+    SaveHolderScrollers();
+    for (unsigned k = 1; k != 3; ++k) {
+        TakeHolderScroll(k, k - 1, 0);
+        TakeHolderScroll(k, k - 1, 1);
+    }
+    LevelHolder& l = g_general.level[0];
+    l.scrollItems.firstIndex = 0;
+    l.scrollItems.HandleMove(-g_saved[0][0].offset);
+    l.scrollIdle.firstIndex = 0;
+    l.scrollIdle.HandleMove(-g_saved[0][1].offset);
+}
+
+// @0x2eaebc: the column went one holder up: each holder takes the strips of the one below it, the
+// last one starts at the left.
+void OnLevelHolderUp() {
+    SaveHolderScrollers();
+    for (unsigned k = 0; k != 2; ++k) {
+        TakeHolderScroll(k, k + 1, 0);
+        TakeHolderScroll(k, k + 1, 1);
+    }
+    LevelHolder& l = g_general.level[2];
+    l.scrollItems.firstIndex = 0;
+    l.scrollItems.HandleMove(-l.scrollItems.offset);
+    l.scrollIdle.firstIndex = 0;
+    l.scrollIdle.HandleMove(-l.scrollIdle.offset);
+}
+
+// @0x2eb0f0: a holder's shop button: the shop on the holder's first item (the valor shop tab 7 on
+// the valor tab). UNVERIFIED (milestone 5q): ItemShopWindow::Show and ShowShopItem(item, 0, true,
+// tab) are not ported: the window only closes.
+void OnShop(unsigned holder) {
+    if (holder >= 3) return;
+    Hide();
+}
+
+// @0x2eb384: the help button: closes this window (OnTweenOut then runs OnActualHelp), or not
+// while a fight is on.
+void OnHelp() {
+    if (GameState::IsCombatActive()) {
+        PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    Hide();
+    g_helpPending = true;
+}
 
 // UpdateContents' pieces (one 15 KB function in the original).
 
@@ -800,6 +956,8 @@ void UpdateContents() {
     g_root->UpdatePosition();
 }
 
+}  // namespace
+
 // @0x2f1224: the tab's column starts at its top; the player's tab (0) at the player's level, a
 // profession's at its level (first: the strip of unlocked items stays in view when the level is 0).
 void OnTab(unsigned tab, bool first) {
@@ -844,6 +1002,8 @@ void OnTab(unsigned tab, bool first) {
     }
     UpdateContents();
 }
+
+namespace {
 
 // @0x2ecbd0
 void Init() {
@@ -912,6 +1072,19 @@ bool IsVisible() { return g_wnd->shown; }
 void OnLevel(unsigned level) {
     g_general.scroller.firstIndex = level != 0 ? level - 1 : 0;
     UpdateContents();
+}
+
+// @0x2eb348: the help for an arena event (1: the second one).
+void HelpWithArena(unsigned event) {
+    g_tab = event == 1 ? 3 : 2;
+    OnActualHelp();
+}
+
+// @0x2eb368: the help for PvP; open: the PvP window rather than its help (CastleTopWindow, 5t).
+void HelpWithPvP(bool open) {
+    g_pvpOpen = open;
+    g_tab = 1;
+    OnActualHelp();
 }
 
 // @0x2eb070

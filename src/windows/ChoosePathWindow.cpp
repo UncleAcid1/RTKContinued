@@ -333,7 +333,7 @@ void OnTravel(unsigned type) {
                 // UNVERIFIED (milestone 5q): ItemShopWindow::Show.
             }
         } else if (type == 6) {
-            // UNVERIFIED (milestone 5n): LevelInfoWindow::HelpWithPvP(true).
+            LevelInfoWindow::HelpWithPvP(true);
         } else if (type == 7) {
             // The arena: its event of the moment (1 or 2, five seconds each).
             if (Locations::LocationInfo* loc = Locations::GetLocationInfo(0x49)) {
@@ -341,7 +341,7 @@ void OnTravel(unsigned type) {
                 const unsigned event = std::fmod(g_arenaTime, 10.f) < 5.f ? 1 : 2;
                 if (map == (uint32_t)GameState::GetCurrentMapID()) {
                     if (GlobalMapWindow::IsVisible()) GlobalMapWindow::Hide();
-                    // UNVERIFIED (milestone 5n): LevelInfoWindow::HelpWithArena(event).
+                    LevelInfoWindow::HelpWithArena(event);
                 } else if (!Locations::IsLocationLocked(loc)) {
                     ShowGlobalMap();
                     if (!Locations::IsLocationLocked(loc) && GameState::TaskCompleted(0x773)) {
