@@ -10,6 +10,9 @@ namespace Render { struct Texture; struct Sprite; }
 namespace Locations { struct LocationInfo; }
 namespace GameState { struct PlayerItem; }
 namespace Items { struct ItemInfo; }
+namespace Spells { struct SpellInfo; }
+namespace Professions { struct Profession; }
+struct EntityData;
 class Entity;
 
 namespace CityRenameWindow {
@@ -542,6 +545,22 @@ void OnLevel(unsigned level);               // @0x2f1204 the column starts at th
 void OnTab(unsigned tab, bool first);       // @0x2f1224
 void HelpWithArena(unsigned event);         // @0x2eb348
 void HelpWithPvP(bool open);                // @0x2eb368
+}
+
+// The craft success card (windows/CraftSuccessWindow.cpp): a crafted item, a spell, a profession's
+// new level, a new battle slot or a new unit.
+namespace CraftSuccessWindow {
+enum WarriorSlotMode { kWarriorSlot };
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftSuccessWindow" (FUN_002a3a28)
+void Init();                                // @0x2a4b70
+bool IsVisible();                           // @0x2a3948
+void SetParameters(GameState::PlayerItem* item);        // @0x2a395c
+void SetParameters(Spells::SpellInfo* spell);           // @0x2a3980
+void SetParameters(Professions::Profession* profession);   // @0x2a39a8
+void SetParameters(WarriorSlotMode mode);               // @0x2a39d0
+void SetParameters(EntityData* entity);                 // @0x2a39fc
+void Show();                                // @0x2a4654
+void Hide();                                // @0x2a4718
 }
 
 // A mission's brief (windows/RaidInfoWindow.cpp).

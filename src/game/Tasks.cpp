@@ -603,6 +603,7 @@ uint32_t TaskInfo::GetFirstLockedTaskInChain(bool skipHidden) const {
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
 #include "game/Entity.h"
+#include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
@@ -871,6 +872,12 @@ int PortQuestCrystals(const TaskInfo* t) {
 
 // @0x236350 Tasks::CompleteTask. Not ported (online): the OG / OG2 requests and the "invite
 // friends" wall post of the fb_invite_task.
+// @0x22f67c
+void ShowWarriorSlotUnlock() {
+    CraftSuccessWindow::SetParameters(CraftSuccessWindow::kWarriorSlot);
+    CraftSuccessWindow::Show();
+}
+
 void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     TaskInfo* t = GetTask(id);
     if (!t) return;
@@ -902,9 +909,12 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     BuildingHovers::HideWorldDialogByTask(id);
     if ((int)id == Setting("squad_slot_02_quest_unlock").GetInt() ||
         (int)id == Setting("squad_slot_03_quest_unlock").GetInt()) {
-        // UNVERIFIED (milestone 5): WindowManager::EnqueueWindow(Tasks::ShowWarriorSlotUnlock, 0.2).
+        WindowManager::EnqueueWindow(ShowWarriorSlotUnlock, 0.2f);
     }
-    // (task 0x402: CraftSuccessWindow for unit 0x195, milestone 5)
+    if (id == 0x402) {   // the unit 0x195 is learned
+        CraftSuccessWindow::SetParameters(EntityFactory::GetEntityByID(0x195));
+        WindowManager::EnqueueWindow(CraftSuccessWindow::Show, 0.f);
+    }
 
     // Where the reward drops: at the first "talk to" person of the task, else its giver, else
     // (once the city tutorial is over) the hero.

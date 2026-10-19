@@ -21,6 +21,7 @@
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
 #include "game/StringTable.h"
+#include "gui/WindowManager.h"
 #include "windows/Windows.h"
 
 namespace Professions {
@@ -266,8 +267,8 @@ void AddProfessionPoint(uint32_t profession, uint32_t points) {
     uint32_t before = GetPlayerProfessionLevel(profession);
     GameState::AddProfessionPoints(profession, points);
     if (GetPlayerProfessionLevel(profession) <= before) return;
-    // UNVERIFIED (milestone 5o): CraftSuccessWindow::SetParameters(GetProfession(profession)) and
-    // WindowManager::EnqueueWindow(CraftSuccessWindow::Show, 0.25f); the window is not ported yet.
+    CraftSuccessWindow::SetParameters(GetProfession(profession));
+    WindowManager::EnqueueWindow(CraftSuccessWindow::Show, 0.25f);
 }
 
 int GetItemProbability(uint32_t profession, uint32_t item) {

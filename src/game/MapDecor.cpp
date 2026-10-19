@@ -13,6 +13,8 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
+#include "gui/WindowManager.h"
+#include "windows/Windows.h"
 #include "game/Fog.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
@@ -929,8 +931,8 @@ void Decor::Finish() {
                     (void)sy;
                     GameState::AddProfessionPoints(p->id, 1);
                     if (before < Professions::GetPlayerProfessionLevel(p->id) && GameState::TaskCompleted(0x5a8)) {
-                        // UNVERIFIED (milestone 5o): CraftSuccessWindow::SetParameters(p) and
-                        // WindowManager::EnqueueWindow(CraftSuccessWindow::Show, 0.25f).
+                        CraftSuccessWindow::SetParameters(p);
+                        WindowManager::EnqueueWindow(CraftSuccessWindow::Show, 0.25f);
                     }
                 } else {
                     BuildingHovers::ShowTextHoverWithStyle((float)wx, (float)wy, StringTable::GetString("SEARCH_NOTHING"),

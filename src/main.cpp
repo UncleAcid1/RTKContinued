@@ -751,6 +751,7 @@ int main_Loop_Init() {
     ChoosePathWindow::Queue();
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();
+    CraftSuccessWindow::Queue();
     ExchangeWindow::Queue();
     FoundItemsWindow::Queue();
     GlobalMapWindow::Queue();

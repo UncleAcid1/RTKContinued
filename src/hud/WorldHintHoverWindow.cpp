@@ -203,8 +203,8 @@ void WorldHintHoverWindow::CenterIfOffScreen() {
 void WorldHintHoverWindow::OnClose() {
     // (tutorial 0x17: TutorialSender::AddTutorialStep(0x658), online)
     if (task == 0x5a8 && Professions::GetPlayerProfessionLevel(3) != 0) {
-        // UNVERIFIED (milestone 5o): CraftSuccessWindow::SetParameters(Professions::GetProfession(3))
-        // and CraftSuccessWindow::Show(); the window is not ported yet.
+        CraftSuccessWindow::SetParameters(Professions::GetProfession(3));
+        CraftSuccessWindow::Show();
     }
     if (task == 0x76d) {
         next->SetVisibility(false);

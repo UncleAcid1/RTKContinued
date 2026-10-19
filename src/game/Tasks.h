@@ -174,6 +174,7 @@ void CompleteSubtaskDirect(uint32_t subtask, int n);           // @0x22fa5c by s
 // (dropped at the quest giver, the "talk to" person or the hero when `drop`, else added), the
 // items it takes (takeItems).
 void CompleteTask(uint32_t task, bool drop, bool takeItems, bool setBegin);
+void ShowWarriorSlotUnlock();   // @0x22f67c the craft card "new battle slot"
 // @0x2377b0, once a second in the player's city (or at once when forced): begin times, the
 // balance / item / level steps' counters, finished tasks, repeats and the daily tasks.
 void Update(bool force);
