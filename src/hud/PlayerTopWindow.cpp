@@ -104,7 +104,7 @@ void OnCharacter() {
         }
         return;
     }
-    // UNVERIFIED (milestone 5): CharacterInfoWindow::Show.
+    CharacterInfoWindow::Show();
 }
 
 // @0x327538

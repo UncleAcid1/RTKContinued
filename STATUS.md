@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5l (CharacterInfoWindow 1: equipment and belt; it also takes BeltBarWindow::RaiseWindow and CharacterInfoWindow::ShowBuffAnimation, see the 5k-3 entry). (5k DONE 2026-10-18: 5k-3 the buff row; (5k-2 DONE 2026-10-18: RunRageAnimation and its flight, ArrowAtSlot, GetAdjustedBuffZoneLocation, OnShowManaPotion's belt arrow; (5k-1 DONE 2026-10-18: SpellMovement, the arenas' spell aim, wired in BottomBattleWindow and main; PlaceMagicHoverWindow is dead; 5k is split in 5k-1 / 5k-2; 5j DONE 2026-10-18; 5j-3c done: Update's rage part, Click's drag, OnCenter's run part; 5j-3b done 2026-10-18: OnAutoCast, OnBotAutoCast, HelpWithSpell; 5j-3a done 2026-10-18: the rage bar's buttons, mana bars, OnSpell, OnManaBar; 5j-3 is split in 5j-3a .. 5j-3c, see the roadmap; 5j-2 done 2026-10-18: AISpell, AIWarrior's magic, PlayBuffAnimation, ParticlePresets::OnSpell's delay; 5j-1 done 2026-10-18: Spells + Entity's magic; 5j is split in 5j-1 .. 5j-3, see the roadmap; 5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5l-2 (CharacterInfoWindow's contents: UpdateContents' window part and its helpers, see the 5l entry in the roadmap; 5l is split in 5l-1 .. 5l-3; 5l-1 DONE 2026-10-19: the window opens and closes). (5k DONE 2026-10-18: 5k-3 the buff row; (5k-2 DONE 2026-10-18: RunRageAnimation and its flight, ArrowAtSlot, GetAdjustedBuffZoneLocation, OnShowManaPotion's belt arrow; (5k-1 DONE 2026-10-18: SpellMovement, the arenas' spell aim, wired in BottomBattleWindow and main; PlaceMagicHoverWindow is dead; 5k is split in 5k-1 / 5k-2; 5j DONE 2026-10-18; 5j-3c done: Update's rage part, Click's drag, OnCenter's run part; 5j-3b done 2026-10-18: OnAutoCast, OnBotAutoCast, HelpWithSpell; 5j-3a done 2026-10-18: the rage bar's buttons, mana bars, OnSpell, OnManaBar; 5j-3 is split in 5j-3a .. 5j-3c, see the roadmap; 5j-2 done 2026-10-18: AISpell, AIWarrior's magic, PlayBuffAnimation, ParticlePresets::OnSpell's delay; 5j-1 done 2026-10-18: Spells + Entity's magic; 5j is split in 5j-1 .. 5j-3, see the roadmap; 5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -2105,7 +2105,38 @@ Milestones:
               the character window: 5l), BeltBarWindow's Deinit (the belt is never destroyed).
        5k is DONE.
        The hero's things:
-       5l [ ] CharacterInfoWindow 1: equipment and belt (the inventory button, item moves).
+       5l [ ] CharacterInfoWindow 1: equipment and belt (the inventory button, item moves). Split in
+              5l-1 .. 5l-3 (2026-10-19: the window is 63 functions, UpdateContents alone 2700 lines).
+       5l-1 [x] (2026-10-19) the window opens and closes: Init (Menu_character.xml: the figure, the 11
+              equipment slots, 12 grid cells in a 2-wide scroller, 8 tabs, stats, set panel,
+              customisation strip, the window's own buff row (0x18, 3, 0, 1), two item cards),
+              Show (city only; tutorial only at 0x15; arena popup), Hide (the "NEW" items seen),
+              OnTweenIn (the arrows / cards asked for by ShowInventoryItem), OnTweenOut, OnBack,
+              OnTab, ShowInventoryTab, SetZ, GetZ, IsVisible, ZRange, CanRaiseBelt, RemovePreviewItems,
+              ShowBuffAnimation, OnShop / OnSetInfo (their windows: 5q / 5m), the three holders'
+              LoadFrom; GUI::SetHighDPIScaleFactor. The belt: OnInventory (the button, the 0xa3
+              arrow), OnShowInventory, ShowInventory, its OnTweenIn, OnEmptySlot, RaiseWindow and its
+              timer in Update (its only caller is online: PlayerCompetitionWindow), SetZ over the open
+              window (CanRaiseBelt), Show clears the arrow id, the 0x88 flight's end hides the window.
+              The portrait opens it (PlayerTopWindow::OnCharacter). VERIFIED (city, hook RTK_INV /
+              RTK_INVTAB / RTK_INVHIDE / RTK_INVCHK, screenshot): the belt's inventory button and
+              OnInventory open it (the XML layout, contents not filled yet), X and Hide close it.
+              PORT: Click is a stand-in (the cards, the arrow, the root's buttons) until 5l-3.
+              Not wired yet: fn.update (Update 0x285a1c: item timers, the drag, the buff row's place),
+              Move, the cell / slot / customisation taps (OnItem, OnItemEquipped, OnPreviewItem,
+              OnPreviewBuy), ShowInventoryItem (OnInventory's tutorial items 0x6b / 0x5b), the other
+              callers of CharacterInfoWindow::Hide / Show / UpdateContents across the code (grep
+              "CharacterInfoWindow" for the UNVERIFIED notes), ItemShopWindow::IsVisible in OnInventory.
+       5l-2 [ ] the contents: UpdateContents' window part (tabs, grid, figure, stats, set panel,
+              customisations, "NEW"), GetItemsForTabAndMode, IsValidItemForTabAndMode, GetItemAt,
+              GetUniqueItemAt (+ FUN_0027ce8c), GetToolOverride, UpdateItemTimers, Update,
+              GetItemPositionInCurrentTab, GetSelectedItem, IsItemEquipped, GetItemSlot, ItemHasSlot,
+              SetLastProfession, CheckIfItemImprovementLineHasItem.
+       5l-3 [ ] the taps and moves: Click, Move, OnItem, OnItemEquipped, OnEquip, OnPreviewItem,
+              OnPreviewBuy, OnSelectRandomCustomizations, OnAdd / Break / RemoveSelectedItem, OnRepair,
+              OnRemove, OnImprove, MoveIntoInventory, HasMovedIntoInventory, CanMoveIntoEquippedBelt,
+              CompleteEquipTaskFor, ShowInventoryItem; the belt's HasMovedIntoBelt, MoveIntoBelt, Move,
+              OnAddMoreSlot's shop; the sweep of the other callers' UNVERIFIED notes.
        5m [ ] CharacterInfoWindow 2, SetInfoWindow, Sets, Collections.
        5n [ ] Professions, LevelInfoWindow.
        5o [ ] crafting: CraftingWindow, CraftItemWindow, CraftSuccessWindow.

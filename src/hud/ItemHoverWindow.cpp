@@ -97,7 +97,7 @@ const char32_t* GetProbabilityString(unsigned p) {
 // @0x3849b4
 void ItemPlaceContinuation() {
     PopupWindow::Hide();
-    // UNVERIFIED (milestone 5): CharacterInfoWindow::Hide (the window is not ported).
+    CharacterInfoWindow::Hide();
     Tasks::HelpWithMapSwitchTo(0, true, true, 0);   // home
 }
 
@@ -1196,7 +1196,7 @@ void ItemHoverWindow::OnPlace() {
         d->id = info->id - 0x8000;
         BuildingPlacement::DecorBought(d, nullptr, true);
     }
-    // UNVERIFIED (milestone 5): CharacterInfoWindow::Hide.
+    CharacterInfoWindow::Hide();
     Hide();
 }
 

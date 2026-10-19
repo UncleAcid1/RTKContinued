@@ -66,6 +66,10 @@
             if (const char* tl = getenv("RTK_TILE")) { int f, x, y; if (std::sscanf(tl, "%d:%d:%d", &f, &x, &y) == 3 && f == i) { std::printf("[t] tap tile %d,%d\n", x, y); pl->GetAI()->ClickedTile(x, y, 0, 0); } }
             if (const char* cl = getenv("RTK_COLLECT")) { int f = 0, n = 0; while (std::sscanf(cl, "%d%n", &f, &n) == 1) { if (f == i) { std::printf("[t] collect one\n"); BuildingHovers::CollectOne(0); } cl += n; if (*cl == ',') ++cl; } }
             if (i == envi("RTK_WIN", -1)) { std::printf("[t] win: the enemies hang by a thread\n"); for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k) if (e->IsEnemy() && !e->IsDead()) e->SetHP(1); }
+            if (i == envi("RTK_INV", -1)) { std::printf("[t] OnInventory\n"); BeltBarWindow::OnInventory(); std::printf("[t] char visible=%d\n", (int)CharacterInfoWindow::IsVisible()); }
+            if (i == envi("RTK_INVTAB", -1)) { std::printf("[t] tab 3\n"); CharacterInfoWindow::ShowInventoryTab(3); }
+            if (i == envi("RTK_INVHIDE", -1)) { std::printf("[t] Hide\n"); CharacterInfoWindow::Hide(); }
+            if (i == envi("RTK_INVCHK", -1)) std::printf("[t] char visible=%d z=%.4f raise=%d\n", (int)CharacterInfoWindow::IsVisible(), CharacterInfoWindow::IsVisible() ? CharacterInfoWindow::GetZ() : 0.f, (int)CharacterInfoWindow::CanRaiseBelt());
             if (i == envi("RTK_SLEEP", -1)) SDL_Delay(2100);
             if (const char* sl = getenv("RTK_SLEEPS")) { int f = 0, n = 0; while (std::sscanf(sl, "%d%n", &f, &n) == 1) { if (f == i) SDL_Delay(1100); sl += n; if (*sl == ',') ++sl; } }
             if (i == envi("RTK_RETREAT", -1)) { std::printf("[t] retreat\n"); pl->GetAI()->Retreat(); }

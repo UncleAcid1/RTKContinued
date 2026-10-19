@@ -95,6 +95,10 @@ void RunRageAnimation();             // @0x24c960 the second tutorial's fury pot
 void ArrowAtSlot(unsigned slot);     // @0x24cc44 the arrow at a slot, its tap drinks the potion
 // @0x24c678: where a w wide image goes at the right of the first slot, level with the inventory button.
 void GetAdjustedBuffZoneLocation(int& x, int& y, int w, int h);
+// @0x24d16c: the belt drawn at depth z for `seconds` (Update puts it back), over a big window.
+void RaiseWindow(float z, float seconds);
+void OnInventory();                  // @0x24d0fc the inventory button: the character window
+void ShowInventory(bool lock);       // @0x24cbcc the arrow at the inventory button (once the belt is in)
 }
 // The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net and stance parts so far,
 // the spells with milestone 5).

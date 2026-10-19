@@ -70,6 +70,14 @@ float g_flyFromX = 0.f, g_flyFromY = 0.f; // 0x617da4 0x617da8
 float g_flyToX = 0.f, g_flyToY = 0.f;     // 0x617dac 0x617db0
 float g_flyDuration = 1.f;                // 0x60f0c4 seconds
 int g_flySlot = -1;                       // 0x60f0d0 the slot whose icon is hidden while it flies
+// The inventory asked for while the belt was sliding (ShowInventory): its arrow comes once the
+// belt is in, with the button locked as the only thing to tap if lockInventory.
+bool g_lockInventory = false;             // 0x617db4
+bool g_inventoryPending = false;          // 0x617dbc
+// RaiseWindow: the belt drawn above a big window for a while, then back at its own depth.
+float g_raisedZ = 0.f;                    // 0x617dd0
+float g_ownZ = 0.f;                       // 0x617dcc
+float g_raiseTime = 0.f;                  // 0x617dd4 seconds left
 // Per slot (BottomSlotInfo +0x58..+0x60): the charge bar glides to progressValue.
 struct Glide { bool started = false; float shown = 0.f, time = 0.f; } g_glide[3];
 
@@ -81,8 +89,28 @@ void SlotWorldPoint(unsigned i, int& x, int& y) {
     Map::MouseCoordinatesToWorld(x, y);
 }
 
-// (0x24c94c) UNVERIFIED (milestone 5): CharacterInfoWindow::Show on the belt tab (3).
-void OnEmptySlot(unsigned) {}
+// @0x24c94c: the character window on its belt tab.
+void OnEmptySlot(unsigned) {
+    CharacterInfoWindow::Show();
+    CharacterInfoWindow::ShowInventoryTab(3);
+}
+
+// @0x24caa4: the arrow at the inventory button, whose tap opens the character window.
+void OnShowInventory() {
+    BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnInventory));
+    if (g_lockInventory) GUI::SetInteractionObjectLock(g_inventoryClick, nullptr);
+    const Window* w = g_inventoryIcon;
+    BuildingHovers::ArrowAt((float)(g_root->x + w->x), (float)(w->y + g_root->y - 0xf + w->h / 2), false, true, true,
+                            false, true, false, false);
+}
+
+// @0x24cb9c
+void OnTweenIn() {
+    if (!g_inventoryPending) return;
+    OnShowInventory();
+    g_lockInventory = false;
+    g_inventoryPending = false;
+}
 
 // (0x24d9e4): none of the slot's item left. Before the shop's quest: "later"; after it the item
 // shop opens at the item (UNVERIFIED, milestone 5: ItemShopWindow::Show / ShowShopItem).
@@ -161,6 +189,35 @@ WindowManager::FunctionalWindow* Queue() {
 
 bool IsVisible() { return g_root && g_root->visibleSelf; }
 
+// @0x24d0fc: the inventory button. In the second tutorial (0xa4) and the opening one (0x14 / 0x15)
+// the window opens at the item to equip. UNVERIFIED (milestone 5): not while the item shop is open
+// (ItemShopWindow::IsVisible, 5q); CharacterInfoWindow::ShowInventoryItem(0x6b / 0x5b, 1, 0) (5l-3).
+void OnInventory() {
+    CharacterInfoWindow::Show();
+}
+
+// @0x24cbcc: the arrow at the inventory button now, or once the belt has slid in.
+void ShowInventory(bool lock) {
+    if (!g_effect->active) {
+        OnShowInventory();
+        return;
+    }
+    g_lockInventory = lock;
+    g_inventoryPending = true;
+}
+
+// @0x24d16c
+void RaiseWindow(float z, float seconds) {
+    const float own = g_root->z;
+    if (own != z) {
+        g_raisedZ = z;
+        g_ownZ = own;
+        g_root->SetZ(z);
+        Render::SortRenderLayer(0xe, 1);
+    }
+    g_raiseTime = seconds;
+}
+
 void GetBeltItemLocation(int& x, int& y, int slot) {
     x = g_root->x + g_slots[slot].holder->x;
     y = g_root->y + g_slots[slot].holder->y;
@@ -238,10 +295,8 @@ void Init() {
     Queue()->RegisterTopWindow(g_root);
     g_root->SetVisibility(false);
     g_root->SetPosition(W, H - g_root->h);
-    // OnTweenMove @0x24c674 is empty. OnTweenIn @0x24cb9c: an inventory asked for while the belt
-    // was away (ShowInventory's flag 0x617dbc, milestone 5) opens once the belt is in; nothing
-    // sets the flag before then.
-    g_effect = GUI::CreateMovementEffect(g_root, [] {}, [] {});
+    // OnTweenMove @0x24c674 is empty.
+    g_effect = GUI::CreateMovementEffect(g_root, [] {}, OnTweenIn);
     const int beltSlots = (int)GameState::GetBeltSlotCount();
     g_bg2Slots = GUI::GetWindowTyped<Window>(g_root, "battle_bar_main_bg_2_slots_right");
     g_bg2Slots->SetVisibility(beltSlots != 3);
@@ -252,7 +307,7 @@ void Init() {
     g_barName = GUI::GetWindowTyped<Textfield>(g_root, "text_bar_name");
     g_barSize = GUI::GetWindowTyped<Textfield>(g_root, "text_bar_size");
     g_inventoryClick = GUI::GetWindowTyped<GUI::Button>(g_root, "button_inventory.clickArea");
-    g_inventoryClick->SetOnClick([] {});   // UNVERIFIED (milestone 5): OnInventory (CharacterInfoWindow)
+    g_inventoryClick->SetOnClick(OnInventory);
     g_inventoryClick->SetActionSound("ui_click", 1);
     // Slots: numbering 1..3 for a 3-slot belt, else 2, 3, 1.
     int numbers[3] = {beltSlots == 3 ? 1 : 2, beltSlots == 3 ? 2 : 3, beltSlots == 3 ? 3 : 1};
@@ -304,6 +359,7 @@ void Show() {
     if (!g_root || !GameState::IsPlayerCity()) return;
     if (g_effect->active && g_effect->hideAtEnd) g_root->SetVisibility(false);
     if (GameState::TutorialStep() <= 0x13 || BuildingPlacement::Activated()) return;
+    g_arrowCallback = 0;
     Queue()->MoveWindowOnTop(true);
     const int W = GUI::ScreenWidth(), H = GUI::ScreenHeight();
     if (!g_root->visibleSelf) {
@@ -318,7 +374,6 @@ void Show() {
     g_craftBg->SetEnabled(craftOn);
     g_buffs->SetVisibility(true);
     g_root->PreloadTextures();   // GUI::PreloadWindow
-    // UNVERIFIED (5l): the original also clears the raised belt's timer (RaiseWindow's) here.
 }
 
 // @0x24d1d4
@@ -334,8 +389,10 @@ void SetZ(float) {
     if (!g_root) return;
     float z = HUDWindow::GetZ();
     if (g_craftBar) g_craftBar->SetZ(z + 0.001f);
-    g_root->SetZ(z);
     g_buffs->SetZ(z);
+    // Over the open character window the belt goes in front of it (an item can be dragged in).
+    if (CharacterInfoWindow::CanRaiseBelt()) z = CharacterInfoWindow::GetZ() - 0.085f;
+    g_root->SetZ(z);
     if (!g_effect->active) {
         const int W = GUI::ScreenWidth(), H = GUI::ScreenHeight();
         if (!g_root->visibleSelf) g_root->SetPosition(W, (g_offsetY + H) - g_root->h);
@@ -557,8 +614,7 @@ void UpdateContents() {
 }
 
 // @0x24f744. UNVERIFIED (milestone 5): the profession point's flight to the crafting bar
-// (ShowProfessionPoint), an item dragged out of the belt, the raised window's timer (RaiseWindow),
-// and the flight's end at step 0x88 (CharacterInfoWindow::Hide).
+// (ShowProfessionPoint), an item dragged out of the belt.
 void Update(float dt) {
     if (!g_root) return;
     if (g_hover->shownHover) {
@@ -584,6 +640,13 @@ void Update(float dt) {
     }
     g_buffs->SetPosition(g_root->x + g_inventoryIcon->x + g_inventoryIcon->w, g_root->y);
     g_buffs->Update(dt);
+    if (g_raiseTime > 0.f) {
+        g_raiseTime -= dt;
+        if (g_raiseTime <= 0.f) {
+            g_root->SetZ(g_ownZ);
+            Render::SortRenderLayer(0xe, 1);
+        }
+    }
     if (g_flyActive && g_flySprite) {
         const float t = g_flyTime / g_flyDuration;
         if (t < 1.f) {
@@ -601,7 +664,7 @@ void Update(float dt) {
             if (g_flySlot != -1) g_slots[g_flySlot].soldierFine->SetVisibility(true);
             g_flySlot = -1;
             if (GameState::secondTutorial == 0x88) {
-                // UNVERIFIED (milestone 5, 5l): CharacterInfoWindow::Hide
+                CharacterInfoWindow::Hide();
                 GUI::SetInteractionLock(false);
                 GameState::secondTutorial = 0x206;
             } else if (GameState::secondTutorial == 0x99) {
@@ -614,8 +677,7 @@ void Update(float dt) {
     // The second tutorial's arrows at the inventory button (0xa3) and at slot 0 (0x86).
     int& st = GameState::secondTutorial;
     if (st == 0xa3) {
-        // UNVERIFIED (milestone 5): the arrow's tap is OnInventory (CharacterInfoWindow).
-        BuildingHovers::SetArrowClickCallback(new GUI::Callback([] {}));
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnInventory));
         GUI::SetInteractionObjectLock(g_inventoryClick, nullptr);
         Window* w = g_inventoryIcon;
         BuildingHovers::ArrowAt((float)(g_root->x + w->x), (float)(w->y + g_root->y - 0xf + w->h / 2), false, true,

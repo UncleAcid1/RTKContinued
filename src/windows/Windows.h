@@ -337,15 +337,26 @@ void EnableLastHelpItem();                  // @0x2f46dc
 void RunLastHelpItem();                     // @0x2f6568
 }
 
-// CharacterInfoWindow: the hero's equipment and inventory window. Only the stat part of
-// UpdateContents is ported yet (milestone 5: the window itself).
+// CharacterInfoWindow: the hero's equipment and inventory window (windows/CharacterInfoWindow.cpp).
+// 5l-1: the window opens and closes; its contents (5l-2) and the item moves (5l-3) come next.
+class ItemHoverWindow;
 namespace CharacterInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CharacterInfo" (FUN_0027ca3c)
+void Init();                                // @0x27dc98
+void Show();                                // @0x285840 (in the city, not in an arena)
+void Hide();                                // @0x27d94c
+bool IsVisible();                           // @0x27aeb4
+float GetZ();                               // @0x27aea0
+bool CanRaiseBelt();                        // @0x27aec8 open, and not another player's equipment (7)
+void ShowInventoryTab(unsigned tab);        // @0x28407c
+void RemovePreviewItems();                  // @0x27afc4
+// @0x27bae4: the potion the card was opened for flies to the belt's buff row.
+void ShowBuffAnimation(ItemHoverWindow* hover);
 // @0x28047c, the stat part: the player's stats again from its level (ResetStats, the HP bar too),
 // its soldiers' (not HP), then the effects of the unbroken equipment (bindings 0..9) and
 // customisations (1..9), the complete sets and the running buffs. Map::Load runs it, as do the
 // item windows.
 void UpdateContents();
-inline bool IsVisible() { return false; }   // (0x27aeb4) the window itself: milestone 5
 }
 
 // The world map (windows/GlobalMapWindow.cpp).

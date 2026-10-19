@@ -112,6 +112,7 @@ bool IsTabletVersion() { return (g_screenH < g_screenW ? g_screenH : g_screenW) 
 bool IsHighDPIVersion() { return g_highDPI; }
 bool IsSmallScreenVersion() { return g_smallScreen; }
 float GetHighDPIScaleFactor() { return g_highDPIScale; }
+void SetHighDPIScaleFactor(float f) { g_highDPIScale = f; }
 float GetHudScaleFactor() { return g_highDPI ? g_hudScale : 1.f; }
 float GetHoverScaleFactor(float normal, float scale) { return g_highDPI ? scale * g_hoverScale : normal; }
 int GetVerticalCenter(int h) { return (g_screenH - h) / 2; }
