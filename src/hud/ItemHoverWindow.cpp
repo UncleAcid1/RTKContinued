@@ -923,8 +923,8 @@ void ItemHoverWindow::OnDrink() {
     if (inf->type == 0xe) {
         if (inf->meta && inf->meta->FindChildData(kExpBuffTime))
             GameState::ActivateItemBuff(item->id, inf->meta->FindChildData(kExpBuffTime)->GetInt());
-        // UNVERIFIED (milestone 5): AIPlayer::PlayBuffAnimation (vfunc +0x158: (0, 1, 1, 1)) and
-        // CharacterInfoWindow::ShowBuffAnimation(this).
+        if (AIPlayer* ai = dynamic_cast<AIPlayer*>(player->GetAI())) ai->PlayBuffAnimation(0, 1.f, 1.f, 1.f);
+        // UNVERIFIED (milestone 5): CharacterInfoWindow::ShowBuffAnimation(this).
     } else if (inf->meta) {
         inf->meta->OnApplyItemEffect(player);
     }

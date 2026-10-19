@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5j-2 (spells: AISpell + AIWarrior's magic). (5j-1 done 2026-10-18: Spells + Entity's magic; 5j is split in 5j-1 .. 5j-3, see the roadmap; 5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5j-3 (the rage bar's rest in BottomBattleWindow). (5j-2 done 2026-10-18: AISpell, AIWarrior's magic, PlayBuffAnimation, ParticlePresets::OnSpell's delay; 5j-1 done 2026-10-18: Spells + Entity's magic; 5j is split in 5j-1 .. 5j-3, see the roadmap; 5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -2001,9 +2001,23 @@ Milestones:
                    = the view goes to the epicenter, SetDefenseMagic, SetEffectOwner, OnBlockMagic,
                    OnAttackMagic / OnDeathMagic empty). VERIFIED: builds, the game loads 9 spells; no
                    caller yet (the AI side is 5j-2), so the damage code is untested.
-              5j-2 [ ] AISpell (AnimEnded), AIWarrior's magic (StartedMagicAttack(Area), MagicAttack(Area)
-                   (Finished), FindEpicenterPos, MagicHit / MagicBlock / MagicDeath),
-                   AIPlayer::PlayBuffAnimation.
+              5j-2 [x] (2026-10-18) AISpell (AIState.h: AnimEnded empty; factory state 10),
+                   AIWarrior's magic (AICombat.cpp: StartedMagicAttack(Area), MagicAttack = one target,
+                   MagicAttackArea = the 5x5 diamond on the staggered grid with its four range
+                   patterns (a fifth / half / all of the damage), MagicAttackAreaFinished pays the
+                   mana once, MagicHit / MagicBlock / MagicDeath with their delay timers (f90 / f94 /
+                   f8c, already run by AIWarrior::Update), FindEpicenterPos), the tail of
+                   AIWarrior::Hit (a buff potion's RANDOM_SPELL strikes the monster the hero hit),
+                   AIPlayer::PlayBuffAnimation (wired in ItemHoverWindow's potion use),
+                   ParticlePresets::OnSpell (PORT: only the returned delay per spell, 0 / .9 / 1 /
+                   .25 / .25 / .75 / 1.75 / .25 / .5; the particles are milestone 6).
+                   VERIFIED (map 15, RTK_SPELL in tools/test_hook.txt: slot 1..3 one target, 11..13
+                   area, 99 = a 0.5 s delayed hit of spell 3; RTK_SPELLAT=<frame>): spell 1 takes 3 HP
+                   and 100 mana; at 1 HP the monster dies (MagicDeath, dead=1); the area spell hits
+                   once and pays once; a delayed hit lands after the wait; slot 2 without its quest
+                   prints the original's "no AP" error. NOT seen: the hover texts and the spell
+                   effects (only the last frame is screenshotted); nothing calls MagicAttack yet
+                   except these tests (BaseCombat::SpellCast / the rage bar are 5j-3 / 5k).
               5j-3 [ ] the rage bar's rest in BottomBattleWindow (OnSpell, OnAutoCast, OnBotAutoCast,
                    OnManaBar, OnShowManaPotion, EnableFuryGlow, HelpWithSpell, ManaProgress::LoadFrom,
                    its static inits).

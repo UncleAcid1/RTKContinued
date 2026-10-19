@@ -899,9 +899,10 @@ AIBaseState* CreateAIState(int state, Entity* e) {
     case 7: return new AIGoblin(e);
     case 8: return new AIFarmerSmall(e);
     case 9: return new AIEnemy(e);
+    case 10: return new AISpell(e);
     default:
-        // UNVERIFIED (milestone 5): AISpell (10) and AIPlayerBot (11) are not ported yet; those
-        // entities get the base behaviour.
+        // UNVERIFIED (milestone 5): AIPlayerBot (11) is not ported yet; those entities get the base
+        // behaviour.
         return new AIBaseState(e);
     }
 }

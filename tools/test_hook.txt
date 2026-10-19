@@ -39,6 +39,14 @@
                 if (t == "fight" && foe) pl->GetAI()->ClickedEntity(foe);
                 if (t == "aggro" && foe) pl->GetAI()->ClickedTile(foe->tileX + envi("RTK_DX", 2), foe->tileY + envi("RTK_DY", 0), 0, 0);
             }
+            if (envi("RTK_SPELL", 0) && i == envi("RTK_SPELLAT", 200) && foe) {   // RTK_SPELL=slot (1..3) single, 11..13 area
+                int sl = envi("RTK_SPELL", 0); pl->AddAP(1000);
+                std::printf("[t] spell %d on foe hp=%d defMagic=%d ap=%d\n", sl, foe->GetHP(), foe->GetDefenseMagic(), pl->GetAP());
+                if (sl == 99) { foe->GetAI()->linked = pl; foe->GetAI()->MagicHit(0.5f, false, 1.f, false, 3); }
+                else                 if (sl >= 10) { pl->GetAI()->StartedMagicAttackArea(AI::GetWaypoint(foe->tileX, foe->tileY, false)); pl->GetAI()->MagicAttackArea((unsigned)sl - 10); pl->GetAI()->MagicAttackAreaFinished((unsigned)sl - 10); }
+                else { pl->GetAI()->StartedMagicAttack(foe); pl->GetAI()->MagicAttack((unsigned)sl); }
+                std::printf("[t] ap after=%d\n", pl->GetAP());
+            }
             if (const char* tl = getenv("RTK_TILE")) { int f, x, y; if (std::sscanf(tl, "%d:%d:%d", &f, &x, &y) == 3 && f == i) { std::printf("[t] tap tile %d,%d\n", x, y); pl->GetAI()->ClickedTile(x, y, 0, 0); } }
             if (const char* cl = getenv("RTK_COLLECT")) { int f = 0, n = 0; while (std::sscanf(cl, "%d%n", &f, &n) == 1) { if (f == i) { std::printf("[t] collect one\n"); BuildingHovers::CollectOne(0); } cl += n; if (*cl == ',') ++cl; } }
             if (i == envi("RTK_WIN", -1)) { std::printf("[t] win: the enemies hang by a thread\n"); for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k) if (e->IsEnemy() && !e->IsDead()) e->SetHP(1); }

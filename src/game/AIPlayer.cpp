@@ -248,6 +248,15 @@ AIPlayer::~AIPlayer() {
     delete hidden;
 }
 
+void AIPlayer::PlayBuffAnimation(unsigned, float, float, float) {
+    Animation* current = entity->GetCurrentAnimation();
+    if (!current || current->name.find("idle") == std::string::npos) return;
+    // The potion's glow (Particles::BuffParticleSystem on his chest, Entity::SetParticleEmitter):
+    // milestone 6.
+    entity->SetDirection(0);
+    entity->SetAnimationOnce("cast", false, false, false, false);
+}
+
 void AIPlayer::Update(float dt) {
     g_fogTime += dt;
     if (0.25f < g_fogTime) {

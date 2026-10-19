@@ -34,6 +34,7 @@ add_executable(rtk
   src/game/Fog.cpp
     src/game/Locations.cpp
     src/game/Spells.cpp
+    src/game/ParticlePresets.cpp
     src/game/MapCamera.cpp
     src/game/MapDecor.cpp
     src/game/MapSpawn.cpp

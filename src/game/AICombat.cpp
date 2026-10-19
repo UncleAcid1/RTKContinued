@@ -1,6 +1,7 @@
 // The fighters' side of a fight: AIWarrior's attack, hit, block and death (the combat slots of
 // AIState.h) and AIEnemy::CheckAggro, which starts a fight when the hero stops in a monster's zone.
 // Port of AIWarrior @0xf2144..0xf4b78 (combat part) and AIEnemy::CheckAggro @0xea444.
+#include <algorithm>
 #include <cstdio>
 #include <string>
 
@@ -15,10 +16,16 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Items.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
+#include "game/ParticlePresets.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
+#include "game/Spells.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "hud/HUD.h"
 #include "windows/Windows.h"
 
@@ -153,9 +160,26 @@ void AIWarrior::Hit(float delay) {
         // ParticlePresets::OnCriticalHit(critical_fx, from the attacker to it) for an enemy with
         // "critical_fx", on a critical hit or outside second-tutorial step 0x100: milestone 6.
     }
-    // UNVERIFIED (milestone 5, spells): hit by the hero while a buff item with a spell chance
-    // (type 0xe, meta 0x2f, GameState::GetItemBuffRemainingTime) runs, the spell may strike too
-    // (Entity::OnAttackMagic, WillDieMagic, MagicHit / MagicDeath).
+    // The hero's blow may bring a spell with it: each running buff potion (type 0xe) with a
+    // RANDOM_SPELL (0x2f: spell, percent chance) strikes the one he hit.
+    if (!linked->player) return;
+    for (unsigned i = 0; Items::ItemInfo* item = Items::EnumItemInfo(i); ++i) {
+        if (item->type != 0xe || !item->meta) continue;
+        const MetaData* random = item->meta->FindChildData(kExpRandomSpell);
+        if (!random || GameState::GetItemBuffRemainingTime(item->id) == 0) continue;
+        unsigned spellId = (unsigned)random->GetChild(0)->GetInt();
+        int chance = random->GetChild(1)->GetInt();
+        if (Rand48::lrand48() % 100 >= chance) continue;
+        linked->OnAttackMagic(entity, 0);
+        Spells::SpellInfo* spell = Spells::GetSpellInfo(spellId);
+        if (!spell) continue;
+        float delay = ParticlePresets::OnSpell(spell->id, entity->worldX, entity->worldY, false);
+        if (spell->id == 7) entity->SetUpdateSpeedScale(0.1f);
+        if (!entity->WillDieMagic(linked, spell, 1.f, false))
+            entity->GetAI()->MagicHit(delay, false, 1.f, true, spell->id);
+        else
+            entity->GetAI()->MagicDeath(delay, false, 1.f, true, spell->id);
+    }
 }
 
 void AIWarrior::Block(float delay) {
@@ -201,6 +225,229 @@ void AIWarrior::ProjectileLanded(int kind) {
     deathDamage = 1;
     hitTimer = blockTimer = deathTimer = 0.f;
     linked->GetAI()->ChangeState(0);
+}
+
+// ------------------------------------------------------------------------------- AIWarrior: spells
+
+namespace {
+
+// The area spells' 5x5 diamonds by "range" 0..3 (0x5791a4, 25 bytes each, row by row): 0 not hit,
+// 1 a fifth of the damage, 2 half, 3 all.
+const unsigned char kAreaPatterns[4][25] = {
+    {0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 2, 3, 2, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, 0, 0, 0, 1, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 1, 0, 0, 0, 1, 0, 0},
+    {0, 1, 1, 1, 0, 1, 2, 2, 2, 1, 1, 2, 3, 2, 1, 1, 2, 2, 2, 1, 0, 1, 1, 1, 0},
+    {1, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 1},
+};
+
+// The styles of a spell's two hover texts (its name's, its damage's) by its slot: fire 8 / 9,
+// lightning 10 / 11, arcane 12 / 13, else (no spell) 4 / 9.
+void SpellStyles(const Spells::SpellInfo* spell, int& nameStyle, int& numberStyle) {
+    nameStyle = 4;
+    numberStyle = 9;
+    if (!spell) return;
+    if (spell->slot == 1) nameStyle = 8, numberStyle = 9;
+    else if (spell->slot == 2) nameStyle = 10, numberStyle = 11;
+    else if (spell->slot == 3) nameStyle = 12, numberStyle = 13;
+}
+
+// The spell's name over e (a missing spell shows "damage_critical_hit", as the original does).
+const char32_t* SpellTitle(const Spells::SpellInfo* spell) {
+    return StringTable::GetString(spell ? spell->name : "damage_critical_hit");
+}
+
+// The spell's name over e's head and its damage under it.
+void ShowSpellDamage(Entity* e, const std::u32string& title, int nameStyle, int damage, int numberStyle) {
+    float x = e->worldX, y = HeadY(e);
+    int h = BuildingHovers::ShowTextHoverWithStyle(x, y, title.c_str(), nameStyle, 1.5f, 50.f, false, false);
+    BuildingHovers::ShowTextHoverWithStyle(x, ((float)h + y) - 20.f, ToWideString(-damage), numberStyle, 1.5f,
+                                           50.f, false, false);
+}
+
+}  // namespace
+
+void AIWarrior::StartedMagicAttackArea(AI::Waypoint* wp) {
+    lastHpTimer = hitTimer = deathTimer = blockTimer = f90 = f8c = f94 = 0.f;
+    f7c = 0;
+    f78 = f79 = false;
+    f74 = 1.f;
+    epicenter = wp;
+    deathDamage = 1;
+}
+
+void AIWarrior::StartedMagicAttack(Entity* target) {
+    lastHpTimer = hitTimer = deathTimer = blockTimer = f90 = f8c = f94 = 0.f;
+    linked = target;
+    deathDamage = 1;
+    target->GetAI()->linked = entity;
+    target->GetAI()->ChangeState(3);
+}
+
+void AIWarrior::FindEpicenterPos(const char* pattern, int& x, int& y) {
+    for (int row = 0; row < 5; ++row, pattern += 5)
+        for (int col = 0; col < 5; ++col)
+            if (pattern[col] == 2) {
+                x = col;
+                y = row;
+                return;
+            }
+}
+
+void AIWarrior::MagicAttack(unsigned slot) {
+    TurnTo(AI::GetWaypoint(linked->tileX, linked->tileY, false));
+    entity->OnAttackMagic(linked, slot);
+    Spells::SpellInfo* spell = Spells::GetBestSpellForSlot(slot, (uint32_t)entity->GetAP(), true);
+    if (!spell) {
+        // ErrorReporter::Printf
+        std::printf("ERROR: AIWarrior::MagicAttack() Spell from slot %d was queued, but there is no AP (%d) to cast it\n",
+                    (int)slot, entity->GetAP());
+        return;
+    }
+    float delay = ParticlePresets::OnSpell(spell->id, linked->worldX, linked->worldY, false);
+    if (spell->id == 7) linked->SetUpdateSpeedScale(0.1f);
+    Tasks::CompleteSubtask(Tasks::kCastSpell, spell->id, 1);
+    AIBaseState* target = linked->GetAI();
+    if (linked->GetDefenseMagic() < BRand::Percent()) {
+        if (!linked->WillDieMagic(entity, spell, 1.f, false))
+            target->MagicHit(delay, true, 1.f, false, spell->id);
+        else
+            target->MagicDeath(delay, true, 1.f, false, spell->id);
+    } else {
+        target->MagicBlock(delay, true, 1.f, false, spell->id);
+    }
+}
+
+void AIWarrior::MagicAttackArea(unsigned slot) {
+    if (!epicenter) return;
+    TurnTo(epicenter);
+    Spells::SpellInfo* spell = Spells::GetBestSpellForSlot(slot, (uint32_t)entity->GetAP(), true);
+    if (!spell) return;
+    // (Spell 7 plays its effect on each monster instead, below.)
+    float delay = 0.f;
+    if (spell->id != 7) delay = ParticlePresets::OnSpell(spell->id, epicenter->wx, epicenter->wy, false);
+    Tasks::CompleteSubtask(Tasks::kCastSpell, spell->id, 1);
+    entity->OnAttackMagic(nullptr, slot);
+    const unsigned char* pattern = kAreaPatterns[spell->range];
+    int ex = 0, ey = 0;
+    FindEpicenterPos((const char*)pattern, ex, ey);   // (the original never uses the result)
+
+    // The diamond's tiles on the staggered grid: five columns of five tiles, each column starting
+    // one row lower than the last; the first sits 4 rows above the epicenter. Odd rows are half a
+    // tile to the right, so x steps up after an odd row.
+    auto odd = [](int n) { return ((n < 0 ? -n : n) & 1) != 0; };
+    int y0 = epicenter->y;
+    int base = epicenter->x + (odd(y0) ? 1 : 0);
+    int start = base - 1, alt = base - 2;
+    if (odd(y0 - 1)) {
+        start = base;
+        alt = base - 1;
+    }
+    int rowX = (y0 - 2) % 2 != 1 ? alt : start;
+    if ((y0 - 3) % 2 == 1) ++rowX;
+    int rowY = y0 - 4;
+    for (int row = 0; row < 5; ++row) {
+        int x = rowX, y = rowY;
+        for (int col = 0; col < 5; ++col, ++y) {
+            AI::Waypoint* wp = AI::GetWaypoint(x, y, false);
+            Entity* target = EntityManager::GetEntityAtXY(x, y);
+            unsigned char share = pattern[row * 5 + col];
+            if (target && wp && target->IsEnemy() && share != 0) {
+                float mult = share == 2 ? 0.5f : share == 1 ? 0.2f : 1.f;
+                AIBaseState* ai = target->GetAI();
+                ai->linked = entity;
+                ai->ChangeState(3);
+                if (spell->id == 7) {
+                    target->SetUpdateSpeedScale(0.1f);
+                    delay = ParticlePresets::OnSpell(spell->id, target->worldX, target->worldY, false);
+                }
+                // UNVERIFIED (milestone 5, the PvP tutorial): outside tutorial 0x80 the spell
+                // always lands.
+                if (target->GetDefenseMagic() < BRand::Percent() || GameState::tutorial != 0x80) {
+                    if (!target->WillDieMagic(entity, spell, mult, false))
+                        ai->MagicHit(delay, false, mult, false, spell->id);
+                    else
+                        ai->MagicDeath(delay, false, mult, false, spell->id);
+                } else {
+                    ai->MagicBlock(delay, false, 1.f, false, spell->id);
+                }
+            }
+            if (y % 2 == 1) ++x;
+        }
+        if (odd(rowY)) ++rowX;
+        --rowX;
+        ++rowY;
+    }
+}
+
+void AIWarrior::MagicAttackAreaFinished(unsigned slot) {
+    if (Spells::SpellInfo* spell = Spells::GetBestSpellForSlot(slot, (uint32_t)entity->GetAP(), true))
+        entity->AddAP(-(int)spell->cost);
+}
+
+void AIWarrior::MagicHit(float delay, bool payMana, float mult, bool flag, unsigned spellId) {
+    if (delay > 0.f) {
+        f90 = delay;
+        f78 = payMana;
+        f79 = flag;
+        f74 = mult;
+        f7c = (int)spellId;
+        return;
+    }
+    entity->SetUpdateSpeedScale(1.f);
+    if (!entity->AnimExists("gethit")) {
+        AnimEnded();
+        entity->AnimationEnded();
+    } else {
+        entity->SetAnimationOnce("gethit", false, false, false, true);
+    }
+    Spells::SpellInfo* spell = Spells::GetSpellInfo(spellId);
+    int resisted = 0;
+    int damage = entity->OnHitMagic(linked, spell, resisted, mult, flag);
+    if (spell && payMana) linked->AddAP(-(int)spell->cost);
+    int nameStyle, numberStyle;
+    SpellStyles(spell, nameStyle, numberStyle);
+    // A spell the map resists is titled "weakened <spell>".
+    std::u32string title = SpellTitle(spell);
+    if (resisted != 0) title = std::u32string(StringTable::GetString("effect_text_weakened")) + U' ' + title;
+    ShowSpellDamage(entity, title, nameStyle, damage, numberStyle);
+}
+
+void AIWarrior::MagicBlock(float delay, bool payMana, float mult, bool flag, unsigned spellId) {
+    if (delay > 0.f) {
+        f94 = delay;
+        f78 = payMana;
+        f79 = flag;
+        f74 = mult;
+        f7c = (int)spellId;
+        return;
+    }
+    Spells::SpellInfo* spell = Spells::GetSpellInfo(spellId);
+    if (spell && payMana) linked->AddAP(-(int)spell->cost);
+    entity->SetAnimationOnce("block", false, false, false, true);
+    entity->OnBlockMagic(linked);
+    BuildingHovers::ShowTextHoverWithStyle(entity->worldX, HeadY(entity), StringTable::GetString("EFFECT_TEXT_RESIST"),
+                                           1, 1.5f, 50.f, false, false);
+}
+
+void AIWarrior::MagicDeath(float delay, bool payMana, float mult, bool flag, unsigned spellId) {
+    if (delay > 0.f) {
+        f7c = (int)spellId;
+        f78 = payMana;
+        f74 = mult;
+        f79 = flag;
+        f8c = delay;
+        deathDamage = entity->GetHP();
+        return;
+    }
+    Spells::SpellInfo* spell = Spells::GetSpellInfo(spellId);
+    if (spell && payMana) linked->AddAP(-(int)spell->cost);
+    int nameStyle, numberStyle;
+    SpellStyles(spell, nameStyle, numberStyle);
+    // (The damage shown is the HP it had when the spell was cast.)
+    ShowSpellDamage(entity, SpellTitle(spell), nameStyle, std::max(deathDamage, entity->GetHP()), numberStyle);
+    ChangeState(4);
+    entity->SetAnimationOnce("death", false, false, true, true);
+    entity->OnDying(linked);
 }
 
 // --------------------------------------------------------------------------------------- AIEnemy

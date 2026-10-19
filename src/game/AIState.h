@@ -336,13 +336,26 @@ public:
     void Update(float dt) override;                   // +0x4c @0xf3660
     void WalkTo(int x, int y) override;               // +0x6c @0xf2328
     void StartedAttack(Entity* target) override;      // +0x88 @0xf35cc
+    void StartedMagicAttack(Entity* target) override; // +0x8c @0xf21dc
+    void StartedMagicAttackArea(AI::Waypoint* wp) override;   // +0x90 @0xf208c
     void AddedToCombat() override;                    // +0x94 @0xf27c8
     void RemovedFromCombat() override;                // +0x98 @0xf2760
     // +0x9c @0xf4b78: turns to the target, swings, gives the hero fury and rolls the outcome.
     void Attack(bool forceBlock) override;
+    // +0xa0 @0xf3c48: the hero's single-target spell of `slot` (the dearest he can pay) on his target.
+    void MagicAttack(unsigned slot) override;
+    // +0xa4 @0xf3ed0: the area spell on the epicenter: every monster in its 5x5 diamond is hit by
+    // its tile's share of the damage.
+    void MagicAttackArea(unsigned slot) override;
+    void MagicAttackAreaFinished(unsigned slot) override;   // +0xa8 @0xf358c the mana is paid once
     void Hit(float delay) override;                   // +0xac @0xf4400
+    // +0xb0 @0xf2f2c, +0xb8 @0xf2e08, +0xc0 @0xf2a34: the spell reaches this fighter after `delay`
+    // seconds (0: now). `payMana`: the caster pays the spell's cost; `mult` scales its damage.
+    void MagicHit(float delay, bool payMana, float mult, bool flag, unsigned spell) override;
     void Block(float delay) override;                 // +0xb4 @0xf2c54
+    void MagicBlock(float delay, bool payMana, float mult, bool flag, unsigned spell) override;
     void Death(float delay) override;                 // +0xbc @0xf27d0
+    void MagicDeath(float delay, bool payMana, float mult, bool flag, unsigned spell) override;
     void AnimEnded() override;                        // +0xc8 @0xf48c4
     void ProjectileLanded(int kind) override;         // +0xcc @0xf2144
     void WalkCompleted() override;                    // +0xd8 @0xf240c
@@ -352,9 +365,13 @@ public:
     bool IsWorking() override { return GetState() == 0x1e; }   // +0x114 @0xf20dc
     void StopMovement() override;                     // +0x140 @0xf2244
 
-    float f74 = 1.f;              // +0x74 (magic hit argument)
-    bool f78 = true, f79 = false; // +0x78 +0x79
-    int f7c = 0;                  // +0x7c
+    // @0xf20fc: the first cell of value 2 in a 5x5 spell pattern (row by row) as column / row.
+    void FindEpicenterPos(const char* pattern, int& x, int& y);
+
+    AI::Waypoint* epicenter = nullptr;   // +0x6c the area spell's target tile
+    float f74 = 1.f;              // +0x74 the delayed spell's damage multiplier
+    bool f78 = true, f79 = false; // +0x78 +0x79 the delayed spell's payMana / flag
+    int f7c = 0;                  // +0x7c the delayed spell's id
     float f8c = 0.f, f90 = 0.f, f94 = 0.f;   // +0x8c +0x90 +0x94 the magic death / hit / block timers
 };
 
@@ -409,6 +426,9 @@ public:
     void AutoInteraction() override { autoInteraction = true; }   // +0x144 @0xee398
     void OnMapUnload() override;                      // +0x150 @0xee644
     void ProcessAction();                             // @0xef6e0 the action of the tap, on arrival
+    // +0x158 @0xee650: an idle hero drinks a buff potion's brew (his "cast" animation); the
+    // arguments are unused. PORT: the buff particles (Particles::BuffParticleSystem) are milestone 6.
+    virtual void PlayBuffAnimation(unsigned, float, float, float);
     // @0xee7a0: which of d's action points the hero uses.
     unsigned GetBestDecorationActionPoint(Map::Decor* d);
     // @0xee858: the storage goblin appears next to d's action point and takes the job; without a
@@ -423,6 +443,14 @@ public:
     bool autoInteraction = false;       // +0xf0
     HiddenObjects* hidden = nullptr;    // +0xf4 decorations in front of the hero (faded in combat)
     bool movingSquad = false;           // +0xf8 a tap is moving the squad (UnableToWalk retries)
+};
+
+// A spell's entity (AI state 10): a finished animation does nothing; SpellMovement (milestone 5)
+// moves it. Port of AISpell (@0xf1e18..0xf1ed4).
+class AISpell : public AIBaseState {
+public:
+    explicit AISpell(Entity* e) : AIBaseState(e) {}   // @0xf1ea0
+    void AnimEnded() override {}                      // +0xc8 @0xf1e18
 };
 
 // @0xf1f08 AIStateFactory::CreateNewState: 0 AIBaseState, 1 AIWarrior, 2 AIPlayer, 3/4 AIWorker,
