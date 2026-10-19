@@ -2045,9 +2045,42 @@ uint32_t GetChestItemReceivedCount(uint32_t id) {
 
 void FinishDailyChestItems() { g_dailyChestProcessing = false; }
 uint32_t GetProcessedChest() { return g_processedChest; }
+void SetProcessedChest(uint32_t chest) { g_processedChest = chest; }
 void SetDailyChestFailure(bool failed) { g_dailyChestFailure = failed; }
 bool GetDailyChestFailure() { return g_dailyChestFailure; }
-void AddDailyChestItem(uint32_t, uint32_t, ResourceType, uint32_t) {}
+void AddDailyChestItem(uint32_t item, uint32_t object, ResourceType type, uint32_t amount) {
+    ChestsWindow::AddRewardItem(item, object, (uint32_t)type, (int)amount);
+}
+
+// A purchase waiting to be handed out (PaymentItemInfo, 0x4c bytes; the vector 0x61205c). The
+// state was set by the real-money store (Java mcPayedForItem): always 0 in the port.
+namespace {
+struct PaymentItemInfo {
+    char sku[0x40] = {};          // +0x00
+    uint32_t state = 0;           // +0x40
+    uint32_t chest = 0;           // +0x44
+    uint32_t f48 = 0;             // +0x48
+};
+std::vector<PaymentItemInfo> g_payments;
+}  // namespace
+
+void AddItemPayment(const char* sku, uint32_t state, uint32_t chest) {
+    g_payments.push_back(PaymentItemInfo());
+    g_payments.back().state = state;
+    g_payments.back().chest = chest;
+    std::snprintf(g_payments.back().sku, sizeof g_payments.back().sku, "%s", sku);   // (strcpy)
+}
+
+// (A taken one is replaced by the last, which is tried next.)
+void UpdatePaymentItems(float) {
+    for (unsigned i = 0; i < g_payments.size(); ++i) {
+        if (g_payments[i].state != 0) continue;
+        if (!ChestsWindow::OnChestBought(g_payments[i].sku, g_payments[i].chest)) continue;
+        g_payments[i] = g_payments.back();
+        g_payments.pop_back();
+        --i;
+    }
+}
 
 bool GetCampaignCompletionStatus(uint32_t campaign) { return g_campaignCompletion[campaign] != 0; }
 void SetCampaignCompletionStatus(uint32_t campaign) { g_campaignCompletion[campaign] = 1; }

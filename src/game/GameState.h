@@ -137,13 +137,19 @@ uint32_t GetChestBuildingReceivedCount(uint32_t id);             // @0x198c08
 void SetChestItemReceivedCount(uint32_t id, uint32_t count);     // @0x198cc0
 uint32_t GetChestItemReceivedCount(uint32_t id);                 // @0x198cfc
 // The daily chest: on the original a server request (SendDailyChestRequest, online) that sets the
-// chest and its items; offline nothing sets them.
+// chest and gives its items; offline ChestsWindow rolls it (SetProcessedChest, AddDailyChestItem).
 void FinishDailyChestItems();             // @0x191230 the request is no longer processing
 uint32_t GetProcessedChest();             // @0x191248
+// PORT (offline): the chest being opened (SendDailyChestRequest's first argument in the original).
+void SetProcessedChest(uint32_t chest);
 void SetDailyChestFailure(bool failed);   // @0x19125c
 bool GetDailyChestFailure();              // @0x191270
-// @0x191edc: empty in this build (the server's items came through FileManager).
-void AddDailyChestItem(uint32_t chest, uint32_t item, ResourceType type, uint32_t amount);
+// @0x191edc: a cell of the chest's result: an item, an object or a resource (ChestsWindow::AddRewardItem).
+void AddDailyChestItem(uint32_t item, uint32_t object, ResourceType type, uint32_t amount);
+// The purchases waiting to be handed out: a chest bought for crystals (sku, state 0, chest).
+void AddItemPayment(const char* sku, uint32_t state, uint32_t chest);   // @0x19cad0
+// @0x191a74: each frame, a purchase in state 0 goes to ChestsWindow::OnChestBought until it takes it.
+void UpdatePaymentItems(float dt);
 bool GetCampaignCompletionStatus(uint32_t campaign);   // @0x197e54
 void SetCampaignCompletionStatus(uint32_t campaign);   // @0x197e90
 // @0x191ba0: the chapter number of the last completed chapter task (in id order; tasks 0x4e7..0x696

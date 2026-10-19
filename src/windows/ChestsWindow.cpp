@@ -27,6 +27,7 @@
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
@@ -435,14 +436,244 @@ int g_selected = -1;                  // 0x60f1bc the selector chosen (-1: none)
 bool g_tablet = false;                // 0x60f1c0
 float g_rootScale = 1.f;              // 0x60f1c4
 
-// STUBS (5p-5): the actions.
-void OnLuckHolder() {}
-void OnUltimateItem() {}
-void OnRequiredItem(unsigned) {}
-void OnRewardItem(unsigned) {}
-void OnOpen() {}
-void OnReroll() {}
-void OnCollect() {}
+uint32_t GetBestLuckItem(unsigned& luck);
+
+// The item card points at window w (below it) and comes in front.
+void PointHoverAt(const Window* w) {
+    const int x = g_root->x + w->x, y = g_root->y + w->y;
+    g_hover->SetTargetRect(x, y, x + w->w, y + w->h, ItemHoverWindow::kS);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
+
+// @0x289b7c: the luck circle's card: the best luck item owned, or the hint how luck is won.
+void OnLuckHolder() {
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    g_hover->Show();
+    unsigned luck = 0;
+    if (const uint32_t best = GetBestLuckItem(luck)) {
+        g_hover->SetItem(U"", GameState::GetFirstItemByID(best, false), Items::GetItemInfo(best), true, false, nullptr,
+                         true, false, false, false);
+    } else {
+        g_hover->SetText(StringTable::GetString("BONUS_LUCK"), StringTable::GetString("CHESTS_LUCK_HINT"));
+    }
+    PointHoverAt(g_luck.circleHolder);
+}
+
+// @0x289d28: the card of what window w shows: an item, a soldier, a building, a decoration (its
+// description with the time between its taxes) or a resource, with a drop chance (probability).
+void ShowHoverWindow(const Window* w, Items::ItemInfo* item, EntityData* entity, GameData::BuildingData* building,
+                     const GameData::DecorData* deco, uint32_t type, int probability) {
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    g_hover->Show();
+    g_hover->SetProbability(probability);
+    if (item)
+        g_hover->SetItem(StringTable::GetString("BELT_ITEM"), nullptr, item, false, false, nullptr, true, false, false,
+                         false);
+    if (entity) g_hover->SetEntity(nullptr, entity, false, false);
+    if (building)
+        g_hover->SetText(StringTable::GetString(building->name.c_str()),
+                         StringTable::GetStringF("%s_DESC", building->name.c_str()));
+    if (deco) {
+        const std::u32string time = StringTable::GetTimeString((int)deco->collectTime, true);
+        const std::u32string text =
+            SWPrintf(0x100, StringTable::GetStringF("%s_DESC", deco->name.c_str()), {time.c_str()});
+        g_hover->SetText(StringTable::GetString(deco->name.c_str()), text.c_str());
+    }
+    if (type != 0xb) g_hover->SetText(GameState::GetResourceGameName((int)type), nullptr);
+    PointHoverAt(w);
+}
+
+// The soldier an item gives (its meta 0x27), or nullptr.
+EntityData* ItemEntity(Items::ItemInfo* info) {
+    const MetaData* d = info && info->meta ? info->meta->FindChildData(0x27) : nullptr;
+    return d ? EntityFactory::GetEntityByID(d->GetInt()) : nullptr;
+}
+
+// @0x28a1c8: the prize's card (item, soldier or statue, whichever is shown).
+void OnUltimateItem() {
+    if (g_items.ultiItem.root->visible)
+        if (Items::ItemInfo* info = Items::GetItemInfo(g_items.ultiItemId))
+            ShowHoverWindow(g_items.ultiItem.root, info, nullptr, nullptr, nullptr, 0xb, 0);
+    if (g_items.ultiWarrior.root->visible)
+        if (EntityData* e = EntityFactory::GetEntityByID(g_items.ultiEntity))
+            ShowHoverWindow(g_items.ultiWarrior.root, nullptr, e, nullptr, nullptr, 0xb, 0);
+    if (g_items.ultiStatue->visible)
+        if (const GameData::DecorData* deco = GameData::GetDecoration(g_items.ultiStatueId))
+            ShowHoverWindow(g_items.ultiStatue, nullptr, nullptr, nullptr, deco, 0xb, 0);
+}
+
+// @0x28a2ec: the card of one of the set's five.
+void OnRequiredItem(unsigned i) {
+    if (g_items.fiveItems.items[i].root->visible)
+        if (Items::ItemInfo* info = Items::GetItemInfo(g_items.fiveItems.ids[i]))
+            ShowHoverWindow(g_items.fiveItems.items[i].root, info, nullptr, nullptr, nullptr, 0xb, 0);
+    if (g_items.fiveWarriors.slots[i].root->visible)
+        if (EntityData* e = EntityFactory::GetEntityByID(g_items.fiveWarriors.entities[i]))
+            ShowHoverWindow(g_items.fiveWarriors.slots[i].root, nullptr, e, nullptr, nullptr, 0xb, 0);
+    if (g_items.fiveObjects.icons[i]->visible)
+        if (const GameData::DecorData* deco = GameData::GetDecoration(g_items.fiveObjects.ids[i]))
+            ShowHoverWindow(g_items.fiveObjects.icons[i], nullptr, nullptr, nullptr, deco, 0xb, 0);
+}
+
+// @0x28a424: the card of a cell of the reward line (an item, the soldier it gives, a resource or a
+// decoration), with its chance in the preview.
+void OnRewardItem(unsigned i) {
+    const unsigned at = i + g_items.line.scroller.firstIndex;
+    if (at >= g_rewards.size()) return;
+    const RewardItemInfo& r = g_rewards[at];
+    Window* cell = g_items.line.items[i].root;
+    if (cell->visible) {
+        if (Items::ItemInfo* info = Items::GetItemInfo(r.item)) {
+            const MetaData* d = info->meta ? info->meta->FindChildData(0x27) : nullptr;
+            if (!d)
+                ShowHoverWindow(cell, info, nullptr, nullptr, nullptr, 0xb, r.probability);
+            else if (EntityData* e = EntityFactory::GetEntityByID(d->GetInt()))
+                ShowHoverWindow(cell, nullptr, e, nullptr, nullptr, 0xb, r.probability);
+        } else if (r.type != 0xb) {
+            ShowHoverWindow(cell, nullptr, nullptr, nullptr, nullptr, r.type, r.probability);
+        }
+    }
+    if (g_items.line.objects[i]->visible)
+        if (const GameData::DecorData* deco = GameData::GetDecoration(r.decoration))
+            ShowHoverWindow(g_items.line.objects[i], nullptr, nullptr, nullptr, deco, 0xb, r.probability);
+}
+
+// Pays a crystal-sold chest's price (or opens NotEnoughWindow) and queues its purchase
+// (GameState::AddItemPayment; UpdatePaymentItems hands it to OnChestBought). False: not paid.
+// (Billing::LogCBPurchase(0x24, chest, price) and FileManager::OnItemBought(sku, chest, 1, price,
+// "crystals"): purchase statistics, online. A chest not sold for crystals went to Billing::Process,
+// the real-money store: not ported, every store chest is sold for crystals (Chests::Init).)
+bool BuyChest(const Chests::ChestInfo* info) {
+    if (!info->SoldForCrystals()) return true;
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::AddRequirement(GameState::kCrystal, info->crystals);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return false;
+    }
+    GameState::ChangeResourceAmount(GameState::kCrystal, -(int)info->crystals);
+    GameState::AddItemPayment(info->sku ? info->sku : "", 0, info->id);
+    return true;
+}
+
+// @0x294328: buys the chosen chest; its result comes back through OnChestBought.
+void OnOpen() {
+    if (g_selected == -1) return;
+    if (Chests::ChestInfo* info = Chests::GetChestInfo(kChests[g_selected]))
+        if (!BuyChest(info)) return;
+    g_loadingChest = kChests[g_selected];
+    UpdateContents();
+}
+
+// PORT (offline): the original asked the server to open the chest (GameState::SendDailyChestRequest
+// with the chest item's unique id, reroll and the best luck item's luck); its answer
+// (CMyServer::NET_GetServerChest_Callback) gave each item, object and resource to
+// GameState::AddDailyChestItem. Offline the chest is rolled here as the map chests are
+// (Chests::ChestInfo::GenerateContents). UNVERIFIED: the luck is not used (the server's rule for it
+// is unknown).
+void RollChest(uint32_t chest) {
+    GameState::SetProcessedChest(chest);
+    if (Chests::ChestInfo* info = Chests::GetChestInfo(chest)) {
+        Chests::DropItem drops[0x20];
+        const unsigned n = info->GenerateContents(drops, 0x20, false);
+        for (unsigned i = 0; i != n; ++i)
+            GameState::AddDailyChestItem(drops[i].item, drops[i].object, (GameState::ResourceType)drops[i].type,
+                                         (uint32_t)drops[i].amount);
+    }
+    GameState::SetDailyChestFailure(false);
+    GameState::FinishDailyChestItems();
+}
+
+// @0x294438: pays the reroll (the chest's reroll_price, else the setting reroll_cost, at least 1)
+// and rolls the chest again; the new result replaces the one shown. (Billing::LogCBPurchase(0x23,
+// chest, price): online. LoadingInternetWindow with the chest's drop icon: online, not ported.)
+void OnReroll() {
+    // (!GameState::IsDailyChestRequestProcessing(): always so offline.)
+    if (g_selected == -1) return;
+    Chests::ChestInfo* info = Chests::GetChestInfo(kChests[g_selected]);
+    if (!info) return;
+    int price = info->rerollPrice ? (int)info->rerollPrice : Setting("reroll_cost").GetInt();
+    if (price < 1) price = 1;
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)price);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return;
+    }
+    GameState::ChangeResourceAmount(GameState::kCrystal, -price);
+    unsigned luck = 0;
+    GetBestLuckItem(luck);
+    if (GameState::GetFirstItemByID(Chests::GetItemForChest(GameState::GetProcessedChest()), false))
+        RollChest(GameState::GetProcessedChest());
+    UpdateContents();
+}
+
+// @0x28a6c8: the starter chest: bought (its offer run out: the window closes); else the result is
+// collected: the chest item is used up, the sets count what came, and ChestOpenedWindow shows the
+// loot, returning to this chest after.
+void OnCollect() {
+    if (g_starterMode) {
+        if (Items::ItemInfo* item = Items::GetItemInfo(0x2b6)) {
+            const int now = Timer::GetGlobalTime();
+            const int left = Setting("starter_chest_time").GetInt() - (now - (int)GameState::GetItemRecentTime(item->id));
+            if (left <= 0 && !g_starterFlag) {
+                Hide();
+                return;
+            }
+        }
+        if (Chests::ChestInfo* info = Chests::GetChestInfo(g_starterChest))
+            if (!BuyChest(info)) return;
+        g_loadingChest = g_starterChest;
+        return;
+    }
+    Hide();
+    Chests::ChestInfo* info = Chests::GetChestInfo(kChests[g_selected]);
+    if (!info) return;
+    GameState::RemoveItem(Chests::GetItemForChest(info->id), 1);
+    FoundItemsWindow::ClearCollected();
+    FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));
+    // (As the original, every cell also adds its item, 0 for a resource or object, which adds nothing.)
+    for (const RewardItemInfo& r : g_rewards) {
+        if (r.type != 0xb) {
+            FoundItemsWindow::AddCollectedResource((int)r.type, r.amount);
+        } else if (r.object) {
+            GameState::SetChestBuildingReceivedCount(r.object, GameState::GetChestBuildingReceivedCount(r.object) + 1);
+            FoundItemsWindow::AddCollectedItem(r.object + 0x4000, r.amount);
+        } else if (r.decoration) {
+            GameState::SetChestBuildingReceivedCount(r.decoration,
+                                                     GameState::GetChestBuildingReceivedCount(r.decoration) + 1);
+            FoundItemsWindow::AddCollectedItem(r.decoration + 0x8000, r.amount);
+        } else if (r.item) {
+            Items::ItemInfo* it = Items::GetItemInfo(r.item);
+            if (it) {
+                const MetaData* d = it->meta ? it->meta->FindChildData(0x27) : nullptr;
+                EntityData* e = d ? EntityFactory::GetEntityByID(d->GetInt()) : nullptr;
+                if (e)
+                    GameState::SetChestEntityReceivedCount(e->id, GameState::GetChestEntityReceivedCount(e->id) + 1);
+                else
+                    GameState::SetChestItemReceivedCount(r.item, GameState::GetChestItemReceivedCount(r.item) + 1);
+            }
+        }
+        FoundItemsWindow::AddCollectedItem(r.item, r.amount);
+    }
+    ChestOpenedWindow::SetName(info->name);
+    ChestOpenedWindow::SetReturnToChestWindow((uint32_t)g_selected);
+    ChestOpenedWindow::Show();
+}
+
+// @0x28a674: the chest being opened is shown in the inventory (the popup closed first). The OK of
+// Update's popup for a failed daily chest request ("FB_ONLINE_NOTICE", online): no caller offline.
+[[maybe_unused]] void ShowProcessingChestInInventory() {
+    PopupWindow::Hide();
+    if (!g_queue->shown) return;
+    GameState::PlayerItem* p = GameState::GetFirstItemByID(Chests::GetItemForChest(GameState::GetProcessedChest()), false);
+    if (!p) return;
+    Hide();
+    CharacterInfoWindow::Show();
+    CharacterInfoWindow::ShowInventoryItem(p->id, 0, p);
+}
 
 // @0x289aa8
 void OnTweenOut() {
@@ -977,12 +1208,6 @@ void ShowFiveItems(const Setting& set) {
     g_items.ultiItemId = info->id;
 }
 
-// The soldier an item gives (its meta 0x27), or nullptr.
-EntityData* ItemEntity(Items::ItemInfo* info) {
-    const MetaData* d = info && info->meta ? info->meta->FindChildData(0x27) : nullptr;
-    return d ? EntityFactory::GetEntityByID(d->GetInt()) : nullptr;
-}
-
 // A soldier's slot of the sets: its picture and health, the marks hidden.
 void SetWarriorSlot(Shared::WarriorSlotInfo& s, EntityData* e) {
     s.soldierFine->SetTexture(e->side0, true);
@@ -1210,6 +1435,82 @@ WindowManager::FunctionalWindow* Queue() {
 
 bool IsVisible() { return g_queue->shown; }              // @0x2897dc
 void BlockClicks(bool block) { g_blockClicks = block; }  // @0x289914
+
+// @0x28d044: a cell of a chest's result, kept until Update shows it (object: a decoration, else
+// an object that is none).
+void AddRewardItem(uint32_t item, uint32_t object, uint32_t type, int amount) {
+    g_pending.push_back(RewardItemInfo());
+    RewardItemInfo& r = g_pending.back();
+    r.item = item;
+    if (GameData::GetDecoration(object)) r.decoration = object;
+    else r.object = object;
+    r.type = type;
+    r.amount = amount;
+}
+
+// @0x28aa68: a bought chest (UpdatePaymentItems, until it returns true). The starter and special
+// chests (0x35, 0x3f, 0x51..0x53, 0x57..0x59) open at once in ChestOpenedWindow, in the city with
+// no other window up; a store chest becomes its chest item and is opened (RollChest), or, in a
+// fight, the item is shown in the inventory.
+bool OnChestBought(const char* sku, uint32_t chest) {
+    g_blockClicks = false;
+    if (!GameState::IsPlayerCity()) return false;
+    const bool special = chest == 0x35 || chest == 0x3f || chest == 0x51 || chest == 0x52 || chest == 0x53 ||
+                         chest == 0x57 || chest == 0x58 || chest == 0x59;
+    if (special) {
+        // UNVERIFIED (milestone 5t): PlayerCompetitionWindow (PvP) shown is hidden, with the world map.
+        if (g_queue->shown) Hide();
+        // (LoadingInternetWindow::Hide when shown: online.)
+        if (WindowManager::GetShownWindowCount() != 0) return false;
+        if (GameState::IsCombatActive() || GameState::IsCityTutorial()) return false;
+        Chests::ChestInfo* info = Chests::GetChestInfo(chest);
+        if (!info) return false;
+        Chests::DropItem drops[0x20];
+        const unsigned n = info->GenerateContents(drops, 0x20, false);
+        FoundItemsWindow::ClearCollected();
+        FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));
+        // A chest sold for crystals does not give back its crystals.
+        for (unsigned i = 0; i != n; ++i) {
+            const Chests::DropItem& d = drops[i];
+            if (d.type == 0xb) FoundItemsWindow::AddCollectedItem(d.item, d.amount);
+            else if (!info->SoldForCrystals() || d.type != GameState::kCrystal)
+                FoundItemsWindow::AddCollectedResource((int)d.type, d.amount);
+        }
+        ChestOpenedWindow::SetName(info->name);
+        ChestOpenedWindow::SetChestTransactionMode(info->id);
+        ChestOpenedWindow::Show();
+        return true;
+    }
+    if (!g_queue->shown) {
+        // UNVERIFIED (milestone 5t): PlayerCompetitionWindow (PvP) shown is hidden.
+        if (WindowManager::GetShownWindowCount() != 0 || GameState::IsCombatActive() || GameState::IsCityTutorial())
+            return false;
+    }
+    GameState::PlayerItem* p = nullptr;
+    if (const uint32_t item = Chests::GetItemForChest(chest))
+        p = GameState::AddItem(item, 1, false, false, false);
+    else
+        std::fprintf(stderr, "ERROR: ChestsWindow::OnChestBought() Chest %d doesn't have an item ID\n", chest);   // ErrorReporter::Printf
+    // (SaveManager::QueueSendSave, and FileManager::BillingReceived for a chest not sold for
+    // crystals: online.)
+    Map::SafeSave();
+    if (!p) return true;
+    // (GameState::IsDailyChestRequestProcessing() shows the inventory too: never so offline.)
+    if (GameState::IsCombatActive()) {
+        if (g_queue->shown) Hide();
+        CharacterInfoWindow::Show();
+        CharacterInfoWindow::ShowInventoryItem(p->id, 0, p);
+        return true;
+    }
+    unsigned luck = 0;
+    GetBestLuckItem(luck);
+    RollChest(Chests::GetChestForItem(p->id));
+    // (LoadingInternetWindow with the chest's drop icon and "WEBVIEW_LOADING": online.)
+    return true;
+}
+
+// @0x294204: the store's answer (real money, dormant: no caller offline).
+void OnPaymentDataReceived() { UpdateContents(); }
 
 // @0x2942f0
 void SetChest(unsigned index) {

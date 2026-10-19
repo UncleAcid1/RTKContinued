@@ -223,8 +223,8 @@ const char* QueueName(WindowManager::WindowQueue* q) {
 // GameState::Update, WindowManager::Update (the windows waiting to be shown), the window queue, HUDWindow::Update,
 // GUI animations, the movement controllers, BuildingHovers, then when the game is not paused the
 // entities (Entity::SetCurrentTime, EntityManager::Update) and Map::Update, then Render::Update's
-// camera step (the CenterOn glide and ApplyViewportLimit), UpdateTagState and DestroyPendingWindows;
-// its drawing is Render::Frame.
+// camera step (the CenterOn glide and ApplyViewportLimit), UpdateTagState, UpdatePaymentItems and
+// DestroyPendingWindows; its drawing is Render::Frame.
 void Tick(float dt) {
     if (!GameState::IsPaused()) GameState::UpdateHPRegen(dt);
     GameState::Update(dt);
@@ -258,6 +258,7 @@ void Tick(float dt) {
     Render::ApplyViewportLimit();
     Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
     UpdateTagState();
+    GameState::UpdatePaymentItems(dt);
     WindowManager::DestroyPendingWindows();
 }
 

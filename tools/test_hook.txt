@@ -112,6 +112,11 @@
                 }
                 std::printf("[t] chest selected %d visible=%d\n", c, (int)ChestsWindow::IsVisible());
             }
+            if (i == envi("RTK_GIVECRYS", -1)) GameState::AddCrystals(envi("RTK_CRYS", 500));   // 5p-5
+            if (i == envi("RTK_ADVANCE", -1)) Timer::AdvanceGlobalTime((uint32_t)envi("RTK_ADV", 864000));   // 5p-5: the starter offer runs out
+            if (i == envi("RTK_LUCKITEM", -1)) GameState::AddItem((uint32_t)envi("RTK_LUCKID", 0), 1, false, false, false);   // 5p-5: a luck item owned
+            for (const char* key : {"RTK_BUYCHK", "RTK_BUYCHK2", "RTK_BUYCHK3"})   // 5p-5: a purchase's state
+                if (i == envi(key, -1)) std::printf("[t] buy f=%d crystals=%d items %u %u %u %u starter694=%u processed=%u chests=%d opened=%d found=%d char=%d\n", i, GameState::GetResourceAmount(GameState::kCrystal), GameState::GetItemAmount(756, false), GameState::GetItemAmount(757, false), GameState::GetItemAmount(758, false), GameState::GetItemAmount(759, false), GameState::GetItemAmount(694, false), GameState::GetProcessedChest(), (int)ChestsWindow::IsVisible(), (int)ChestOpenedWindow::IsVisible(), (int)FoundItemsWindow::IsVisible(), (int)CharacterInfoWindow::IsVisible());
             if (i == envi("RTK_CHESTWIN", -1)) {   // 5p-2: ChestOpenedWindow with a chest's roll (RTK_CHESTID, RTK_CHESTTX: the chests window's mode)
                 Chests::ChestInfo* c = Chests::GetChestInfo((uint32_t)envi("RTK_CHESTID", 57)); Chests::DropItem d[16]; unsigned n = c ? c->GenerateContents(d, 16, false) : 0;
                 FoundItemsWindow::ClearCollected(); FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));

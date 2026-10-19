@@ -189,6 +189,10 @@ void BlockClicks(bool block);               // @0x289914
 void SetChest(unsigned index);              // @0x2942f0 the selector chosen
 void SetStarterChestMode(bool flag, uint32_t chest);   // @0x294304
 void StartLoading();                        // @0x289a30
+// @0x28d044 a cell of a chest's result (object: a decoration or another object); Update shows it.
+void AddRewardItem(uint32_t item, uint32_t object, uint32_t type, int amount);
+bool OnChestBought(const char* sku, uint32_t chest);   // @0x28aa68 false: not now, asked again
+void OnPaymentDataReceived();               // @0x294204 (real money: dormant)
 }
 
 // "<chest> opened": the loot of a chest (windows/ChestOpenedWindow.cpp).
