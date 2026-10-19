@@ -378,8 +378,7 @@ void Hide() {
     g_sharing = false;
 }
 
-// @0x2b98e4: the loot dialogs under it close with it. UNVERIFIED (milestone 5): ChestOpenedWindow (5p),
-// between BossOutroWindow and PlayerBattleInOutWindow.
+// @0x2b98e4: the loot dialogs under it close with it.
 void OnClose() {
     Hide();
     if (RaidCompleteWindow::IsVisible()) RaidCompleteWindow::Hide();
@@ -387,6 +386,7 @@ void OnClose() {
     if (CampaignCompleteWindow::IsVisible()) CampaignCompleteWindow::Hide();
     if (BossIntroWindow::IsVisible()) BossIntroWindow::Hide();
     if (BossOutroWindow::IsVisible()) BossOutroWindow::Hide();
+    if (ChestOpenedWindow::IsVisible()) ChestOpenedWindow::Hide();
     if (PlayerBattleInOutWindow::IsVisible()) PlayerBattleInOutWindow::Hide();
 }
 

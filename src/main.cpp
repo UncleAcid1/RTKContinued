@@ -749,6 +749,7 @@ int main_Loop_Init() {
     CastleTopWindow::Queue();
     ChapterWindow::Queue();
     CharacterInfoWindow::Queue();
+    ChestOpenedWindow::Queue();
     ChoosePathWindow::Queue();
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();

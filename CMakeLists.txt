@@ -107,6 +107,7 @@ add_executable(rtk
   src/windows/CampaignCompleteWindow.cpp
   src/windows/CampaignInfoWindow.cpp
   src/windows/CampaignPerfectedWindow.cpp
+  src/windows/ChestOpenedWindow.cpp
   src/windows/ChoosePathWindow.cpp
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp

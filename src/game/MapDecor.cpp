@@ -10,6 +10,7 @@
 #include "game/AI.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
+#include "game/Chests.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -46,6 +47,17 @@ bool ListHasTile(const MetaData* list, unsigned from, int x, int y) {
         if (t->GetChild(0)->GetInt() == x && t->GetChild(1)->GetInt() == y) return true;
     }
     return false;
+}
+
+// (Inlined in the original.) The chest of a chest decoration for the player's level: of its
+// CHEST_DROP list, or, when it has one, of its CHEST_DROP_TYPE (that one wins).
+Chests::ChestInfo* LevelChest(MetaExpression* meta, bool ignoreKey) {
+    Chests::ChestInfo* chest = nullptr;
+    if (const MetaData* d = meta->FindChildData(kExpChestDrop))
+        chest = Chests::GetChestForLevel(d, (uint32_t)GameState::GetLevel(), ignoreKey);
+    if (const MetaData* d = meta->FindChildData(kExpChestDropType))
+        chest = Chests::GetChestForLevelByType((uint32_t)d->GetInt(), (uint32_t)GameState::GetLevel(), ignoreKey);
+    return chest;
 }
 
 }  // namespace
@@ -126,8 +138,14 @@ uint32_t Decor::GetReplaceWithTarget() const {
 
 // @0x1316e8 Map::Decor::GetName
 const char32_t* Decor::GetName() const {
-    // UNVERIFIED (milestone 5): a chest (CHEST_DROP / CHEST_DROP_TYPE) has the name of the chest for
-    // the player's level (Chests::GetChestForLevel 0x12b974 / GetChestForLevelByType 0x12d29c).
+    // A chest: the name of the chest for the player's level.
+    if (meta) {
+        const MetaData* d = meta->FindChildData(kExpChestDrop);
+        Chests::ChestInfo* c = d ? Chests::GetChestForLevel(d, (uint32_t)GameState::GetLevel(), false) : nullptr;
+        if (!c && (d = meta->FindChildData(kExpChestDropType)))
+            c = Chests::GetChestForLevelByType((uint32_t)d->GetInt(), (uint32_t)GameState::GetLevel(), false);
+        if (c) return c->name;
+    }
     if (const GameData::DecorData* d = GameData::GetDecoration(id)) return StringTable::GetString(d->name.c_str());
     if (const GameData::BuildingData* b = GameData::GetBuilding(id)) return StringTable::GetString(b->name.c_str());
     return nullptr;
@@ -253,9 +271,9 @@ uint32_t Decor::GetRequiredItem() const {
         if (p && Professions::GetProfessionTool(p->id, true, nullptr, false) == 0)
             return Professions::GetProfessionTool(p->id, false, nullptr, false);
     }
-    // UNVERIFIED (milestone 5p): a chest for the key of the chest for the player's level
-    // (Chests::GetChestForLevel 0x12b974 / GetChestForLevelByType 0x12d29c, +0x14).
-    return 0;
+    // A chest: the key of the chest for the player's level.
+    Chests::ChestInfo* chest = LevelChest(meta, true);
+    return chest ? chest->requiredItem : 0;
 }
 
 // @0x1321b8 Map::Decor::IsLocked
@@ -275,9 +293,10 @@ bool Decor::IsLocked() const {
         Professions::Profession* p = Professions::GetProfessionForObject(id);
         if (p && Professions::GetProfessionTool(p->id, true, nullptr, false) == 0) return true;
     }
-    // UNVERIFIED (milestone 5p): a chest whose key the player lacks is locked too (see
-    // GetRequiredItem).
-    return false;
+    // A chest whose key the player lacks.
+    Chests::ChestInfo* chest = LevelChest(meta, true);
+    if (!chest || !chest->requiredItem) return false;
+    return GameState::GetItemAmount(chest->requiredItem, false) == 0;
 }
 
 // @0x13234c Map::Decor::GetMessage
@@ -366,8 +385,13 @@ bool Decor::CanDropItem(uint32_t item) const {
             Locations::CanCraftNodeDropItem(GameState::GetCurrentMapID(), item))
             return true;
     }
-    // UNVERIFIED (milestone 5p): a chest what the chest for the player's level can hold
-    // (Chests::ChestInfo::GenerateContents 0x12a648).
+    // A chest: what the chest for the player's level holds (all of it, rolled once).
+    if (Chests::ChestInfo* chest = LevelChest(meta, false)) {
+        Chests::DropItem drops[0x20];
+        const unsigned n = chest->GenerateContents(drops, 0x20, true);
+        for (unsigned i = 0; i < n; ++i)
+            if (drops[i].item == item) return true;
+    }
     return false;
 }
 
@@ -848,8 +872,34 @@ void Decor::Finish() {
     CompleteInteractSteps(this);
     if (meta) {
         const MetaData* d;
-        // UNVERIFIED (milestone 5): a chest (CHEST_DROP / CHEST_DROP_TYPE) drops the contents of
-        // the chest for the player's level, or shows them in ChestOpenedWindow, and takes its key.
+        // A chest: the contents of the chest for the player's level, shown in ChestOpenedWindow
+        // (a "reward_window" chest) or dropped at the decoration; its key is used up.
+        if (Chests::ChestInfo* chest = LevelChest(meta, false)) {
+            Chests::DropItem drops[0x10];
+            const unsigned n = chest->GenerateContents(drops, 0x10, false);
+            if (chest->rewardWindow) {
+                FoundItemsWindow::ClearCollected();
+                FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));
+                for (unsigned i = 0; i < n; ++i) {
+                    if (drops[i].type == 0xb) FoundItemsWindow::AddCollectedItem(drops[i].item, drops[i].amount);
+                    else FoundItemsWindow::AddCollectedResource((int)drops[i].type, drops[i].amount);
+                }
+                ChestOpenedWindow::SetName(chest->name);
+                ChestOpenedWindow::Show();
+            } else {
+                for (unsigned i = 0; i < n; ++i) {
+                    if (drops[i].type == 0xb) {
+                        for (int k = 0; k < drops[i].amount; ++k)
+                            BuildingHovers::DropItem((float)wx, (float)wy, Items::GetItemInfo(drops[i].item), 0, 1);
+                    } else {
+                        BuildingHovers::DropResource((float)wx, (float)wy, (int)drops[i].type,
+                                                     (unsigned)drops[i].amount, false, false);
+                    }
+                }
+            }
+            if (chest->requiredItem && GameState::GetItemAmount(chest->requiredItem, false) != 0)
+                GameState::RemoveItem(chest->requiredItem, 1);
+        }
         if (!(d = meta->FindChildData(kExpReqUnlockItem))) {
             if (Tasks::TaskInfo* t = Tasks::GetTask(GetStartQuestID())) {
                 GameState::StartTask(t->id);

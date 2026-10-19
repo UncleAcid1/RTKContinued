@@ -177,6 +177,19 @@ void Hide();                                // @0x2e77f8
 bool IsVisible();                           // @0x2e73b4
 }
 
+// "<chest> opened": the loot of a chest (windows/ChestOpenedWindow.cpp).
+namespace ChestOpenedWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChestOpenedWindow"
+void Init();                                // @0x289470
+bool IsVisible();                           // @0x2886d0
+void SetName(const char32_t* name);         // @0x2886e4 the chest's name (nullptr: "npc_chest")
+void SetChestTransactionMode(uint32_t chest);   // @0x2886f8 opened in the chests window
+void SetReturnToChestWindow(uint32_t chest);    // @0x288714 the chests window opens on it after
+void Show();                                // @0x2890f4 (FoundItemsWindow's contents set before)
+void Hide();                                // @0x288f20
+void ForceHide();                           // @0x288dec
+}
+
 // "Where to next?": the destinations of the world (windows/ChoosePathWindow.cpp).
 namespace ChoosePathWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChoosePathWindow" (_INIT_ 0x295378)

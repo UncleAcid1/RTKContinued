@@ -461,7 +461,7 @@ void AIEnemy::CheckAggro() {
         if (c->HasActivePair()) return;
     }
     if (player->IsRetreating()) return;
-    // (ChestOpenedWindow::IsVisible stops it too: milestone 5.)
+    if (ChestOpenedWindow::IsVisible()) return;
     AI::Waypoint* wp = IsPlayerInAggroRange();
     if (!wp) return;
     if (!entity->GetAI()->SetTarget(wp, true) && (wp->x != entity->tileX || wp->y != entity->tileY)) return;

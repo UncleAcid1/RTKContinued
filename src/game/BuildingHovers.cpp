@@ -18,6 +18,7 @@
 #include "game/Contracts.h"
 #include "game/Combat.h"
 #include "game/Fog.h"
+#include "game/Chests.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -2381,10 +2382,21 @@ void OnBuildingFinishedClick(Map::Building* b) {
     UpdateHovers();
 }
 
-// A decoration's taxes: its chest (Chests, not ported yet), gold and XP drop at its sprite.
+// A decoration's taxes: its chest's contents (ChestOpenedWindow), gold and XP drop at its sprite.
 void CreateDecorationDrop(Map::Decor* d) {
     if (!d || !d->data || !d->sprite) return;
-    // UNVERIFIED (milestone 5): a "collect_chest" opens ChestOpenedWindow with the chest's contents.
+    if (Chests::ChestInfo* chest = Chests::GetChestInfo(d->data->collectChest)) {
+        Chests::DropItem drops[0x20];
+        const unsigned n = chest->GenerateContents(drops, 0x20, false);
+        FoundItemsWindow::ClearCollected();
+        FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));
+        for (unsigned i = 0; i < n; ++i) {
+            if (drops[i].type == 0xb) FoundItemsWindow::AddCollectedItem(drops[i].item, drops[i].amount);
+            else FoundItemsWindow::AddCollectedResource((int)drops[i].type, drops[i].amount);
+        }
+        ChestOpenedWindow::SetName(chest->name);
+        ChestOpenedWindow::Show();
+    }
     Render::Sprite* s = d->sprite;
     if (d->data->collectMoney != 0)
         DropResource(s->x + s->w * 0.5f, s->y + s->h * -0.5f, GameState::kGold, d->data->collectMoney, false, false);
