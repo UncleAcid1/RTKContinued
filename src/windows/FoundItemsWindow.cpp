@@ -35,6 +35,7 @@
 #include "game/GameState.h"
 #include "hud/HUD.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -210,6 +211,8 @@ void OnTavern() {
 // @0x2b9b90
 void Move(int x, int y) { g_scroller.Move(x, y); }
 
+}  // namespace
+
 // @0x2b9bac: with "tap to continue", a tap anywhere (not on the popup) closes.
 bool Click(int x, int y, bool pressed) {
     if ((g_root->visibleSelf && g_scroller.Click(x, y, pressed, g_root)) || g_hover->Click(x, y, pressed)) return true;
@@ -217,6 +220,8 @@ bool Click(int x, int y, bool pressed) {
     if (g_hideOk && !pressed && !g_hover->shownHover) OnClose();
     return r;
 }
+
+namespace {
 
 // @0x2b9c94
 void Deinit() {
@@ -371,10 +376,11 @@ void Hide() {
     g_sharing = false;
 }
 
-// @0x2b98e4: the loot dialogs under it close with it. UNVERIFIED (milestone 5): RaidCompleteWindow,
-// CampaignPerfectedWindow, CampaignCompleteWindow, BossOutroWindow and ChestOpenedWindow.
+// @0x2b98e4: the loot dialogs under it close with it. UNVERIFIED (milestone 5): CampaignPerfectedWindow,
+// CampaignCompleteWindow (5h), BossOutroWindow (5i) and ChestOpenedWindow (5p), between them.
 void OnClose() {
     Hide();
+    if (RaidCompleteWindow::IsVisible()) RaidCompleteWindow::Hide();
     if (BossIntroWindow::IsVisible()) BossIntroWindow::Hide();
     if (PlayerBattleInOutWindow::IsVisible()) PlayerBattleInOutWindow::Hide();
 }
@@ -699,6 +705,24 @@ void SetParameters(uint32_t map, uint32_t boss, const char32_t* title) {
         int n = GameState::GetMapItemCollectionInfo(map, info->id);
         if (n == 0 || info->id == 0x2000) continue;
         AddCollectedItem(info->id, n);
+    }
+    FinishParameters(title);
+}
+
+// @0x2bd21c: what was picked up on every map of a location (with `crystals` first when not 0).
+void SetParameters(Locations::LocationInfo* info, const char32_t* title, unsigned crystals) {
+    ClearCollected();
+    if (!info) return;
+    g_location = info;
+    if (crystals != 0) AddCollectedResource(GameState::kCrystal, (int)crystals);
+    for (const Locations::MapInfo& m : info->maps) {
+        for (int t = 0; t < 0xb; ++t)
+            if (int n = GameState::GetMapResourceCollectionInfo(m.id, t)) AddCollectedResource(t, n);
+        for (unsigned i = 0; Items::ItemInfo* item = Items::EnumItemInfo(i); ++i) {
+            int n = GameState::GetMapItemCollectionInfo(m.id, item->id);
+            if (n == 0 || item->id == 0x2000) continue;
+            AddCollectedItem(item->id, n);
+        }
     }
     FinishParameters(title);
 }

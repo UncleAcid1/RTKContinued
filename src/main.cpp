@@ -414,7 +414,7 @@ void KeyDown(int scancode) {
     }
     if (scancode == SDL_SCANCODE_AC_BACK || scancode == SDL_SCANCODE_Y) {
         // Not taken by a window (and no death animation or camera move): an open
-        // popup closes, else the exit question. UNVERIFIED: RaidComplete, CampaignComplete,
+        // popup closes, else the exit question. UNVERIFIED (milestone 5): CampaignComplete,
         // CampaignPerfected and BossOutro windows (not ported) also block the question.
         if (WindowManager::ProcessBack() || Entity::IsDeathAnimationRunning() || Map::IsCameraMoving()) return;
         if (!GUI::IsAnyAnimationActive() && !GUI::CanInteractWith(nullptr) && PopupWindow::IsVisible()) {
@@ -422,6 +422,7 @@ void KeyDown(int scancode) {
             return;
         }
         if (GUI::IsAnyAnimationActive()) return;
+        if (RaidCompleteWindow::IsVisible()) return;
         PopupWindow::Show(StringTable::GetString("MOBILE_EXIT_CONFIRM"), ExitWithSendSave, PopupWindow::Hide,
                           nullptr);
     }
@@ -746,11 +747,13 @@ int main_Loop_Init() {
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();
     PopupWindow::Queue();
+    RaidCompleteWindow::Queue();
     RaidInfoWindow::Queue();
     RepairWindow::Queue();
     SelectHQWindow::Queue();
     SettingsWindow::Queue();
     ShopWindow::Queue();
+    StartRaidingWindow::Queue();
     TaskCompleteWindow::Queue();
     TaskHolderWindow::Queue();
     TaskInfoWindow::Queue();
@@ -953,8 +956,9 @@ int main_Exit_Func() {
     // (EditorConsole::Deinit: milestone 5. ErrorReporter::Deinit: online.)
     gameLoaded = false;
     GameState::EndActiveCombat(true);
-    // UNVERIFIED (their milestones): RaidCompleteWindow and CampaignPerfectedWindow ForceHide (5),
-    // SpellMovement's Decline and Deinit (5).
+    RaidCompleteWindow::ForceHide();
+    // UNVERIFIED (their milestones): CampaignPerfectedWindow::ForceHide (5h), SpellMovement's
+    // Decline and Deinit (5).
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();

@@ -2,7 +2,7 @@
 // and the missions' side nodes over a scrolling parchment; the hero's marker travels between them.
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
-// UNVERIFIED (milestone 5): the windows its nodes open (SultanArrivingWindow, CampaignCompleteWindow, RaidCompleteWindow,
+// UNVERIFIED (milestone 5): the windows its nodes open (SultanArrivingWindow, CampaignCompleteWindow,
 // CampaignPerfectedWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
@@ -648,7 +648,8 @@ void CoreLocation::ShowCompletionWindow() {
         GameState::AddCrystals(crystals);
         // UNVERIFIED (milestone 5): CampaignCompleteWindow::SetParameters(info->id) and Show.
     } else {
-        // UNVERIFIED (milestone 5): RaidCompleteWindow::SetParameters(info->id) and Show.
+        RaidCompleteWindow::SetParameters(info->id);
+        RaidCompleteWindow::Show();
     }
 }
 

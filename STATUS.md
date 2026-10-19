@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5g-2 (RaidCompleteWindow, StartRaidingWindow). (5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5h (CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow). (5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1830,7 +1830,7 @@ Milestones:
                    Kingdom in the middle ("Return to Kingdom"), 6 dots; the right arrow twice ->
                    "Easy money" locked with its description; tapping Kingdom closes it and puts the
                    arrow on home.
-       5g [ ] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow. SPLIT (2026-10-18, about
+       5g [x] raids: RaidInfoWindow, StartRaidingWindow, RaidCompleteWindow. SPLIT (2026-10-18, about
               60 functions; RaidInfoWindow::UpdateContents alone 13 KB):
               5g-1 [x] (2026-10-18) windows/RaidInfoWindow.cpp (Window_raid_brief.xml; UpdateContents
                    range-decompiled into out/big/ri_uc*.c, Ghidra's bogus _INIT_112 cuts it): the
@@ -1858,7 +1858,34 @@ Milestones:
                    as after its end): "Raid - Troll Trail", Royal / Heroic locked, 0%, the flags
                    (gold 161 / 241 / 322, XP 208, the item chances), "Time limit: 1 hour", "Cost to
                    begin: 50"; Begin pays 50 gold and loads map 87; after the run: no X, 33%.
-              5g-2 [ ] RaidCompleteWindow, StartRaidingWindow.
+              5g-2 [x] (2026-10-18) windows/RaidCompleteWindow.cpp (Endscreen_raid_complete.xml): the
+                   banner slides down over a 37% black band (alpha 0.6) with the gold line, the
+                   squad cheers, the camera glides to the hero, the loot strip rises
+                   (FoundItemsWindow::SetParameters(LocationInfo*): every map's finds, the first
+                   completion's "farm_complete_cb" crystals first; FoundItemsWindow::Click is now
+                   public); its Ok slides the banner up and opens RaidInfoWindow as after the run
+                   with RunCompletionAnimation (not at 3 stars); the brief's button runs ResetRaid
+                   (quests reset and hidden, remove_items, the map reset and loaded again, the first
+                   completion adds min(farm_complete_cb, 5) crystals, a new star completes subtask
+                   0x29 / star + map * 10 + 1, end time; then the world map, SafeSave, ChoosePath).
+                   ForceHide (silent reset) on exit. windows/StartRaidingWindow.cpp
+                   (Window_start_raiding.xml, "Easy Money"): hero / heroine picture, Start Raid!
+                   opens the world map with an arrow on every open mission. Wired: GlobalMapWindow's
+                   CoreLocation::ShowCompletionWindow (missions), RaidInfoWindow::OnBlue,
+                   FoundItemsWindow::OnClose, HUDWindow's darkening, the back key's exit question,
+                   main_Exit_Func, CastleTopWindow::OnReturn's offer (easy_money_delta / _threshold;
+                   GetGoldEarned is always 0 in 5.11, so it never shows). PORT (online): the star
+                   request OG::MakeRequest, QueueSendSave. UNVERIFIED: the sound (6); the ForceHide
+                   calls in ReloadSavedGame, GameState::CleanBeforeLoading and HUDWindow::GameReload
+                   (those functions are not ported yet). VERIFIED (the 5d-2 save; new test aids
+                   RTK_RAIDEND=n opens the n-th mission's RaidCompleteWindow, RTK_EASY=1 the offer):
+                   "Raid Complete!", the band darkens, "During this raid you found: 2 crystals";
+                   Ok (655:770) -> "Raid - Troll Trail" brief, no X, the bar animating to 33%;
+                   Begin! (625:640) -> map 87 loaded and saved, "Adding 2 crystals ...", 6 -> 8,
+                   the world map with "Select a path!". Easy Money: Start Raid! (630:610) -> the
+                   world map; at level 30 two "Start" arrows on the open missions; X (805:188)
+                   closes it. Not played: a real mission's end (its end tasks) and quitting while
+                   the banner is up.
        5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
        Fights:
        5i [ ] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,

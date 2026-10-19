@@ -152,19 +152,23 @@ void OnReturn() {
             return;
         }
         if (0x14370u < now - GameState::GetEventStartTime(2000)) {
-            // The "easy money" offer: StartRaidingWindow (milestone 5) when the gold earned since
-            // the last check grew less than before and the gold is under "easy_money_threshold".
-            // GetGoldEarned is always 0 in 5.11, so it never shows.
+            // The "easy money" offer (StartRaidingWindow) when the gold earned since the last check
+            // (plus "easy_money_delta") grew less than in the check before and the gold is under
+            // "easy_money_threshold". GetGoldEarned is always 0 in 5.11, so it never shows.
             const uint32_t earned = (uint32_t)GameState::GetGoldEarned();
             const uint32_t last = GameState::GetEventStartTime(0x7d2);
-            GameState::SetEventStartTime(2000, now);
+            const uint32_t before = GameState::GetEventStartTime(0x7d1);
+            const uint32_t delta = (uint32_t)Setting("easy_money_delta").GetInt();
+            if (earned + delta - last < last - before &&
+                (int)GameState::GetResourceAmount(GameState::kGold) < Setting("easy_money_threshold").GetInt())
+                StartRaidingWindow::Show();
+            GameState::SetEventStartTime(2000, (uint32_t)Timer::GetGlobalTime());
             GameState::SetEventStartTime(0x7d2, earned);
             GameState::SetEventStartTime(0x7d1, last);
+            if (StartRaidingWindow::IsVisible()) return;
         }
         choosePath = GameState::TaskCompleted(0x43f);
     }
-    // (In the city the original first returns while StartRaidingWindow is up; it never opens, see
-    // above.)
     if (choosePath) ChoosePathWindow::Show();
 }
 

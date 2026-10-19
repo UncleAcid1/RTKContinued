@@ -564,7 +564,7 @@ void SetParameters(Locations::LocationInfo* info, uint32_t map, bool completed) 
 void OnBlue() {
     if (g_completed) {
         Hide();
-        // UNVERIFIED (milestone 5g-2): RaidCompleteWindow::ResetRaid(false).
+        RaidCompleteWindow::ResetRaid(false);
         return;
     }
     if (g_info->mission) {

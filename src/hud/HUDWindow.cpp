@@ -530,10 +530,10 @@ void UpdateScreenDarkening(float dt) {
         }
     }
     // The world map, the hover, the shop, BossIntroWindow's black and the PvP intro / outro count
-    // as one window that does not darken. UNVERIFIED (milestone 5): RaidCompleteWindow,
+    // as one window that does not darken; RaidCompleteWindow too. UNVERIFIED (milestone 5):
     // CampaignPerfectedWindow, CampaignCompleteWindow, BossOutroWindow and ChestOpenedWindow too.
     const unsigned free = (GlobalMapWindow::IsVisible() || BuildingHovers::IsHoverVisible() || ShopWindow::IsVisible() ||
-                           BossIntroWindow::IsBlackVisible() || PlayerBattleInOutWindow::IsVisible())
+                           RaidCompleteWindow::IsVisible() || BossIntroWindow::IsBlackVisible() || PlayerBattleInOutWindow::IsVisible())
                               ? 1
                               : 0;
     const unsigned shown = WindowManager::GetShownWindowCount();

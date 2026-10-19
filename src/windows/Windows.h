@@ -154,6 +154,9 @@ void SetParameters(uint32_t map, uint32_t boss, const char32_t* title);     // @
 // @0x2bcffc: a task's reward: `crystals` (when not 0), then its crystals, XP, gold and resources,
 // then its items.
 void SetParameters(Tasks::TaskInfo* task, const char32_t* title, unsigned crystals);
+// @0x2bd21c: what was picked up on every map of a location (a mission's end), `crystals` first.
+void SetParameters(Locations::LocationInfo* info, const char32_t* title, unsigned crystals);
+bool Click(int x, int y, bool pressed);     // @0x2b9bac (RaidCompleteWindow passes its taps on)
 }
 
 // "Land expanded!" after a land (or farm patch) purchase.
@@ -468,6 +471,29 @@ void OnBlue();                              // @0x32ff44 start / resume / restar
 void Show();                                // @0x335d64
 void Hide();                                // @0x32fe84
 bool IsVisible();                           // @0x32f1f4
+}
+
+// "Raid complete!" at a mission's end (windows/RaidCompleteWindow.cpp).
+namespace RaidCompleteWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RaidCompleteWindow"
+void Init();                                // @0x32ee2c
+void SetParameters(uint32_t location);      // @0x32df70 the mission (location id)
+void Show();                                // @0x32ea54
+void Hide();                                // @0x32e9cc
+void ForceHide();                           // @0x32e948 closed at once, the mission reset silently
+bool IsVisible();                           // @0x32df5c
+// @0x32e5e0: the mission starts over and its completion counts; unless silent the world map and
+// "where to next" open.
+void ResetRaid(bool silent);
+}
+
+// The "easy money" offer: go raiding (windows/StartRaidingWindow.cpp).
+namespace StartRaidingWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "StartRaidingWindow"
+void Init();                                // @0x34f3dc
+void Show();                                // @0x34f214
+void Hide();                                // @0x34f2b4
+bool IsVisible();                           // @0x34ef6c
 }
 
 // Repairing a worn item (windows/RepairWindow.cpp).
