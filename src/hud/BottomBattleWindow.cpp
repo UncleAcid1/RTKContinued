@@ -13,6 +13,7 @@
 #include "hud/HUD.h"
 
 #include <cmath>
+#include <cstdio>
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
@@ -64,18 +65,97 @@ struct ButtonFuryLarge {
     }
 };
 
-// RageButton (0x58 bytes): a spell slot of the rage bar, "rage_bar_button_%02d". UNVERIFIED
-// (milestone 5): only its root; the rest (LoadFrom @0x2598e8: the active / connector looks, the
-// icons, the cost texts, the click area with the spell's callback) comes with the spells.
+// RageButton (0x58 bytes): a spell slot of the rage bar, "rage_bar_button_%02d". LoadFrom @0x2598e8.
+// The looks of the slot: the active glow and the connector to the next slot in the spell's colour
+// (orange fire, green lightning, red arcane), the bronze / red button, the spell's icon (or the lock),
+// the "new spell" marker and the cost in the colour of the mana it needs. The slot's tap is its click
+// area's.
 struct RageButton {
-    Window* root = nullptr;      // +0x00
+    Window* root = nullptr;           // +0x00
+    Window* activeMid = nullptr;      // +0x04 rage_bar_spell_active_mid
+    Window* activeOrange = nullptr;   // +0x08 ..._mid_orange
+    Window* activeGreen = nullptr;    // +0x0c ..._mid_green
+    Window* activeRed = nullptr;      // +0x10 ..._mid_red
+    Window* connectorBg = nullptr;    // +0x14 rage_bar_connector_mid_bg
+    Window* connectorOrange = nullptr;   // +0x18
+    Window* connectorGreen = nullptr;    // +0x1c
+    Window* connectorRed = nullptr;      // +0x20
+    Window* bronze = nullptr;         // +0x24 rage_bar_button_bronze
+    Window* red = nullptr;            // +0x28 rage_bar_button_red
+    Window* iconActive = nullptr;     // +0x2c icon_active_spell
+    Window* iconLocked = nullptr;     // +0x30 icon_spell_locked ("gold_16_lock")
+    Window* addedMarker = nullptr;    // +0x34 spell_added_marker ("Pickup_item_glow", hidden)
+    bool f38 = true;                  // +0x38
+    float f3c = 1.f;                  // +0x3c
+    Window* swirlHolder = nullptr;    // +0x40 icon_swirl_holder
+    Textfield* costNotEnough = nullptr;   // +0x44 spell_cost_not_enough
+    Textfield* costOrange = nullptr;      // +0x48 text_orange
+    Textfield* costGreen = nullptr;       // +0x4c text_green
+    Textfield* costRed = nullptr;         // +0x50 text_red
+    GUI::Button* clickArea = nullptr;     // +0x54
+    void LoadFrom(Window* r, const char* name) {
+        root = GUI::GetWindowTypedF<Window>(r, "%s", name);
+        activeMid = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_spell_active_mid", name);
+        activeOrange = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_spell_active_mid_orange", name);
+        activeGreen = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_spell_active_mid_green", name);
+        activeRed = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_spell_active_mid_red", name);
+        connectorBg = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_connector_mid_bg", name);
+        connectorOrange = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_connector_mid_orange", name);
+        connectorGreen = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_connector_mid_green", name);
+        connectorRed = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_connector_mid_red", name);
+        bronze = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_button_bronze", name);
+        red = GUI::GetWindowTypedF<Window>(r, "%s.rage_bar_button_red", name);
+        iconActive = GUI::GetWindowTypedF<Window>(r, "%s.icon_active_spell", name);
+        iconActive->takesZ = true;
+        iconLocked = GUI::GetWindowTypedF<Window>(r, "%s.icon_spell_locked", name);
+        iconLocked->SetTexture(IconManager::GetIcon("gold_16_lock"), true);
+        addedMarker = GUI::GetWindowTypedF<Window>(r, "%s.spell_added_marker", name);
+        addedMarker->SetTexture(IconManager::GetIcon("Pickup_item_glow"), true);
+        addedMarker->MoveWindow(-12, -10);
+        addedMarker->SetVisibility(false);
+        f3c = 1.f;
+        f38 = true;
+        swirlHolder = GUI::GetWindowTypedF<Window>(r, "%s.icon_swirl_holder", name);
+        swirlHolder->MoveWindow(4, 2);
+        costNotEnough = GUI::GetWindowTypedF<Textfield>(r, "%s.spell_cost_not_enough", name);
+        costOrange = GUI::GetWindowTypedF<Textfield>(r, "%s.text_orange", name);
+        costGreen = GUI::GetWindowTypedF<Textfield>(r, "%s.text_green", name);
+        costRed = GUI::GetWindowTypedF<Textfield>(r, "%s.text_red", name);
+        clickArea = GUI::GetWindowTypedF<GUI::Button>(r, "%s.clickArea", name);
+    }
+};
+
+// ManaProgress (0x1c bytes): one mana bar of the holder (orange, green, red). Its fill is a bar
+// image and its number clipped at the same right edge (clip.right: the bar's width times the share
+// of mana, set while the bar is updated). LoadFrom @0x259824.
+struct ManaProgress {
+    Window* root = nullptr;      // +0x00 the bar's holder
+    Window* bar = nullptr;       // +0x04 its background image, the fill
+    Textfield* text = nullptr;   // +0x08 the number on it
+    GUI::ClipRect clip = {};     // +0x0c left, top, right, bottom (in the root's pixels)
+    void LoadFrom(Window* r, const char* holder, const char* barName, const char* textName) {
+        root = GUI::GetWindowTypedF<Window>(r, "%s", holder);
+        bar = GUI::GetWindowTypedF<Window>(r, "%s.%s", holder, barName);
+        text = GUI::GetWindowTypedF<Textfield>(r, "%s.%s", holder, textName);
+        clip.bottom = 0x400;
+        clip.top = 0;
+        clip.left = bar->x;
+        clip.right = bar->x + bar->w;
+        bar->SetClipRect(&clip);
+        text->SetClipRect(&clip);
+    }
 };
 
 WindowManager::FunctionalWindow* g_queue = nullptr;   // BottomBattleWindow::wnd
 Window* g_root = nullptr;              // 0x618224 Rage_bar.xml
 ButtonFuryLarge g_left;                // 0x618228 button_fury_large_01 (attack)
 ButtonFuryLarge g_right;               // 0x618244 button_fury_large_02 (block)
-RageButton g_rage[3];                  // 0x618260
+RageButton g_rage[3];                  // 0x618260 (FUN_002571b4: the statics' constructors, @0x258f9c above)
+ManaProgress g_mana[3];                // 0x61839c orange (fire), green (lightning), red (arcane)
+Window* g_background = nullptr;        // 0x61xxxx rage_bar_bg (its tap: OnManaBar)
+Textfield* g_holderText = nullptr;     // 0x618450 rage_bar_bar_holder.text_02
+bool g_furyGlow = false;               // 0x618370 EnableFuryGlow: the rage buttons glow
+float g_furyGlowStart = 0.f;           // 0x618374 g_pulse when it was enabled
 ButtonFuryLarge g_centre;              // 0x618380 button_fury_large_03
 float g_pulse = 0.f;                   // 0x618378 the glows' clock
 uint32_t g_netTarget = 0;              // 0x61836c the spawn point of the monster the net may catch
@@ -404,6 +484,29 @@ void FlyNet(float dt) {
     }
 }
 
+// @0x25769c (the belt's potion, else the inventory's, else the shop's): points the player at a
+// mana potion. UNVERIFIED (milestone 5): the actions are the later steps' (the belt's arrow
+// BeltBarWindow::ArrowAtSlot 5k, CharacterInfoWindow::Show / ShowInventoryItem(id, 4, item) 5l,
+// ItemShopWindow::Show / ShowShopItem(0x88, 0, true, -1) 5q); the answer is the original's.
+bool OnShowManaPotion(unsigned) {
+    for (unsigned slot = 0; slot < GameState::GetBeltSlotCount(); ++slot) {
+        GameState::PlayerItem* item = GameState::GetFirstItemByID(GameState::GetBeltItemAt(slot), true);
+        if (item && item->info->meta && item->info->meta->FindByType(kExpMana)) return true;
+    }
+    if (GameState::IsArenaCombatActive()) return false;
+    for (unsigned i = 0; GameState::PlayerItem* item = GameState::EnumItems(i); ++i)
+        if (item->info->meta && item->info->meta->FindByType(kExpMana)) return true;
+    // (ItemShopWindow::ItemCanBeBought(0x88, 0): the mana potion can be bought: 5q.)
+    return false;
+}
+
+// @0x2577a4: a tap on the bar while the hero has no mana points at a mana potion.
+void OnManaBar() {
+    Entity* player = EntityManager::GetPlayer();
+    if (!player || player->GetAP() != 0) return;
+    OnShowManaPotion((unsigned)-1);
+}
+
 // @0x2594dc: the click reaches the bar. UNVERIFIED (milestone 5): the spells' drag (a rage button
 // pressed, held and dropped on the map: OnSpell / OnAutoCast), and no click while one flies.
 bool Click(int x, int y, bool pressed) { return g_root->Click(x, y, pressed, false); }
@@ -437,8 +540,8 @@ void Init() {
     g_root->SetVisibility(false);
     g_root->SetPosition(-g_root->w, 0);
     g_effect = GUI::CreateMovementEffect(g_root, nullptr, OnTweenIn, OnTweenOut);
-    // UNVERIFIED (milestone 5): rage_bar_bg's tap (OnManaBar), the mana bars (ManaProgress,
-    // rage_bar_bar_holder.text_02) and the rage buttons' spells.
+    g_background = GUI::GetWindow(g_root, "rage_bar_bg");
+    g_background->SetOnClick(OnManaBar);
     g_left.LoadFrom(g_root, "button_fury_large_01");
     g_left.root->SetOnClick(OnLeft);
     g_right.LoadFrom(g_root, "button_fury_large_02");
@@ -446,7 +549,18 @@ void Init() {
     g_centre.LoadFrom(g_root, "button_fury_large_03");
     g_centre.root->SetOnClick(OnCenter);
     g_stance = GUI::GetWindowTyped<Textfield>(g_root, "text_stance");
-    for (int i = 0; i < 3; ++i) g_rage[i].root = GUI::GetWindowTypedF<Window>(g_root, "rage_bar_button_%02d", i + 1);
+    g_holderText = GUI::GetWindowTyped<Textfield>(g_root, "rage_bar_bar_holder.text_02");
+    const char* const bars[3] = {"rage_bar_bar_holder.rage_bar_orange", "rage_bar_bar_holder.rage_bar_green",
+                                 "rage_bar_bar_holder.rage_bar_red"};
+    const char* const barBgs[3] = {"rage_bar_orange_bg", "rage_bar_green_bg", "rage_bar_red_bg"};
+    const char* const barTexts[3] = {"text_orange", "text_green", "text_red"};
+    for (int i = 0; i < 3; ++i) g_mana[i].LoadFrom(g_root, bars[i], barBgs[i], barTexts[i]);
+    // UNVERIFIED (milestone 5, 5j-3b): each slot's click area calls OnAutoCast(i).
+    for (int i = 0; i < 3; ++i) {
+        char name[32];
+        std::snprintf(name, sizeof name, "rage_bar_button_%02d", i + 1);
+        g_rage[i].LoadFrom(g_root, name);
+    }
     g_queue->fn.zRange = WindowManager::ReturnSmallZRange;
     g_queue->fn.update = Update;
     g_queue->fn.show = Show;
@@ -549,7 +663,7 @@ void SetZ(float) {
     g_root->SetPosition(g_offsetX + (GUI::ScreenWidth() - g_root->w) / 2, g_offsetY + GUI::ScreenHeight() - g_root->h);
 }
 
-// @0x258f30: a monster dies: if it has a tamed form (and that form's quest is open) the net may
+// @0x258f30 (its tail, the debug TameNext throw and the reset, is _INIT_61 @0x258f9c): a monster dies: if it has a tamed form (and that form's quest is open) the net may
 // catch it for a moment (0.5 to 1 s). The taming lesson's boar (spawn point 0x1e, or 0x6e9)
 // gets the hero's hint and the arrow at the centre button.
 void EnableNet(uint32_t spawn) {
@@ -582,6 +696,29 @@ void EnableNet(uint32_t spawn) {
 }
 
 void TameNext() { g_tameNext = true; }   // @0x25710c
+
+// @0x2570ec: the rage buttons glow from now on (Update, 5j-3c, reads g_furyGlow).
+void EnableFuryGlow() {
+    g_furyGlowStart = g_pulse;
+    g_furyGlow = true;
+}
+
+// @0x257594: the player chose spell `spell` (a rage button, or SpellMovement's accept). The fight
+// is told and goes on if it was waiting; at second-tutorial step 0x9e that step is done (0x9f).
+void OnSpell(unsigned spell, int, int, bool) {
+    BaseCombat* combat = GameState::GetActiveCombat();
+    if (combat) {
+        combat->QueueSpellCast(spell, -1, -1);
+        bool waiting = combat->GetType() < 3 ? combat->IsPaused() : combat->GetState() == 2 || combat->IsPaused();
+        if (waiting) combat->Continue(-1);
+    }
+    if (GameState::secondTutorial != 0x9e) return;
+    BuildingHovers::HideArrow();
+    BuildingHovers::HideWorldDialog(nullptr);
+    GUI::SetInteractionLock(true);
+    if (combat) combat->Continue(-1);
+    GameState::secondTutorial = 0x9f;
+}
 
 uint32_t GetNetTargetSpawnID() { return g_root && g_root->visibleSelf ? g_netTarget : 0; }   // @0x257090
 

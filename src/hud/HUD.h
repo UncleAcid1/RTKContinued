@@ -114,6 +114,8 @@ void EnableNet(uint32_t spawn);     // @0x258f30 a dying monster may be tamed
 void TameNext();                    // @0x25710c
 uint32_t GetNetTargetSpawnID();     // @0x257090
 void OnCenter();                    // @0x2588b4 the centre button (the net)
+void EnableFuryGlow();               // @0x2570ec the rage buttons glow
+void OnSpell(unsigned spell, int x, int y, bool flag);   // @0x257594 the hero's choice of a spell
 }
 // The "Heal Hero" window (windows/HealSquadWindow.cpp).
 namespace HealSquadWindow {
