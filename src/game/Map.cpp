@@ -30,6 +30,7 @@
 #include "game/Setting.h"
 #include "game/GameState.h"
 #include "game/Locations.h"
+#include "game/Chests.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
 #include "game/Game.h"
@@ -2691,6 +2692,27 @@ void DropBossReward(Entity* boss, uint32_t map) {
                 BuildingHovers::DropItem(boss->worldX, boss->worldY, Items::GetItemInfo(info->id), 0, 1);
     }
     GameState::ResetMapCollectionInfo(map);
+    // PORT (DECIDED user 2026-10-18): the boss gives the map's chest key with a 1/2 chance.
+    if (map != 0x70)
+        if (Items::ItemInfo* key = Items::GetItemInfo(RollHeldChestKey(2, true)))
+            BuildingHovers::DropItem(boss->worldX, boss->worldY, key, 0, 1);
+}
+
+uint32_t RollHeldChestKey(unsigned oneIn, bool boss) {
+    if (!boss)
+        for (unsigned i = 0; Entity* e = EntityManager::EnumEntities(i); ++i)
+            if (e->IsBoss()) return 0;
+    // (A decoration's REQ_UNLOCK_ITEM counts before its unlock quest is done; a chest asks for its key.)
+    uint32_t key = 0;
+    for (auto& p : g_patches)
+        for (auto& d : p->decors) {
+            if (key || !d->meta) continue;
+            const MetaData* m = d->meta->FindChildData(kExpReqUnlockItem);
+            const uint32_t k = m ? (uint32_t)m->GetInt() : d->GetRequiredItem();
+            if (Chests::IsChestKey(k)) key = k;
+        }
+    if (!key || Rand48::lrand48() % oneIn != 0) return 0;
+    return key;
 }
 
 // @0x1c0460: the player and its squad appear at the player's tile, whose waypoint gets weight 5 (the

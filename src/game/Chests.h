@@ -73,6 +73,9 @@ ChestInfo* GetChestInfo(uint32_t id);  // @0x12b404
 uint32_t GetChestForItem(uint32_t item);
 bool IsChestItem(uint32_t item);       // @0x12b3a4
 uint32_t GetItemForChest(uint32_t id); // @0x12b830 its chest_item, or 0
+// PORT (DECIDED user 2026-10-18): a chest's key (some chest's required item). Keys can no longer
+// be bought; a map that holds one gives it (Map::RollHeldChestKey).
+bool IsChestKey(uint32_t item);
 // @0x12b46c an attribute of chest id by name (Override, the store); sub is an item's index.
 void ChangeChestAttribute(uint32_t id, uint32_t sub, const char* name, const char* value);
 // @0x12b974 one of the chests listed in ids (a list) whose level is the nearest to level: active,

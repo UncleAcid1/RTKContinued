@@ -390,6 +390,11 @@ void RestoreDecorationInfo();
 void RemoveHoldOfEntities();                // @0x1b8300 every building and decoration forgets its entities
 void UpdateSpawns();     // @0x1c2914 (Map::Load) the player's tile and the spawn points' entities
 void DropBossReward(Entity* boss, uint32_t map);   // @0x1b98d8 a won boss's loot drops where it lies
+// PORT (DECIDED user 2026-10-18: keys can no longer be bought): the chest key this map holds (the
+// key a decoration on it needs, Chests::IsChestKey), given with a 1 in oneIn chance: 0 if none or
+// not this time. boss: a boss's drop (1/2); else a completed map's (1/4), which has none when a
+// boss is on the map (the boss gives it instead).
+uint32_t RollHeldChestKey(unsigned oneIn, bool boss);
 // ---- spawn points and portals (MapSpawn.cpp)
 void LoadSpawnPoints(SaveManager::SaveBlock* block);   // @0x1bc0b0
 void SaveSpawnPoints();                                // @0x1b9630

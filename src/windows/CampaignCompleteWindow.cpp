@@ -154,6 +154,11 @@ void Hide() {
 void Show() {
     if (g_queue->shown) return;
     BuildingHovers::CollectAll();
+    // PORT (DECIDED user 2026-10-18): a map holding a chest key gives it with a 1/4 chance.
+    if (const uint32_t key = Map::RollHeldChestKey(4, false)) {
+        GameState::AddItem(key, 1, false, false, false);
+        GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), key, 1);
+    }
     FoundItemsWindow::SetParameters(Locations::GetLocationInfo(g_location),
                                     StringTable::GetString("CAMPAIGN_YOU_FOUND"),
                                     (unsigned)Setting("campaign_complete_cb").GetInt());

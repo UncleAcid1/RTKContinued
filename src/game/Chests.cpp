@@ -284,6 +284,13 @@ ChestInfo* GetChestInfo(uint32_t id) {
     return nullptr;
 }
 
+bool IsChestKey(uint32_t item) {
+    if (!item) return false;
+    for (const ChestInfo* c : g_chests)
+        if (c->requiredItem == item) return true;
+    return false;
+}
+
 // @0x12b270
 uint32_t GetChestForItem(uint32_t item) {
     if (item == 0x2fb)   // (the imperial chests: six share it; a data check of the original)

@@ -115,6 +115,17 @@
             if (i == envi("RTK_GIVECRYS", -1)) GameState::AddCrystals(envi("RTK_CRYS", 500));   // 5p-5
             if (i == envi("RTK_TASKWIN", -1)) { TaskInfoWindow::SetTask((uint32_t)envi("RTK_TASKID", 0x75b), false); TaskInfoWindow::Show(); }   // 5p-5b
             if (i == envi("RTK_ITEMCARD", -1)) { const uint32_t id = (uint32_t)envi("RTK_CARDID", 757); GameState::PlayerItem* p = GameState::GetFirstItemByID(id, false); if (!p) p = GameState::AddItem(id, 1, false, false, false); CharacterInfoWindow::Show(); CharacterInfoWindow::ShowInventoryItem(id, 0, p); }   // 5p-5b
+            if (i == envi("RTK_KEYS", -1)) {   // 5p-6: the keys
+                for (unsigned c = 0; c < 200; ++c) if (Chests::ChestInfo* ci = Chests::GetChestInfo(c)) if (ci->requiredItem) { Items::ItemInfo* k = Items::GetItemInfo(ci->requiredItem); std::printf("[t] chest %u type %u lvl %u key %u %s\n", c, ci->type, ci->level, ci->requiredItem, k ? k->name : "?"); }
+                for (int id : {55,58,93,97,100,121,122,123,124,125,127,137,138,151,172,176,177,178,179,180,185,186,189,252,253,254,348,384,385,386,387,388,513,538,539}) { Items::ItemInfo* it = Items::GetItemInfo((uint32_t)id); std::printf("[t] item %d %s type %u shop %u cost %u/%u premium %d\n", id, it ? it->name : "?", it ? it->type : 0, it ? it->shopTab : 0, it ? it->cost : 0, it ? it->cost2 : 0, it ? (int)it->premium : -1); }
+            }
+            if (i == envi("RTK_KEYMAP", -1)) {   // 5p-6: a map's chest key rolls (RTK_KMAP)
+                const uint32_t m = (uint32_t)envi("RTK_KMAP", 91);
+                if (SaveManager::SaveBlock* b = SaveManager::GetMapData(m)) { GameState::SetCurrentMapID(m); Map::Load(b, 1, false, false); }
+                int got4 = 0, got2 = 0; uint32_t k = 0; for (int r = 0; r < 4000; ++r) { if (uint32_t x = Map::RollHeldChestKey(4, false)) { ++got4; k = x; } if (Map::RollHeldChestKey(2, true)) ++got2; }
+                for (unsigned q = 0; Entity* e = EntityManager::EnumEntities(q); ++q) if (e->IsBoss()) std::printf("[t] boss %s active=%d dead=%d\n", e->GetEntityData()->name.c_str(), (int)e->IsActive(), (int)e->IsDead());
+                std::printf("[t] keymap %u key %u: completion %d/4000, boss %d/4000\n", m, k, got4, got2);
+            }
             if (i == envi("RTK_ADVANCE", -1)) Timer::AdvanceGlobalTime((uint32_t)envi("RTK_ADV", 864000));   // 5p-5: the starter offer runs out
             if (i == envi("RTK_LUCKITEM", -1)) GameState::AddItem((uint32_t)envi("RTK_LUCKID", 0), 1, false, false, false);   // 5p-5: a luck item owned
             for (const char* key : {"RTK_BUYCHK", "RTK_BUYCHK2", "RTK_BUYCHK3"})   // 5p-5: a purchase's state

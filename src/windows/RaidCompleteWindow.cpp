@@ -238,6 +238,11 @@ void Show() {
     g_root->SetPosition(g_effect->GetCenteredX(), -g_root->h);
     g_root->SetVisibility(true);
     BuildingHovers::CollectAll();
+    // PORT (DECIDED user 2026-10-18): a map holding a chest key gives it with a 1/4 chance.
+    if (const uint32_t key = Map::RollHeldChestKey(4, false)) {
+        GameState::AddItem(key, 1, false, false, false);
+        GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), key, 1);
+    }
     unsigned crystals = 0;
     if (Locations::LocationInfo* info = Locations::GetLocationInfo(g_location)) {
         const int count = GameState::GetMapCompletionCount(info->maps[0].id);
