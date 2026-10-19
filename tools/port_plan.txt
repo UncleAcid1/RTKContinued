@@ -105,7 +105,7 @@ online  ^GameState::GetBIS$   # only PvP::GetBISItems
 # ---- moved out of 4g while porting it (2026-10-13) ----
 5  ^AIWarrior::(StartedMagicAttackArea|FindEpicenterPos|StartedMagicAttack|MagicDeath|MagicBlock|MagicHit|MagicAttackAreaFinished|MagicAttack|MagicAttackArea)$   # the fighters' side of spells (with Spells / AISpell)
 5  ^AIPlayer::PlayBuffAnimation$   # a buff's particles and cast animation (spells, potions' effects)
-5  ^BaseCombat::(SwitchToBossFight|SwitchToArenaFight)$   # hand the fight to BossCombat / ArenaCombat (SwitchToPvPArenaFight: 4h, the tutorial's ambush)
+5s  ^BaseCombat::SwitchToArenaFight$   # hand the fight to ArenaCombat (the arena events); SwitchToBossFight: 5i-1, SwitchToPvPArenaFight: 4h
 5  ^TaskInfoWindow::(SkipBossTask|OnFight)$   # the boss form of the quest window
 implicit ^PlayerBattleInOutWindow::(WinnerHolder::~WinnerHolder|FlagWindow::~FlagWindow|_INIT_105)$   # empty destructors and the static FunctionalWindow (Queue())
 implicit ^BottomBattleWindow::(ButtonFuryLarge::~ButtonFuryLarge|FUN_00257344)$   # empty destructor; FUN_00257344 wraps a function in a GUI::Callback

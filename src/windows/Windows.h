@@ -311,6 +311,8 @@ void ForceHide();                           // @0x35a9a0 at once
 void TaskTimeout(uint32_t task);            // @0x35ae00 closes when it shows that task
 void BlockArrowLimitChangeOnce();           // @0x359e68
 void SetFightBossCallback(Entity* boss);    // @0x359e80
+bool SkipBossTask();                        // @0x359e94 (always false in 5.11)
+void OnFight();                             // @0x35a548 the boss form's Fight button
 void SetOnContinue(void (*cb)());           // @0x359e9c run once when the window is closed by its X
 }
 

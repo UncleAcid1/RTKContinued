@@ -30,6 +30,7 @@
                 if (envi("RTK_GOMAP", 0)) GlobalMapWindow::SwitchMap((uint32_t)envi("RTK_GOMAP", 0), false, false);
             }
             if (i == envi("RTK_AT", 30)) {
+                if (envi("RTK_BOSS", 0)) { for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k) if (e->IsBoss() && !e->IsDead()) { std::printf("[t] boss %u at %d,%d map %u task %u\n", e->GetEntityData()->id, e->tileX, e->tileY, e->GetBossMapID(), e->GetBossTaskID()); pl->GetAI()->ClickedEntity(e); break; } }
                 if (envi("RTK_CAMPEND", 0) || envi("RTK_CAMPPERF", 0)) { int n = envi("RTK_CAMPEND", 0) + envi("RTK_CAMPPERF", 0); for (unsigned k = 0; Locations::LocationInfo* l = Locations::EnumLocationInfo(k); ++k) if (!l->mission && l->campaign && --n == 0) { Tasks::TaskInfo* ct = Tasks::GetCampaignCompletionTask(l->id); std::printf("[t] campaign location %u campaign %u task %u\n", l->id, l->campaign, ct ? ct->id : 0); if (envi("RTK_CAMPEND", 0)) { CampaignCompleteWindow::SetParameters(l->id); CampaignCompleteWindow::Show(); } else { CampaignPerfectedWindow::SetParameters(l->id, ct); CampaignPerfectedWindow::Show(); } break; } }
                 if (envi("RTK_EASY", 0)) StartRaidingWindow::Show();
                 if (envi("RTK_HEALCARD", 0)) { std::vector<Entity*> v; EntityManager::GetPlayerAndSoldiers(v); for (Entity* e : v) if (e != pl && e->GetHP() < e->GetHpMax()) { BattleBarWindow::ShowHealSoldier(e); break; } }
@@ -48,6 +49,7 @@
                 std::printf("[t] f=%d tut=%d/%d wd=%d dlg=%d shown=%d combat=%d hero=%d@%d,%d", i, GameState::tutorial, GameState::secondTutorial, (int)BuildingHovers::IsWorldDialogVisible(), (int)PlayerTopWindow::IsPlayerDialogVisible(), (int)WindowManager::GetShownWindowCount(), (int)GameState::IsCombatActive(), pl ? pl->GetHP() : -1, pl ? pl->tileX : -1, pl ? pl->tileY : -1);
                 for (Entity* e : v) if (e != pl && e->GetHpMax() > 0) std::printf(" sold=%d", e->GetHP());
                 if (foe) std::printf(" foe=%d f36=%d act=%d dead=%d dis=%d app=%d", foe->GetHP(), (int)foe->f36, (int)foe->IsActive(), (int)foe->IsDead(), (int)foe->IsDisappearing(), (int)foe->IsAppeared());
+                if (BaseCombat* cc = GameState::GetActiveCombat()) std::printf(" ctype=%d cstate=%d paused=%d", cc->GetType(), cc->GetState(), (int)cc->IsPaused());
                 std::printf(" crystals=%u head=%s range=%.4f:", (unsigned)GameState::GetResourceAmount(GameState::kCrystal), WindowManager::Head()->name.c_str(), WindowManager::GetTopWindowRange());
                 { int k = 0; for (WindowManager::WindowQueue* w = WindowManager::Head(); w && k < 4; w = w->next, ++k) std::printf(" %s(%d,%.4f)", w->name.c_str(), (int)w->IsVisible(), w->ZRange()); }
                 std::printf("\n");

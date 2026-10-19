@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 #include "engine/Timer.h"
 #include "game/AI.h"
@@ -16,6 +17,7 @@
 #include "game/Locations.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/PvP.h"
 #include "game/SpawnPoint.h"
 #include "game/Setting.h"
@@ -321,10 +323,63 @@ void BaseCombat::EnemyTurn() {
     p->done = true;
 }
 
-// UNVERIFIED (milestone 5, with BossCombat / ArenaCombat / PvPArenaCombat): the fight is handed to
-// a new combat of that kind. Until then nothing starts a fight with a boss (AIEnemy::CheckAggro,
-// AIPlayer::ClickedEntity).
-void BaseCombat::SwitchToBossFight() {}
+// @0x10efb0: the boss fight on the boss's own map (loaded next frame; Map::SpawnEntities starts the
+// BossCombat there): where the player came from and stood, the boss's spawn point and tile, the
+// map's positions ("bat" list, else the defaults), a copy of the boss's meta, and the enemies: each
+// wave's (entity id, count) entries, a 0 between waves (then a BossCombatWaves, type 4), the boss
+// last. PORT (online removed): the fight's statistics request (OG2::MakeRequest(1, 1, spawn, male)).
+void BaseCombat::SwitchToBossFight() {
+    Entity* boss = enemySquad->GetOwner();
+    const uint32_t map = boss->GetBossMapID();
+    Map::EnqueueLoadMap((int)map, false, true, 0.f);
+    GameState::mReturnMapID = (uint32_t)GameState::GetCurrentMapID();
+    const SpawnPoint* sp = enemySquad->GetOwner()->GetSpawnPoint();
+    GameState::mBossWaves.clear();
+    GameState::mBossWavesHP.clear();
+    GameState::mBossSpawnID = sp ? (int)sp->id : 0;   // PORT: the original reads a spawn point it assumes
+    GameState::mLastBossXY[0] = wp10->x;
+    GameState::mLastBossXY[1] = wp10->y;
+    GameState::mLastBossPlayerXY[0] = wp14->x;
+    GameState::mLastBossPlayerXY[1] = wp14->y;
+    const int dir = playerSquad->GetOwner()->GetDirection();
+    static const int kDefaults[12] = {3, 0x16, 5, 0x11, 0xb, 6, 8, 0xb, 7, 0xe, 5, 3};
+    for (int i = 0; i < 12; ++i) GameState::mBossMapPositions[i] = kDefaults[i];
+    GameState::mCurrentBossCombatType = 3;
+    GameState::mLastPlayerDir = dir;
+    if (const MetaData* bat = Locations::GetMapBat(map))
+        for (unsigned i = 0; i < bat->GetChildrenCount(); ++i) {
+            const MetaData* pair = bat->GetChild(i);
+            GameState::mBossMapPositions[i * 2] = pair->GetChild(0)->GetInt();
+            GameState::mBossMapPositions[i * 2 + 1] = pair->GetChild(1)->GetInt();
+        }
+    const char* text = enemySquad->GetOwner()->GetMetaExpression()->GetExpression();
+    char* copy = new char[std::strlen(text) + 1];
+    std::strcpy(copy, text);
+    BossCombatData::mLastBossMeta = new MetaExpression(copy, true);
+    if (const MetaData* waves = enemySquad->GetOwner()->GetBossWaveInfo()) {
+        for (unsigned w = 0; w < waves->GetChildrenCount(); ++w) {
+            if (w != 0) {
+                GameState::mBossWaves.push_back(0);
+                GameState::mBossWavesHP.push_back(0);
+                GameState::mCurrentBossCombatType = 4;
+            }
+            const MetaData* wave = waves->GetChild(w);
+            for (unsigned j = 0; j < wave->GetChildrenCount(); ++j) {
+                const MetaData* entry = wave->GetChild(j);
+                for (int k = 0; k < entry->GetChild(1)->GetInt(); ++k) {
+                    GameState::mBossWaves.push_back((uint32_t)entry->GetChild(0)->GetInt());
+                    GameState::mBossWavesHP.push_back(0);
+                }
+            }
+        }
+    }
+    GameState::mBossWaves.push_back(enemySquad->GetOwner()->GetEntityData()->id);
+    GameState::mBossWavesHP.push_back(0);
+    EndCombat();
+    SwitchState(0x11);
+}
+
+// UNVERIFIED (milestone 5s, with ArenaCombat's arena events): the arena fight on map 0x70.
 void BaseCombat::SwitchToArenaFight() {}
 // @0x10ff38: the PvP arena fight on map `map` (loaded next frame): where the player came from and
 // stood, the arena's positions from the map's "bat" list, the opponent's warriors and hero.

@@ -18,6 +18,10 @@
 #include "game/BuildingHovers.h"
 #include "game/Contracts.h"
 #include "game/Locations.h"
+#include "game/Combat.h"
+#include "game/EntityManager.h"
+#include "game/AIState.h"
+#include "game/Entity.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
@@ -327,6 +331,24 @@ WindowManager::FunctionalWindow* Queue() {
 bool IsVisible() { return g_queue && g_queue->shown; }          // @0x359e54
 void BlockArrowLimitChangeOnce() { g_resetArrowLimit = false; } // @0x359e68
 void SetFightBossCallback(Entity* boss) { g_boss = boss; }      // @0x359e80
+bool SkipBossTask() { return false; }                          // @0x359e94
+
+// @0x35a548: the boss form's Fight: the fight with the boss starts (a player shadow's boss: the PvP
+// arena on its map; quest 0x5b7's: straight to the boss fight).
+void OnFight() {
+    GameState::SetCombat(new AggroCombat());
+    g_boss->CreateSquad();
+    g_boss->GetAI()->UpdateLastTarget();
+    GameState::GetActiveCombat()->BeginCombat(EntityManager::GetPlayer()->GetSquad(), g_boss->GetSquad());
+    if (g_boss->GetGUID() == 0) {
+        if (g_task == 0x5b7) GameState::GetActiveCombat()->ForceBossFight(0, 0);
+    } else {
+        GameState::GetActiveCombat()->ForceBossFight(6, (int)g_boss->GetBossMapID());
+        g_bossMode = false;
+        g_boss = nullptr;
+    }
+    Hide();
+}
 void SetOnContinue(void (*cb)()) { g_onContinue = cb; }         // @0x359e9c
 void Hide() { HideWindow(); }                                   // @0x35a490
 
@@ -419,7 +441,7 @@ void Init() {
     g_shopIcon = GUI::GetWindowTypedF<Window>(g_root, "button_boss_boss_%02d.button_boss_task_button.icon_60_boss", 2);
     g_shopIcon->takesZ = true;
     g_shopText = GUI::GetWindowTypedF<Textfield>(g_root, "button_boss_boss_%02d.button_boss_task_button.text_upgrade", 2);
-    g_fight->SetOnClick([] {});   // UNVERIFIED (milestone 5): OnFight (0x35a548)
+    g_fight->SetOnClick(OnFight);
     g_shop->SetOnClick([] {});    // UNVERIFIED (milestone 5): OnShop (0x35a4f8) (the item shop's tab 3)
     g_fight->MoveWindow(0, (int)(g_scale * 20.f));
     g_shop->MoveWindow(0, (int)(g_scale * 20.f));

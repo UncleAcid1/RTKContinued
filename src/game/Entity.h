@@ -283,6 +283,10 @@ public:
     int GetInitiative(int level) const;
     void ShowGlowAnimation();                    // @0x1516f8
     bool IsBoss() const;                         // @0x151974 its meta expression has BOSS (0x86)
+    const MetaData* GetBossWaveInfo() const;     // @0x151a5c its BOSS (0x86) list: per wave, (entity id, count)
+    const MetaData* GetBossAdditionalWavesInfo() const;   // @0x151a84 (0x95)
+    uint32_t GetBossTaskID() const;              // @0x151aac (0x93), 0 without one
+    uint32_t GetBossMapID() const;               // @0x151b10 MAP_ID (0x8b): 0 without a meta, 0x25 without the key
     void OnAggro();                              // @0x151fa8 (the hero) a monster noticed him
     void OnAddedToCombat();                      // @0x15d248
     void OnRemovedFromCombat();                  // @0x152908

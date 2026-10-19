@@ -159,6 +159,41 @@ public:
     void UpdateAttackPosition() override;             // +0xdc @0x1f5870
 };
 
+class MetaExpression;
+namespace BossCombatData {
+extern MetaExpression* mLastBossMeta;   // 0x6117ac the boss's meta, copied by SwitchToBossFight
+}
+
+// BossCombat (@0x11620c..0x11a250, vtable 0x607ea8, 0x8c bytes): a boss fight on the boss's own map
+// (Entity::GetBossMapID), set up by BaseCombat::SwitchToBossFight and Map::SpawnEntities. The
+// squads run to their places (RunningOut, state 0x10), then turns as in BaseCombat; between turns
+// the fight waits for the player (paused) up to "arena_turn_time" seconds, shown in
+// ArenaTurnWindow. Its enemies and their HP are kept in GameState::mBossFights (RestoreBossCombat,
+// EndTurn), so a fight left half way goes on where it stopped until the boss's restore_time.
+class BossCombat : public BaseCombat {
+public:
+    BossCombat();                                     // @0x117870
+    ~BossCombat() override;                           // @0x11777c
+    void Update(float dt) override;                   // +0x08 @0x116c44
+    void BeginCombat(BaseSquad* player, BaseSquad* enemy) override;   // +0x0c @0x11757c
+    using BaseCombat::BeginCombat;
+    void Continue(int mode) override;                 // +0x28 @0x117558
+    void EndCombat() override;                        // +0x3c @0x11688c
+    void OnEnemyDied() override;                      // +0x68 @0x116800
+    void WaitingForContinue() override { BaseCombat::WaitingForContinue(); }   // +0xa8 @0x116b0c
+    void WaitingForBossBattleClick() override;        // +0xac @0x116aa8
+    void UpdatePositions() override;                  // +0xd8 @0x11620c
+    void UpdateAttackPosition() override;             // +0xdc @0x117270
+    void StartNewTurn() override;                     // +0xe4 @0x117950
+    void EndTurn() override;                          // +0xe8 @0x118e54
+    virtual void RestoreBossCombat();                 // +0xf4 @0x119100
+    virtual void RunningOut();                        // +0xf8 @0x116b10
+
+    bool enemyFirst = false;             // +0x80 Continue(1): the boss's side strikes first
+    float turnTimer = 0.f;               // +0x84 the wait for the player
+    int turn = 0;                        // +0x88
+};
+
 namespace PvP { struct PlayerInfo; }
 
 // ArenaCombat (@0xfa030..0xfee54, vtable 0x6077f0, 0xc0 bytes): the arenas' turn-based fight. The

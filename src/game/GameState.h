@@ -115,6 +115,16 @@ bool HasMapStartTime(uint32_t map);               // @0x195814
 uint32_t GetMapEndTime(uint32_t map);             // @0x198414
 void SetMapEndTime(uint32_t map, uint32_t t);     // @0x198448
 void ResetBossFightsOnMap(uint32_t map);          // @0x19ba8c
+// GameState::mBossFights / mBossFightsTimers (key: boss spawn id | map << 16): the enemies (entity id,
+// HP; the boss first) of a boss fight under way and the time it was started.
+std::vector<std::pair<uint32_t, uint32_t>>& BossFight(int key);   // (std::map::operator[])
+bool HasBossFight(int key);
+void EraseBossFight(int key);
+uint32_t GetBossFightTimer(int key);              // 0 when there is none
+bool HasBossFightTimer(int key);
+void SetBossFightTimer(int key, uint32_t time);   // (insert: an existing one is kept, FUN_00118418)
+void EraseBossFightTimer(int key);
+uint32_t GetBossFightStartTime(uint32_t map, uint32_t spawn);   // @0x19160c
 int GetMapCompletionCount(uint32_t map);          // @0x199590 how often a mission was finished
 void AddMapCompletion(uint32_t map);              // @0x1995c4
 uint32_t GetMonsterKilledCount(uint32_t id);      // @0x197a6c

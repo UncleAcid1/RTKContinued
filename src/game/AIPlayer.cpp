@@ -378,8 +378,6 @@ void AIPlayer::ClickedEntity(Entity* e) {
     if (!e->IsDead() && !GameState::IsCombatActive() && wp && entity->GetAI()->SetTarget(wp, true)) {
         e->OnClick();
         if (e->GetEntityData()->clas == 9 && (!e->GetSpawnPoint() || !e->GetSpawnPoint()->npc)) {
-            // PORT (until milestone 5's BossCombat): a boss cannot be attacked, see AIEnemy::CheckAggro.
-            if (e->IsBoss()) return;
             // A monster: the attack marker on its tile, and the fight begins.
             // "interact_(fe)male_player_attack": milestone 6.
             AttackMarkerAt(e->tileX, e->tileY);

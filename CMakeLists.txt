@@ -52,6 +52,7 @@ add_executable(rtk
     src/game/AICombat.cpp
     src/game/Combat.cpp
     src/game/ArenaCombat.cpp
+    src/game/BossCombat.cpp
     src/game/EntityCombat.cpp
     src/game/Projectile.cpp
     src/game/AIEnemy.cpp

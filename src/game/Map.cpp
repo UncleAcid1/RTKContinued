@@ -2589,10 +2589,11 @@ void SpawnEntities() {
     if (!player) return;
     // A boss or arena fight on its way (state 0x11, SwitchToBossFight & co.) is set up instead: the
     // old combat ends, the fight of mCurrentBossCombatType starts against the last entry of
-    // mBossWaves (its hero; the PvP one is no player). UNVERIFIED (milestone 5): BossCombat (3),
-    // BossCombatWaves (4), ArenaCombat (5).
+    // mBossWaves (its hero; the PvP one is no player). UNVERIFIED: BossCombatWaves (4, milestone
+    // 5i-3), ArenaCombat (5, milestone 5s).
     if (BaseCombat* c = GameState::GetActiveCombat(); c && c->GetState() == 0x11) {
         GameState::EndActiveCombat(true);
+        if (GameState::mCurrentBossCombatType == 3) GameState::SetCombat(new BossCombat());
         if (GameState::mCurrentBossCombatType == 6) {
             PvP::PlayerInfo* opponent = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
             GameState::SetCombat(new PvPArenaCombat(opponent, false));

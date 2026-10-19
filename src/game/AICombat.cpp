@@ -20,6 +20,7 @@
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "hud/HUD.h"
+#include "windows/Windows.h"
 
 namespace {
 
@@ -221,13 +222,18 @@ void AIEnemy::CheckAggro() {
         if (!HealSquadWindow::IsVisible()) HealSquadWindow::Show();
         return;
     }
-    // PORT (until milestone 5's BossCombat): a boss does not attack. In the original a boss with a
-    // boss task (Entity::GetBossTaskID, unless TaskInfoWindow::SkipBossTask) opens the quest window
-    // in its boss form (SetFightBossCallback, SetTask(id, true)), and any other becomes a boss fight
-    // once the squads stand (BaseCombat::SwitchToBossFight).
-    if (entity->IsBoss()) return;
+    // A boss with a boss quest opens the quest window in its boss form (its Fight button starts the
+    // fight, TaskInfoWindow::OnFight); any other becomes a boss fight once the squads stand
+    // (BaseCombat::SwitchToBossFight).
     GameState::EndActiveCombat(true);
     entity->RemovePatrol();
+    if (entity->IsBoss() && entity->GetBossTaskID() != 0 && !TaskInfoWindow::SkipBossTask()) {
+        player->OnAggro();
+        TaskInfoWindow::SetFightBossCallback(entity);
+        TaskInfoWindow::SetTask(entity->GetBossTaskID(), true);
+        TaskInfoWindow::Show();
+        return;
+    }
     player->OnAggro();
     if (GameState::secondTutorial == 0x20e && entity->IsEnemy()) {
         BuildingHovers::HideArrow();

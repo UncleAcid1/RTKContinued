@@ -152,6 +152,30 @@ bool Entity::IsBoss() const {
     return m && m->FindChildData(0x86) != nullptr;
 }
 
+const MetaData* Entity::GetBossWaveInfo() const {
+    MetaExpression* m = GetMetaExpression();
+    return m ? m->FindChildData(0x86) : nullptr;
+}
+
+const MetaData* Entity::GetBossAdditionalWavesInfo() const {
+    MetaExpression* m = GetMetaExpression();
+    return m ? m->FindChildData(0x95) : nullptr;
+}
+
+uint32_t Entity::GetBossTaskID() const {
+    MetaExpression* m = GetMetaExpression();
+    if (!m) return 0;
+    const MetaData* d = m->FindChildData(0x93);
+    return d ? (uint32_t)d->GetInt() : 0;
+}
+
+uint32_t Entity::GetBossMapID() const {
+    MetaExpression* m = GetMetaExpression();
+    if (!m) return 0;
+    const MetaData* d = m->FindChildData(0x8b);
+    return d ? (uint32_t)d->GetInt() : 0x25;
+}
+
 void Entity::OnAggro() {
     int sx = (int)worldX, sy = (int)worldY;
     Map::WorldCoordinatesToScreen(sx, sy);

@@ -1993,6 +1993,18 @@ void ResetBossFightsOnMap(uint32_t map) {
     for (auto it = g_bossFightsTimers.begin(); it != g_bossFightsTimers.end();)
         it = ((uint32_t)it->first >> 16) == map ? g_bossFightsTimers.erase(it) : std::next(it);
 }
+std::vector<std::pair<uint32_t, uint32_t>>& BossFight(int key) { return g_bossFights[key]; }
+bool HasBossFight(int key) { return g_bossFights.count(key) != 0; }
+void EraseBossFight(int key) { g_bossFights.erase(key); }
+uint32_t GetBossFightTimer(int key) {
+    auto it = g_bossFightsTimers.find(key);
+    return it == g_bossFightsTimers.end() ? 0 : it->second;
+}
+bool HasBossFightTimer(int key) { return g_bossFightsTimers.count(key) != 0; }
+void SetBossFightTimer(int key, uint32_t time) { g_bossFightsTimers.insert({key, time}); }
+void EraseBossFightTimer(int key) { g_bossFightsTimers.erase(key); }
+// @0x19160c
+uint32_t GetBossFightStartTime(uint32_t map, uint32_t spawn) { return GetBossFightTimer((int)(spawn | map << 16)); }
 int GetMapCompletionCount(uint32_t map) { return (int)g_mapCompletion[map]; }
 void AddMapCompletion(uint32_t map) { ++g_mapCompletion[map]; }
 
