@@ -164,7 +164,7 @@ void Init() {
     g_effect = GUI::CreateMovementEffect(g_root);
 
     g_levelButton = GUI::GetWindowTyped<Window>(g_root, "button_player_box_level");
-    g_levelButton->SetOnClick([] {});   // UNVERIFIED (milestone 5): LevelInfoWindow::Show
+    g_levelButton->SetOnClick(LevelInfoWindow::Show);
     g_level = GUI::GetWindowTyped<Textfield>(g_root, "button_player_box_level.player_level");
     g_repBg = GUI::GetWindowTyped<Textfield>(g_root, "rep_bar_holder.text_bg");
     g_xpBg = GUI::GetWindowTyped<Textfield>(g_root, "xp_bar_holder.text_bg");

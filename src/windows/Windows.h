@@ -532,6 +532,15 @@ void Hide();                                // @0x33cfb8
 void OnItem(unsigned slot);                 // @0x33d004 slot: flag * 3 + item
 }
 
+// The levels and professions window (windows/LevelInfoWindow.cpp).
+namespace LevelInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "LevelInfoWindow"
+bool IsVisible();                           // @0x2ea470
+void Show();                                // @0x2f13d8
+void Hide();                                // @0x2eb070
+void OnLevel(unsigned level);               // @0x2f1204 the column starts at that level (1-based)
+}
+
 // A mission's brief (windows/RaidInfoWindow.cpp).
 namespace RaidInfoWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RaidInfoWindow"

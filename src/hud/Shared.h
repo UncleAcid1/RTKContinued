@@ -27,6 +27,19 @@ struct EndscreenProgressBar {
     void SetProgress(float f);           // @0x34082c
 };
 
+// Shared::ProgressBarLarge (0x24 bytes): the orange profession bar (LevelInfoWindow's rank holders,
+// CraftItemWindow). The fill and its text are clipped at clip.right.
+struct ProgressBarLarge {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Textfield* textUnder = nullptr; // +0x04 text_progress_under_01
+    GUI::Textfield* textOver = nullptr;  // +0x08 progress_bar_profession_orange.text_progress_over_01 (clipped)
+    GUI::Window* fill = nullptr;         // +0x0c progress_bar_profession_orange.progress_bar_large_orange (clipped)
+    GUI::Window* lock = nullptr;         // +0x10 lock_01
+    GUI::ClipRect clip{0, 0, 0, 0};      // +0x14
+    void LoadFrom(GUI::Window* r, const char* prefix);   // @0x343bd8
+    void SetProgress(float f);           // @0x340650
+};
+
 // Shared::BottomSlotInfo (0x68 bytes): one slot of the army bar or the belt.
 // LoadFrom @0x3445f0 fetches the slot's windows by "%s.<name>" and sets the fixed icons.
 struct BottomSlotInfo {

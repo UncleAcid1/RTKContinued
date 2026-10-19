@@ -757,6 +757,7 @@ int main_Loop_Init() {
     HUDWindow::Queue();
     LandExpandedWindow::Queue();
     LandWindow::Queue();
+    LevelInfoWindow::Queue();
     LevelUpWindow::Queue();
     LoadingScreenWindow::Queue();
     NeedItemWindow::Queue();

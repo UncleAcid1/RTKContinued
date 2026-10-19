@@ -71,6 +71,24 @@ void EndscreenProgressBar::LoadFrom(Window* r, const char* p, const char* holder
     fill->SetClipRect(&clip);
 }
 
+// @0x343bd8
+void ProgressBarLarge::LoadFrom(Window* r, const char* p) {
+    root = GUI::GetWindowTypedF<Window>(r, "%s", p);
+    textUnder = GUI::GetWindowTypedF<Textfield>(r, "%s.text_progress_under_01", p);
+    textOver = GUI::GetWindowTypedF<Textfield>(r, "%s.progress_bar_profession_orange.text_progress_over_01", p);
+    fill = GUI::GetWindowTypedF<Window>(r, "%s.progress_bar_profession_orange.progress_bar_large_orange", p);
+    lock = GUI::GetWindowTypedF<Window>(r, "%s.lock_01", p);
+    clip.bottom = 0x800;
+    clip.top = 0;
+    clip.left = fill->x;
+    clip.right = fill->w + fill->x;
+    textOver->SetClipRect(&clip);
+    fill->SetClipRect(&clip);
+}
+
+// @0x340650
+void ProgressBarLarge::SetProgress(float f) { clip.right = (int)((float)clip.left + (float)fill->w * f); }
+
 void EndscreenProgressBar::Rescale(float scale) {
     const int w = root->w;
     root->RestorePosition();

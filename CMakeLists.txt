@@ -106,6 +106,7 @@ add_executable(rtk
   src/windows/ChoosePathWindow.cpp
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp
+  src/windows/LevelInfoWindow.cpp
   src/windows/LevelUpWindow.cpp
   src/windows/LoadingScreenWindow.cpp
   src/windows/PopupSelectionWindow.cpp
