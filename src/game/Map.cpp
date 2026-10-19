@@ -1,5 +1,6 @@
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Professions.h"
 #include "game/Map.h"
 
 #include <cmath>
@@ -856,9 +857,47 @@ void Decor::OnSetup() {
         // CAM: a camera path the first time on this map.
         if ((d = meta->FindChildData(kExpCam2)) && GameState::GetMapStartTime(GameState::GetCurrentMapID()) == 0)
             AddCameraPath(d, 0);
-        // UNVERIFIED (milestone 5): CRAFT (a profession's resource node: after its regrow time
-        // Professions::GenerateProfessionObject gives it a new object, its tile is blocked and it
-        // gets the "bless" particles; Professions::IsProfessionObject 0x1e8268).
+        // CRAFT (regrow seconds as the second value): a profession's gathering node. Once its regrow
+        // time is over (and the hero does not stand on it) it is reset to object 0x5e3; a node
+        // that is no profession object gets a new one for the map (none: it disappears, its regrow
+        // time starts over). A profession object blocks its tile and, while usable, glitters
+        // ("bless").
+        if ((d = meta->FindChildData(kExpCraft))) {
+            uint32_t object = 0;
+            bool generate = false;
+            Entity* player = nullptr;
+            if (d->GetChildrenCount() < 2 || (id != 0 && !Professions::IsProfessionObject(id)) || f4c != 0 ||
+                (uint32_t)Timer::GetGlobalTime() <= collectStart + (uint32_t)d->GetChild(1)->GetInt() ||
+                !(player = EntityManager::GetPlayer()) || (x == player->tileX && y == player->tileY)) {
+                generate = id != 0;
+            } else {
+                id = 0x5e3;
+                generate = true;
+            }
+            if (generate) {
+                if (!Professions::IsProfessionObject(id)) {
+                    if (uint32_t gen = Professions::GenerateProfessionObject(Professions::kProfession)) {
+                        id = gen;
+                        data = GameData::GetDecoration(gen);
+                        UpdateImage();
+                        Render::SortRenderLayer(Render::kLayerObjects, 1);
+                        f4c = 1;
+                    } else {
+                        visible = false;
+                        id = 0;
+                        data = nullptr;
+                        collectStart = (uint32_t)Timer::GetGlobalTime();
+                    }
+                }
+                object = id;
+            }
+            if (Professions::IsProfessionObject(object)) {
+                SetBlock(x, y, true);
+                AI::RemoveMapWaypoint(x, y);
+                AI::LinkAdjacentWaypoints();
+                if (f4c != 0) CreateParticles("bless", 0, true);
+            }
+        }
         if (meta->FindChildData(kExpTrapDamage)) collectStart = 0;
     }
 }

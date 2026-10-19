@@ -463,6 +463,7 @@ void SetBossName(const char32_t* name);     // @0x2517ac
 void SetWave(int wave, int total);          // @0x2517ec
 int GetTotalWaves();                        // @0x251804
 void SetAmbush();                           // @0x251818
+void SetReputation(uint32_t id);            // @0x251bf4 the next Show is that reputation's screen
 }
 
 // "Boss defeated!" after a won boss fight, and the end of an arena event (windows/BossOutroWindow.cpp).

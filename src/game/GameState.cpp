@@ -448,6 +448,9 @@ void SetFeaturedTaskClickTime(unsigned id, uint32_t t) {
 uint32_t GetEventStartTime(unsigned event) { return MapGet(g_eventStartTime, event); }
 // @0x198018 GameState::SetEventStartTime
 void SetEventStartTime(unsigned event, uint32_t t) { g_eventStartTime[event] = t; }
+
+// @0x197fa8 GameState::SetEventEndTime
+void SetEventEndTime(unsigned event, uint32_t t) { g_eventEndTime[event] = t; }
 // @0x197f74 GameState::GetEventDifficulty
 uint32_t GetEventDifficulty(unsigned event) { return MapGet(g_eventDifficulty, event); }
 uint32_t GetEventCompletionCount(unsigned event) { return g_eventCompletion[event]; }

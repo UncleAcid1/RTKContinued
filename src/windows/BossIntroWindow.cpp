@@ -3,12 +3,14 @@
 // set (the arena's defeat screens) it slides down over a black band with the reputation bar.
 // Port of BossIntroWindow (libkingdom.so 5.11), 0x251770..0x2539f0. Statics at 0x617ea8.
 //
-// UNVERIFIED (milestone 5): the reputation screens (SetReputation, Professions: the arena's event
-// results, their loot and reputation bar) are not ported; the reputation stays null, so every
-// branch that needs it is left as a note.
+// The reputation screens (SetReputation, from ArenaCombat: an arena event lost) show the event's
+// loot (FoundItemsWindow) and the reputation bar over a black band, and end the event.
+// UNVERIFIED (milestone 6): their sound "arena_lose" and SoundsManager::StopMusic.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "engine/Render.h"
@@ -20,8 +22,10 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/Professions.h"
 #include "game/PvP.h"
 #include "game/Rand48.h"
+#include "game/Setting.h"
 #include "game/AIState.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
@@ -40,7 +44,7 @@ using GUI::Textfield;
 using GUI::Window;
 
 WindowManager::FunctionalWindow* g_queue = nullptr;   // BossIntroWindow::wnd 0x617f2c
-const void* g_reputation = nullptr;   // 0x617ea8 Professions' reputation (milestone 5; null)
+Professions::Profession* g_reputation = nullptr;   // 0x617ea8 the reputation screen's (null: the banner)
 bool g_ambush = false;                // 0x617eac
 Textfield* g_text3 = nullptr;         // 0x617eb0 the name in an ambush
 Textfield* g_text2 = nullptr;         // 0x617eb4 the boss's name
@@ -58,6 +62,8 @@ float g_fadeT = 0.f;                  // 0x617f10
 Render::Texture* g_blackTex = nullptr;   // 0x617f14
 float g_shownTime = 0.f;              // 0x617f18 (while no dialog is over it)
 float g_pulse = 0.f;                  // 0x617f1c "Tap to continue" pulses
+uint32_t g_startPoints = 0;           // 0x617f20 the reputation's points before the event's loot
+uint32_t g_endPoints = 0;             // 0x617f24 and with it
 int g_bandY = 0;                      // 0x617f28 small screens: the slid-down window's y
 bool g_fadeIn = false;                // 0x60f0dc
 float g_rootScale = 1.f;              // 0x60f0e0
@@ -73,14 +79,38 @@ bool OnBack() {
     return false;
 }
 
-// @0x2518f8 (the slide out ends). UNVERIFIED (milestone 5): with a reputation the arena's event
-// ends here (event 2: its times, task 0x5b9 reset, the combat's PostCombat; event 1: its times,
-// tasks 0x5b1..0x5b4, 0x5b7 reset, the combat ended) and the hero returns to GameState's return
-// map (Map::EnqueueLoadMap).
+// @0x2518f8 (the slide out ends). After a reputation screen the arena's event ends (reputation 1:
+// event 2's times, task 0x5b9 reset, the combat's PostCombat; reputation 2: event 1's times, tasks
+// 0x5b1..0x5b4, 0x5b7 reset, the combat ended) and the hero returns to GameState's return map.
 void OnTweenOut() {
     g_root->SetVisibility(false);
     Render::SetVisibility(g_black, false);
     Render::SetVisibility(g_goldline, false);
+    if (g_reputation) {
+        uint32_t id = g_reputation->id;
+        if (id == 1) {
+            GameState::SetEventStartTime(2, 0);
+            GameState::SetEventStartTime(0x400, 0);
+            GameState::SetEventEndTime(2, (uint32_t)Timer::GetGlobalTime());
+            if (Tasks::TaskInfo* t = Tasks::GetTask(0x5b9)) t->dnShow = t->dnShowDefault;
+            GameState::ResetTask(0x5b9);
+            if (BaseCombat* c = GameState::GetActiveCombat()) c->PostCombat();
+            id = g_reputation->id;
+        }
+        if (id == 2) {
+            GameState::SetEventStartTime(1, 0);
+            GameState::SetEventEndTime(1, (uint32_t)Timer::GetGlobalTime());
+            if (Tasks::TaskInfo* t = Tasks::GetTask(0x5b1)) t->dnShow = t->dnShowDefault;
+            GameState::ResetTask(0x5b1);
+            GameState::SetTaskBeginTime(0x5b1, 1);
+            GameState::ResetTask(0x5b2);
+            GameState::ResetTask(0x5b3);
+            GameState::ResetTask(0x5b4);
+            GameState::ResetTask(0x5b7);
+            if (GameState::IsCombatActive()) GameState::EndActiveCombat(true);
+        }
+        Map::EnqueueLoadMap((int)GameState::mReturnMapID, true, false, 0.f);
+    }
     if (GameState::GetCurrentMapID() != 0 && GameState::GetCurrentMapID() != 0xb) BottomBattleWindow::Show();
     g_reputation = nullptr;
 }
@@ -110,7 +140,7 @@ void UpdateContents() {
         const char32_t* diff = StringTable::GetStringF("ARENA_WAVE_DIFF_%d", (int)GameState::GetEventDifficulty(2) + 1);
         g_text->SetText(SWPrintf(0x80, U"%s %d/%d", {diff, g_wave, g_totalWaves}).c_str());
     }
-    // (with a reputation text3 says "ARENA_WAVE_DEFEAT": milestone 5)
+    if (g_reputation) g_text3->SetText(StringTable::GetString("ARENA_WAVE_DEFEAT"));
     g_tap->SetVisibility(g_reputation == nullptr);
     g_tap->SetText(StringTable::GetString("TAP_TO_CONTINUE"));
     g_tapCopy->SetVisibility(g_reputation == nullptr);
@@ -145,6 +175,7 @@ void SetWave(int wave, int total) {   // @0x2517ec
 }
 int GetTotalWaves() { return g_totalWaves; }   // @0x251804
 void SetAmbush() { g_ambush = true; }          // @0x251818
+void SetReputation(uint32_t id) { g_reputation = Professions::GetProfession(id); }   // @0x251bf4
 
 // @0x252028: the fade (in: 1 s; out: 1 s, then the ambush's fight starts), "Tap to continue"
 // pulsing, the texts by kind.
@@ -224,18 +255,78 @@ void Update(float dt) {
     if (WindowManager::GetShownWindowCount() < 2) g_shownTime += dt;
     g_pulse += dt;
     g_tap->SetAlpha(std::fabs(cosf(g_pulse * 3.f) * 0.7f), false);
-    // (with a reputation: the reputation gained, its bar filling over two seconds: milestone 5)
+    if (g_reputation) {
+        // The reputation bar fills in 2 s towards the next rank: "gained x / y", or "next rank".
+        float t = g_shownTime * 0.5f;
+        t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+        const uint32_t level = Professions::GetPlayerProfessionLevel(g_reputation->id);
+        Professions::ProfessionLevel* next = Professions::GetProfessionLevel(g_reputation->id, level + 1);
+        if (!next) next = Professions::GetProfessionLevel(g_reputation->id, level);
+        if (!next) return;
+        const float from = (float)g_startPoints;
+        const float value = from + t * ((float)std::min(next->points, g_endPoints) - from);
+        Professions::ProfessionLevel* cur = Professions::GetProfessionLevel(g_reputation->id, level);
+        const int shown = (int)(value + 0.5f);
+        const int prev = cur ? (int)cur->points : 0;   // (the original reads an unset value without one)
+        std::u32string text;
+        if ((int)next->points <= shown)
+            text = SWPrintf(0x100, StringTable::GetString("ARENA_WAVE_GAINED_NEXT"), {g_reputation->title});
+        else
+            text = SWPrintf(0x100, StringTable::GetString("ARENA_WAVE_GAINED"),
+                            {g_reputation->title60, ToWideString(shown), ToWideString((int)next->points)});
+        g_bar.textUnder->SetText(text.c_str());
+        g_bar.textOver->SetText(text.c_str());
+        if (prev == (int)next->points) return;
+        g_bar.SetProgress((value - (float)(uint32_t)prev) / (float)(uint32_t)((int)next->points - prev));
+        g_root->UpdatePosition();
+    }
     g_text->SetVisibility(!g_ambush);
     g_text2->SetVisibility(!g_ambush);
     g_text3->SetVisibility(g_ambush);
 }
 
 // @0x252c3c: in an arena fight the squad cheers; the banner fades in at the screen's centre.
-// UNVERIFIED (milestone 5): ArenaTurnWindow is hidden first when it is up; with a reputation the
-// arena event's loot (FoundItemsWindow) and the band slide in instead.
+// A reputation screen: the event's loot (with the defeat's consolation: event 2's lost wave items
+// and part of the gold spent, event 1's boss items) in FoundItemsWindow, the reputation's points
+// before / after it, and the band slides in.
 void Show() {
     if (g_queue->shown) return;
     g_queue->shown = true;
+    if (ArenaTurnWindow::IsVisible()) ArenaTurnWindow::Hide();
+    if (g_reputation) {
+        g_startPoints = g_endPoints = GameState::GetProfessionPoints(g_reputation->id);
+        uint32_t id = g_reputation->id;
+        if (id == 1) {
+            const unsigned diff = GameState::GetEventDifficulty(2);
+            const int base = Setting("wave_lost_base").GetChild(diff).GetInt();
+            const int perWave = Setting("wave_lost_per_wave").GetChild(diff).GetInt();
+            if (GameState::GetEventCompletionCount(2) != 0) {
+                GameState::AddMapItemCollectionInfo(0x70, 0x1ba, (g_wave - 1) * perWave + base);
+                if (BaseCombat* c = GameState::GetActiveCombat()) {
+                    const float back = std::min(Setting("arena_dropback_defeat").GetFloat(), 1.f);
+                    GameState::AddMapResourceCollectionInfo(0x70, GameState::kGold, (int)((float)c->GetSpentGold() * back));
+                }
+            }
+            id = g_reputation->id;
+        }
+        if (id == 2 && GameState::GetEventCompletionCount(1) != 0)
+            GameState::AddMapItemCollectionInfo(0x70, 0x1bb, Setting("arena_boss_dropback").GetInt());
+        FoundItemsWindow::ClearCollected();
+        for (int t = 0; t < 11; ++t)
+            if (int n = GameState::GetMapResourceCollectionInfo((uint32_t)GameState::GetCurrentMapID(), t))
+                FoundItemsWindow::AddCollectedResource(t, n);
+        for (unsigned i = 0; Items::ItemInfo* info = Items::EnumItemInfo(i); ++i) {
+            const int n = GameState::GetMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), info->id);
+            if (n == 0 || info->id == 0x2000) continue;
+            FoundItemsWindow::AddCollectedItem(info->id, n);
+            if (Professions::GetProfessionForPointItem(info->id) == g_reputation) g_endPoints += (uint32_t)n;
+        }
+        FoundItemsWindow::Show();
+        FoundItemsWindow::SetHeader(StringTable::GetString("ARENA_WAVE_DEFEAT_HEADER"));
+        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("arena_lose", 1, false), StopMusic.
+        if (Entity* player = EntityManager::GetPlayer())
+            Render::CenterOn(player->worldX, player->worldY - player->GetIdleHeight(), true, 0.4f, 0, false);
+    }
     if (GameState::IsArenaCombatActive() && g_reputation == nullptr &&
         (GameState::GetEventCompletionCount(2) == 0 || g_wave != 1)) {
         Entity* player = EntityManager::GetPlayer();
@@ -250,25 +341,51 @@ void Show() {
     }
     g_queue->MoveWindowOnTop(true);
     WindowManager::WindowShow(false);
-    g_root->SetPosition((GUI::ScreenWidth() - g_root->w) / 2, GUI::GetVerticalCenter(g_root->h));
-    g_fading = true;
-    g_fadeT = 0.f;
-    g_fadeIn = true;
+    if (!g_reputation) {
+        g_root->SetPosition((GUI::ScreenWidth() - g_root->w) / 2, GUI::GetVerticalCenter(g_root->h));
+    } else {
+        // The banner slides down over the black band.
+        g_effect->Animate(g_effect->GetCenteredX(), -g_root->h, g_effect->GetCenteredX(), g_bandY, true);
+        g_root->SetPosition(g_effect->GetCenteredX(), -g_root->h);
+        g_root->SetVisibility(true);
+        Render::SetVisibility(g_black, true);
+        g_black->w = (float)GUI::ScreenWidth();
+        g_black->h = (float)GUI::ScreenHeight() * 0.37f;
+        Render::SetPosition(g_black, 0.f, 0.f, 0.02f);
+        Render::SetVisibility(g_goldline, true);
+        g_goldline->w = (float)GUI::ScreenWidth();
+        Render::SetPosition(g_goldline, 0.f, 0.f, 0.0199f);
+        g_shownTime = -0.5f;
+    }
+    if (!g_reputation) {
+        g_fading = true;
+        g_fadeT = 0.f;
+        g_fadeIn = true;
+    }
     UpdateContents();
     g_root->SetVisibility(true);
-    g_root->SetAlpha(0.f, true);
-    GameState::RaiseGamePauseState();
+    if (!g_reputation) {
+        g_root->SetAlpha(0.f, true);
+        GameState::RaiseGamePauseState();
+    }
 }
 
-// @0x2532e0: the banner fades out (the reputation screens slide up instead: milestone 5).
+// @0x2532e0: the banner fades out (a reputation screen slides up instead).
 void Hide() {
-    g_fading = true;
-    g_fadeT = 0.f;
-    g_fadeIn = false;
+    if (!g_reputation) {
+        g_fading = true;
+        g_fadeT = 0.f;
+        g_fadeIn = false;
+    } else {
+        if (g_root->visibleSelf)
+            g_effect->Animate(g_effect->GetCenteredX(), g_bandY, g_effect->GetCenteredX(), -g_root->h, false);
+        Entity* player = EntityManager::GetPlayer();
+        if (player && player->GetSprite()) Render::ChangeLayer(player->GetSprite(), Render::kLayerObjects);
+    }
     WindowManager::WindowHide(false);
     g_queue->shown = false;
     g_queue->MoveWindowDown(true);
-    GameState::DropGamePauseState();
+    if (!g_reputation) GameState::DropGamePauseState();
     BeltBarWindow::Show();
 }
 
@@ -288,8 +405,12 @@ void SetZ(float z) {
 }
 
 // @0x25360c: a release after a second closes it (tutorial step 0x17: reported as step 0x590).
-bool Click(int, int, bool pressed) {
-    // (with a reputation the taps go to FoundItemsWindow: milestone 5)
+bool Click(int x, int y, bool pressed) {
+    // (a reputation screen's taps go to the loot strip)
+    if (g_reputation) {
+        FoundItemsWindow::Click(x, y, pressed);
+        return g_queue->shown;
+    }
     if (!g_queue->shown) return false;
     if (!pressed && 1.f < g_fadeT) {
         Hide();

@@ -182,6 +182,7 @@ uint32_t GetFeaturedTaskClickTime(unsigned id);   // @0x198890 (0: never)
 void SetFeaturedTaskClickTime(unsigned id, uint32_t t);   // @0x198f24
 uint32_t GetEventStartTime(unsigned event);    // @0x198054 (0: never)
 void SetEventStartTime(unsigned event, uint32_t t);   // @0x198018
+void SetEventEndTime(unsigned event, uint32_t t);     // @0x197fa8
 uint32_t GetEventDifficulty(unsigned event);   // @0x197f74
 uint32_t GetEventCompletionCount(unsigned event);   // @0x197f04 (std::map operator[])
 // @0x1963bc / @0x1a9548: the tasks to complete / reset automatically (0 empties the list).

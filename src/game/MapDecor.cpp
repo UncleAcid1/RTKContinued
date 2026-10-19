@@ -23,6 +23,7 @@
 #include "game/SpawnPoint.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Professions.h"
 #include "game/Rand48.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
@@ -229,8 +230,9 @@ const char32_t* Decor::GetBlockMessage() const {
 const char32_t* Decor::GetProgressMessage() const {
     if (!meta) return nullptr;
     if (const MetaData* d = meta->FindChildData(kExpProgressMsg)) return StringTable::GetString(d->GetString());
-    // UNVERIFIED (milestone 5): a CRAFT node shows its profession's text
-    // (Professions::GetProfessionForObject 0x1e8060, +0x14).
+    // A CRAFT node: its profession's "<name>_action".
+    if (meta->FindChildData(kExpCraft))
+        if (Professions::Profession* p = Professions::GetProfessionForObject(id)) return p->action;
     return nullptr;
 }
 
@@ -243,9 +245,14 @@ uint32_t Decor::GetRequiredItem() const {
         !GameState::SubTaskCompleted((unsigned)d->GetChild(0)->GetInt(), (unsigned)d->GetChild(1)->GetInt()))
         return 0;
     if ((d = meta->FindChildData(kExpReqUnlockItem))) return (uint32_t)d->GetInt();
-    // UNVERIFIED (milestone 5): a CRAFT node without its profession's tool equipped asks for the
-    // tool (Professions::GetProfessionTool 0x1e8514); a chest for the key of the chest for the
-    // player's level (Chests::GetChestForLevel 0x12b974 / GetChestForLevelByType 0x12d29c, +0x14).
+    // A CRAFT node without an owned tool of its profession asks for the worst of its tools.
+    if (meta->FindChildData(kExpCraft)) {
+        Professions::Profession* p = Professions::GetProfessionForObject(id);
+        if (p && Professions::GetProfessionTool(p->id, true, nullptr, false) == 0)
+            return Professions::GetProfessionTool(p->id, false, nullptr, false);
+    }
+    // UNVERIFIED (milestone 5p): a chest for the key of the chest for the player's level
+    // (Chests::GetChestForLevel 0x12b974 / GetChestForLevelByType 0x12d29c, +0x14).
     return 0;
 }
 
@@ -261,8 +268,13 @@ bool Decor::IsLocked() const {
         // (a used-up decoration with a portal stays open without the item)
         if (!portal || f4c != 0) return true;
     }
-    // UNVERIFIED (milestone 5): a CRAFT node without its profession's tool, and a chest whose key
-    // the player lacks, are locked too (see GetRequiredItem).
+    // A CRAFT node without an owned tool of its profession.
+    if (meta->FindChildData(kExpCraft)) {
+        Professions::Profession* p = Professions::GetProfessionForObject(id);
+        if (p && Professions::GetProfessionTool(p->id, true, nullptr, false) == 0) return true;
+    }
+    // UNVERIFIED (milestone 5p): a chest whose key the player lacks is locked too (see
+    // GetRequiredItem).
     return false;
 }
 
@@ -344,9 +356,16 @@ bool Decor::CanDropItem(uint32_t item) const {
             if (what->type == MetaData::kNumber && (uint32_t)what->GetInt() == item) return true;
         }
     }
-    // UNVERIFIED (milestone 5): a CRAFT node drops its profession's items that the map allows
-    // (Locations::CanCraftNodeDropItem 0x1b3f10), a chest what the chest for the player's level
-    // can hold (Chests::ChestInfo::GenerateContents 0x12a648).
+    // A CRAFT node: its profession's items that the map allows.
+    if (meta->FindChildData(kExpCraft)) {
+        Items::ItemInfo* info = Items::GetItemInfo(item);
+        Professions::Profession* p = Professions::GetProfessionForObject(id);
+        if (p && info && info->reputationId == p->id &&
+            Locations::CanCraftNodeDropItem(GameState::GetCurrentMapID(), item))
+            return true;
+    }
+    // UNVERIFIED (milestone 5p): a chest what the chest for the player's level can hold
+    // (Chests::ChestInfo::GenerateContents 0x12a648).
     return false;
 }
 
@@ -890,8 +909,46 @@ void Decor::Finish() {
         if ((d = meta->FindChildData(kExpCamAfterInteract))) AddCameraPath(d, 0);
         if ((d = meta->FindChildData(kExpShakeAfterInteract)))
             AddCameraShake((float)d->GetChild(0)->GetInt() / 1000.f, (float)d->GetChild(1)->GetInt());
-        // UNVERIFIED (milestone 5): CRAFT: the profession's item drops (Professions::GenerateItem)
-        // or "SEARCH_NOTHING", a profession point, the tool's wear ("DURABILITY_PENALTY").
+        // CRAFT, a profession's node: one of its items drops (with "+1 <profession>", a point; a
+        // new rank shows the craft success window) or "SEARCH_NOTHING"; the tool wears
+        // (death_penalty), "DURABILITY_PENALTY" when it breaks; the node's particles go.
+        if (meta->FindChildData(kExpCraft)) {
+            if (Professions::Profession* p = Professions::GetProfessionForObject(id)) {
+                int textH = 0;
+                if (uint32_t found = Professions::GenerateItem(p->id)) {
+                    BuildingHovers::DropItem((float)wx, (float)wy, Items::GetItemInfo(found), 0, 1);
+                    const uint32_t before = Professions::GetPlayerProfessionLevel(p->id);
+                    textH = BuildingHovers::ShowTextHoverWithStyle((float)wx, (float)wy,
+                                                                   SWPrintf(0x40, U"+1 %s", {p->title60}).c_str(),
+                                                                   0xf, 2.f, 50.f, false, false);
+                    int sx = wx, sy = wy;
+                    WorldCoordinatesToScreen(sx, sy);
+                    // UNVERIFIED (milestone 5o, the belt's crafting bar): BeltBarWindow::ShowProfessionPoint
+                    // ((float)sx, (float)sy, p, GameState::GetProfessionPoints(p->id)).
+                    (void)sx;
+                    (void)sy;
+                    GameState::AddProfessionPoints(p->id, 1);
+                    if (before < Professions::GetPlayerProfessionLevel(p->id) && GameState::TaskCompleted(0x5a8)) {
+                        // UNVERIFIED (milestone 5o): CraftSuccessWindow::SetParameters(p) and
+                        // WindowManager::EnqueueWindow(CraftSuccessWindow::Show, 0.25f).
+                    }
+                } else {
+                    BuildingHovers::ShowTextHoverWithStyle((float)wx, (float)wy, StringTable::GetString("SEARCH_NOTHING"),
+                                                           0xe, 2.f, 50.f, false, false);
+                }
+                GameState::PlayerItem* tool = nullptr;
+                Professions::GetProfessionTool(p->id, true, &tool, false);
+                if (tool) {
+                    tool->f0c = tool->f0c > tool->info->deathPenalty ? tool->f0c - tool->info->deathPenalty : 0;
+                    if (tool->f0c == 0)
+                        BuildingHovers::ShowTextHoverWithStyle(
+                            (float)wx, (float)(wy + 0x14 + textH),
+                            SWPrintf(0x40, StringTable::GetString("DURABILITY_PENALTY"), {tool->info->title, U""}).c_str(),
+                            3, 3.f, 20.f, false, false);
+                }
+                RemoveParticles();
+            }
+        }
     }
     TellInteract(this);
 }

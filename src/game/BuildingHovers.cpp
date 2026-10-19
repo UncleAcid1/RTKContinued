@@ -25,6 +25,8 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/Professions.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
@@ -2057,8 +2059,15 @@ bool OnDecorClick(Map::Decor* d, int x, int y) {
                 if (player->GetWorkplaceDecoration() && player->GetWorkplaceDecoration() != d)
                     player->GetAI()->TryToInterruptJob();
                 if (player->GetWorkplaceDecoration()) return true;
-                // UNVERIFIED (milestone 5): a CRAFT node takes its profession tool's GATHER_TIME.
-                d->f50 = 2;
+                // A CRAFT node takes its profession's tool's GATHER_TIME, else 2 s.
+                unsigned seconds = 2;
+                if (d->meta && d->meta->FindChildData(kExpCraft))
+                    if (Professions::Profession* p = Professions::GetProfessionForObject(d->id)) {
+                        Items::ItemInfo* tool = Items::GetItemInfo(Professions::GetProfessionTool(p->id, true, nullptr, false));
+                        if (tool && tool->meta)
+                            if (const MetaData* t = tool->meta->FindChildData(kExpGatherTime)) seconds = (unsigned)t->GetInt();
+                    }
+                d->f50 = seconds;
                 d->AssignWorker(player);
                 return true;
             }

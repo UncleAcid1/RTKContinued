@@ -11,6 +11,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/Professions.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -201,8 +202,9 @@ void WorldHintHoverWindow::CenterIfOffScreen() {
 // replaced it), the tutorials move on.
 void WorldHintHoverWindow::OnClose() {
     // (tutorial 0x17: TutorialSender::AddTutorialStep(0x658), online)
-    if (task == 0x5a8) {
-        // UNVERIFIED (milestone 5): with profession 3 learnt, CraftSuccessWindow for it.
+    if (task == 0x5a8 && Professions::GetPlayerProfessionLevel(3) != 0) {
+        // UNVERIFIED (milestone 5o): CraftSuccessWindow::SetParameters(Professions::GetProfession(3))
+        // and CraftSuccessWindow::Show(); the window is not ported yet.
     }
     if (task == 0x76d) {
         next->SetVisibility(false);
