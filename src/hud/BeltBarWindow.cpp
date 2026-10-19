@@ -78,6 +78,10 @@ bool g_inventoryPending = false;          // 0x617dbc
 float g_raisedZ = 0.f;                    // 0x617dd0
 float g_ownZ = 0.f;                       // 0x617dcc
 float g_raiseTime = 0.f;                  // 0x617dd4 seconds left
+// A belt item dragged out (with the character window open): pressed, picked up, where.
+bool g_dragPressed = false;               // 0x617e28
+bool g_dragging = false;                  // 0x617e0c
+int g_dragX = 0, g_dragY = 0;             // 0x617e30 0x617e2c
 // Per slot (BottomSlotInfo +0x58..+0x60): the charge bar glides to progressValue.
 struct Glide { bool started = false; float shown = 0.f, time = 0.f; } g_glide[3];
 
@@ -122,14 +126,28 @@ void OnAddMoreSlot(unsigned i) {
                                            50.f, true, true);
 }
 
-// @0x24f0e4: a tap on a slot: the item's card (Drink / Turn on) over it. UNVERIFIED (milestone 5):
-// with the character window or the item shop open the tap goes to them instead
-// (ShowInventoryItem / ShowShopItem).
+// @0x24f0e4: a tap on a slot: the item's card (Drink / Turn on) over it; with the character window
+// open the window shows the item (none left: the shop, once unlocked). UNVERIFIED (milestone 5, 5q):
+// with the item shop open nothing happens, and the shop's ShowShopItem.
 void OnSlot(unsigned i) {
     if (i >= 3) return;
     Items::ItemInfo* info = Items::GetItemInfo(GameState::GetBeltItemAt(i));
     if (!info) {
         OnEmptySlot(i);
+        return;
+    }
+    if (CharacterInfoWindow::IsVisible()) {
+        if (GameState::GetItemAmount(info->id, true) != 0) {
+            CharacterInfoWindow::ShowInventoryItem(info->id, 0, nullptr);
+        } else if (!GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt())) {
+            int x, y;
+            SlotWorldPoint(i, x, y);
+            BuildingHovers::ShowTextHoverWithStyle((float)x, (float)y, StringTable::GetString("BOTTOM_BAR_LATER"), 0xe,
+                                                   2.f, 50.f, true, true);
+        } else {
+            CharacterInfoWindow::Hide();
+            // UNVERIFIED (milestone 5, 5q): ItemShopWindow::Show + ShowShopItem(id, 0, true, -1).
+        }
         return;
     }
     if (GameState::GetItemAmount(info->id, true) == 0) {
@@ -165,14 +183,6 @@ void OnSlot(unsigned i) {
     }
 }
 
-// @0x2509ac. UNVERIFIED (milestone 5): with the character window open a slot's item can be dragged
-// out of the belt; the edit modes' handling of taps over the belt.
-bool Click(int x, int y, bool pressed) {
-    if (!g_root) return false;
-    if (g_hover->Click(x, y, pressed)) return true;
-    return (g_craftBar && g_craftBar->Click(x, y, pressed, false)) || g_root->Click(x, y, pressed, false);
-}
-
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
@@ -182,6 +192,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.setZ = SetZ;
         f.hide = Hide;
         f.click = Click;
+        f.move = Move;
         g_queue = new WindowManager::FunctionalWindow("BeltBarWindow", std::move(f));
     }
     return g_queue;
@@ -189,11 +200,149 @@ WindowManager::FunctionalWindow* Queue() {
 
 bool IsVisible() { return g_root && g_root->visibleSelf; }
 
+// @0x24c884
+bool HasMovedIntoBelt(int x, int y, uint32_t id) {
+    const int rx = x - g_root->x, ry = y - g_root->y;
+    for (unsigned k = 0; k < GameState::GetBeltSlotCount(); ++k)
+        if (GameState::GetBeltItemAt(k) == id) return false;
+    for (unsigned k = 0; k < GameState::GetBeltSlotCount(); ++k) {
+        const Window* h = g_slots[k].holder;
+        if (h->x < rx && rx < h->w + h->x && h->y < ry && ry < h->h + h->y) return true;
+    }
+    return false;
+}
+
+// @0x24f4fc: the sprite becomes the belt's gliding picture, from where it is into the slot.
+void MoveIntoBelt(Render::Sprite* sprite, uint32_t id, unsigned slot) {
+    Render::RemoveSprite(g_flySprite);
+    g_flySprite = sprite;
+    for (unsigned k = 0; k < GameState::GetBeltSlotCount() && slot == (unsigned)-1; ++k) {
+        const Window* h = g_slots[k].holder;
+        const int cx = (int)(sprite->x + sprite->w * 0.5f - (float)g_root->x);
+        if (h->x < cx && cx < h->w + h->x) {
+            const int cy = (int)(sprite->y + sprite->h * -0.5f - (float)g_root->y);
+            if (h->y < cy) slot = h->h + h->y <= cy ? (unsigned)-1 : k;
+        }
+    }
+    if (slot == (unsigned)-1) {
+        Render::RemoveSprite(sprite);
+        g_flySprite = nullptr;   // PORT: the original keeps the freed sprite
+        return;
+    }
+    // SoundsManager::PlaySound("ui_equip_belt"): milestone 6.
+    GameState::BindBeltItemTo(slot, id);
+    Items::ItemInfo* info = Items::GetItemInfo(id);
+    if (info && info->CanBeActivated()) GameState::SetBeltItemActivationTimeAt(slot, (uint32_t)Timer::GetGlobalTime());
+    g_flyTime = 0.f;
+    g_flyDuration = 1.f;
+    g_flyFromX = g_flySprite->x;
+    g_flyFromY = g_flySprite->y;
+    Window* w = g_slots[slot].soldierFine;
+    g_flyActive = true;
+    g_flyToX = (float)(g_root->x + w->x);
+    g_flyToY = (float)(g_root->y + w->y + w->h);
+    g_flySprite->h = (float)w->h;
+    g_flySprite->w = (float)w->w;
+    w->SetVisibility(false);
+    g_flySlot = (int)slot;
+    UpdateContents();
+}
+
+// @0x2507d0: past 10 pixels a pressed slot's item is picked up and follows.
+void Move(int x, int y) {
+    if (g_dragPressed && !g_dragging) {
+        if (std::abs(y - g_dragY) + std::abs(x - g_dragX) < 0xb) return;
+        g_dragging = true;
+        GUI::ReleaseCapture();
+        Window* w = g_slots[g_flySlot].soldierFine;
+        if (w->sprite) {
+            Render::RemoveSprite(g_flySprite);
+            g_flySprite = Render::CreateSprite(w->sprite->tex, 0xf, false, false);
+            g_flySprite->screenSpace = true;
+            Render::SetShaderType(g_flySprite, 1);
+            Render::SetPosition(g_flySprite, (float)(g_root->x + w->x), (float)(w->h + w->y + g_root->y), 0.001f);
+            g_flyActive = false;
+            g_flySprite->w = (float)w->w;
+            g_flySprite->h = (float)w->h;
+            g_flyToX = g_flySprite->x;
+            g_flyToY = g_flySprite->y;
+            w->SetVisibility(false);
+        }
+    }
+    if (!g_dragging) return;
+    Render::SetPosition(g_flySprite, (float)(x - g_dragX) + g_flySprite->x, (float)(y - g_dragY) + g_flySprite->y,
+                        0.001f);
+    g_dragY = y;
+    g_dragX = x;
+}
+
+// @0x2509ac: over an edit mode only presses on the belt are taken. With the character window open a
+// slot's item can be dragged into its grid (else it glides back). Then the tutorials' arrow, the
+// crafting bar, the card and the belt.
+bool Click(int x, int y, bool pressed) {
+    if (!g_root) return false;
+    if (BuildingMovement::Activated() || BuildingPlacement::Activated())
+        return g_root->GetWindowAtPosition(x, y, false) != nullptr;
+    if (g_root->visibleSelf) {
+        if (pressed) {
+            for (unsigned k = 0; k != 3; ++k) {
+                GameState::PlayerItem* item = GameState::GetFirstItemByID(GameState::GetBeltItemAt(k), false);
+                if (!CharacterInfoWindow::IsVisible() || !item || !g_slots[k].soldierFine->sprite) continue;
+                const Window* h = g_slots[k].holder;
+                const int hx = g_root->x + h->x, hy = g_root->y + h->y;
+                if (x < hx || x > hx + h->w || y < hy || y > hy + h->h) continue;
+                if (g_flySprite) {
+                    if (g_flySlot != -1) g_slots[g_flySlot].soldierFine->SetVisibility(true);
+                    g_flySlot = -1;
+                    g_flySprite = Render::RemoveSprite(g_flySprite);
+                    g_flyActive = false;
+                }
+                g_dragPressed = true;
+                g_flySlot = (int)k;
+                g_dragX = x;
+                g_dragY = y;
+                break;
+            }
+        } else {
+            g_dragPressed = false;
+            if (g_dragging) {
+                g_dragging = false;
+                const Render::Sprite* s = g_flySprite;
+                if (!CharacterInfoWindow::HasMovedIntoInventory((int)(s->x + s->w * 0.5f), (int)(s->y + s->h * -0.5f))) {
+                    // Back to its slot.
+                    g_flyTime = 0.f;
+                    g_flyDuration = 0.5f;
+                    g_flyActive = true;
+                    g_flyFromX = g_flySprite->x;
+                    g_flyFromY = g_flySprite->y;
+                    return true;
+                }
+                const uint32_t id = GameState::GetBeltItemAt((unsigned)g_flySlot);
+                // SoundsManager::PlaySound("ui_unequip_belt"): milestone 6.
+                GameState::BindBeltItemTo((unsigned)g_flySlot, 0);
+                UpdateContents();
+                CharacterInfoWindow::MoveIntoInventory(g_flySprite, id);
+                g_flySprite = nullptr;
+                return true;
+            }
+        }
+    }
+    const int st = GameState::secondTutorial;
+    if (((unsigned)(GameState::tutorial - 0x14) < 2 || st == 0x96 || st == 0x87 || st == 0x88 || st == 0xa4 ||
+         BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback) &&
+        BuildingHovers::ClickOnArrow(x, y, pressed))
+        return true;
+    if ((g_craftBar && g_craftBar->Click(x, y, pressed, false)) || g_hover->Click(x, y, pressed)) return true;
+    return g_root->Click(x, y, pressed, false);
+}
+
 // @0x24d0fc: the inventory button. In the second tutorial (0xa4) and the opening one (0x14 / 0x15)
-// the window opens at the item to equip. UNVERIFIED (milestone 5): not while the item shop is open
-// (ItemShopWindow::IsVisible, 5q); CharacterInfoWindow::ShowInventoryItem(0x6b / 0x5b, 1, 0) (5l-3).
+// the window opens at the item to equip. UNVERIFIED (milestone 5, 5q): not while the item shop is
+// open (ItemShopWindow::IsVisible).
 void OnInventory() {
     CharacterInfoWindow::Show();
+    if (GameState::secondTutorial == 0xa4) CharacterInfoWindow::ShowInventoryItem(0x6b, 1, nullptr);
+    if ((unsigned)(GameState::tutorial - 0x14) < 2) CharacterInfoWindow::ShowInventoryItem(0x5b, 1, nullptr);
 }
 
 // @0x24cbcc: the arrow at the inventory button now, or once the belt has slid in.

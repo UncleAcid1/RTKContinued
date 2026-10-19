@@ -226,7 +226,7 @@ void OnOk() {
     GameState::SetPlayerName(g_input->GetText());
     GameState::SetCastleName(StringTable::GetString("DEFAULT_CASTLE_NAMES"));
     if (!GameState::IsTutorial()) {
-        // UNVERIFIED (milestone 5, the character window): CharacterInfoWindow::RemovePreviewItems.
+        CharacterInfoWindow::RemovePreviewItems();
         CharacterInfoWindow::UpdateContents();
     }
     Hide();

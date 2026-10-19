@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "engine/FileManager.h"
+#include "engine/StlSort.h"
 #include "engine/Timer.h"
 #include "game/Collections.h"
 #include "game/GameState.h"
@@ -21,7 +22,7 @@
 
 namespace Sets {
 namespace {
-std::vector<std::unique_ptr<Set>> g_sets;          // 0x615530
+std::vector<Set*> g_sets;                          // 0x615530 (kept for the whole run)
 std::vector<std::unique_ptr<std::string>> g_texts; // 0x615540 the bonus texts (MetaExpression keeps the pointer)
 std::set<uint32_t> g_state;                        // 0x61554c the item ids counted
 
@@ -59,8 +60,8 @@ bool Init(const char* file) {
         uint32_t id = n.attribute("id").as_uint();
         Set* s = GetSet(id);
         if (!s) {
-            g_sets.push_back(std::make_unique<Set>());
-            s = g_sets.back().get();
+            g_sets.push_back(new Set());
+            s = g_sets.back();
         } else {
             for (MetaData*& m : s->bonusSlots) { delete m; m = nullptr; }
             for (MetaExpression*& m : s->bonus) { delete m; m = nullptr; }
@@ -95,9 +96,8 @@ bool Init(const char* file) {
             s->slots[slot - 1] = ParseCustomStyleData(v, ",", "1");
         }
     }
-    // (FUN_0021aa3c / FUN_0021abd0: STLport's introsort of the list with SortSet.)
-    std::sort(g_sets.begin(), g_sets.end(),
-              [](const std::unique_ptr<Set>& a, const std::unique_ptr<Set>& b) { return SortSet(a.get(), b.get()); });
+    // (FUN_0021aa3c / FUN_0021a950 / FUN_0021abd0: STLport's introsort of the list with SortSet.)
+    StlSort::Sort(g_sets.data(), g_sets.data() + g_sets.size(), SortSet);
     FileManager::FreeFile(buf);
     std::printf("Sets::Init() Loaded set list in %.3fms\n", (Timer::GetTime() - t0) * 1000.0);
     return true;
@@ -106,19 +106,19 @@ bool Init(const char* file) {
 bool SortSet(const Set* a, const Set* b) { return a->sortId < b->sortId; }
 
 Set* GetSet(uint32_t id) {
-    for (auto& s : g_sets)
-        if (s->id == id) return s.get();
+    for (Set* s : g_sets)
+        if (s->id == id) return s;
     return nullptr;
 }
 
-Set* EnumSet(unsigned i) { return i < g_sets.size() ? g_sets[i].get() : nullptr; }
+Set* EnumSet(unsigned i) { return i < g_sets.size() ? g_sets[i] : nullptr; }
 
 // (The original compares the sort ids nine times over, the same each time.)
 Set* GetSetThatWasReplacedByNewSet(uint32_t id) {
     Set* s = GetSet(id);
     if (!s) return nullptr;
-    for (auto& o : g_sets)
-        if (o.get() != s && o->sortId == s->sortId) return o.get();
+    for (Set* o : g_sets)
+        if (o != s && o->sortId == s->sortId) return o;
     return nullptr;
 }
 
@@ -133,8 +133,7 @@ bool HasItemOrBetter(uint32_t id) {
 // A bonus counts a slot when the state holds one of the slot's items, or else one of the same slot
 // of the set this one replaced.
 void CommitChanges() {
-    for (auto& sp : g_sets) {
-        Set* s = sp.get();
+    for (Set* s : g_sets) {
         s->covered[0] = s->covered[1] = s->covered[2] = 0;
         if (!s->active) continue;
         for (int k = 0; k != 3; ++k) {
@@ -157,11 +156,11 @@ void CommitChanges() {
 }
 
 Set* GetSetForItem(uint32_t id) {
-    for (auto& s : g_sets)
+    for (Set* s : g_sets)
         for (MetaData* m : s->slots) {
             if (!m) continue;
             for (unsigned i = 0; i < m->GetChildrenCount(); ++i)
-                if ((uint32_t)m->GetChild(i)->GetInt() == id) return s.get();
+                if ((uint32_t)m->GetChild(i)->GetInt() == id) return s;
         }
     return nullptr;
 }

@@ -11,6 +11,8 @@
 // UNVERIFIED (milestone 5, 5n): the professions (the tool slot, the tools' profession icons) need
 // Professions, not ported yet: no profession, no tool.
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -29,6 +31,7 @@
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/PlayerEquipmentInfo.h"
+#include "game/Rand48.h"
 #include "game/Collections.h"
 #include "game/Sets.h"
 #include "game/Setting.h"
@@ -236,7 +239,7 @@ StatisticsHolder g_statsLong[2];          // 0x61a970 0x61a9ec stats_holder_long
 StatisticsHolder g_statsShort[2];         // 0x61aa68 0x61aae4 stats_holder_short.char_stats_holder_short_%02d
 int g_keptHp = 0;                         // 0x61ab78 the HP shown while the window is open
 bool g_keepHp = false;                    // 0x61ab7c
-bool g_itemFlying = false;                // 0x61ab7d a dragged piece glides back (Update, 5l-3)
+bool g_itemFlying = false;                // 0x61ab7d the dragged / tapped piece glides (Update)
 float g_itemFlyTime = 0.f;                // 0x61ab80
 Window* g_close = nullptr;                // 0x61ab84 x_button.clickArea
 Textfield* g_name = nullptr;              // 0x61ab88 text_player_name
@@ -253,6 +256,27 @@ Textfield* g_setInfoText = nullptr;       // 0x61abb0
 Window* g_paramBack = nullptr;            // 0x61abb4 param_back_01
 Textfield* g_chance = nullptr;            // 0x61abb8 text_chance
 ButtonCustomBuy g_customBuy;              // 0x61abbc button_custom_buy
+// The piece that glides (the dragged one, or one moving between the grid, a slot and the belt), and
+// the glow that turns behind it.
+Render::Sprite* g_flySprite = nullptr;    // 0x61abd0
+float g_flyFromX = 0, g_flyFromY = 0;     // 0x61abd4 0x61abd8
+float g_flyToX = 0, g_flyToY = 0;         // 0x61abdc 0x61abe0
+float g_time = 0.f;                       // 0x61abe4 the pulses' clock
+bool g_glowWanted = false;                // 0x61abe8
+Render::Sprite* g_glow = nullptr;         // 0x61abec
+int g_lastSecond = 0;                     // 0x61abf0
+// The drag: a press on a filled slot or on a cell, then a move past the threshold.
+bool g_draggingSlot = false;              // 0x61abf4
+bool g_draggingGrid = false;              // 0x61abf5
+bool g_pressedGrid = false;               // 0x61abf6
+int g_pressX = 0;                         // 0x61abf8
+bool g_scrollMoved = false;               // 0x61abfc the press became a scroll: the release does nothing
+bool g_pressOnIcon = false;               // 0x61abfd the press was on the cell's picture
+int g_pressY = 0, g_pressY2 = 0;          // 0x61ac00 0x61ac04
+bool g_pressedSlot = false;               // 0x61ac08
+int g_dragCell = -1;                      // 0x60f194 the cell whose picture is hidden while a piece glides to it
+int g_dragSlot = -1;                      // 0x60f1a4 the slot likewise
+int g_pressedCell = -1;                   // 0x60f1a8 the grid index pressed
 // 0x61ab60: the tool chosen per profession (OnEquip; GetToolOverride drops one no longer owned).
 std::map<uint32_t, uint32_t> g_toolOverrides;
 // 0x61abcc: the card to explain once the window is in (OnTweenIn): 1 equip, 4 drink, 2 / 3 kept
@@ -288,12 +312,277 @@ bool SortBySlot(const MixedItem& a, const MixedItem& b) {
     return a.info->sortId < b.info->sortId;
 }
 
-// UNVERIFIED (5l-3): the taps on a cell, an equipment slot, a customisation piece and the crystal
-// button (OnItem 0x2849ec, OnItemEquipped 0x28526c, OnPreviewItem 0x27bc2c, OnPreviewBuy 0x284488).
-void OnItem(unsigned, bool) {}
-void OnItemEquipped(unsigned, bool) {}
-void OnPreviewItem(unsigned) {}
-void OnPreviewBuy(bool) {}
+// (Professions::GetProfessionForPointItem, 5n) UNVERIFIED: no profession point items yet.
+Profession* GetProfessionForPointItem(uint32_t) { return nullptr; }
+
+// A piece's picture as a sprite at window w (its bottom left, screen space), to glide.
+Render::Sprite* MakeFlySprite(Render::Texture* tex, const Window* w) {
+    Render::Sprite* s = Render::CreateSprite(tex, 0xf, false, false);
+    s->screenSpace = true;
+    Render::SetShaderType(s, 1);
+    Render::SetPosition(s, (float)(g_root->x + w->x), (float)(w->h + w->y + g_root->y), 0.001f);
+    return s;
+}
+
+// The glide's start where the sprite is now.
+void FlyFromHere(float duration) {
+    g_itemFlyTime = 0.f;
+    g_itemFlying = true;
+    g_itemFlyDuration = duration;
+    g_flyFromX = g_flySprite->x;
+    g_flyFromY = g_flySprite->y;
+}
+
+// The pictures hidden for a glide come back, and the glide ends.
+void ShowHiddenPictures() {
+    if (g_dragSlot != -1) g_equip[g_dragSlot].bg->SetVisibility(true);
+    g_dragSlot = -1;
+    if (g_dragCell != -1) g_cells[g_dragCell].holder.icon.icon->SetVisibility(true);
+    g_dragCell = -1;
+}
+
+// @0x2840a8: the customisation tab's random looks: each binding 2..9 but 7 (not the head) gets a
+// random piece of the grid or none (on binding 5 never 0x2ef / 0x2f0); an owned piece is put on,
+// one not owned is tried on.
+void OnSelectRandomCustomizations() {
+    if (g_tab != 7) return;
+    g_previewCustom[1] = nullptr;
+    std::vector<Items::ItemInfo*> cands;
+    for (unsigned b = 2; b != 10; ++b) {
+        if (b == 7) continue;
+        cands.clear();
+        for (const MixedItem& m : g_items)
+            if (m.info->slot == b) cands.push_back(m.info);
+        if (cands.empty()) continue;
+        const unsigned r = (unsigned)Rand48::lrand48() % (unsigned)(cands.size() + 1);
+        if (r == cands.size() || (b == 5 && (cands[r]->id == 0x2ef || cands[r]->id == 0x2f0))) {
+            g_previewCustom[b] = nullptr;
+            continue;
+        }
+        Items::ItemInfo* p = cands[r];
+        if (GameState::GetItemAmount(p->id, false) != 0) {
+            GameState::BindCustomizationTo(p->slot, GameState::GetFirstItemByID(p->id, false));
+            g_previewCustom[p->slot] = nullptr;
+            continue;
+        }
+        g_previewCustom[p->slot] = p;
+    }
+    UpdateContents();
+}
+
+// @0x2849ec: a tap on a cell: the item is selected and (show) its card opens beside it (with the
+// worn piece of its binding beside that, to compare); a cell half out of the view scrolls in
+// instead. Special items: the new hero (0x2f8 / 0x2f9: SelectHQWindow), the random looks (0x2fe);
+// in the customisation tab the piece is tried on or off (owned: put on or off); a profession point
+// item turns into points.
+void OnItem(unsigned cell, bool show) {
+    g_selectedEquip = -1;
+    g_selectedItem = (int)(cell + g_scroller.firstIndex);
+    UpdateContents();
+    if (!show) return;
+    const Window* r = g_cells[cell].root;
+    const int h3 = r->h / 3;
+    if (r->h + r->y > h3 + g_scroller.viewport.bottom) {
+        if (r->y < g_scroller.viewport.top - h3) g_scroller.bounce += (float)g_scroller.itemSize;
+        else g_scroller.bounce -= (float)g_scroller.itemSize;
+        return;
+    }
+    if (r->y < g_scroller.viewport.top - h3) {
+        g_scroller.bounce += (float)g_scroller.itemSize;
+        return;
+    }
+    const SelectedItem sel = GetSelectedItem();
+    Items::ItemInfo* info = sel.info;
+    if (!info) return;   // PORT: the original reads through it
+    const uint32_t id = info->id;
+    if (id == 0x2fe) {
+        OnSelectRandomCustomizations();
+        return;
+    }
+    if (id - 0x2f8 <= 1) {
+        SelectHQWindow::SetMode(id == 0x2f8 ? 1 : 2);
+        SelectHQWindow::Show();
+        return;
+    }
+    if (g_tab == 7) {
+        // (PORT: bounds on the binding, which indexes the preview lists.)
+        if (info->type == 0x11) {
+            if (info->slot < 32) {
+                if (GameState::GetItemAmount(id, false) == 0) {
+                    g_previewCustom[info->slot] = g_previewCustom[info->slot] == info ? nullptr : info;
+                } else {
+                    GameState::PlayerItem* first = GameState::GetFirstItemByID(id, false);
+                    GameState::BindCustomizationTo(info->slot,
+                                                   GameState::GetCustomizationAt(info->slot) == first ? nullptr : first);
+                    g_previewCustom[info->slot] = nullptr;
+                }
+            }
+            // Only pieces of one price currency are tried on together.
+            for (Items::ItemInfo*& p : g_previewCustom)
+                if (p && p->costItem != info->costItem) p = nullptr;
+        } else {
+            if (info->slot < 10) {
+                if (GameState::GetItemAmount(id, false) == 0) {
+                    g_previewEquip[info->slot] = g_previewEquip[info->slot] == info ? nullptr : info;
+                } else {
+                    GameState::PlayerItem* first = GameState::GetFirstItemByID(id, false);
+                    GameState::BindItemTo(info->slot, GameState::GetItemAt(info->slot) == first ? nullptr : first);
+                    g_previewEquip[info->slot] = nullptr;
+                }
+            }
+            for (Items::ItemInfo*& p : g_previewEquip)
+                if (p && p->costItem != info->costItem) p = nullptr;
+        }
+        g_selectedItem = -1;
+        UpdateContents();
+        return;
+    }
+    if (GetProfessionForPointItem(id)) {
+        // UNVERIFIED (milestone 5, 5n): GameState::AddProfessionPoints(profession, amount) and the
+        // items go (RemoveItem), then the selection is cleared.
+        g_selectedItem = -1;
+        UpdateContents();
+        return;
+    }
+    GameState::PlayerItem* data = sel.data;
+    GameState::PlayerItem* worn = nullptr;
+    bool compare = false;
+    if (info->slot != 0) {
+        worn = g_equipped[GameState::ExternalItemBindingToInternal(info->slot)];
+        compare = worn && data != worn;
+    }
+    g_hover->Show();
+    g_hover->SetItem(StringTable::GetString("INVENTORY_UNEQUIPPED_ITEM"), data, info, data != nullptr, true, nullptr,
+                     false, false, false, false);
+    const Window* h = g_cells[g_selectedItem - (int)g_scroller.firstIndex].holder.root;
+    const int x = g_root->x + h->x, y = g_root->y + h->y, w3 = h->w / 3, hh3 = h->h / 3;
+    if (compare) {
+        // (The original takes a third of the width for the top too.)
+        g_hover->SetTargetRect(x + w3, y + w3, x + 2 * w3, y + 2 * hh3, ItemHoverWindow::kNW);
+        g_hover->RecomputePosition();
+        g_hover->SetZ(0.001f);
+        g_hover2->Show();
+        g_hover2->SetItem(StringTable::GetString("INVENTORY_EQUIPPED_ITEM"), worn, worn->info, true, true, nullptr, false,
+                          false, false, false);
+        const Window* e = g_equip[GameState::ExternalItemBindingToInternal(info->slot)].root;
+        const int ex = g_root->x + e->x, ey = g_root->y + e->y, ew3 = e->w / 3, eh3 = e->h / 3;
+        g_hover2->SetTargetRect(ex + ew3, ey + ew3, ex + 2 * ew3, ey + 2 * eh3, ItemHoverWindow::kSE);
+        g_hover2->RecomputePosition();
+        g_hover2->SetZ(0.001f);
+    } else {
+        g_hover->SetTargetRect(x + w3, y + w3, x + 2 * w3, y + 2 * hh3, ItemHoverWindow::kE);
+        g_hover->RecomputePosition();
+        g_hover->SetZ(0.001f);
+    }
+    Render::SortRenderLayer(0xe, 1);
+    if (g_help == 2 && g_arrowCellShown == (int)cell) {
+        g_hover->HelpImprove(false);
+        g_help = 0;
+    }
+}
+
+// @0x28526c: a tap on a slot: it is selected and the worn piece's card opens.
+void OnItemEquipped(unsigned slot, bool show) {
+    g_selectedItem = -1;
+    g_selectedEquip = (int)slot;
+    UpdateContents();
+    if (!show) return;
+    const SelectedItem sel = GetSelectedItem();
+    if (sel.data) {
+        g_hover->Show();
+        g_hover->SetItem(StringTable::GetString("INVENTORY_EQUIPPED_ITEM"), sel.data, sel.data->info, true, true, nullptr,
+                         false, false, false, false);
+        const Window* e = g_equip[slot].root;
+        const int x = g_root->x + e->x, y = g_root->y + e->y;
+        g_hover->SetTargetRect(x, y, x + e->w, y + e->h, ItemHoverWindow::kSW);
+        g_hover->RecomputePosition();
+        g_hover->SetZ(0.001f);
+        Render::SortRenderLayer(0xe, 1);
+    }
+    if (g_help == 2 && g_arrowEquipShown == (int)slot) {
+        g_hover->HelpImprove(false);
+        g_help = 0;
+    } else if (g_help == 3 && g_arrowEquipShown == (int)slot) {
+        g_hover->HelpRepair(false);
+        g_help = 0;
+    }
+}
+
+// @0x27bc2c: a tap on the n-th piece of the customisation strip: its card.
+void OnPreviewItem(unsigned n) {
+    for (unsigned k = 0, shown = 0; shown <= 4 && k <= 31; ++k) {
+        Items::ItemInfo* p = g_previewCustom[k];
+        if (!p) continue;
+        if (n == 0) {
+            g_hover->Show();
+            g_hover->SetItem(StringTable::GetString("INVENTORY_EQUIPPED_ITEM"), nullptr, p, false, false, nullptr, true,
+                             false, false, false);
+            const Window* s = g_custom.slots[shown].root;
+            const int x = g_root->x + s->x, y = g_root->y + s->y;
+            g_hover->SetTargetRect(x, y, x + s->w, y + s->h, ItemHoverWindow::kS);
+            g_hover->RecomputePosition();
+            g_hover->SetZ(0.001f);
+            Render::SortRenderLayer(0xe, 1);
+            return;
+        }
+        ++shown;
+        --n;
+    }
+}
+
+// @0x284488: the crystal button buys every piece tried on (all in one currency: crystals, asked
+// for first, or an item), and puts them on. Without enough, NotEnoughWindow offers to get it.
+// (Billing::LogCBPurchase / FileManager::OnItemBought: online.)
+void OnPreviewBuy(bool confirmed) {
+    int cost = 0;
+    uint32_t costItem = 0;
+    auto add = [&](Items::ItemInfo* p) {
+        if (!p) return;
+        cost += (int)(p->GetCostItem(false) ? p->GetCostItem(false) : p->GetCostCrystals(false));
+        costItem = p->costItem;
+    };
+    for (Items::ItemInfo* p : g_previewEquip) add(p);
+    for (Items::ItemInfo* p : g_previewCustom) add(p);
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::SetDescriptionText(
+        ToWideString(StringTable::GetString("REQUIREMENT_ITEM"), {StringTable::GetString("INV_SUBTAB_03")}), nullptr);
+    bool ok;
+    if (costItem == 0) {
+        NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)cost);
+        ok = NotEnoughWindow::CheckRequirements();
+    } else {
+        NotEnoughWindow::AddItemRequirement(costItem, (unsigned)cost);
+        ok = NotEnoughWindow::CheckRequirements();
+    }
+    if (!ok) {
+        NotEnoughWindow::SetActionCallback([] { OnPreviewBuy(false); }, StringTable::GetString("ITEM_SHOP_BUY"), true);
+        NotEnoughWindow::Show();
+        return;
+    }
+    NotEnoughWindow::Hide();
+    if (costItem == 0) {
+        if (!confirmed) {
+            ConfirmPurchaseWindow::SetParameters([] { OnPreviewBuy(true); }, (unsigned)cost, true);
+            ConfirmPurchaseWindow::Show();
+            return;
+        }
+        // SoundsManager::PlaySound("ui_buy_with_crystals"): milestone 6.
+        GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
+    } else {
+        // SoundsManager::PlaySound("ui_buy_with_crystals"): milestone 6.
+        GameState::RemoveItem(costItem, cost);
+    }
+    auto buy = [](Items::ItemInfo* p) {
+        if (!p) return;
+        GameState::PlayerItem* it = GameState::AddItem(p->id, 1, false, false, false);
+        GameState::BindCustomizationTo(p->slot, it);
+    };
+    for (Items::ItemInfo* p : g_previewEquip) buy(p);
+    for (Items::ItemInfo* p : g_previewCustom) buy(p);
+    RemovePreviewItems();
+    UpdateContents();
+}
+
 
 // @0x27dc88. UNVERIFIED (milestone 5, 5q): ItemShopWindow::Show.
 void OnShop() { Hide(); }
@@ -384,8 +673,133 @@ bool OnBack() {
 // @0x27aef4
 float ZRange() { return g_queue->shown ? 0.12f : 0.001f; }
 
-// (0x286a64) PORT (5l-3 replaces it with the original's Click: the scrollers, dragging pieces between
-// the grid, the figure and the belt): the cards, then the window's own buttons.
+// @0x285a1c: the card's depth, the buff row, the scrollers, the gliding piece (ease-out-back, with
+// its turning glow when asked), the figure's pieces (a just-equipped piece flashes, a broken one
+// pulses red, a mended one loses its red), the pulsing slot of the selected item, and once a
+// second the buffs (a buff with more than its BUFF_TIME left is cut to half: UNVERIFIED why).
+void Update(float dt) {
+    g_time += dt;
+    if (g_hover->shownHover) {
+        auto wanted = [] {
+            return PopupWindow::IsVisible() ? g_root->z - g_queue->ZRange() + 0.001f : 0.001f;
+        };
+        if (g_hover->GetZ() != wanted()) {
+            g_hover->SetZ(wanted());
+            Render::SortRenderLayer(0xe, 1);
+        }
+    }
+    if (g_queue->shown) {
+        g_buffs->SetPosition(g_buffHolder->x + g_root->x, g_buffHolder->y + g_root->y);
+        g_buffs->Update(dt);
+        g_scroller.Update(dt);
+        g_custom.scroller.Update(dt);
+    }
+    const bool slowTutorial = GameState::secondTutorial == 0xa4 || (unsigned)(GameState::tutorial - 0x14) < 2;
+    if (g_itemFlying && g_flySprite) {
+        if (g_glowWanted && !g_glow) {
+            g_glow = Render::CreateSprite(IconManager::GetIcon("Pickup_item_glow", false), 0xf, false, false);
+            g_glow->screenSpace = true;
+            Render::SetShaderType(g_glow, 8);
+            Render::SetPosition(g_glow, 0.f, 0.f, 0.02f);
+            g_glow->w *= g_root->scale;
+            g_glow->h *= g_root->scale;
+            Render::SortRenderLayer(0xf, 1);
+        }
+        float t = g_itemFlyTime / g_itemFlyDuration;
+        if (t >= 1.f) {
+            g_glow = Render::RemoveSprite(g_glow);
+            g_flySprite = Render::RemoveSprite(g_flySprite);
+            ShowHiddenPictures();
+            if (GameState::secondTutorial == 0xa4) {
+                // The second tutorial's equip lesson is over (the short tutorial goes on at 0x37).
+                if (GameState::GetTutorialType() == 1) {
+                    GameState::tutorial = 0x37;
+                } else {
+                    GameState::secondTutorial = 0x100;
+                    TutorialSender::AddTutorialStep(0x100);
+                    GameState::lastSentStep = 0x100;
+                    // (FileManager::SendTutorialFinished2: online.)
+                }
+                Hide();
+            }
+            if ((unsigned)(GameState::tutorial - 0x14) < 2) {
+                BeltBarWindow::Show();
+                Hide();
+            }
+            g_itemFlying = false;
+            g_glowWanted = false;
+        } else {
+            // The tutorials' glide lasts a second less (and waits at the end).
+            if (slowTutorial) {
+                t = g_itemFlyTime / (g_itemFlyDuration - 1.f);
+                if (t > 1.f) t = 1.f;
+            }
+            const float u = t - 1.f;
+            const float e = 1.f + u * u * (1.70158f + u * 2.70158f);
+            Render::SetPosition(g_flySprite, g_flyFromX + (g_flyToX - g_flyFromX) * e,
+                                g_flyFromY + e * (g_flyToY - g_flyFromY), 0.001f);
+            if (slowTutorial) t = g_itemFlyTime / g_itemFlyDuration;
+            if (g_glow) {
+                Render::SetPosition(g_glow, g_flySprite->x + (g_glow->w - g_flySprite->w) * -0.5f,
+                                    g_flySprite->y + (g_glow->h - g_flySprite->h) * 0.5f, 0.02f);
+                // (the rotation shader's centre and angle)
+                g_glow->color[0] = g_glow->x + g_glow->w * 0.5f;
+                g_glow->color[1] = g_glow->h * 0.5f - g_glow->y;
+                g_glow->color[2] = -t;
+                if (t < 0.2f) Render::SetAlpha(g_glow, t / 0.2f);
+                else if (t >= 0.8f) Render::SetAlpha(g_glow, (t - 0.8f) / -0.2f + 1.f);
+                else Render::SetAlpha(g_glow, 1.f);
+            }
+        }
+        g_itemFlyTime += dt;
+    }
+    for (unsigned b = 0; b != 11 && g_queue->shown; ++b) {
+        if (GameState::PlayerItem* item = GetItemAt(b)) {
+            Shared::PlayerHolder::Layer& l = g_figure.layers[b];
+            Window* w = GameState::IsMalePlayer() ? l.male : l.femaleWindow;
+            const float c = std::cos(g_time * 6.f);
+            if (l.f10 > 0.f) {
+                l.f10 += dt * -0.75f;
+                const float v = std::sin((1.f - l.f10) * 3.14159274f) * 0.3f;
+                w->SetCustomShader(12, false);
+                w->SetColor(v, v, v, false);
+            } else {
+                const float v = 0.15f + c * 0.15f;
+                if (item->IsBroken()) {
+                    w->SetCustomShader(12, false);
+                    w->SetColor(v, 0.f, 0.f, false);
+                } else if (w->sprite && v < w->sprite->color[0]) {
+                    w->SetColor(v, 0.f, 0.f, false);
+                }
+            }
+        }
+        if (g_selectedItem != -1) {
+            const SelectedItem sel = GetSelectedItem();
+            if (sel.info && ItemHasSlot(sel.info) && GetItemSlot(sel.info) == b) {
+                g_equip[b].selector->SetVisibility(true);
+                g_equip[b].selector->SetAlpha(0.5f + std::cos(g_time * 6.f) * 0.5f, true);
+            }
+        }
+    }
+    if (Timer::GetGlobalTime() == g_lastSecond) return;
+    g_lastSecond = Timer::GetGlobalTime();
+    bool ended = false;
+    for (auto& [id, left] : g_buffTimes) {
+        Items::ItemInfo* info = Items::GetItemInfo(id);
+        if (info && info->meta)
+            if (const MetaData* d = info->meta->FindChildData(kExpBuffTime))
+                if ((uint32_t)(d->GetInt() + 1) < GameState::GetItemBuffRemainingTime(id))
+                    GameState::ActivateItemBuff(id, (uint32_t)(d->GetInt() / 2));
+        if (left != 0 && GameState::GetItemBuffRemainingTime(id) == 0) ended = true;
+    }
+    if (ended) UpdateContents();
+    UpdateItemTimers();
+}
+
+// @0x286a64: the cards first; then (a press) the scrollers, a press on a cell (pieces, orbs and tools
+// can be dragged) or on a worn piece; (a release) the end of a drag: a worn piece dropped off the
+// figure comes off (and glides to its cell), dropped on it glides back; a grid piece dropped on the
+// figure is put on (glides to its slot), an orb on the belt goes there, else it glides back.
 bool Click(int x, int y, bool pressed) {
     if (g_hover->Click(x, y, pressed)) {
         if (g_hover2->shownHover) g_hover2->Hide();
@@ -396,8 +810,253 @@ bool Click(int x, int y, bool pressed) {
         g_root->Click(x, y, pressed, false);
         return false;
     }
+    const int st = GameState::secondTutorial;
+    if ((st == 0xa4 || (unsigned)(GameState::tutorial - 0x14) < 2) && g_itemFlying) return true;
     if (BuildingHovers::ClickOnArrow(x, y, pressed)) return true;
-    return g_root->Click(x, y, pressed, false);
+    bool scrolled;
+    if (pressed) {
+        const bool a = g_scroller.Click(x, y, true, g_root);
+        const bool b = g_custom.scroller.Click(x, y, true, g_root);
+        scrolled = a || b;
+        const GUI::ClipRect& vp = g_scroller.viewport;
+        if (g_root->x + vp.left <= x && x <= g_root->x + vp.right && g_root->y + vp.top <= y &&
+            y <= g_root->y + vp.bottom) {
+            if (st == 0x88) return true;
+            g_pressY = g_pressY2 = y;
+            g_pressedGrid = true;
+            g_pressX = x;
+            g_pressedCell = -1;
+            const int rx = x - g_root->x, ry = y - g_root->y;
+            for (unsigned i = 0; i != 12; ++i) {
+                Cell& c = g_cells[i];
+                Items::ItemInfo* info = Items::GetItemInfo(c.id);
+                if (info && info->type != 3 && info->type != 8 && !info->IsProfessionTool()) continue;
+                if (!c.root->visibleSelf) continue;
+                const Window* r = c.root;
+                if (rx < r->x || rx > r->w + r->x || ry < r->y || ry > r->h + r->y) continue;
+                const Window* ic = c.holder.icon.icon;
+                g_pressOnIcon = ic->x <= rx && rx <= ic->w + ic->x && ic->y <= ry && ry <= ic->h + ic->y;
+                g_pressedCell = (int)(i + g_scroller.firstIndex);
+            }
+        }
+        for (unsigned b = 0; b <= 10; ++b) {
+            if (b == 8) continue;   // (the belt is not dragged)
+            if (!g_figure.layers[b].item) continue;
+            const Window* e = g_equip[b].root;
+            const int ex = g_root->x + e->x, ey = g_root->y + e->y;
+            if (x < ex || x > ex + e->w || y < ey || y > ey + e->h) continue;
+            if (g_flySprite) {
+                ShowHiddenPictures();
+                g_flySprite = Render::RemoveSprite(g_flySprite);
+                g_itemFlying = false;
+                g_glow = Render::RemoveSprite(g_glow);
+                g_glowWanted = false;
+            }
+            g_pressedSlot = true;
+            g_dragSlot = (int)b;
+            g_pressX = x;
+            g_pressY = y;
+            break;
+        }
+    } else {
+        if (st != 0x88 && st != 0xa4 && GameState::tutorial != 0x14) BuildingHovers::HideArrow();
+        const bool a = g_scroller.Click(x, y, false, g_root);
+        const bool b = g_custom.scroller.Click(x, y, false, g_root);
+        scrolled = a || b;
+        g_pressedGrid = false;
+        if (g_scrollMoved) {
+            g_scrollMoved = false;
+            return true;
+        }
+        g_pressedSlot = false;
+        if (g_draggingSlot) {
+            g_draggingSlot = false;
+            const Window* f = g_figure.root;
+            const int fx = g_root->x + f->x, fy = g_root->y + f->y;
+            const Render::Sprite* s = g_flySprite;
+            const bool off = (int)(s->x + s->w) < fx || (int)s->x > fx + f->w || (int)s->y < fy ||
+                             (int)(s->y - s->h) > fy + f->h;
+            if (!off) {
+                FlyFromHere(1.f);   // back to its slot
+                return true;
+            }
+            // Taken off: to its cell.
+            unsigned b = (unsigned)g_dragSlot;
+            GameState::PlayerItem* item = GameState::GetItemAt(b);
+            Items::ItemInfo* info = Items::GetItemInfo(g_figure.layers[b].item);
+            // SoundsManager::PlaySound("ui_unequip"): milestone 6.
+            if (b == 10) {
+                if (info) g_toolOverrides[info->reputationId] = info->id;
+            } else {
+                if (b == 4 && item != GameState::GetItemAt(4)) b = item == GameState::GetItemAt(9) ? 9 : 4;
+                GameState::BindItemTo(b, nullptr);
+            }
+            UpdateContents();
+            g_selectedItem = GetItemPositionInCurrentTab(nullptr, info);
+            if (g_selectedItem == -1) {
+                g_flySprite = Render::RemoveSprite(g_flySprite);
+                if (g_dragSlot != -1) g_equip[g_dragSlot].bg->SetVisibility(true);
+                g_dragSlot = -1;
+                return true;
+            }
+            if (g_dragSlot != -1) g_equip[g_dragSlot].bg->SetVisibility(true);
+            g_selectedEquip = -1;
+            g_scroller.ScrollIntoView((unsigned)g_selectedItem);
+            const unsigned cell = (unsigned)(g_selectedItem - (int)g_scroller.firstIndex);
+            FlyFromHere(1.f);
+            OnItem(cell, false);
+            Window* ic = g_cells[cell].holder.icon.icon;
+            g_flyToX = (float)(g_root->x + ic->x);
+            g_flyToY = (float)(g_root->y + ic->y + ic->h);
+            ic->SetVisibility(false);
+            g_dragCell = (int)cell;
+            return true;
+        }
+        if (g_draggingGrid) {
+            g_draggingGrid = false;
+            Items::ItemInfo* info = nullptr;
+            GameState::PlayerItem* data = nullptr;
+            if ((unsigned)g_pressedCell < g_items.size()) {
+                data = g_items[g_pressedCell].data;
+                info = g_items[g_pressedCell].info;
+            }
+            if (info) {
+                const Render::Sprite* s = g_flySprite;
+                const float cx = s->x + s->w * 0.5f - (float)g_root->x;
+                const float cy = s->y + s->h * -0.5f - (float)g_root->y;
+                const Window* bg = g_background;
+                if ((info->type == 8 || info->IsProfessionTool()) && CanTakeOnItem(data) && (float)bg->x < cx &&
+                    cx < (float)(bg->w + bg->x) && (float)bg->y < cy && cy < (float)(bg->h + bg->y)) {
+                    // Dropped on the figure: put on.
+                    if (st == 0xa4 || (unsigned)(GameState::tutorial - 0x14) < 2) {
+                        BuildingHovers::HideArrow();
+                        GUI::SetInteractionLock(false);
+                        GameState::secondTutorial = 0x100;
+                        TutorialSender::AddTutorialStep(0x100);
+                        GameState::lastSentStep = 0x100;
+                        // (FileManager::SendTutorialFinished2: online.)
+                    }
+                    unsigned b;
+                    // SoundsManager::PlaySound("ui_equip"): milestone 6.
+                    if (info->IsProfessionTool()) {
+                        b = 10;
+                        g_toolOverrides[info->reputationId] = info->id;
+                    } else {
+                        b = GameState::ExternalItemBindingToInternal(info->slot);
+                        if (b == 4 && GameState::GetItemAt(4) && !GameState::GetItemAt(9)) b = 9;
+                        if (b == 10) {
+                            g_toolOverrides[info->reputationId] = info->id;
+                        } else {
+                            GameState::BindItemTo(b, g_items[g_pressedCell].data);
+                            g_figure.layers[b].f10 = 1.f;
+                        }
+                    }
+                    CompleteEquipTaskFor(info->id);
+                    g_selectedItem = -1;
+                    g_selectedEquip = (int)b;
+                    UpdateContents();
+                    FlyFromHere(1.f);
+                    Window* e = g_equip[b].bg;
+                    g_flyToX = (float)(g_root->x + e->x);
+                    g_flyToY = (float)(g_root->y + e->y + e->h);
+                    e->SetVisibility(false);
+                    g_dragSlot = (int)b;
+                    return true;
+                }
+                if (info->type == 3 && CanTakeOnItem(data) &&
+                    BeltBarWindow::HasMovedIntoBelt((int)((float)g_root->x + cx), (int)((float)g_root->y + cy),
+                                                   info->id)) {
+                    BeltBarWindow::MoveIntoBelt(g_flySprite, info->id, (unsigned)-1);
+                    g_flySprite = nullptr;
+                    UpdateContents();
+                    return true;
+                }
+            }
+            FlyFromHere(1.f);   // back
+            return true;
+        }
+    }
+    if (scrolled) return true;
+    BeltBarWindow::Click(x, y, pressed);
+    const bool visible = g_root->visibleSelf;
+    g_root->Click(x, y, pressed, false);
+    return visible;
+}
+
+// @0x286444: past 30 pixels sideways a pressed cell's piece is picked up (past 10 up or down the
+// press is a scroll); past 10 pixels a pressed worn piece is; the picked-up piece follows.
+void Move(int x, int y) {
+    g_custom.scroller.Move(x, y);
+    if (!g_draggingSlot && !g_draggingGrid) g_scroller.Move(x, y);
+    if (g_pressedGrid) {
+        if (std::abs(x - g_pressX) > 30 && g_pressedCell != -1 && !g_draggingGrid) {
+            g_scrollMoved = false;
+            g_draggingGrid = true;
+            // (PORT: bounds; the original reads the entry as is.)
+            Items::ItemInfo* info = (unsigned)g_pressedCell < g_items.size() ? g_items[g_pressedCell].info : nullptr;
+            if (info) {
+                if (g_pressedCell != g_selectedItem) {
+                    g_selectedItem = g_pressedCell;
+                    UpdateContents();
+                }
+                g_flySprite = Render::RemoveSprite(g_flySprite);
+                ShowHiddenPictures();
+                const unsigned cell = (unsigned)(g_pressedCell - (int)g_scroller.firstIndex);
+                if (cell > 11) {
+                    g_draggingGrid = false;
+                } else {
+                    g_dragCell = (int)cell;
+                    g_glow = Render::RemoveSprite(g_glow);
+                    g_glowWanted = false;
+                    Window* ic = g_cells[cell].holder.icon.icon;
+                    g_flySprite = MakeFlySprite(info->GetIcon(), ic);
+                    g_itemFlying = false;
+                    g_flySprite->w = (float)ic->w;
+                    g_flySprite->h = (float)ic->h;
+                    g_flyToX = g_flySprite->x;
+                    g_flyToY = g_flySprite->y;
+                    if (!g_pressOnIcon) {
+                        // Picked up away from the picture: it jumps under the finger.
+                        g_pressY2 = y;
+                        Render::SetPosition(g_flySprite, (float)(x - ic->w / 2), (float)(y + ic->h / 2), 0.001f);
+                        g_pressX = x;
+                        g_pressY = y;
+                    }
+                    ic->SetVisibility(false);
+                }
+            }
+        }
+        if (std::abs(y - g_pressY) > 10 && !g_draggingGrid) g_scrollMoved = true;
+    }
+    if (g_pressedSlot && !g_draggingSlot && std::abs(y - g_pressY) + std::abs(x - g_pressX) > 10) {
+        g_draggingSlot = true;
+        if (Items::ItemInfo* info = Items::GetItemInfo(g_figure.layers[g_dragSlot].item)) {
+            g_glow = Render::RemoveSprite(g_glow);
+            g_glowWanted = false;
+            g_flySprite = Render::RemoveSprite(g_flySprite);
+            Window* bg = g_equip[g_dragSlot].bg;
+            g_flySprite = MakeFlySprite(info->GetIcon(), bg);
+            g_itemFlying = false;
+            g_flySprite->w = (float)bg->w;
+            g_flySprite->h = (float)bg->h;
+            g_flyToX = g_flySprite->x;
+            g_flyToY = g_flySprite->y;
+            bg->SetVisibility(false);
+        }
+    }
+    if (g_draggingSlot) {
+        Render::SetPosition(g_flySprite, (float)(x - g_pressX) + g_flySprite->x, (float)(y - g_pressY) + g_flySprite->y,
+                            0.001f);
+        g_pressY = y;
+        g_pressX = x;
+    }
+    if (g_draggingGrid) {
+        Render::SetPosition(g_flySprite, (float)(x - g_pressX) + g_flySprite->x,
+                            (float)(y - g_pressY2) + g_flySprite->y, 0.001f);
+        g_pressY2 = y;
+        g_pressX = x;
+    }
+    BeltBarWindow::Move(x, y);
 }
 
 // @0x27c158
@@ -417,7 +1076,7 @@ WindowManager::FunctionalWindow* Queue() {
         f.click = Click;
         f.setZ = SetZ;
         f.hide = Hide;
-        // UNVERIFIED (5l-3): Move (0x286444), the drag of a piece.
+        f.move = Move;
         g_queue = new WindowManager::FunctionalWindow("CharacterInfo", std::move(f));
     }
     return g_queue;
@@ -707,6 +1366,342 @@ void UpdateItemTimers() {
     }
 }
 
+// @0x27b8c8: not locked by level, and a binding, a profession tool, or a free (or used-up) belt slot.
+bool CanTakeOnItem(const GameState::PlayerItem* it) {
+    if (!it || it->info->IsLockedByLevel()) return false;
+    if (it->info->slot != 0 || it->info->IsProfessionTool()) return true;
+    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i) {
+        if (GameState::GetBeltItemAt(i) == 0) return true;
+        if (GameState::GetItemAmount(GameState::GetBeltItemAt(i), false) == 0) return true;
+    }
+    return false;
+}
+
+// @0x27b134: everything but the belt (binding 8).
+bool CanTakeOffItem(const GameState::PlayerItem* it) { return it && it->info->slot != 8; }
+
+// @0x287920: the card's Equip (equip true) / Unequip button for the selected item. A worn piece's
+// binding takes it (a second ring the free ring binding) and it glides there from its cell; an orb
+// goes to the first free belt slot (gliding into the belt). Unequip: the piece glides to its cell,
+// a belt orb from the belt into the grid.
+void OnEquip(bool equip) {
+    const int st = GameState::secondTutorial;
+    if (st == 0xa4 || (unsigned)(GameState::tutorial - 0x14) < 2) {
+        BuildingHovers::HideArrow();
+        GUI::SetInteractionLock(false);
+    }
+    if (GameState::secondTutorial == 0x88) {
+        BuildingHovers::HideArrow();
+        GUI::SetInteractionLock(true);
+    }
+    const SelectedItem sel = GetSelectedItem();
+    GameState::PlayerItem* item = sel.data;
+    if (!item) {
+        UpdateContents();
+        return;
+    }
+    if (!IsItemEquipped(item)) {
+        if (!equip) return;
+        if (item->info->slot != 0) {
+            // SoundsManager::PlaySound("ui_equip"): milestone 6.
+            unsigned b = GameState::ExternalItemBindingToInternal(item->info->slot);
+            if (b == 4 && GameState::GetItemAt(4)) b = GameState::GetItemAt(9) ? 4 : 9;
+            GameState::BindItemTo(b, item);
+            g_figure.layers[b].f10 = 1.f;
+            CompleteEquipTaskFor(item->id);
+            Items::ItemInfo* info = item->info;
+            g_flySprite = Render::RemoveSprite(g_flySprite);
+            if (g_dragSlot != -1) g_equip[g_dragSlot].bg->SetVisibility(true);
+            g_dragSlot = -1;
+            if (g_dragCell != -1) g_cells[g_dragCell].holder.icon.icon->SetVisibility(true);
+            g_dragCell = -1;
+            const unsigned cell = (unsigned)(g_selectedItem - (int)g_scroller.firstIndex);
+            g_pressedCell = g_selectedItem;
+            if (cell < 12) g_dragCell = (int)cell;
+            if (cell < 12 && g_queue->shown) {
+                g_glow = Render::RemoveSprite(g_glow);
+                g_glowWanted = false;
+                Window* ic = g_cells[cell].holder.icon.icon;
+                g_flySprite = MakeFlySprite(info->GetIcon(), ic);
+                g_itemFlying = false;
+                g_flySprite->w = (float)ic->w;
+                g_flySprite->h = (float)ic->h;
+                g_flyToX = g_flySprite->x;
+                g_flyToY = g_flySprite->y;
+                ic->SetVisibility(false);
+                g_selectedItem = -1;
+                g_selectedEquip = (int)b;
+                UpdateContents();
+                Window* e = g_equip[b].bg;
+                g_itemFlyTime = 0.f;
+                g_glowWanted = true;
+                g_itemFlying = true;
+                // The second tutorial's piece glides slower.
+                g_itemFlyDuration = GameState::secondTutorial == 0xa4 ? 2.5f : 1.f;
+                g_flyFromX = g_flySprite->x;
+                g_flyFromY = g_flySprite->y;
+                g_flyToY = (float)(g_root->y + e->y + e->h);
+                g_flyToX = (float)(g_root->x + e->x);
+                e->SetVisibility(false);
+                g_dragSlot = (int)b;
+                return;
+            }
+            g_selectedItem = -1;
+            g_selectedEquip = (int)b;
+            UpdateContents();
+            return;
+        }
+        // An orb: to the belt (not twice).
+        bool onBelt = false;
+        for (unsigned k = 0; k < GameState::GetBeltSlotCount(); ++k)
+            if (GameState::GetBeltItemAt(k) == item->id) onBelt = true;
+        if (!onBelt) {
+            for (unsigned k = 0; k < GameState::GetBeltSlotCount(); ++k) {
+                if (GameState::GetBeltItemAt(k) != 0 &&
+                    GameState::GetItemAmount(GameState::GetBeltItemAt(k), false) != 0)
+                    continue;
+                Items::ItemInfo* info = item->info;
+                const unsigned cell = (unsigned)(g_selectedItem - (int)g_scroller.firstIndex);
+                g_pressedCell = g_selectedItem;
+                if (cell < 12) {
+                    g_dragCell = (int)cell;
+                } else if (g_dragCell == -1) {
+                    // Not in view: straight onto the belt.
+                    // SoundsManager::PlaySound("ui_equip_belt"): milestone 6.
+                    GameState::BindBeltItemTo(k, item->id);
+                    if (item->info->CanBeActivated()) {
+                        GameState::SetBeltItemActivationTimeAt(k, (uint32_t)Timer::GetGlobalTime());
+                        BeltBarWindow::UpdateContents();
+                        UpdateContents();
+                        return;
+                    }
+                    break;
+                }
+                Render::RemoveSprite(g_flySprite);
+                Window* ic = g_cells[g_dragCell].holder.icon.icon;
+                g_flySprite = MakeFlySprite(info->GetIcon(), ic);
+                g_flySprite->h = (float)ic->h;
+                g_flySprite->w = (float)ic->w;
+                BeltBarWindow::MoveIntoBelt(g_flySprite, info->id, k);
+                g_flySprite = nullptr;
+                UpdateContents();
+                BeltBarWindow::UpdateContents();
+                UpdateContents();
+                return;
+            }
+        }
+        BeltBarWindow::UpdateContents();
+        UpdateContents();
+        return;
+    }
+    if (equip) return;
+    if (item->info->slot != 0) {
+        // SoundsManager::PlaySound("ui_unequip"): milestone 6.
+        unsigned b = GameState::ExternalItemBindingToInternal(item->info->slot);
+        if (b == 4 && item != GameState::GetItemAt(4)) b = item == GameState::GetItemAt(9) ? 9 : 4;
+        GameState::BindItemTo(b, nullptr);
+        GetItemsForTabAndMode(g_tab);
+        Items::ItemInfo* info = item->info;
+        g_dragSlot = (int)b;
+        g_dragCell = GetItemPositionInCurrentTab(item, info);
+        if (g_dragCell == -1 || !g_queue->shown) {
+            g_selectedEquip = -1;
+            g_selectedItem = -1;
+            UpdateContents();
+            return;
+        }
+        g_glow = Render::RemoveSprite(g_glow);
+        g_glowWanted = false;
+        g_flySprite = Render::RemoveSprite(g_flySprite);
+        Window* e = g_equip[b].bg;
+        g_flySprite = MakeFlySprite(info->GetIcon(), e);
+        g_itemFlying = false;
+        g_flySprite->w = (float)e->w;
+        g_flySprite->h = (float)e->h;
+        g_flyToX = g_flySprite->x;
+        g_flyToY = g_flySprite->y;
+        e->SetVisibility(false);
+        UpdateContents();
+        if (g_dragSlot != -1) g_equip[g_dragSlot].bg->SetVisibility(true);
+        g_selectedEquip = -1;
+        g_selectedItem = g_dragCell;
+        g_scroller.ScrollIntoView((unsigned)g_selectedItem);
+        const unsigned cell = (unsigned)(g_selectedItem - (int)g_scroller.firstIndex);
+        FlyFromHere(1.f);
+        OnItem(cell, false);
+        Window* ic = g_cells[cell].holder.icon.icon;
+        g_flyToX = (float)(g_root->x + ic->x);
+        g_flyToY = (float)(g_root->y + ic->y + ic->h);
+        ic->SetVisibility(false);
+        g_dragCell = (int)cell;
+        return;
+    }
+    // An orb off the belt: it glides from its slot into the grid.
+    for (unsigned k = 0; k < GameState::GetBeltSlotCount(); ++k) {
+        if (GameState::GetBeltItemAt(k) != item->id) continue;
+        Items::ItemInfo* info = item->info;
+        // SoundsManager::PlaySound("ui_unequip_belt"): milestone 6.
+        GameState::BindBeltItemTo(k, 0);
+        BeltBarWindow::UpdateContents();
+        if (IsVisible()) {
+            int bx, by;
+            BeltBarWindow::GetBeltItemLocation(bx, by, (int)k);
+            Render::RemoveSprite(g_flySprite);
+            g_flySprite = Render::CreateSprite(info->GetIcon(), 0xf, false, false);
+            g_flySprite->screenSpace = true;
+            Render::SetShaderType(g_flySprite, 1);
+            Render::SetPosition(g_flySprite, (float)bx, (float)by, 0.001f);
+            MoveIntoInventory(g_flySprite, info->id);
+        }
+    }
+    BeltBarWindow::UpdateContents();
+    UpdateContents();
+}
+
+// @0x283ddc: the selected piece to the repair window.
+void OnRepair() {
+    const SelectedItem sel = GetSelectedItem();
+    if (sel.data) {
+        RepairWindow::SetParameters(sel.data);
+        RepairWindow::Show();
+        return;
+    }
+    UpdateContents();
+}
+
+// @0x283e14: one of the selected piece thrown away. UNVERIFIED (milestone 5, 5q):
+// ItemShopWindow::UpdateContents.
+void OnRemove() {
+    const SelectedItem sel = GetSelectedItem();
+    if (sel.data) GameState::RemoveItem(sel.data->id, 1);
+    UpdateContents();
+}
+
+// @0x2859b8: the item's improvement (from the start of its chain) in the crafting window.
+// UNVERIFIED (milestone 5, 5o): CraftingWindow::SetParameters / SelectTabFor / Show, and this
+// window's Hide.
+void OnImprove(GameState::PlayerItem* item) {
+    if (!item) return;
+    UpdateContents();
+}
+
+// @0x284318 / 0x284394 / 0x2843d8: the admin tools on the selected cell: more of it, break it,
+// remove one or all.
+void OnAddSelectedItem(unsigned n) {
+    if ((unsigned)g_selectedItem >= g_items.size()) return;
+    if (uint32_t id = g_items[g_selectedItem].info->id) {
+        GameState::AddItem(id, (int)n, true, false, false);
+        UpdateContents();
+    }
+}
+void OnBreakSelectedItem() {
+    if ((unsigned)g_selectedItem >= g_items.size()) return;
+    if (GameState::PlayerItem* p = g_items[g_selectedItem].data) p->f0c = 0;
+    UpdateContents();
+}
+void OnRemoveSelectedItem(bool all) {
+    if ((unsigned)g_selectedItem >= g_items.size()) return;
+    const uint32_t id = g_items[g_selectedItem].info->id;
+    if (!id) return;
+    if (GameState::GetItemAmount(id, false) != 0)
+        GameState::RemoveItem(id, all ? GameState::GetItemAmount(id, false) : 1);
+    if (GameState::GetItemAmount(id, false) == 0) g_selectedItem = 0;
+    UpdateContents();
+}
+
+// @0x2850e0: a picture (from the belt) glides into the item's cell, which is selected; without a
+// cell it goes.
+void MoveIntoInventory(Render::Sprite* sprite, uint32_t id) {
+    if (g_flySprite && g_flySprite != sprite) g_flySprite = Render::RemoveSprite(g_flySprite);
+    g_selectedItem = GetItemPositionInCurrentTab(nullptr, Items::GetItemInfo(id));
+    if (g_selectedItem == -1) {
+        Render::RemoveSprite(sprite);
+        return;
+    }
+    g_selectedEquip = -1;
+    g_flySprite = sprite;
+    g_scroller.itemCount = (unsigned)g_items.size();
+    g_scroller.ScrollIntoView((unsigned)g_selectedItem);
+    const unsigned cell = (unsigned)(g_selectedItem - (int)g_scroller.firstIndex);
+    g_itemFlying = true;
+    g_itemFlyTime = 0.f;
+    g_itemFlyDuration = 1.f;
+    g_flyFromX = g_flySprite->x;
+    g_flyFromY = g_flySprite->y;
+    OnItem(cell, false);
+    Window* ic = g_cells[cell].holder.icon.icon;
+    g_flySprite->h = (float)ic->h;
+    g_flySprite->w = (float)ic->w;
+    g_flyToX = (float)(g_root->x + ic->x);
+    g_flyToY = (float)(g_root->y + ic->y + ic->h);
+    ic->SetVisibility(false);
+    g_dragCell = (int)cell;
+}
+
+// @0x2883b0: the window shows the item (or one of its improvement chain): its slot if worn, else
+// its cell in the first tab that lists it (data: that very item); help is the card's lesson
+// (0 / 2 / 3 put the arrow on it; 1 equip, 4 drink; see OnTweenIn).
+void ShowInventoryItem(uint32_t id, unsigned help, GameState::PlayerItem* data) {
+    for (unsigned b = 0; b != 11; ++b) {
+        GameState::PlayerItem* worn = GetItemAt(b);
+        if (!worn || !CheckIfItemImprovementLineHasItem(worn->id, id)) continue;
+        g_help = help;
+        if (help == 0 || help == 2 || help == 3) g_arrowEquip = (int)b;
+        g_selectedItem = -1;
+        g_selectedEquip = (int)b;
+        UpdateContents();
+        if (!g_tween->active) OnTweenIn();
+        return;
+    }
+    for (unsigned tab = 0; tab != 8; ++tab) {
+        GetItemsForTabAndMode(tab);
+        for (unsigned i = 0; i < g_items.size(); ++i) {
+            const bool hit = data ? g_items[i].data == data : CheckIfItemImprovementLineHasItem(g_items[i].info->id, id);
+            if (!hit) continue;
+            g_help = help;
+            g_tab = tab;
+            g_selectedEquip = -1;
+            UpdateContents();
+            g_scroller.ScrollIntoView(i);
+            g_selectedItem = (int)i;
+            if (help == 0 || help == 2) g_arrowCell = (int)(i - g_scroller.firstIndex);
+            UpdateContents();
+            Render::SortRenderLayer(0xe, 1);
+            if (!g_tween->active) OnTweenIn();
+            return;
+        }
+    }
+    GetItemsForTabAndMode(0);
+    UpdateContents();
+}
+
+// @0x2885e0: the inventory's first lesson: a broken worn piece (to repair), else an empty binding
+// with a piece for it (to equip). True when there was one.
+bool ExecuteFirstHelp() {
+    if (g_tween->active) return true;
+    for (unsigned b = 0; b != 10; ++b) {
+        GameState::PlayerItem* it = GameState::GetItemAt(b);
+        if (it && it->IsBroken()) {
+            Show();
+            ShowInventoryTab(0);
+            ShowInventoryItem(it->id, 3, it);
+            return true;
+        }
+    }
+    for (unsigned b = 0; b != 10; ++b) {
+        if (GameState::GetItemAt(b)) continue;
+        for (unsigned k = 0; GameState::PlayerItem* it = GameState::EnumItems(k); ++k) {
+            if (!it->info || it->info->slot == 0) continue;
+            if (GameState::ExternalItemBindingToInternal(it->info->slot) != b) continue;
+            Show();
+            ShowInventoryTab(0);
+            ShowInventoryItem(it->id, 1, it);
+            return true;
+        }
+    }
+    return false;
+}
+
 // @0x27dc98
 void Init() {
     g_tablet = GUI::IsTabletVersion();
@@ -728,7 +1723,7 @@ void Init() {
     g_headerBack = GUI::GetWindowTyped<Window>(g_root, "header_back");
     g_header = GUI::GetWindowTyped<Textfield>(g_root, "header_text");
     g_background = GUI::GetWindowTyped<Window>(g_root, "inventory_background");
-    g_buffHolder = GUI::GetWindowTypedF<Window>(g_root, "buff_holder_01");
+    g_buffHolder = GUI::GetWindowTyped<Window>(g_root, "buff_holder_01");
     g_buffHolder->takesZ = true;
     g_figure.LoadFrom(g_root, "character_item_holder");
     char name[0x100];
@@ -846,8 +1841,7 @@ void Init() {
     g_scroller.perLine = 2;
     g_scroller.padEnd = (int)(scale * 20.f);
     RemovePreviewItems();
-    // UNVERIFIED (5l-2 / 5l-3): fn.update = Update (0x285a1c): the item timers, the dragged piece,
-    // the buff row's place and its Update.
+    g_queue->fn.update = Update;
     g_queue->fn.zRange = ZRange;
     g_queue->fn.back = OnBack;
     g_queue->fn.show = Show;
@@ -928,7 +1922,7 @@ void UpdateCell(unsigned i, uint32_t now) {
     const bool broken = data && data->IsBroken();
     const bool locked = info->IsLockedByLevel();
     const bool isPack = info->packId != 0;
-    const bool isNet = info->id == 0x2fe;
+    const bool isRandom = info->id == 0x2fe;
     bool equipped = false;
     if (data)
         for (GameState::PlayerItem* p : g_equipped)
@@ -958,7 +1952,7 @@ void UpdateCell(unsigned i, uint32_t now) {
         GameState::PlayerItem* cur = GameState::GetCustomizationAt(info->slot);
         if (cur && cur->id == info->id) equipped = true;
     }
-    c.beltButton->SetVisibility(isNet);
+    c.beltButton->SetVisibility(isRandom);
     c.boughtBg->SetVisibility(bought);
     const bool buyable = tab7 && amount == 0;
     c.costIcon->SetVisibility(buyable && hasPrice);
@@ -1001,7 +1995,7 @@ void UpdateCell(unsigned i, uint32_t now) {
     c.holder.quantity->SetVisibility(multi && isPack);
     c.holder.quantity->SetText(SWPrintf(0x80, U"x%d", {amount}).c_str());
     bool selected = (g_selectedEquip != -1 && data && g_equipped[g_selectedEquip] == data) || (int)idx == g_selectedItem;
-    c.bg->SetVisibility(selected && !isNet);
+    c.bg->SetVisibility(selected && !isRandom);
     c.holder.selected->SetVisibility(false);
     c.holder.emptyBg->SetVisibility(false);
     icon.broken->SetVisibility(broken);

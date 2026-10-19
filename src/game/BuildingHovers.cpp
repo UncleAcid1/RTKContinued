@@ -1549,14 +1549,20 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
                 if (GameState::GetBeltItemAt(i) == item) slot = (int)i;
             if (GameState::SecondTutorialStep() == 0x94) slot = 1;
             int tx = 0, ty = 0;
-            // (step 0x85, or no belt slot: CharacterInfoWindow::CanMoveIntoEquippedBelt (the open
-            // window's belt, milestone 5), else the inventory button)
-            if (GameState::SecondTutorialStep() == 0x85 || slot == -1) {
+            // (step 0x85, or no belt slot: the open character window's worn belt, else the
+            // inventory button)
+            if ((GameState::SecondTutorialStep() == 0x85 || slot == -1) &&
+                !CharacterInfoWindow::CanMoveIntoEquippedBelt(tx, ty)) {
                 BeltBarWindow::GetAdjustedSideButtonLocation(tx, ty, (int)sprite->w, (int)sprite->h);
                 m.endX = (float)tx;
                 m.endY = (float)(int)((float)ty + m.sprite->h);
-                // UNVERIFIED (milestone 5): over the open character, item shop, craft item or
-                // competition window it draws on layer 0xf.
+                // Over the open character window it draws on layer 0xf. UNVERIFIED (milestone 5):
+                // also over the item shop, craft item and competition windows.
+                if (CharacterInfoWindow::IsVisible()) Render::ChangeLayer(m.sprite, 0xf);
+            } else if (GameState::SecondTutorialStep() == 0x85 || slot == -1) {
+                m.endX = (float)tx;
+                m.endY = (float)(int)((float)ty + m.sprite->h);
+                Render::ChangeLayer(m.sprite, 0xf);
             } else {
                 BeltBarWindow::GetBeltItemLocation(tx, ty, slot);
                 m.endX = (float)tx;
@@ -1610,8 +1616,11 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
         }
         if (GameState::tutorial == 0x17) PlayerTopWindow::SetParameters(StringTable::GetString("DESC1911"), 0, false, true);
     }
-    // UNVERIFIED (milestone 5, the character window): item 0x21d picked up on map 0x52 before task
-    // 0x5a5 is done opens CharacterInfoWindow on it.
+    // Item 0x21d picked up on map 0x52 before task 0x5a5 is done: the character window on it.
+    if (item == 0x21d && !GameState::TaskCompleted(0x5a5) && GameState::GetCurrentMapID() == 0x52) {
+        CharacterInfoWindow::Show();
+        CharacterInfoWindow::ShowInventoryItem(0x21d, 0, nullptr);
+    }
 }
 
 // ---- text popups ----

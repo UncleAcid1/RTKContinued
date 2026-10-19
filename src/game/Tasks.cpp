@@ -1051,10 +1051,8 @@ void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
                 break;
             case kEquip:
                 // What the hero wears is reported as equipped.
-                // UNVERIFIED (milestone 5): CharacterInfoWindow::CompleteEquipTaskFor (0x27bdec) also
-                // reports the items it was improved from and to (Collections).
                 for (unsigned i = 0; i < 10; ++i)
-                    if (GameState::PlayerItem* it = GameState::GetItemAt(i)) CompleteSubtask(kEquip, it->id, 1);
+                    if (GameState::PlayerItem* it = GameState::GetItemAt(i)) CharacterInfoWindow::CompleteEquipTaskFor(it->id);
                 break;
             case kMasteryLevel:
                 // value: the mission's map * 10 + the stars it needs

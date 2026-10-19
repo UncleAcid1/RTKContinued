@@ -564,15 +564,42 @@ bool TaskSubtask::OnHelp(bool arrow) {
         HealSquadWindow::Show();
         HealSquadWindow::ResetRecentDeaths();
         return true;
+    case kEquip: {   // the character window on the item, or the arrow at it lying on the ground
+        float x = 0.f, y = 0.f;
+        if (GameState::GetItemAmount(value, false) == 0 && BuildingHovers::HasDroppedItem(value, x, y)) {
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { BuildingHovers::CollectAll(); }));
+            HelpWithLocation((int)x, (int)y, 0, 0);
+            return true;
+        }
+        CharacterInfoWindow::Show();
+        CharacterInfoWindow::ShowInventoryTab(0);
+        CharacterInfoWindow::ShowInventoryItem(value, 1, nullptr);
+        return true;
+    }
+    case kImproveItem:   // the character window on the item
+        CharacterInfoWindow::Show();
+        CharacterInfoWindow::ShowInventoryTab(0);
+        CharacterInfoWindow::ShowInventoryItem(value, 2, nullptr);
+        return true;
+    case kRepairItem:    // the character window on the first broken piece worn
+        CharacterInfoWindow::Show();
+        CharacterInfoWindow::ShowInventoryTab(0);
+        for (unsigned b = 0; b != 10; ++b) {
+            GameState::PlayerItem* it = GameState::GetItemAt(b);
+            if (it && it->IsBroken()) {
+                CharacterInfoWindow::ShowInventoryItem(it->id, 3, nullptr);
+                return true;
+            }
+        }
+        std::fprintf(stderr, "Tasks::TaskSubtask::OnHelp() cannot help with SUBTASK_REPAIR_ITEM - none of the equiped "
+                             "items are broken\n");
+        return true;
     // UNVERIFIED (milestone 5): other windows.
     case kBuyOnMarketTask:     // the item shop on the item (CastleTopWindow::OnBuyItem for steps 0x42e / 0x42f)
-    case kEquip:               // CharacterInfoWindow on the item (or the arrow at it lying on the ground)
     case kCollectSet:          // SetInfoWindow on the set (a set already complete counts at once)
-    case kImproveItem:         // CharacterInfoWindow on the item
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
     case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item
-    case kRepairItem:          // CharacterInfoWindow on the first broken item worn
     case kBalanceLevel:        // LevelInfoWindow on that level (milestone 5)
     case kDealDamage:          // CastleTopWindow::HelpWithPvP
     case kWinInRow:            // CastleTopWindow::HelpWithPvP

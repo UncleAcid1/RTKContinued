@@ -99,6 +99,13 @@ void GetAdjustedBuffZoneLocation(int& x, int& y, int w, int h);
 void RaiseWindow(float z, float seconds);
 void OnInventory();                  // @0x24d0fc the inventory button: the character window
 void ShowInventory(bool lock);       // @0x24cbcc the arrow at the inventory button (once the belt is in)
+// @0x24c884: the screen point is over a belt slot (and the item is not on the belt yet).
+bool HasMovedIntoBelt(int x, int y, uint32_t id);
+// @0x24f4fc: the picture glides into belt slot "slot" (-1: the one under it, else it goes), which
+// takes the item.
+void MoveIntoBelt(Render::Sprite* sprite, uint32_t id, unsigned slot);
+void Move(int x, int y);             // @0x2507d0 an item dragged out of the belt (character window)
+bool Click(int x, int y, bool pressed);   // @0x2509ac
 }
 // The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net and stance parts so far,
 // the spells with milestone 5).

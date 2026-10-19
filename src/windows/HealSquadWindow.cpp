@@ -309,9 +309,18 @@ void OnHome() {
 // @0x2ca494. UNVERIFIED (milestone 5): ItemShopWindow::Show with items 0x250 and 0x162 pointed out.
 void OnShop() {}
 
-// @0x2ca440. UNVERIFIED (milestone 5): CharacterInfoWindow::Show on the inventory tab, at the first
-// broken item.
-void OnRepair() {}
+// @0x2ca440: the character window on its first tab, at the first broken piece worn.
+void OnRepair() {
+    CharacterInfoWindow::Show();
+    CharacterInfoWindow::ShowInventoryTab(0);
+    for (unsigned b = 0; b != 10; ++b) {
+        GameState::PlayerItem* it = GameState::GetItemAt(b);
+        if (it && it->IsBroken()) {
+            CharacterInfoWindow::ShowInventoryItem(it->id, 3, it);
+            return;
+        }
+    }
+}
 
 // @0x2c9f90 (Move @0x2c9ef8 is empty and never registered.)
 float ZRange() { return g_queue->shown ? 0.02f : 0.0001f; }

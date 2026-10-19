@@ -6,7 +6,7 @@
 
 namespace WindowManager { class FunctionalWindow; }
 namespace Map { struct Building; struct Decor; }
-namespace Render { struct Texture; }
+namespace Render { struct Texture; struct Sprite; }
 namespace Locations { struct LocationInfo; }
 namespace GameState { struct PlayerItem; }
 namespace Items { struct ItemInfo; }
@@ -377,6 +377,18 @@ bool HasMovedIntoInventory(int x, int y);                       // @0x27bba8
 bool IsValidItemForTabAndMode(const GameState::PlayerItem* data, const Items::ItemInfo* info, unsigned tab);   // @0x27be48
 void GetItemsForTabAndMode(unsigned tab);                       // @0x27fda8
 void UpdateItemTimers();                                        // @0x283e4c
+bool CanTakeOnItem(const GameState::PlayerItem* it);            // @0x27b8c8
+bool CanTakeOffItem(const GameState::PlayerItem* it);           // @0x27b134
+void OnEquip(bool equip);                                       // @0x287920 the card's Equip / Unequip
+void OnRepair();                                                // @0x283ddc
+void OnRemove();                                                // @0x283e14
+void OnImprove(GameState::PlayerItem* item);                    // @0x2859b8
+void OnAddSelectedItem(unsigned n);                             // @0x284318 (admin)
+void OnBreakSelectedItem();                                     // @0x284394 (admin)
+void OnRemoveSelectedItem(bool all);                            // @0x2843d8 (admin)
+void MoveIntoInventory(Render::Sprite* sprite, uint32_t id);    // @0x2850e0
+void ShowInventoryItem(uint32_t id, unsigned help, GameState::PlayerItem* data);   // @0x2883b0
+bool ExecuteFirstHelp();                                        // @0x2885e0
 // @0x28047c, the stat part: the player's stats again from its level (ResetStats, the HP bar too),
 // its soldiers' (not HP), then the effects of the unbroken equipment (bindings 0..9) and
 // customisations (1..9), the complete sets and the running buffs. Map::Load runs it, as do the

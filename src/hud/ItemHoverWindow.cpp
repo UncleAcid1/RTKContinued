@@ -9,6 +9,7 @@
 #include "game/AIState.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
+#include "game/Collections.h"
 #include "game/BuildingPlacement.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
@@ -18,6 +19,7 @@
 #include "game/GameState.h"
 #include "game/Tasks.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
@@ -55,33 +57,11 @@ bool ItemCanBeBought(uint32_t) { return false; }           // ItemShopWindow::It
 uint32_t GetMissionMapForItem(uint32_t id) { return GlobalMapWindow::GetMissionMapForItem(id, 0); }
 uint32_t GetMapForCraftItem(uint32_t id) { return GlobalMapWindow::GetMapForCraftItem(id, 0); }
 
-// @0x27b958 CharacterInfoWindow::IsItemEquipped(ItemData*): in the window's ten equipment holders
-// or on the belt. UNVERIFIED (milestone 5): the holders (0x619440..) are filled by the window's
-// UpdateContents; the port reads the equipment bindings they show.
-bool IsItemEquipped(const GameState::PlayerItem* it) {
-    if (!it) return false;
-    bool on = false;
-    for (unsigned i = 0; i < 10; ++i)
-        if (GameState::GetItemAt(i) == it) on = true;
-    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i)
-        if (GameState::GetBeltItemAt(i) == it->id) on = true;
-    return on;
-}
-
-// @0x27b8c8 CharacterInfoWindow::CanTakeOnItem: not locked by level, and an equipment slot, a
-// profession tool or a free (or used-up) belt slot.
-bool CanTakeOnItem(const GameState::PlayerItem* it) {
-    if (!it || it->info->IsLockedByLevel()) return false;
-    if (it->info->slot != 0 || it->info->IsProfessionTool()) return true;
-    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i) {
-        if (GameState::GetBeltItemAt(i) == 0) return true;
-        if (GameState::GetItemAmount(GameState::GetBeltItemAt(i), false) == 0) return true;
-    }
-    return false;
-}
-
-// @0x27b134 CharacterInfoWindow::CanTakeOffItem: everything but slot 8.
-bool CanTakeOffItem(const GameState::PlayerItem* it) { return it && it->info->slot != 8; }
+// (CharacterInfoWindow's IsItemEquipped @0x27b958, CanTakeOnItem @0x27b8c8, CanTakeOffItem
+// @0x27b134: windows/CharacterInfoWindow.cpp)
+using CharacterInfoWindow::CanTakeOffItem;
+using CharacterInfoWindow::CanTakeOnItem;
+bool IsItemEquipped(const GameState::PlayerItem* it) { return CharacterInfoWindow::IsItemEquipped(it); }
 }  // namespace
 
 // @0x3845b0
@@ -924,7 +904,7 @@ void ItemHoverWindow::OnDrink() {
         if (inf->meta && inf->meta->FindChildData(kExpBuffTime))
             GameState::ActivateItemBuff(item->id, inf->meta->FindChildData(kExpBuffTime)->GetInt());
         if (AIPlayer* ai = dynamic_cast<AIPlayer*>(player->GetAI())) ai->PlayBuffAnimation(0, 1.f, 1.f, 1.f);
-        // UNVERIFIED (milestone 5): CharacterInfoWindow::ShowBuffAnimation(this).
+        CharacterInfoWindow::ShowBuffAnimation(this);
     } else if (inf->meta) {
         inf->meta->OnApplyItemEffect(player);
     }
@@ -967,8 +947,7 @@ void ItemHoverWindow::OnEnable() {
 void ItemHoverWindow::OnEquip() {
     if (!item || !inventory) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 5): CharacterInfoWindow::OnEquip(true) (the inventory window equips its
-    // selected item).
+    CharacterInfoWindow::OnEquip(true);
     Hide();
 }
 
@@ -976,8 +955,9 @@ void ItemHoverWindow::OnEquip() {
 void ItemHoverWindow::OnUnequip() {
     if (!item || !inventory) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 5): CharacterInfoWindow::ShowInventoryItem(item->id, 5, item) and
-    // OnEquip(false); ItemShopWindow::UpdateContents.
+    CharacterInfoWindow::ShowInventoryItem(item->id, 5, item);
+    CharacterInfoWindow::OnEquip(false);
+    // UNVERIFIED (milestone 5, 5q): ItemShopWindow::UpdateContents.
     Hide();
 }
 
@@ -1019,9 +999,12 @@ void ItemHoverWindow::OnRemoveActual() {
 void ItemHoverWindow::OnImprove() {
     if (!item || !inventory) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestone 5): a source collection -> CharacterInfoWindow::OnImprove(item) (and
-    // CraftingWindow::HelpImprove when it is open); else the crafting / result collection ->
-    // CraftItemWindow::Show + ShowCollection. No collections yet.
+    if (Collections::GetCollectionWithSource(item->id)) {
+        CharacterInfoWindow::OnImprove(item);
+        // UNVERIFIED (milestone 5, 5o): CraftingWindow::IsVisible -> CraftingWindow::HelpImprove.
+    } else if (Collections::GetCraftingCollectionForItem(item->id) || Collections::GetCollectionWithResult(item->id)) {
+        // UNVERIFIED (milestone 5, 5o): CraftItemWindow::Show + ShowCollection(collection id).
+    }
     Hide();
 }
 
@@ -1033,9 +1016,12 @@ void ItemHoverWindow::OnFind() {
     }
     if (!info && resource == 0xb) return;
     BuildingHovers::HideArrow();
-    // UNVERIFIED (milestones 4d/5): the windows the popup may sit over are hidden first:
-    // CharacterInfoWindow, ItemShopWindow, HireTroopsWindow, CraftItemWindow, LevelInfoWindow,
-    // ArenaDifficultyWindow, CampaignInfoWindow, PlayerInfoWindow, PlayerCompetitionWindow.
+    // The windows the popup may sit over are hidden first. UNVERIFIED (milestone 5): also
+    // ItemShopWindow, CraftItemWindow, LevelInfoWindow, ArenaDifficultyWindow, PlayerInfoWindow,
+    // PlayerCompetitionWindow (not ported yet).
+    CharacterInfoWindow::Hide();
+    HireTroopsWindow::Hide();
+    CampaignInfoWindow::Hide();
     if (!info) {
         if (resource == 8) {
             ExchangeWindow::Show();
@@ -1051,15 +1037,22 @@ void ItemHoverWindow::OnFind() {
         uint32_t id = info->id;
         if (info->packId && info->packItems && info->packItems->GetChild(0))
             id = info->packItems->GetChild(0)->GetChild(0)->GetInt();
-        // A mission map with the item: the world map on it; a crafting map: the world map's arrow
-        // at it; else its building. (CharacterInfoWindow::Hide: milestone 5.) UNVERIFIED
-        // (milestone 5): the mission map's RaidInfoWindow showing the item.
+        // A mission map with the item: the world map on it, its brief showing the item; a crafting
+        // map: the world map's arrow at it; else its building.
         if (uint32_t map = GetMissionMapForItem(id)) {
             Hide();
+            CharacterInfoWindow::Hide();
             GlobalMapWindow::Show();
             GlobalMapWindow::CenterOnMap(map);
+            if (Locations::LocationInfo* loc = Locations::GetLocationWithMap(map)) {
+                RaidInfoWindow::SetParameters(loc, map, false);
+                RaidInfoWindow::Show();
+                RaidInfoWindow::SetAnimationOnce();
+                RaidInfoWindow::ShowItem(info->id);
+            }
         } else if (uint32_t craft = GetMapForCraftItem(id)) {
             Hide();
+            CharacterInfoWindow::Hide();
             GlobalMapWindow::Show();
             GlobalMapWindow::ArrowAtMap(craft, false, true);
         } else {

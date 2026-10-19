@@ -764,9 +764,8 @@ void FlyNet(float dt) {
 }
 
 // @0x25769c (the belt's potion, else the inventory's, else the shop's): points the player at a
-// mana potion. UNVERIFIED (milestone 5): the actions are the later steps' (CharacterInfoWindow::Show /
-// ShowInventoryItem(id, 4, item) 5l, ItemShopWindow::Show / ShowShopItem(0x88, 0, true, -1) 5q);
-// the answer is the original's.
+// mana potion. UNVERIFIED (milestone 5, 5q): the shop's part (ItemShopWindow::ItemCanBeBought(0x88,
+// 0), Show, ShowShopItem(0x88, 0, true, -1)).
 bool OnShowManaPotion(unsigned) {
     for (unsigned slot = 0; slot < GameState::GetBeltSlotCount(); ++slot) {
         GameState::PlayerItem* item = GameState::GetFirstItemByID(GameState::GetBeltItemAt(slot), true);
@@ -777,7 +776,11 @@ bool OnShowManaPotion(unsigned) {
     }
     if (GameState::IsArenaCombatActive()) return false;
     for (unsigned i = 0; GameState::PlayerItem* item = GameState::EnumItems(i); ++i)
-        if (item->info->meta && item->info->meta->FindByType(kExpMana)) return true;
+        if (item->info->meta && item->info->meta->FindByType(kExpMana)) {
+            CharacterInfoWindow::Show();
+            CharacterInfoWindow::ShowInventoryItem(item->id, 4, item);
+            return true;
+        }
     // (ItemShopWindow::ItemCanBeBought(0x88, 0): the mana potion can be bought: 5q.)
     return false;
 }
