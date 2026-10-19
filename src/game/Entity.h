@@ -23,6 +23,7 @@ class MetaExpression;
 class MetaData;
 class Projectile;
 namespace Tags { struct Tag; }
+namespace Spells { struct SpellInfo; }
 
 class Entity {
 public:
@@ -307,6 +308,19 @@ public:
     void OnDeath(Entity* attacker);              // @0x153388 the death animation ended
     void OnProjectileFired(Entity* target, int kind);   // @0x15da30
     void ProjectileLanded();                     // @0x150c70
+    // The spells (EntityCombat.cpp). The spell's damage is scaled by `mult`, then by the map's
+    // SPELL_RESIST (0x79) for the spell's slot.
+    void SetDefenseMagic(int v) { defenseMagic = v; }            // @0x150388
+    void SetEffectOwner(Entity* e) { linked = e; }               // @0x150880
+    void OnAttackMagic(Entity*, unsigned) {}                     // @0x15044c
+    void OnBlockMagic(Entity*) { speedScale = 1.f; }             // @0x150454
+    void OnDeathMagic(Entity*) {}                                // @0x150464
+    bool WillDieMagic(Entity* attacker, Spells::SpellInfo* spell, float mult, bool);   // @0x1527bc
+    // @0x158018: takes the spell's blow (HP may reach 0 or less: Death does the rest); returns the
+    // damage and gives what the map's resistance took off in `resisted`.
+    int OnHitMagic(Entity* attacker, Spells::SpellInfo* spell, int& resisted, float mult, bool);
+    void OnSpellCast(AI::Waypoint* target);      // @0x1512c4 the view goes to the spell's epicenter
+    void OnSpellCast(Entity* target);            // @0x15137c
     // PORT: the next value (0..0x7fff) of the generator PrepareForSetup seeds (0x6119c8); the drops
     // and the broken gear draw from it too.
     static unsigned NextSetupRandom();

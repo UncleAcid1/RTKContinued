@@ -57,6 +57,7 @@
 #include "game/PvP.h"
 #include "game/Items.h"
 #include "game/Locations.h"
+#include "game/Spells.h"
 #include "game/Setting.h"
 #include "gui/GUI.h"
 #include "gui/TextStyleManager.h"
@@ -689,8 +690,10 @@ int main_Loop_Init() {
         !LoadSystemConfiguration(LoadItemPacks, "item_packs.xml", "L", "Items::InitPacks", 10.0 / 46.0, 0xb, 0xb))
         return 1;
     Items::InitSpecial();
-    // UNVERIFIED (milestone 5): Spells::Init "spells.xml" (11/46).
-    if (!LoadSystemConfiguration(Locations::Init, "locations.xml", "L", "Locations::Init", 12.0 / 46.0, 0xd, 0xd))
+    // UNVERIFIED (milestone 5): the load screen's two step numbers of Spells::Init (0xc, 0xc: between
+    // the item packs' 0xb and the locations' 0xd).
+    if (!LoadSystemConfiguration(Spells::Init, "spells.xml", "L", "Spells::Init", 11.0 / 46.0, 0xc, 0xc) ||
+        !LoadSystemConfiguration(Locations::Init, "locations.xml", "L", "Locations::Init", 12.0 / 46.0, 0xd, 0xd))
         return 1;
     Locations::InitSpecial();
     // UNVERIFIED (milestone 5): Sets::Init "sets.xml" (13/46).

@@ -6,6 +6,7 @@
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
+#include "game/AI.h"
 #include "game/AIState.h"
 #include "game/Animation.h"
 #include "game/BuildingHovers.h"
@@ -24,6 +25,7 @@
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/SpawnPoint.h"
+#include "game/Spells.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -223,6 +225,54 @@ void Entity::OnBlock(Entity* attacker) {
     // SoundsManager::PlaySound: "battle_block_player" (entities 0xc, 0xd), "battle_block_soldier"
     // (final class 10), else "battle_block_monster": milestone 6.
 }
+
+namespace {
+
+// The map's SPELL_RESIST (0x79): per spell slot a percent, taken off the damage (rounded to the
+// nearest). Written out in both WillDieMagic and OnHitMagic.
+int SpellDamageAfterResist(int damage, uint32_t slot) {
+    MetaExpression* meta = Locations::GetMapMeta(GameState::GetCurrentMapID());
+    const MetaData* resist = meta ? meta->FindChildData(0x79) : nullptr;
+    if (!resist) return damage;
+    for (unsigned i = 0; i < resist->GetChildrenCount(); ++i) {
+        if ((uint32_t)resist->GetChild(i)->GetChild(0)->GetInt() != slot) continue;
+        float percent = (float)resist->GetChild(i)->GetChild(1)->GetInt();
+        damage = (int)(0.5f + (float)damage * (1.f + percent * -0.01f));
+    }
+    return damage;
+}
+
+// The view goes to a spell's point when it is within 0x31 of the screen's edge or off it.
+void ShowSpellCast(float wx, float wy) {
+    int x = (int)wx, y = (int)wy;
+    Map::WorldCoordinatesToScreen(x, y);
+    if (x <= 0x31 || x >= Render::ScreenWidth() - 0x31 || y <= 0x31 || y >= Render::ScreenHeight() - 0x31)
+        Render::CenterOn(wx, wy, true);
+}
+
+}  // namespace
+
+bool Entity::WillDieMagic(Entity*, Spells::SpellInfo* spell, float mult, bool) {
+    if (GameState::tutorial == 0x17 && IsEnemy()) return true;
+    int damage = SpellDamageAfterResist((int)((float)spell->damage * mult), spell->slot);
+    return hp - damage < 1;
+}
+
+int Entity::OnHitMagic(Entity*, Spells::SpellInfo* spell, int& resisted, float mult, bool) {
+    int damage = (int)((float)spell->damage * mult);
+    // SoundsManager::PlaySound by the spell's slot: 1 "spell_cast_fire", 2 "spell_cast_lightning",
+    // 3 "spell_cast_ice": milestone 6.
+    int dealt = SpellDamageAfterResist(damage, spell->slot);
+    resisted = damage - dealt;
+    hp -= dealt;
+    if (hp < 1) ConsumeHpOverlimit(false);
+    Hit();
+    return dealt;
+}
+
+void Entity::OnSpellCast(AI::Waypoint* target) { ShowSpellCast(target->wx, target->wy); }
+
+void Entity::OnSpellCast(Entity* target) { ShowSpellCast(target->worldX, target->worldY); }
 
 bool Entity::WillDie(Entity* attacker) {
     int damage = attacker ? BaseDamage(attacker) : 0;
