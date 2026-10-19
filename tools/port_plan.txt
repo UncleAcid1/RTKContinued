@@ -121,6 +121,7 @@ implicit ^Shared::PlayerHolder::~PlayerHolder$   # the plain struct's destructor
 5  ^BeltBarWindow::(RunRageAnimation|GetAdjustedBuffZoneLocation|RaiseWindow|OnAddMoreSlot)$   # the fury flash (spells), the buff row's place, the raised belt for the character window, the shop link
 5  ^Shared::(BuffHolder|BuffHolderManager)::   # the row of running buffs (timed potions): BeltBarWindow, HealSquadWindow, CharacterInfoWindow
 5  ^BottomBattleWindow::   # the rage bar (Rage_bar.xml): the spell slots and their fury buttons, auto-cast, the mana bar, the arena's stances and the taming net. It is the spells' HUD; the fight itself does not need it
+dead  ^PlaceMagicHoverWindow::   # nothing constructs it (no caller of its constructors 0x390e34 / 0x390e8c): the large buttons confirm and cancel the aimed spell instead
 dead  ^TapHoverWindow::   # BeltBarWindow::Init creates it and Deinit deletes it; nothing shows it (no caller of Show / SetAction / Hide, direct or through its vtable slots)
 dead  ^HealSquadWindow::SortItemsByMetaSort$   # no caller, no address taken (UpdateContents keeps the setting's order)
 6  ^Render::CreateCustomTexture$   # a texture made from pixels: Particles::ImageParticleSystem, Render::Layer::Draw's effect, the buff row

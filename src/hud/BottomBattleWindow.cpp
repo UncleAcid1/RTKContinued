@@ -40,6 +40,7 @@
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
 #include "game/SoldierSlots.h"
+#include "game/SpellMovement.h"
 #include "game/Spells.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
@@ -186,7 +187,7 @@ float g_manaShown = 0.f;               // 0x618448 the mana the bars show: eases
 float g_manaTimer = 0.f;               // 0x61844c
 float g_spin = 0.f;                    // 0x61845c the swirls' angle, 0..pi
 int g_lastMana = 0;                    // 0x60f114 the mana the slots were last refreshed for
-bool g_placing = false;                // 0x618434 a spell is being placed (SpellMovement, 5k: sets it)
+bool g_placing = false;                // 0x618434 never set in 5.11 (SpellMovement keeps its own flag)
 int g_dragX = 0;                       // 0x618438 where a press on a rage slot began
 int g_dragY = 0;                       // 0x61843c
 bool g_dragging = false;               // 0x618440 a press on a rage slot is held
@@ -223,9 +224,8 @@ float FromBits(uint32_t bits) {
     return f;
 }
 
-// SpellMovement::Activated @0x3a56f4: a spell is being placed. UNVERIFIED (milestone 5, 5k):
-// SpellMovement is not ported, so never.
-bool SpellAiming() { return false; }
+// A spell is being aimed (SpellMovement, in the arenas): the large buttons confirm and cancel.
+bool SpellAiming() { return SpellMovement::Activated(); }
 
 // The large buttons' look before a fight object exists (a boss's, GameState::IsBossCombatActive):
 // attack on the left, block on the right, both glowing until one is chosen.
@@ -348,7 +348,8 @@ void OnRight() {
             GameState::GetActiveCombat()->Continue(1);
         }
     } else {
-        OnBlock();   // (with a spell being aimed: SpellMovement::Decline, milestone 5)
+        if (!SpellMovement::Activated()) OnBlock();
+        else SpellMovement::Decline();
     }
 }
 
@@ -368,9 +369,13 @@ void OnLeft() {
             SetSelectedButton(0);
             GameState::GetActiveCombat()->Continue(0);
         }
-        // (the new combat's CombatManager and SpellMovement::Accept: milestone 5)
+        // (with a CombatManager, GameState::g_Combat, an aimed spell is accepted: the siege system, dead
+        // in 5.11)
+    } else if (!SpellMovement::Activated()) {
+        OnAttack();
     } else {
-        OnAttack();   // (with a spell being aimed: the arrow goes and SpellMovement::Accept, milestone 5)
+        BuildingHovers::HideArrow();
+        SpellMovement::Accept();
     }
 }
 
@@ -699,8 +704,7 @@ void Update(float dt) {
     }
     FlyNet(dt);
     UpdateSlots(dt, player, mana);
-    // The second tutorial's arrow at the first slot (the arrow at the target, step 0x9e, is
-    // SpellMovement's: UNVERIFIED, 5k).
+    // The second tutorial's arrow at the first slot.
     if (GameState::secondTutorial == 0x9d && !g_flying) {
         if (!g_placing && !g_dragging) {
             Window* a = g_rage[0].clickArea;
@@ -712,6 +716,25 @@ void Update(float dt) {
         } else {
             BuildingHovers::HideArrow();
             g_netArrowCallback = 0;
+        }
+    }
+    // The arrow at the confirm button once the footprint's middle is on an enemy; until then the
+    // button is off and the screen locked.
+    if (GameState::secondTutorial == 0x9e) {
+        int ex, ey;
+        SpellMovement::GetEpicenterPos(ex, ey);
+        if (!EntityManager::GetEnemyAtXY(ex, ey)) {
+            GUI::SetInteractionLock(true);
+            g_netArrowCallback = 0;
+            BuildingHovers::HideArrow();
+            g_left.root->SetEnabled(false);
+        } else {
+            GUI::SetInteractionObjectLock(g_root, g_left.root);
+            if (BuildingHovers::GetArrowClickCallbackID() != g_netArrowCallback)
+                g_netArrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnLeft));
+            BuildingHovers::ArrowAt((float)(g_root->x + g_left.root->x + g_left.root->w / 2),
+                                    (float)(g_root->y + g_left.root->y), false, false, false, false, true, false, false);
+            g_left.root->SetEnabled(true);
         }
     }
     if (g_lastMana != mana) g_root->UpdatePosition();
@@ -790,8 +813,8 @@ bool CastSlot(unsigned i) {
         if (!spell) return false;
         Entity* target = enemy->GetRandomAliveSolider();
         enemy->SetActiveSoldier(target);
-        // UNVERIFIED (milestone 5, 5k): SpellMovement::Activate(spell, target's tile); (milestone 6:
-        // SoundsManager "ui_swing_in", ParticlePresets::SpellPreload(spell id, 0)).
+        SpellMovement::Activate(spell, target->tileX, target->tileY);
+        // (milestone 6: SoundsManager "ui_swing_in", ParticlePresets::SpellPreload(spell id, 0))
         return true;
     }
     Entity* target = enemy->GetActiveSoldier();

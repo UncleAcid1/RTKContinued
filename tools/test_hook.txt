@@ -16,6 +16,7 @@
                 if (t == "list")
                     for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k)
                         std::printf("[t] ent id=%u %s at %d,%d hp=%d/%d ranged=%d enemy=%d boss=%d\n", e->GetEntityData()->id, e->GetEntityData()->name.c_str(), e->tileX, e->tileY, e->GetHP(), e->GetHpMax(), e->GetAttackRanged(), (int)e->IsEnemy(), (int)e->IsBoss());
+                if (envi("RTK_SECOND", 0)) GameState::secondTutorial = envi("RTK_SECOND", 0);
                 if (envi("RTK_LEVEL", 0)) GameState::SetResourceAmountValidated(GameState::kLevel, (uint32_t)envi("RTK_LEVEL", 0));
                 if (envi("RTK_HP", 0)) pl->SetHP(envi("RTK_HP", 0));
                 if (envi("RTK_CRYSTALS", 0)) GameState::SetResourceAmountValidated(GameState::kCrystal, (uint32_t)envi("RTK_CRYSTALS", 0));
@@ -47,6 +48,17 @@
                 else { pl->GetAI()->StartedMagicAttack(foe); pl->GetAI()->MagicAttack((unsigned)sl); }
                 std::printf("[t] ap after=%d\n", pl->GetAP());
             }
+            if (i == envi("RTK_SMOVE", -1)) {
+                int tx = pl->tileX + 2, ty = pl->tileY;
+                if (envi("RTK_SMENEMY", 0)) for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k) if (e->IsEnemy() && !e->IsDead() && e->tileX > 0) { tx = e->tileX; ty = e->tileY; break; }   // RTK_SMOVE=<frame> aims spell RTK_SMSPELL (default 2) at the foe; RTK_SMACC=<frame> accepts, RTK_SMDEC declines
+                for (int k = 8; k < 10; ++k) GameState::mBossMapPositions[k] = k == 8 ? tx : ty;
+                GameState::mBossMapPositions[10] = envi("RTK_SMW", 11); GameState::mBossMapPositions[11] = envi("RTK_SMW", 11);
+                SpellMovement::Activate(Spells::GetSpellInfo((uint32_t)envi("RTK_SMSPELL", 2)), tx, ty);
+                int ex, ey; SpellMovement::GetEpicenterPos(ex, ey); std::printf("[t] SpellMovement aims at %d,%d (hero %d,%d) active=%d\n", ex, ey, pl->tileX, pl->tileY, (int)SpellMovement::Activated());
+            }
+            if (i == envi("RTK_SMACC", -1)) { std::printf("[t] Accept\n"); SpellMovement::Accept(); std::printf("[t] active=%d\n", (int)SpellMovement::Activated()); }
+            if (i == envi("RTK_SMDEC", -1)) { std::printf("[t] Decline\n"); SpellMovement::Decline(); std::printf("[t] active=%d\n", (int)SpellMovement::Activated()); }
+            if (i == envi("RTK_SMMOVE", -1)) { int ex, ey; SpellMovement::GetEpicenterPos(ex, ey); std::printf("[t] epicenter %d,%d active=%d\n", ex, ey, (int)SpellMovement::Activated()); }
             if (i == envi("RTK_ONSPELL", -1)) { pl->AddAP(1000); std::printf("[t] OnSpell(1) ap=%d\n", pl->GetAP()); BottomBattleWindow::OnSpell(1, 0, 0, false); std::printf("[t] OnManaBar\n"); BottomBattleWindow::EnableFuryGlow(); }
             if (const char* ac = getenv("RTK_AUTOCAST")) { int f = 0, n = 0, sl = 0; while (std::sscanf(ac, "%d:%d%n", &f, &sl, &n) == 2) { if (f == i) { if (sl >= 10) BottomBattleWindow::HelpWithSpell((unsigned)sl - 10, false); else std::printf("[t] OnAutoCast(%d)=%d\n", sl, (int)BottomBattleWindow::OnAutoCast((unsigned)sl)); } ac += n; if (*ac == ',') ++ac; } }
             if (const char* tl = getenv("RTK_TILE")) { int f, x, y; if (std::sscanf(tl, "%d:%d:%d", &f, &x, &y) == 3 && f == i) { std::printf("[t] tap tile %d,%d\n", x, y); pl->GetAI()->ClickedTile(x, y, 0, 0); } }

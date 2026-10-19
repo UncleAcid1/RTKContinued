@@ -50,6 +50,7 @@
 #include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
 #include "game/BuildingPlacement.h"
+#include "game/SpellMovement.h"
 #include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
@@ -256,8 +257,7 @@ void Tick(float dt) {
     WindowManager::DestroyPendingWindows();
 }
 
-// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED): SpellMovement (milestone 5),
-// the touch/pinch path (Game::touchDown) and EditorConsole/Editor.
+// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED): the touch/pinch path (Game::touchDown) and EditorConsole/Editor.
 void MouseDown(int x, int y, bool left) {
     longTapTime = 0.f;
     lastX = x;
@@ -278,7 +278,8 @@ void MouseDown(int x, int y, bool left) {
                 !BuildingHovers::ClickOnArrow(x, y, true) && GameState::secondTutorial != 0x83 &&
                 !GameState::IsCityTutorial() && BuildingHovers::CanAutoHideArrow())
                 BuildingHovers::HideArrow();
-        } else if (!(BuildingMovement::Activated() && BuildingMovement::Click(x, y, true, false)) &&
+        } else if (!(SpellMovement::Activated() && SpellMovement::Click(x, y, true)) &&
+                   !(BuildingMovement::Activated() && BuildingMovement::Click(x, y, true, false)) &&
                    !(BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, true, false))) {
             MapMovement::Click(x, y, true, false);
         }
@@ -313,11 +314,12 @@ void MouseUp(int x, int y, bool left) {
                     MapMovement::IsActive(), MapMovement::HasFocus());
     MapMovement::RemoveFocus();
     if (hit != WindowManager::g_desktopWindow) return;
+    if (SpellMovement::Activated() && SpellMovement::Click(x, y, false)) return;
     if (BuildingMovement::Activated() && BuildingMovement::Click(x, y, false, MapMovement::IsActive())) return;
     if (BuildingPlacement::Activated() && BuildingPlacement::Click(x, y, false, MapMovement::IsActive())) return;
     // A for-sale sign opens the land window (not during a drag or a placement).
-    if (!MapMovement::IsActive() && !BuildingMovement::Activated() && !BuildingPlacement::Activated() &&
-        Map::ClickToBuyArea(x, y))
+    if (!MapMovement::IsActive() && !SpellMovement::Activated() && !BuildingMovement::Activated() &&
+        !BuildingPlacement::Activated() && Map::ClickToBuyArea(x, y))
         return;
     // The rest goes to the world: unless the map was dragged, to the player's AI (a character
     // or a tile). (The original then prints the building and decoration there: debug output.)
@@ -337,6 +339,7 @@ void MouseMove(int x, int y) {
         MapMovement::StopDrag();
     }
     MapMovement::Move(x, y, dx, dy);
+    if (SpellMovement::Activated() && SpellMovement::Move(x, y, dx, dy)) return;
     if (BuildingMovement::Activated() && BuildingMovement::Move(x, y, dx, dy)) return;
     if (BuildingPlacement::Activated() && BuildingPlacement::Move(x, y, dx, dy)) return;
     if (!firstMove) {
@@ -775,7 +778,7 @@ int main_Loop_Init() {
     WindowManager::InitWindows();
     BuildingPlacement::Init();
     BuildingMovement::Init();
-    // UNVERIFIED (milestone 5): SpellMovement::Init.
+    SpellMovement::Init();
     MapMovement::Init();
     TutorialSender::SetTimeLimit(20.f);
     SaveManager::Init();
@@ -890,13 +893,14 @@ bool main_Loop_Func() {
             case SDL_EVENT_WILL_ENTER_BACKGROUND:
                 // The app's pause (Java sets createAutosave and paused; desktop systems do not send
                 // this event, the exit saves): outside the city tutorial the drops are collected,
-                // the edit modes closed and the game saved. UNVERIFIED: SpellMovement::Decline (5);
-                // the phone notifications are milestone 5.
+                // the edit modes closed and the game saved. UNVERIFIED: the phone notifications are
+                // milestone 5.
                 if (!forceExitNoSave && !GameState::IsCityTutorial()) {
                     TaskCompleteWindow::Hide();
                     BuildingHovers::CollectAll();
                     BuildingMovement::Decline();
                     BuildingPlacement::Decline();
+                    SpellMovement::Decline();
                     Map::Save(0);
                 }
                 paused = true;   // SDLMain.mcPauseEvent(1)
@@ -967,11 +971,12 @@ int main_Exit_Func() {
     GameState::EndActiveCombat(true);
     RaidCompleteWindow::ForceHide();
     CampaignPerfectedWindow::ForceHide();
-    // UNVERIFIED (milestone 5): SpellMovement's Decline and Deinit.
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();
     BuildingPlacement::Decline();
+    SpellMovement::Decline();
+    SpellMovement::Deinit();
     BuildingMovement::Deinit();
     BuildingPlacement::Deinit();
     MapMovement::Deinit();

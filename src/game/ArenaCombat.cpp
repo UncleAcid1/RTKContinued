@@ -27,6 +27,7 @@
 #include "game/PvP.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
+#include "game/SpellMovement.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -457,7 +458,7 @@ void ArenaCombat::Update(float dt) {
     if ((state == 0xf || state == 2) && paused) {
         const float turnTime = (float)Setting("arena_turn_time").GetInt();
         if (turnTime <= turnTimer) {
-            // (state 0xf: SpellMovement::Decline, milestone 5)
+            if (state == 0xf) SpellMovement::Decline();
             if (!BottomBattleWindow::IsVisible()) BottomBattleWindow::Show();
             turnTimer = 0.f;
             if (stance == 0) AttackStance();
@@ -1136,7 +1137,7 @@ void PvPArenaCombat::Update(float dt) {
     if ((state == 0xf || state == 2) && paused) {
         const float turnTime = (float)Setting("pvp_turn_time").GetInt();
         if (turnTime <= turnTimer) {
-            // (state 0xf: SpellMovement::Decline, milestone 5)
+            if (state == 0xf) SpellMovement::Decline();
             if (!BottomBattleWindow::IsVisible()) BottomBattleWindow::Show();
             turnTimer = 0.f;
             if (stance == 0) AttackStance();
