@@ -184,7 +184,7 @@ void Init();                                // @0x28c4fc
 void Show();                                // @0x29459c
 void Hide();                                // @0x28a5d4
 bool IsVisible();                           // @0x2897dc
-void UpdateContents();                      // the contents (a stub until 5p-4)
+void UpdateContents();                      // @0x28d204
 void BlockClicks(bool block);               // @0x289914
 void SetChest(unsigned index);              // @0x2942f0 the selector chosen
 void SetStarterChestMode(bool flag, uint32_t chest);   // @0x294304

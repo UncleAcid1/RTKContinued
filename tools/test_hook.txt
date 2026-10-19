@@ -94,6 +94,24 @@
             if (i == envi("RTK_INVCHK", -1)) std::printf("[t] char visible=%d z=%.4f raise=%d\n", (int)CharacterInfoWindow::IsVisible(), CharacterInfoWindow::IsVisible() ? CharacterInfoWindow::GetZ() : 0.f, (int)CharacterInfoWindow::CanRaiseBelt());
             if (i == envi("RTK_CHESTSWIN", -1)) { ChestsWindow::Show(); std::printf("[t] chests window visible=%d\n", (int)ChestsWindow::IsVisible()); }   // 5p-3
             if (i == envi("RTK_CHESTSCHK", -1)) std::printf("[t] chests window visible=%d\n", (int)ChestsWindow::IsVisible());
+            if (i == envi("RTK_CHESTSEL_F", -1)) {   // 5p-4: a selector chosen (RTK_CHESTSEL 0..3; -1 the starter chest 53, RTK_STARTFLAG); RTK_CHESTGOT of its set received
+                static const char* const sets[4] = {"architect_chest", "warrior_chest", "hunter_chest", "collector_chest"};
+                const int c = envi("RTK_CHESTSEL", 0);
+                if (c >= 0) {
+                    Setting set(sets[c]);
+                    for (int k = 0; k < envi("RTK_CHESTGOT", 0); ++k) {
+                        const uint32_t id = (uint32_t)set.GetChild((unsigned)k).GetInt();
+                        if (c == 0) GameState::SetChestBuildingReceivedCount(id, 1);
+                        else if (c == 2) { Items::ItemInfo* ii = Items::GetItemInfo(id); const MetaData* d = ii && ii->meta ? ii->meta->FindChildData(0x27) : nullptr; if (EntityData* e = d ? EntityFactory::GetEntityByID(d->GetInt()) : nullptr) GameState::SetChestEntityReceivedCount(e->id, 1); }
+                        else GameState::SetChestItemReceivedCount(id, 1);
+                    }
+                    ChestsWindow::SetChest((unsigned)c);
+                } else {
+                    if (!GameState::GetItemAmount(694, false)) GameState::AddItem(694, 1, false, false, false);
+                    ChestsWindow::SetStarterChestMode(envi("RTK_STARTFLAG", 1) != 0, 53);
+                }
+                std::printf("[t] chest selected %d visible=%d\n", c, (int)ChestsWindow::IsVisible());
+            }
             if (i == envi("RTK_CHESTWIN", -1)) {   // 5p-2: ChestOpenedWindow with a chest's roll (RTK_CHESTID, RTK_CHESTTX: the chests window's mode)
                 Chests::ChestInfo* c = Chests::GetChestInfo((uint32_t)envi("RTK_CHESTID", 57)); Chests::DropItem d[16]; unsigned n = c ? c->GenerateContents(d, 16, false) : 0;
                 FoundItemsWindow::ClearCollected(); FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));

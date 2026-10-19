@@ -12,15 +12,19 @@
 // PORT (online removed): the daily chest's server request (GameState::IsDailyChestRequestProcessing
 // is false offline, LoadingInternetWindow and the failure popups "FB_ONLINE_NOTICE" are not
 // ported) and Show's expansion-pack check (Expansions::AreEnabled is false offline).
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
 
+#include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
+#include "game/BuildingHovers.h"
 #include "game/Chests.h"
 #include "game/EntityData.h"
+#include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/MetaData.h"
@@ -28,9 +32,11 @@
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
+#include "hud/HUD.h"
 #include "hud/ItemHoverWindow.h"
 #include "hud/Shared.h"
 #include "windows/Windows.h"
@@ -100,7 +106,8 @@ struct LuckHolder {
         icon = GUI::GetWindowTypedF<Window>(w, "%s.icon_luck", p);
         icon->takesZ = true;
     }
-    // @0x28979c: the circle of that colour (the fifth, a second red, is never asked for).
+    // @0x28979c: the circle of that colour (UpdateContents asks for the fifth, a second red, when no
+    // luck item is owned).
     void SetBackground(BackgroundType type) {
         for (int i = 0; i != 5; ++i) circles[i]->SetVisibility((int)type == i);
     }
@@ -368,17 +375,20 @@ struct ChestItemHolder {
     }
 };
 
-// A chest's result (0x20 bytes): what it gave, a resource or an item (AddRewardItem).
+// A cell of the reward line (0x20 bytes): what a chest gave (AddRewardItem) or holds (the preview,
+// the starter chest): a resource, an item or an object.
 struct RewardItemInfo {
-    uint32_t type = 0xb;              // +0x00 GameState::ResourceType, 0xb an item
-    uint32_t chest = 0;               // +0x04
-    uint32_t item = 0;                // +0x08
-    uint32_t decoration = 0;          // +0x0c
-    int amount = 1;                   // +0x10
-    uint32_t f14 = 0, f18 = 0, f1c = 0;
+    uint32_t type = 0xb;              // +0x00 GameState::ResourceType, 0xb an item or object
+    uint32_t item = 0;                // +0x04 an item (its card)
+    uint32_t object = 0;              // +0x08 an object that is no decoration
+    uint32_t decoration = 0;          // +0x0c a decoration (its picture)
+    int amount = 1;                   // +0x10 (0: no quantity shown)
+    uint32_t amountMin = 0;           // +0x14 the preview's range and chance
+    uint32_t amountMax = 0;           // +0x18
+    int probability = 0;              // +0x1c
 };
 
-// The store's chests in the selectors' order (0x592b8c) and the settings naming their prizes'
+// The store's chests in the selectors' order (0x592b8c; the word before it is 0x676e) and the settings naming their prizes'
 // sets (0x6016f0: five ids, then the prize "id|amount").
 const uint32_t kChests[4] = {0x1b, 0x1c, 0x1d, 0x1e};
 const char* const kPrizeSettings[4] = {"architect_chest", "warrior_chest", "hunter_chest", "collector_chest"};
@@ -396,7 +406,7 @@ bool g_collecting = false;            // 0x61be30 a result waits to be collected
 bool g_starterMode = false;           // 0x61be31
 bool g_starterFlag = false;           // 0x61be32 SetStarterChestMode's first argument
 uint32_t g_starterChest = 0;          // 0x61be34
-bool g_be38 = false;                  // 0x61be38 (blocks the clicks)
+bool g_prizeFlight = false;           // 0x61be38 a set is complete: its five fly to the prize (blocks the clicks)
 bool g_ultimatePending = false;       // 0x61be39 the ultimate prize shows 2 s after it is won
 ChestSelectorHolder g_selectors[4];   // 0x61be3c chest_selector_holder_01..04
 ChestOpenPile g_pile;                 // 0x61bffc chest_open_pile
@@ -500,7 +510,7 @@ void Move(int x, int y) { g_items.line.scroller.Move(x, y); }
 
 // @0x28adf8: the reward line's drag, then the item card, then the window.
 bool Click(int x, int y, bool pressed) {
-    if (g_blockClicks || g_be38 || g_ultimatePending) return true;
+    if (g_blockClicks || g_prizeFlight || g_ultimatePending) return true;
     if (g_root->visibleSelf && g_items.line.scroller.Click(x, y, pressed, g_root)) return true;
     if (g_hover->Click(x, y, pressed)) return true;
     const bool visible = g_root->visibleSelf;
@@ -630,10 +640,559 @@ void Update(float dt) {
     }
 }
 
+// @0x289adc: the owned item with the most luck (its meta 0x29), and that luck.
+uint32_t GetBestLuckItem(unsigned& luck) {
+    luck = 0;
+    uint32_t best = 0;
+    for (unsigned i = 0; Items::ItemInfo* info = Items::EnumItemInfo(i); ++i) {
+        const MetaData* d = info->meta ? info->meta->FindChildData(0x29) : nullptr;
+        if (!d || !GameState::GetItemAmount(info->id, false) || d->GetInt() <= (int)luck) continue;
+        best = info->id;
+        luck = (unsigned)d->GetInt();
+    }
+    return best;
+}
+
+// UpdateContents (@0x28d204) is one function of 28 KB in the original; its parts follow.
+
+Textfield* LuckPercent(int i) { return i < 4 ? g_luck.percent[i] : g_luck.percent1; }
+
+// A copy of sprite flies from its window to the prize's window (target), in two seconds.
+void FlyToPrize(Render::Sprite* sprite, const Window* target) {
+    const int dh = (int)(sprite->h - (float)target->h);
+    BuildingHovers::AddItemMovement(sprite, g_root->x + target->x, g_root->y + target->y - dh / 2, true, 2.f, -1, -1,
+                                    false, false);
+}
+
+// Part of @0x28d204: a set's five are all collected (count 5): the next call flies them to the
+// prize (g_lastSecond 0 makes Update call again at once); after the flight the prize is pending.
+void CheckPrizeFlight(unsigned count) {
+    if (g_prizeFlight && !g_ultimatePending) {
+        g_prizeFlight = false;
+        g_ultimatePending = true;
+        g_ultimateTime = 0.f;
+    }
+    if (count == 5 && !g_prizeFlight && !g_ultimatePending && !g_tween->active) {
+        g_lastSecond = 0;
+        g_prizeFlight = true;
+    }
+}
+
+// Part of @0x28d204: the reward line shows g_rewards (from firstIndex), centred when it has no
+// scroll bar.
+void UpdateRewardLine() {
+    ChestRewardLine& line = g_items.line;
+    Shared::ContentScroller& sc = line.scroller;
+    sc.itemCount = (unsigned)g_rewards.size();
+    sc.UpdateScroll();
+    line.arrowLeft->SetVisibility(sc.CanMove());
+    line.arrowRight->SetVisibility(sc.CanMove());
+    for (unsigned i = 0; i != 11; ++i) {
+        Shared::ItemHolder& h = line.items[i];
+        line.objects[i]->MoveWindow(-line.f610, 0);
+        h.root->parent->MoveWindow(-line.f610, 0);
+        line.objects[i]->SetVisibility(false);
+        h.root->SetVisibility(sc.firstIndex + i < g_rewards.size());
+        if (!h.root->visibleSelf) continue;
+        const RewardItemInfo& r = g_rewards[sc.firstIndex + i];
+        if (Items::ItemInfo* info = Items::GetItemInfo(r.item)) {
+            for (unsigned k = 0; k != 5; ++k) h.icon.itemClass[k]->SetVisibility(info->itemLevel == k);
+            const MetaData* d = info->meta ? info->meta->FindChildData(0x27) : nullptr;
+            EntityData* e = d ? EntityFactory::GetEntityByID(d->GetInt()) : nullptr;
+            h.icon.icon->SetTexture(e ? e->side0 : info->GetIcon(), true);
+        } else if (r.type != 0xb) {
+            for (unsigned k = 0; k != 5; ++k) h.icon.itemClass[k]->SetVisibility(k == 0);
+            h.icon.icon->SetTexture(IconManager::GetIcon(GameState::GetResourceMapIconName((int)r.type), false), true);
+        } else if (const GameData::DecorData* deco = GameData::GetDecoration(r.decoration)) {
+            h.root->SetVisibility(false);
+            line.objects[i]->SetVisibility(true);
+            GUI::FitImageIntoWindow(line.objects[i], GameData::DecorImage(deco), true, false);
+        }
+        h.quantity->SetVisibility(r.amount != 0);
+        if (r.amount != 0) h.quantity->SetText(ToWideString(r.amount));
+        h.icon.locked->SetVisibility(false);
+        h.icon.discount[3].root->SetVisibility(false);
+        h.icon.redX->SetVisibility(false);
+        h.icon.owned->SetVisibility(false);
+    }
+    line.f610 = 0;
+    if (!sc.scrollbar->visibleSelf) {
+        line.f610 = (int)((float)(sc.itemSize * ((sc.unkA0 - 2) - (int)g_rewards.size())) * 0.5f);
+        if (line.f610)
+            for (unsigned i = 0; i != 11; ++i) {
+                line.objects[i]->MoveWindow(line.f610, 0);
+                line.items[i].root->parent->MoveWindow(line.f610, 0);
+            }
+    }
+    line.root->UpdatePosition();
+}
+
+// Part of @0x28d204: the panel's texts; a mode shows and sets the ones it uses.
+void HideTexts(bool noChest) {
+    g_items.contain->SetVisibility(false);
+    g_items.noChest->SetVisibility(noChest);
+    g_items.needToGet->SetVisibility(false);
+    g_items.ultiLong->SetVisibility(false);
+}
+
+void HideNames() {
+    for (Textfield* t : g_items.name) t->SetVisibility(false);
+}
+
+void ShowStats(bool visible) {
+    for (int i = 0; i != 2; ++i) {
+        g_items.statIcon[i]->SetVisibility(visible);
+        g_items.statText[i]->SetVisibility(visible);
+    }
+}
+
+// Part of @0x28d204: the starter chest, with the time left of its offer and its fixed contents; when
+// the offer has run out the chest item is used up (and its quest 0x75b starts over).
+void ShowStarterChest() {
+    Items::ItemInfo* item = Items::GetItemInfo(Chests::GetItemForChest(g_starterChest));
+    Chests::ChestInfo* info = Chests::GetChestInfo(g_starterChest);
+    if (!info || !item) return;
+    const int now = Timer::GetGlobalTime();
+    const int since = now - (int)GameState::GetItemRecentTime(item->id);
+    const int limit = Setting("starter_chest_time").GetInt();
+    const int left = g_starterFlag ? 1 : std::max(0, limit - since);
+    g_title->SetText(SWPrintf(0x100, StringTable::GetString("CHEST_FOUND"), {item->title}).c_str());
+    g_pile.chest.closed[4]->SetVisibility(true);
+    g_expire.timer->SetTexture(IconManager::GetSandClockIcon(), true);
+    g_expire.timeLeft->SetText(StringTable::GetString(left ? "CHEST_TIME_LEFT" : "CHEST_OFFER_EXPIRED"));
+    g_expire.time->SetText(StringTable::GetNumericTimeString(left, true).c_str());
+    HideTexts(false);
+    g_items.containLarge->SetVisibility(true);
+    g_items.containLarge->SetText(StringTable::GetString("CHEST_CONTAINS"));
+    g_collectButton.activeGreen->SetVisibility(true);
+    g_collectButton.textCenteredGreen->SetVisibility(true);
+    if (!left) {
+        g_collectButton.textCenteredGreen->SetText(StringTable::GetString("CLOSE"));
+    } else {
+        // PORT (no real money): the text "CHESTS_OPEN_FOR" with the price "$%d.%02d" of the chest's
+        // cents is not set; every store chest is sold for crystals (Chests::Init), which hides it.
+        const bool crystals = info->SoldForCrystals();
+        if (crystals) g_collectButton.textCenteredGreen->SetVisibility(false);
+        g_collectButton.goldText->SetVisibility(crystals);
+        g_collectButton.price->SetVisibility(crystals);
+        g_collectButton.crystalIcon->SetVisibility(crystals);
+        if (crystals) {
+            g_collectButton.goldText->SetText(StringTable::GetString("PERFORM_OPEN"));
+            g_collectButton.price->SetText(ToWideString((int)info->crystals));
+            g_collectButton.crystalIcon->SetTexture(IconManager::GetIcon("35_crystal", false), true);
+        }
+    }
+    g_collectButton.active->SetVisibility(false);
+    g_collectButton.icon->SetVisibility(false);
+    g_collectButton.text->SetVisibility(false);
+    g_rewards.clear();
+    g_pile.day1->SetText(info->name);
+    g_pile.day2->SetText(info->name);
+    // Its resources (a chest sold for crystals does not show the crystals it gives), then its items.
+    for (unsigned i = 0; info->resources && i < info->resources->GetChildrenCount(); ++i) {
+        const MetaData* r = info->resources->GetChild(i);
+        if (r->GetChild(0)->type == MetaData::kString) {
+            const int type = GameState::StringToResourceType(r->GetChild(0)->GetString());
+            if (info->SoldForCrystals() && type == GameState::kCrystal) continue;
+            g_rewards.push_back(RewardItemInfo());
+            g_rewards.back().type = (uint32_t)type;
+            g_rewards.back().amount = r->GetChild(1)->GetInt();
+        } else if (r->GetChild(0)->type == MetaData::kNumber) {
+            int amount = r->GetChild(1)->GetInt();
+            Items::ItemInfo* it = Items::GetItemInfo((uint32_t)r->GetChild(0)->GetInt());
+            if (it && it->IsLimited() && (amount = it->ApplyLimitToAmount(amount)) == 0) continue;
+            g_rewards.push_back(RewardItemInfo());
+            g_rewards.back().item = (uint32_t)r->GetChild(0)->GetInt();
+            g_rewards.back().amount = amount;
+        }
+    }
+    for (const Chests::ChestItem& c : info->items) {
+        if (!c.item) continue;
+        g_rewards.push_back(RewardItemInfo());
+        g_rewards.back().item = c.item;
+        g_rewards.back().amount = (int)c.amountMin;
+    }
+    if (left || !GameState::GetItemAmount(item->id, false)) return;
+    GameState::RemoveItem(item->id, 1);
+    GameState::ResetTask(0x75b);
+    if (Tasks::TaskInfo* t = Tasks::GetTask(0x75b)) t->dnShow = t->dnShowDefault;
+    HUDWindow::UpdateTasks();
+}
+
+// Part of @0x28d204: no chest chosen: the description of the one in the background.
+void ShowNoChest() {
+    HideTexts(true);
+    g_items.containLarge->SetVisibility(false);
+    HideNames();
+    g_title->SetText(StringTable::GetString("CHESTS_HEADER"));
+    if (Chests::ChestInfo* info = Chests::GetChestInfo(kChests[g_background]))
+        g_items.noChest->SetText(
+            SWPrintf(0x100, info->desc, {ToWideString((int)info->countMin)}).c_str());
+    g_previewButton.root->SetEnabled(false);
+    g_previewButton.activeGreen->SetVisibility(false);
+    g_previewButton.icon->SetTexture(IconManager::GetIcon("gold_find", false), true);
+    g_previewButton.text->SetText(StringTable::GetString("CHESTS_PREVIEW"));
+    g_openButton.root->SetEnabled(false);
+    g_openButton.active->SetVisibility(false);
+    g_openButton.textCenteredGreen->SetText(StringTable::GetString("PERFORM_OPEN"));
+    ShowStats(false);
+    // (The original then reads the chest kChests[g_selected], with g_selected -1 the word before the
+    // list (0x676e, no chest), so its price below is never set.)
+}
+
+// Part of @0x28d204: the preview: everything the chest can give, in the reward line.
+void ShowPreview() {
+    HideTexts(false);
+    HideNames();
+    ShowStats(false);
+    g_previewButton.root->SetEnabled(true);
+    g_previewButton.activeGreen->SetVisibility(false);
+    g_previewButton.icon->SetTexture(IconManager::GetIcon("gold_go_back", false), true);
+    g_previewButton.text->SetText(StringTable::GetString("INVENTORY_BACK"));
+    g_rewards.clear();
+    Chests::ChestInfo* info = Chests::GetChestInfo(kChests[g_selected]);
+    if (!info) return;
+    g_pile.day1->SetText(info->name);
+    g_pile.day2->SetText(info->name);
+    g_items.containLarge->SetVisibility(true);
+    g_items.containLarge->SetText(SWPrintf(0x100, StringTable::GetString("CHEST_PREVIEW_DESC"),
+                                           {ToWideString((int)info->countMin)}).c_str());
+    Chests::DropItem drops[0x40];
+    const unsigned n = info->GenerateContents(drops, 0x40, true);
+    for (unsigned i = 0; i != n; ++i) {
+        const Chests::DropItem& d = drops[i];
+        if (d.type == 0xb && !d.item && !d.object) {
+            // As the original: only the chance is written, into the last cell.
+            if (!g_rewards.empty()) g_rewards.back().probability = d.probability;   // PORT: the original has no check
+            continue;
+        }
+        RewardItemInfo r;
+        r.type = d.type;
+        if (d.type == 0xb && d.item) {
+            r.item = d.item;
+        } else if (d.type == 0xb) {
+            if (GameData::GetDecoration(d.object)) {
+                r.decoration = d.object;
+                if (!Items::GetItemInfo(r.decoration + 0x8000))
+                    std::fprintf(stderr, "Decoration %d cannot be given in inventory\n", r.decoration);   // ErrorReporter::Printf
+            } else {
+                r.object = d.object;
+            }
+        }
+        r.amount = 0;
+        r.amountMin = d.amountMin;
+        r.amountMax = d.amountMax;
+        r.probability = d.probability;
+        g_rewards.push_back(r);
+    }
+}
+
+// Part of @0x28d204: a result to collect: the reward line holds it.
+void ShowResult() {
+    HideTexts(false);
+    HideNames();
+    ShowStats(false);
+    if (Chests::ChestInfo* info = Chests::GetChestInfo(kChests[g_selected])) {
+        g_pile.day1->SetText(info->name);
+        g_pile.day2->SetText(info->name);
+        g_rerollButton.active->SetVisibility(false);
+        g_rerollButton.activeGreen->SetVisibility(false);
+        g_rerollButton.goldText->SetText(StringTable::GetString("CHESTS_REROLL_CHEST"));
+        const int price = info->rerollPrice ? (int)info->rerollPrice : Setting("reroll_cost").GetInt();
+        g_rerollButton.price->SetText(ToWideString(price));
+        g_rerollButton.crystalIcon->SetTexture(IconManager::GetIcon("35_crystal", false), true);
+    }
+    g_items.containLarge->SetVisibility(true);
+    g_items.containLarge->SetText(StringTable::GetString("CHESTS_OPENED_DESC"));
+    g_collectButton.active->SetVisibility(true);
+    g_collectButton.text->SetVisibility(true);
+    g_collectButton.text->SetText(StringTable::GetString("INVENTORY_COLLECT"));
+    g_collectButton.icon->SetVisibility(true);
+    g_collectButton.icon->SetTexture(IconManager::GetIcon("gold_confirm", false), true);
+    g_collectButton.activeGreen->SetVisibility(false);
+    g_collectButton.textCenteredGreen->SetVisibility(false);
+    g_collectButton.goldText->SetVisibility(false);
+    g_collectButton.price->SetVisibility(false);
+    g_collectButton.crystalIcon->SetVisibility(false);
+}
+
+// An item's holder of the sets: its quality frame, the marks hidden.
+void ClearItemHolder(Shared::ItemHolder& h, Items::ItemInfo* info) {
+    h.emptyBg->SetVisibility(false);
+    h.selected->SetVisibility(false);
+    h.icon.redX->SetVisibility(false);
+    h.icon.owned->SetVisibility(false);
+    for (Shared::DiscountInfo& d : h.icon.discount) d.root->SetVisibility(false);
+    h.icon.broken->SetVisibility(false);
+    h.icon.lock->SetVisibility(false);
+    for (unsigned k = 0; k != 5; ++k) h.icon.itemClass[k]->SetVisibility(info->itemLevel == k);
+}
+
+// Part of @0x28d204: the collector's and warrior's chests (selectors 3 and 1): five items.
+void ShowFiveItems(const Setting& set) {
+    g_items.needToGet->SetText(SWPrintf(0x100, StringTable::GetString("CHESTS_UNI_DESC"),
+                                        {StringTable::GetString("CHESTS_UNI_DESC_ITEMS")}).c_str());
+    unsigned count = 0;
+    ChestFiveItems& five = g_items.fiveItems;
+    for (unsigned i = 0; i != 5; ++i) {
+        Items::ItemInfo* info = Items::GetItemInfo((uint32_t)set.GetChild(i).GetInt());
+        if (!info) continue;
+        Shared::ItemHolder& h = five.items[i];
+        ClearItemHolder(h, info);
+        info->PutImageInHolder(h.icon.icon);
+        five.confirm[i]->SetVisibility(GameState::GetChestItemReceivedCount(info->id) != 0);
+        five.ids[i] = info->id;
+        if (GameState::GetChestItemReceivedCount(info->id)) ++count;
+        if (g_prizeFlight && h.icon.icon->sprite) FlyToPrize(h.icon.icon->sprite, g_items.ultiItem.icon.icon);
+    }
+    CheckPrizeFlight(count);
+    // The prize: a rare item of its set (the warrior's chest) or the ultimate prize (the collector's).
+    Items::ItemInfo* info = Items::GetItemInfo((uint32_t)set.GetChild(5).GetChild(0).GetInt());
+    if (!info) return;
+    if (g_selected == 3) {
+        g_items.ultiLong->SetVisibility(true);
+        g_items.ultiLong->SetText(StringTable::GetString("CHESTS_ULTIMATE_PRIZE"));
+        HideNames();
+    } else {
+        g_items.ultiLong->SetVisibility(false);
+        for (unsigned k = 0; k != 5; ++k) g_items.name[k]->SetVisibility(info->itemLevel == k);
+        g_items.name[info->itemLevel]->SetText(StringTable::GetString("CHESTS_RARE_SET_ITEM"));
+    }
+    g_items.contain->SetVisibility(true);
+    g_items.contain->SetText(SWPrintf(0x100, U"%s:", {StringTable::GetString(info->name)}).c_str());
+    if (info->meta) {
+        g_items.statIcon[0]->SetTexture(IconManager::GetIcon(info->meta->GetBonusIcon(nullptr), false), true);
+        std::u32string desc;
+        info->meta->GenerateDescription(desc, 0x100, nullptr);
+        g_items.statText[0]->SetText(desc.c_str());
+    }
+    g_items.statIcon[1]->SetTexture(IconManager::GetIcon("gold_add", false), false);
+    g_items.statText[1]->SetText(StringTable::GetString("TAP_FOR_MORE_INFO"));
+    Shared::ItemHolder& h = g_items.ultiItem;
+    const int amount = set.GetChild(5).GetChild(1).GetInt();
+    h.quantity->SetVisibility(amount > 1);
+    h.quantity->SetText(ToWideString(amount));
+    ClearItemHolder(h, info);
+    h.icon.icon->SetTexture(info->GetIcon(), true);
+    g_items.ultiItemId = info->id;
+}
+
+// The soldier an item gives (its meta 0x27), or nullptr.
+EntityData* ItemEntity(Items::ItemInfo* info) {
+    const MetaData* d = info && info->meta ? info->meta->FindChildData(0x27) : nullptr;
+    return d ? EntityFactory::GetEntityByID(d->GetInt()) : nullptr;
+}
+
+// A soldier's slot of the sets: its picture and health, the marks hidden.
+void SetWarriorSlot(Shared::WarriorSlotInfo& s, EntityData* e) {
+    s.soldierFine->SetTexture(e->side0, true);
+    s.hpText->SetText(SWPrintf(0x100, U"%d/%d", {e->hp, e->hp}).c_str());
+    for (Shared::DiscountInfo& d : s.discount) d.root->SetVisibility(false);
+    s.lockIcon->SetVisibility(false);
+}
+
+// Part of @0x28d204: the hunter's chest (selector 2): five soldiers, a soldier as the prize.
+void ShowFiveWarriors(const Setting& set) {
+    g_items.needToGet->SetText(SWPrintf(0x100, StringTable::GetString("CHESTS_UNI_DESC"),
+                                        {StringTable::GetString("CHESTS_UNI_DESC_WARRIORS")}).c_str());
+    unsigned count = 0;
+    ChestFiveWarriors& five = g_items.fiveWarriors;
+    for (unsigned i = 0; i != 5; ++i) {
+        EntityData* e = ItemEntity(Items::GetItemInfo((uint32_t)set.GetChild(i).GetInt()));
+        if (!e) continue;
+        Shared::WarriorSlotInfo& s = five.slots[i];
+        s.bgDisabled->SetVisibility(false);
+        SetWarriorSlot(s, e);
+        five.entities[i] = e->id;
+        five.confirm[i]->SetVisibility(GameState::GetChestEntityReceivedCount(e->id) != 0);
+        if (GameState::GetChestEntityReceivedCount(e->id)) ++count;
+        // (As the original: they fly to the item prize's place.)
+        if (g_prizeFlight && s.soldierFine->sprite) FlyToPrize(s.soldierFine->sprite, g_items.ultiItem.icon.icon);
+    }
+    CheckPrizeFlight(count);
+    Items::ItemInfo* info = Items::GetItemInfo((uint32_t)set.GetChild(5).GetChild(0).GetInt());
+    if (!info) return;
+    g_items.ultiLong->SetVisibility(true);
+    g_items.ultiLong->SetText(StringTable::GetString("CHESTS_ULTIMATE_PRIZE"));
+    HideNames();
+    EntityData* e = ItemEntity(info);
+    if (!e) return;
+    g_items.contain->SetVisibility(true);
+    g_items.contain->SetText(SWPrintf(0x100, U"%s:", {StringTable::GetString(e->name.c_str())}).c_str());
+    g_items.statIcon[0]->SetTexture(IconManager::GetIcon("gold_16_health", false), true);
+    g_items.statText[0]->SetText(
+        SWPrintf(0x100, StringTable::GetString("char_hp"), {ToWideString(e->hp)}).c_str());
+    g_items.statIcon[1]->SetTexture(IconManager::GetIcon("gold_16_attack", false), true);
+    g_items.statText[1]->SetText(SWPrintf(0x100, StringTable::GetString("char_ranged_attack"),
+                                          {ToWideString(e->attackMelee)}).c_str());
+    SetWarriorSlot(g_items.ultiWarrior, e);
+    g_items.ultiEntity = e->id;
+}
+
+// Part of @0x28d204: the architect's chest (selector 0): five statues, a statue as the prize.
+void ShowFiveObjects(const Setting& set) {
+    g_items.needToGet->SetText(SWPrintf(0x100, StringTable::GetString("CHESTS_UNI_DESC"),
+                                        {StringTable::GetString("CHESTS_UNI_DESC_BUILDINGS")}).c_str());
+    unsigned count = 0;
+    ChestFiveObjects& five = g_items.fiveObjects;
+    for (unsigned i = 0; i != 5; ++i) {
+        const GameData::DecorData* deco = GameData::GetDecoration((uint32_t)set.GetChild(i).GetInt());
+        if (!deco) continue;
+        Window* icon = five.icons[i];
+        GUI::FitImageIntoWindow(icon, GameData::DecorImage(deco), true, false);
+        if (g_prizeFlight && icon->sprite) FlyToPrize(icon->sprite, g_items.ultiStatue);
+        icon->SetEnabled(true);
+        icon->SetAlpha(GameState::GetChestBuildingReceivedCount(deco->id) ? 1.f : 0.6f, false);
+        five.confirm[i]->SetVisibility(GameState::GetChestBuildingReceivedCount(deco->id) != 0);
+        five.ids[i] = deco->id;
+        if (GameState::GetChestBuildingReceivedCount(deco->id)) ++count;
+    }
+    CheckPrizeFlight(count);
+    const GameData::DecorData* deco = GameData::GetDecoration((uint32_t)set.GetChild(5).GetChild(0).GetInt());
+    if (!deco) return;
+    g_items.ultiLong->SetVisibility(true);
+    g_items.ultiLong->SetText(StringTable::GetString("CHESTS_ULTIMATE_PRIZE"));
+    HideNames();
+    g_items.contain->SetVisibility(true);
+    g_items.contain->SetText(SWPrintf(0x100, U"%s:", {StringTable::GetString(deco->name.c_str())}).c_str());
+    g_items.statIcon[0]->SetTexture(IconManager::GetIcon("16_crystal", false), true);
+    g_items.statText[0]->SetText(SWPrintf(0x100, StringTable::GetString("CHESTS_STATUE_STAT_01"),
+                                          {ToWideString(Setting("ult_statue_crystals").GetInt())})
+                                     .c_str());
+    g_items.statIcon[1]->SetVisibility(false);
+    g_items.statText[1]->SetVisibility(false);
+    g_items.ultiStatueId = deco->id;
+    GUI::FitImageIntoWindow(g_items.ultiStatue, GameData::DecorImage(deco), true, false);
+}
+
+// Part of @0x28d204: a chest chosen: the set of five that wins its prize, and its price.
+void ShowSets() {
+    const int sel = g_selected;
+    g_items.noChest->SetVisibility(false);
+    const Setting set(kPrizeSettings[sel]);
+    g_items.needToGet->SetVisibility(true);
+    g_items.fiveWarriors.root->SetVisibility(sel == 2);
+    g_items.fiveItems.root->SetVisibility(sel == 1 || sel == 3);
+    g_items.fiveObjects.root->SetVisibility(sel == 0);
+    g_items.ultiWarrior.root->SetVisibility(sel == 2);
+    g_items.ultiItem.root->SetVisibility(sel == 1 || sel == 3);
+    g_items.ultiStatue->SetVisibility(sel == 0);
+    g_items.containLarge->SetVisibility(false);
+    for (Window* w : g_items.fiveWarriors.add) w->SetTexture(IconManager::GetIcon("gold_add", false), true);
+    for (Window* w : g_items.fiveWarriors.confirm) w->SetTexture(IconManager::GetIcon("gold_confirm", false), true);
+    for (Window* w : g_items.fiveItems.add) w->SetTexture(IconManager::GetIcon("gold_add", false), true);
+    for (Window* w : g_items.fiveItems.confirm) w->SetTexture(IconManager::GetIcon("gold_confirm", false), true);
+    for (Window* w : g_items.fiveObjects.add) w->SetTexture(IconManager::GetIcon("gold_add", false), true);
+    for (Window* w : g_items.fiveObjects.confirm) w->SetTexture(IconManager::GetIcon("gold_confirm", false), true);
+    ShowStats(true);
+    if (sel == 0) ShowFiveObjects(set);
+    else if (sel == 2) ShowFiveWarriors(set);
+    else ShowFiveItems(set);
+    g_previewButton.root->SetEnabled(true);
+    g_previewButton.activeGreen->SetVisibility(false);
+    g_previewButton.icon->SetTexture(IconManager::GetIcon("gold_find", false), true);
+    g_previewButton.text->SetText(StringTable::GetString("CHESTS_PREVIEW"));
+    g_openButton.root->SetEnabled(true);
+    g_openButton.active->SetVisibility(false);
+    Chests::ChestInfo* info = Chests::GetChestInfo(kChests[sel]);
+    if (!info) return;
+    // PORT (no real money): the price "$%d.%02d" of the chest's cents in "CHESTS_OPEN_FOR" is not
+    // made; every store chest is sold for crystals (Chests::Init), which hides that text.
+    if (!info->SoldForCrystals()) return;
+    g_openButton.textCenteredGreen->SetVisibility(false);
+    g_openButton.goldText->SetVisibility(true);
+    g_openButton.price->SetVisibility(true);
+    g_openButton.crystalIcon->SetVisibility(true);
+    g_openButton.goldText->SetText(StringTable::GetString("PERFORM_OPEN"));
+    g_openButton.price->SetText(ToWideString((int)info->crystals));
+    g_openButton.crystalIcon->SetTexture(IconManager::GetIcon("35_crystal", false), true);
+}
+
 }  // namespace
 
-// STUB (5p-4): the contents.
-void UpdateContents() {}
+// @0x28d204: the window's state: the selectors, the chosen chest's pile and luck circle, the
+// buttons, then the panel of the mode (the starter chest, no chest chosen, the preview, a result to
+// collect, or the chosen chest's set of five) and last the reward line.
+void UpdateContents() {
+    g_close->SetVisibility(!g_collecting);
+    g_chainBorder->SetVisibility(!g_starterMode);
+    g_darkBg->SetVisibility(!g_starterMode);
+    g_luxBg->SetVisibility(!g_starterMode);
+    g_back->SetVisibility(!g_starterMode);
+    g_expire.root->SetVisibility(g_starterMode && !g_starterFlag);
+    // The buttons, each with its two chains.
+    g_previewButton.root->SetVisibility(!g_collecting && !g_starterMode);
+    g_chains[0]->SetVisibility(g_previewButton.root->visibleSelf);
+    g_chains[1]->SetVisibility(g_previewButton.root->visibleSelf);
+    g_openButton.root->SetVisibility(!g_collecting && !g_starterMode);
+    g_chains[2]->SetVisibility(g_openButton.root->visibleSelf);
+    g_chains[3]->SetVisibility(g_openButton.root->visibleSelf);
+    g_rerollButton.root->SetVisibility(g_collecting);
+    g_chains[6]->SetVisibility(g_rerollButton.root->visibleSelf);
+    g_chains[7]->SetVisibility(g_rerollButton.root->visibleSelf);
+    g_collectButton.root->SetVisibility(g_collecting || g_starterMode);
+    g_chains[4]->SetVisibility(g_collectButton.root->visibleSelf);
+    g_chains[5]->SetVisibility(g_collectButton.root->visibleSelf);
+    g_separator->SetVisibility(!g_preview && !g_collecting);
+    // The selectors: the chosen one (or, none chosen, all) highlighted.
+    for (int i = 0; i != 4; ++i) {
+        ChestSelectorHolder& s = g_selectors[i];
+        s.root->SetVisibility(!g_preview && !g_collecting);
+        if (Chests::ChestInfo* info = Chests::GetChestInfo(kChests[i])) {
+            s.name1->SetText(info->name);
+            s.name2->SetText(info->name);
+        }
+        for (Window* w : s.chest.open) w->SetVisibility(false);
+        for (int j = 0; j != 5; ++j) s.chest.closed[j]->SetVisibility(j == i);
+        s.bg->SetVisibility(g_selected != i);
+        s.activeBg->SetVisibility(g_selected == i || g_selected == -1);
+        if (g_selected == i) s.activeBg->SetAlpha(1.f, false);
+    }
+    g_selectors[0].typeIcon->SetTexture(IconManager::GetIcon("b_masters", false), true);
+    g_selectors[1].typeIcon->SetTexture(IconManager::GetIcon("army_warrior_40", false), true);
+    g_selectors[2].typeIcon->SetTexture(IconManager::GetIcon("tab_shop_tamer", false), true);
+    g_selectors[3].typeIcon->SetTexture(IconManager::GetIcon("tab_shop_orbs", false), true);
+    // The chosen chest's pile, open while its result waits.
+    g_pile.root->SetVisibility(g_preview || g_collecting);
+    for (int j = 0; j != 4; ++j) g_pile.chest.open[j]->SetVisibility(g_collecting && g_selected == j);
+    for (int j = 0; j != 5; ++j) g_pile.chest.closed[j]->SetVisibility(!g_collecting && g_selected == j);
+    // The luck circle: its colour by the best luck item owned (more than 30 purple, 21..30 orange,
+    // else blue; none: the second red).
+    g_luck.root->SetVisibility(!g_starterMode);
+    g_luck.luck->SetText(StringTable::GetString("BONUS_LUCK"));
+    unsigned luck = 0;
+    const uint32_t best = GetBestLuckItem(luck);
+    int circle = luck <= 20 ? LuckHolder::kBlue : luck <= 30 ? LuckHolder::kOrange : LuckHolder::kPurple;
+    if (!best) circle = 4;
+    g_luck.SetBackground((LuckHolder::BackgroundType)circle);
+    for (int i = 0; i != 5; ++i) LuckPercent(i)->SetVisibility(circle == i);
+    LuckPercent(circle)->SetText(SWPrintf(0x100, U"+%d%%", {(int)luck}).c_str());
+    if (Items::ItemInfo* info = Items::GetItemInfo(best))
+        g_luck.icon->SetTexture(info->GetIcon(), true);
+    else
+        g_luck.icon->SetTexture(IconManager::GetIcon("gold_question", false), true);
+    // The panel's frames.
+    const bool sets = !g_preview && !g_collecting && g_selected != -1;
+    g_items.arrowed->SetVisibility(sets);
+    g_items.noArrowBg->SetVisibility(g_selected == -1 || g_preview || g_collecting);
+    g_items.bg->SetVisibility(false);
+    g_items.navLeft->SetVisibility(g_selected == -1 && !g_starterMode);
+    g_items.navRight->SetVisibility(g_selected == -1 && !g_starterMode);
+    g_items.line.root->SetVisibility(g_preview || g_collecting);
+    g_items.fiveItems.root->SetVisibility(sets);
+    g_items.fiveWarriors.root->SetVisibility(sets);
+    g_items.fiveObjects.root->SetVisibility(sets);
+    g_items.ultiWarrior.root->SetVisibility(sets);
+    g_items.ultiItem.root->SetVisibility(sets);
+    g_items.ultiStatue->SetVisibility(sets);
+    g_items.ultiBg->SetVisibility(sets);
+    if (g_starterMode) ShowStarterChest();
+    else if (g_selected == -1) ShowNoChest();
+    else if (g_preview) ShowPreview();
+    else if (g_collecting) ShowResult();
+    else ShowSets();
+    UpdateRewardLine();
+}
 
 WindowManager::FunctionalWindow* Queue() {
     if (!g_queue) {
