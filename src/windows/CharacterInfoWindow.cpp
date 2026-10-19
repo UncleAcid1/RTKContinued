@@ -7,9 +7,6 @@
 // The tabs: 0 everything (the newest first, at most 32), 1 weapons, 2 armour, 3 potions and orbs,
 // 4 gems, decorations and belts, 5 quest items, 6 crafting, 7 the customisations (the figure's face,
 // hair ...: the slots show the customisation bindings and the grid the pieces on sale).
-//
-// UNVERIFIED (milestone 5, 5n): the professions (the tool slot, the tools' profession icons) need
-// Professions, not ported yet: no profession, no tool.
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -31,6 +28,7 @@
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/PlayerEquipmentInfo.h"
+#include "game/Professions.h"
 #include "game/Rand48.h"
 #include "game/Collections.h"
 #include "game/Sets.h"
@@ -292,18 +290,6 @@ bool g_tablet = false;                    // 0x60f188
 int g_arrowCell = -1, g_arrowCellShown = -1;     // 0x60f19c 0x60f190
 int g_arrowEquip = -1, g_arrowEquipShown = -1;   // 0x60f1a0 0x60f198
 
-// ---- the professions (milestone 5n) ----
-// UNVERIFIED (milestone 5, 5n): Professions::GetProfession / GetProfessionTool; no profession is
-// loaded yet, so there is none and no tool.
-struct Profession;
-Profession* GetProfession(uint32_t) { return nullptr; }
-GameState::PlayerItem* GetProfessionTool(uint32_t) { return nullptr; }
-// (Professions::IsProfessionTool, 0x1e8818, 5n): the item gathers (GATHER_CHANCE).
-bool IsGatherTool(uint32_t id) {
-    Items::ItemInfo* info = Items::GetItemInfo(id);
-    return info && info->meta && info->meta->FindChildData(kExpGatherChance);
-}
-
 // @0x27ae4c: tab 0's order, the newest first.
 bool SortByTime(const MixedItem& a, const MixedItem& b) { return a.time > b.time; }
 // @0x27ae64: the customisations by binding, then by sort id.
@@ -311,9 +297,6 @@ bool SortBySlot(const MixedItem& a, const MixedItem& b) {
     if (a.info->slot != b.info->slot) return a.info->slot < b.info->slot;
     return a.info->sortId < b.info->sortId;
 }
-
-// (Professions::GetProfessionForPointItem, 5n) UNVERIFIED: no profession point items yet.
-Profession* GetProfessionForPointItem(uint32_t) { return nullptr; }
 
 // A piece's picture as a sprite at window w (its bottom left, screen space), to glide.
 Render::Sprite* MakeFlySprite(Render::Texture* tex, const Window* w) {
@@ -437,9 +420,10 @@ void OnItem(unsigned cell, bool show) {
         UpdateContents();
         return;
     }
-    if (GetProfessionForPointItem(id)) {
-        // UNVERIFIED (milestone 5, 5n): GameState::AddProfessionPoints(profession, amount) and the
-        // items go (RemoveItem), then the selection is cleared.
+    if (Professions::Profession* p = Professions::GetProfessionForPointItem(id)) {
+        // A profession's point item: all of them become its points.
+        GameState::AddProfessionPoints(p->id, GameState::GetItemAmount(id, false));
+        GameState::RemoveItem(id, GameState::GetItemAmount(id, false));
         g_selectedItem = -1;
         UpdateContents();
         return;
@@ -1132,7 +1116,9 @@ GameState::PlayerItem* GetItemAt(unsigned b) {
         if (GameState::PlayerItem* p = GameState::GetFirstItemByID(it->second, false)) return p;
         g_toolOverrides.erase(it);   // (FUN_0027ce8c)
     }
-    return GetProfessionTool(g_lastProfession);   // (Professions::GetProfessionTool(.., true, &item, false))
+    GameState::PlayerItem* item = nullptr;
+    Professions::GetProfessionTool(g_lastProfession, true, &item, false);
+    return item;
 }
 
 // @0x27d710: the same from an equipment record.
@@ -1143,7 +1129,9 @@ GameState::PlayerItem* GetUniqueItemAt(const PvP::PlayerEquipmentInfo& info, uns
         if (GameState::PlayerItem* p = GameState::GetFirstItemByID(it->second, false)) return p;
         g_toolOverrides.erase(it);   // (FUN_0027ce8c)
     }
-    return GetProfessionTool(g_lastProfession);
+    GameState::PlayerItem* item = nullptr;
+    Professions::GetProfessionTool(g_lastProfession, true, &item, false);
+    return item;
 }
 
 // @0x27b020: the selected cell's item (data null for a piece not owned), else the selected slot's.
@@ -1279,7 +1267,7 @@ bool IsValidItemForTabAndMode(const GameState::PlayerItem* data, const Items::It
         for (const MixedItem& m : g_items)
             if (m.info->id == info->id) return false;
     }
-    if (!data || !IsGatherTool(info->id) || data->f0c != info->durability || g_items.empty()) return true;
+    if (!data || !Professions::IsProfessionTool(info->id) || data->f0c != info->durability || g_items.empty()) return true;
     // A profession tool once per durability left. (PORT: an entry without data is skipped; the
     // original reads through it.)
     for (const MixedItem& m : g_items)
@@ -1932,7 +1920,7 @@ void UpdateCell(unsigned i, uint32_t now) {
     int amount = GameState::GetItemAmount(info->id, false);
     if (info->type == 8 && IsItemEquipped(data)) --amount;
     // A durable item counts as one (a profession tool only while it is worn out to its durability).
-    if (info->durability != 0 && !(IsGatherTool(info->id) && data->f0c == info->durability)) amount = 1;
+    if (info->durability != 0 && !(Professions::IsProfessionTool(info->id) && data->f0c == info->durability)) amount = 1;
     if (isPack && info->packItems && info->packItems->GetChildrenCount())
         amount = info->packItems->GetChild(0)->GetChild(1)->GetInt();
     c.root->SetVisibility(true);
@@ -2009,9 +1997,13 @@ void UpdateCell(unsigned i, uint32_t now) {
     if (icon.levelReq->visibleSelf)
         icon.levelReq->SetText(
             SWPrintf(0x100, StringTable::GetString("LVL_HEAD"), {ToWideString((int)info->level)}).c_str());
-    // UNVERIFIED (milestone 5, 5n): a profession item's profession icon (the profession's picture,
-    // shown for professions of kind 1 and for profession 6).
-    if (!GetProfession(info->reputationId)) icon.repProf->SetVisibility(false);
+    // A profession item's profession icon (shown for the reputations and for profession 6, the tamer).
+    if (Professions::Profession* p = Professions::GetProfession(info->reputationId)) {
+        icon.repProf->SetVisibility(p->type == Professions::kReputation || p->id == 6);
+        icon.repProf->SetTexture(p->smallIcon, p->icon != p->smallIcon);
+    } else {
+        icon.repProf->SetVisibility(false);
+    }
     icon.recommended->SetVisibility(false);
     icon.owned->SetVisibility(false);
     icon.redX->SetVisibility(false);

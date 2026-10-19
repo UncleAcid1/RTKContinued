@@ -61,6 +61,7 @@
 #include "game/Locations.h"
 #include "game/Spells.h"
 #include "game/Setting.h"
+#include "game/Professions.h"
 #include "game/Sets.h"
 #include "gui/GUI.h"
 #include "gui/TextStyleManager.h"
@@ -714,7 +715,10 @@ int main_Loop_Init() {
                                  0x14))
         return 1;
     if (!LoadSystemConfiguration(Tasks::Init, "tasks.xml", "L", "Tasks::Init", 18.0 / 46.0, 0x15, 0x15)) return 1;
-    // UNVERIFIED (their milestones): Professions::Init "professions.xml" (19/46), Chests::Init "chests.xml" (20/46).
+    if (!LoadSystemConfiguration(Professions::Init, "professions.xml", "L", "Professions::Init", 19.0 / 46.0, 0x7e7,
+                                 0))
+        return 1;
+    // UNVERIFIED (its milestone): Chests::Init "chests.xml" (20/46).
     if (!LoadSystemConfiguration(ProjectileData::Init, "projectiles.xml", "L", "ProjectileData::Init", 21.0 / 46.0,
                                  0x18, 0x18))
         return 1;

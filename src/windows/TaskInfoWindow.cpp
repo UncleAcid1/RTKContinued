@@ -23,6 +23,7 @@
 #include "game/AIState.h"
 #include "game/Entity.h"
 #include "game/GameState.h"
+#include "game/Professions.h"
 #include "game/Items.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
@@ -579,8 +580,8 @@ void SetTask(uint32_t id, bool boss) {
         // (a boss's own "kill" steps show neither count nor button)
         bool bossStep = g_bossMode && (s.type == Tasks::kKillMob || s.type == Tasks::kKillSpawn);
         std::u32string status;
-        // UNVERIFIED (milestone 5): a reputation step (0x3e) counts
-        // Professions::GetPlayerProfessionLevel(value) instead.
+        // (a reputation step counts the reputation's level)
+        if (!bossStep && s.type == Tasks::kGetReputation) done = (int)Professions::GetPlayerProfessionLevel(s.value);
         if (!bossStep && s.type == Tasks::kCompleteCompaign) status = SWPrintf(0x100, U"%d%%", {std::min(done, 100)});
         else status = SWPrintf(0x100, U"%d/%d", {std::min(done, s.amount), s.amount});
         b.status->SetText(status.c_str());

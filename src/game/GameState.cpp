@@ -787,6 +787,13 @@ uint32_t GetItemAcquirementTime(uint32_t id) {
     return it == g_itemAcquireTime.end() ? 0 : it->second;
 }
 
+uint32_t GetProfessionPoints(uint32_t profession) {
+    auto it = g_professionPoints.find(profession);
+    return it == g_professionPoints.end() ? 0 : it->second;
+}
+
+void AddProfessionPoints(uint32_t profession, uint32_t points) { g_professionPoints[profession] += points; }
+
 // The player's HP from the time since mHPTS: one HP per GetHPRegeneration seconds (mHPTS starts
 // a full bar back); mNextHP is the wait for the next one.
 void SetupPlayerRegenerationState() {

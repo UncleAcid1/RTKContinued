@@ -214,7 +214,7 @@ util  ^Tasks::FUN_(0023583c|00235eac)$   # a name hash map's insert and clear
 # ---- 4d: quest UI -------------------------------------------------------------------------------
 dead  ^(TaskHolderWindow|TaskInfoWindow|LevelInfoWindow)::ExecuteFirstHelp$   # the QA game bot (see ::ExecuteFirstHelp below)
 dead  ^TaskQuickCompleteWindow::   # an unused second quest-complete window ("claim reward"): SetParameters has no caller, GOT or vtable entry in 5.11 and nothing else opens it (checked 2026-10-11); not a pay-crystals feature
-5   ^LevelInfoWindow::   # the levels-and-professions window: UpdateContents / OnTab are built on Professions (5), Collections, PvP statistics, ItemShopWindow; moved from 4d on 2026-10-11
+5n  ^LevelInfoWindow::   # the levels-and-professions window: UpdateContents / OnTab are built on Professions (5), Collections, PvP statistics, ItemShopWindow; moved from 4d on 2026-10-11
 online  ^HelpWindow::   # the platform web view of the help pages (FileManager::BlogProcess); callers: OnHelp, CastleTopWindow::OnPvP, UpdateServerFlags
 util  ^TaskListWindow::FUN_(0035ef14|0035f000|0035f194|0035f210|0035fef8|0035ffe4|00360138|00360224|00360854)   # std::sort / std::stable_sort instances and the slot list's growth
 4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins
@@ -273,7 +273,9 @@ dead  ^CallbackAssignWorker::   # never constructed in 5.11 (no call of its cons
 4g  ^Entity::IsBoss$
 
 # ---- 4h: the new game ---------------------------------------------------------------------------
-5n  ^BossIntroWindow::SetReputation$   # the arena's reputation screens: one line on top of Professions::GetProfession (5n; moved from 5i-2 on 2026-10-18)
+5n-1  ^Professions::   # the professions and reputations (professions.xml); 5n-1 2026-10-19
+5n-1  ^GameState::(GetProfessionPoints|AddProfessionPoints)$
+5n-2  ^BossIntroWindow::SetReputation$   # the arena's reputation screens: one line on top of Professions::GetProfession (5n; moved from 5i-2 on 2026-10-18)
 implicit  ^GlobalMapWindow::FUN_(002bdd9c|002bddd4|002bde08|002be1c4)   # the location arrays' and the arrow vector's static destructors
 4h  ^(GlobalMapWindow|BossIntroWindow)::   # the world map and its ambush banner: the tutorial's way home (user, 2026-10-14); their milestone-5 satellites (campaign/raid info, ChoosePath, the sultan's window, PvP travel, reputation screens) are notes in the code
 4h  ^(Shared::EndscreenProgressBar::|SetInfoWindow::GetPlayerItemOrBetter$|GameState::(ResetBossFightsOnMap|GetEventCompletionCount)$|Render::(CreateScreenTexture|IsLowPerformanceDevice)$|Timer::AddDeltaTimeCompensation$)   # what the world map and BossIntroWindow use

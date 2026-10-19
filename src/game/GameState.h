@@ -337,6 +337,8 @@ uint32_t GetItemBuffRemainingTime(uint32_t id);   // @0x198a3c seconds, 0 when o
 void ActivateItemBuff(uint32_t id, uint32_t seconds);   // @0x198a90
 uint32_t GetItemRecentTime(uint32_t id);       // @0x198db4
 uint32_t GetItemAcquirementTime(uint32_t id);  // @0x198e6c
+uint32_t GetProfessionPoints(uint32_t profession);   // @0x190a04
+void AddProfessionPoints(uint32_t profession, uint32_t points);   // @0x1994d4
 void SetupPlayerRegenerationState();           // @0x1921b8
 void UpdatePlayerRegenerationState();          // @0x191d14
 uint32_t GetBeltItemAt(unsigned slot);         // @0x1907e8

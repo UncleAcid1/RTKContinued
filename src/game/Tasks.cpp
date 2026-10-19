@@ -17,6 +17,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Locations.h"
+#include "game/Professions.h"
 #include "game/MetaData.h"
 #include "game/StringTable.h"
 #include "game/Tags.h"
@@ -521,9 +522,7 @@ bool TaskInfo::CanBeCompleted() const {
         if (s.type != kBallanceItem && s.type != kGetItem) continue;
         const Items::ItemInfo* item = Items::GetItemInfo(s.value);
         if (!item || item->reputationId == 0) continue;
-        // UNVERIFIED (milestone 5): Professions::GetPlayerProfessionLevel(item->reputationId) must
-        // reach item->reputationLevel; without professions the player's level is 0.
-        if (item->reputationLevel > 0) return false;
+        if (Professions::GetPlayerProfessionLevel(item->reputationId) < item->reputationLevel) return false;
     }
     return true;
 }
@@ -935,9 +934,11 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
     for (uint32_t i = 0; i < t->itemCount; ++i) {
         const TaskInfo::ItemCount& it = t->items[i];
         if (!at) {
-            // UNVERIFIED (milestone 5): a profession's point item goes to
-            // Professions::AddProfessionPoint instead (GetProfessionForPointItem).
-            GameState::AddItem(it.id, (int)it.count, false, false, false);
+            // (a profession's point item gives its points instead)
+            if (Professions::Profession* p = Professions::GetProfessionForPointItem(it.id))
+                Professions::AddProfessionPoint(p->id, it.count);
+            else
+                GameState::AddItem(it.id, (int)it.count, false, false, false);
             BeltBarWindow::AutoBind(it.id);
         } else {
             for (uint32_t k = 0; k < it.count; ++k)
@@ -1279,7 +1280,8 @@ void Update(bool force) {
                     GameState::SetSubTaskDone(s.id, all == 0.f ? 0 : (int)(0.5f + done / all * 100.f));
                 }
             } else if (s.type == kGetReputation) {
-                // UNVERIFIED (milestone 5): Professions::GetPlayerProfessionLevel(value) >= amount.
+                if ((uint32_t)s.amount <= Professions::GetPlayerProfessionLevel(s.value))
+                    GameState::SetSubTaskDone(s.id, s.amount);
             } else if (s.type == kBalanceLevel) {
                 if ((uint32_t)s.amount <= (uint32_t)GameState::GetLevel()) GameState::SetSubTaskDone(s.id, s.amount);
             }

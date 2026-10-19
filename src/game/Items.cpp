@@ -19,6 +19,7 @@
 #include "game/GameState.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/Professions.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -134,10 +135,12 @@ int ItemInfo::GetDamageBoost() const {
     return 0;
 }
 
-// UNVERIFIED (milestone 5): Professions::GetProfession is not ported (no professions), so no item is
-// a profession tool yet. The original: GATHER_CHANCE and GATHER_TIME, and the reputation_id
-// profession's +0x24 is 0 or 1.
-bool ItemInfo::IsProfessionTool() const { return false; }
+// GATHER_CHANCE and GATHER_TIME, and its reputation_id is a profession (not a reputation).
+bool ItemInfo::IsProfessionTool() const {
+    Professions::Profession* p = Professions::GetProfession(reputationId);
+    return meta && meta->FindChildData(kExpGatherChance) && meta->FindChildData(kExpGatherTime) && p &&
+           p->type == Professions::kProfession;
+}
 
 const char32_t* ItemInfo::GetItemTypeName(uint32_t context) const {
     uint32_t s = slot == 0 ? 10 : GameState::ExternalItemBindingToInternal(slot);
@@ -251,9 +254,13 @@ int ItemInfo::ApplyLimitToAmount(int amount) const {
     return have + amount > limit ? limit - have : amount;
 }
 
-// UNVERIFIED (milestone 5): Professions (GetProfession, GetPlayerProfessionLevel) are not ported;
-// no item is locked by reputation yet.
-bool ItemInfo::IsLockedByReputation(bool any) const { return false; }
+// The player's level of the item's reputation (any: or profession) is below the item's.
+bool ItemInfo::IsLockedByReputation(bool any) const {
+    if (reputationId == 0) return false;
+    Professions::Profession* p = Professions::GetProfession(reputationId);
+    if (!p || (!any && p->type != Professions::kReputation)) return false;
+    return Professions::GetPlayerProfessionLevel(reputationId) < reputationLevel;
+}
 
 bool ItemInfo::IsLockedByLevel() const { return (uint32_t)GameState::GetLevel() < level; }
 
