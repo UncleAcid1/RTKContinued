@@ -14,7 +14,7 @@
 4b.4  ^ItemHoverWindow::
 4b.4  ^UseItemHoverWindow::
 4c    @2bcffc   # FoundItemsWindow::SetParameters(Tasks::TaskInfo*, ...): with Tasks
-5    @2bd21c   # FoundItemsWindow::SetParameters(Locations::LocationInfo*, ...): only CampaignComplete / CampaignPerfected / RaidComplete (the global map's windows) call it
+5x    @2bd21c   # FoundItemsWindow::SetParameters(Locations::LocationInfo*, ...): only CampaignComplete / CampaignPerfected / RaidComplete (the global map's windows) call it
 4b.4  ^FoundItemsWindow::
 4b.4  ^NeedItemWindow::
 4b.4  ^Items::GetItemOffsetInHolder
@@ -23,11 +23,11 @@
 4b.4  ^Shared::(ItemHolder|ItemIconHolder)::
 
 # ---- placed by the 4b.5 review: an overload or a stub of a later step, not a hole ----------
-5     @127294   # Map::Building::LaunchContract(Entity*): barracks training (HireTroopsWindow::OnTrain)
+5x     @127294   # Map::Building::LaunchContract(Entity*): barracks training (HireTroopsWindow::OnTrain)
 dead  ^(Map::Building::IsTrainingCompleted|Map::TrainingcontractRunning)$   # no caller in 5.11 (checked 2026-10-18)
-5     ^Map::Building::TrainingCompleted$   # barracks training
-5     @1d14d0   # MetaExpression::OnApplyItemEffect(int*, bool): crafting, player info, sets, character window
-5     ^HUDWindow::OnFarmTimer$   # opens RaidInfoWindow (the port's stub does nothing)
+5x     ^Map::Building::TrainingCompleted$   # barracks training
+5x     @1d14d0   # MetaExpression::OnApplyItemEffect(int*, bool): crafting, player info, sets, character window
+5x     ^HUDWindow::OnFarmTimer$   # opens RaidInfoWindow (the port's stub does nothing)
 4d    ^(HUDWindow::OnFindTask|TaskHolderWindow::QuickTaskWindow::(Init|Update))$
 4g    ^BattleBarWindow::Update$   # the port's stub; the army slots
 4f    @168138   # EntityManager::SpawnEntityAt(SpawnPoint*, ...)
@@ -40,7 +40,7 @@ util  ^(EntityFactory::FUN_(0015fb4c|00160374|0016134c)|SoldierSlots::FUN_(0021e
 implicit  ^CastleTopWindow::FUN_00277144   # a callback object factory (Update's three callbacks)
 4b.5  ^Map::Building::AddSmoke$   # a hole the review found behind an `@0x` reference (workshop smoke)
 4h    ^(OnTutorialFarmerWomanAction|EntityManager::GetEntityByClass)$   # tutorial paths (BottomCityWindow::Update, Building::WorkEnded)
-5     ^BuildingHovers::CheckForSpecialDrops$   # the Ruby / Diamond Pyramid finds (tasks 0x4d7 / 0x4d9): a real-money sale promotion in 5.11 (30% more gold and crystals for 24 h); ask the user how it works offline, with the exchange
+5x     ^BuildingHovers::CheckForSpecialDrops$   # the Ruby / Diamond Pyramid finds (tasks 0x4d7 / 0x4d9): a real-money sale promotion in 5.11 (30% more gold and crystals for 24 h); ask the user how it works offline, with the exchange
 6     ^FileManager::(OnMusicMute|OnSoundMute)$
 online  ^(LandExpandedWindow|LevelUpWindow|TaskCompleteWindow)::OnTwitterToggle$
 dead  ^(BottomFarmWindow::OnFarmWater|PatchProgressHoverWindow::SetPartialSpeedUpMode|BuildingMovement::(ToggleRoadType|ToggleWarehouse))$   # no caller in 5.11
@@ -61,16 +61,16 @@ online  ^GameState::(GetCrystalsSpent|GetCrystalsEarned|CleanBeforeLoading)$   #
 dead  ^HUDWindow::GameReload$   # no caller in 5.11 (no call, pointer or relocation; checked 2026-10-18)
 4e    ^(Map::Building::RemoveHoldOfEntities|Map::FUN_(00130b58|00130b70)|Entity::SetEndWorkTS)$   # Map::RemoveHoldOfEntities, Decor::GetActionPoint, Decor::WorkStarted
 4c    ^Entity::PrepareForSetup$   # EntityManager::ExecuteStaticMeta
-5     ^(Map::Building::ChangeState|Entity::SetCustomUnderlay)$   # towers shooting (DoAttack, OnCoolDown); the PvP spawn meta
+5x     ^(Map::Building::ChangeState|Entity::SetCustomUnderlay)$   # towers shooting (DoAttack, OnCoolDown); the PvP spawn meta
 util  ^Map::FUN_001c2558   # the birds vector's insert (FUN_001c273c's helper)
 dead  ^Map::GetEndQuestTileLocation$   # no caller, no address taken
-5     ^Entity::ExecutePvPSpawnMeta$   # the PvP shadows (PVP_SPAWN); called from Entity::OnSetup / OnTaskCompleted / OnSubTaskCompleted
-5     ^MetaExpression::(OnApplyItemSquadEffect|GetSummaryEffectsValue)$   # CraftingWindow / SetInfoWindow::UpdateContents; GameState::GetBIS's sort
+5x     ^Entity::ExecutePvPSpawnMeta$   # the PvP shadows (PVP_SPAWN); called from Entity::OnSetup / OnTaskCompleted / OnSubTaskCompleted
+5x     ^MetaExpression::(OnApplyItemSquadEffect|GetSummaryEffectsValue)$   # CraftingWindow / SetInfoWindow::UpdateContents; GameState::GetBIS's sort
 implicit  ^MetaExpression::FUN_001c7ef0$   # static initialiser of MetaExpression's three globals
 dead  ^Tasks::TaskSubtask::GetDescription$   # no caller, no address taken; its texts (TASK_BUILDHOUSE ...) are not in the 5.11 string tables
 util  ^Tasks::FUN_0023054c$   # the pool of the tasks' icon and character names (std::string in the port)
 dead  ^(Map::GetUniqueIDCount|ShopWindow::FillPatches)$   # only CheckUniqueIDs (dead); FillPatches needs a shop tab of type 5, none in 5.11
-5     ^(GameState::UpdateNotifications|Map::UpdateNotifications)$   # the phone's local notifications (Notifications)
+5r     ^(GameState::UpdateNotifications|Map::UpdateNotifications)$   # the phone's local notifications (Notifications)
 4f    ^EntityManager::RemoveEntitiesByID$   # Map::Update's queued map switch
 dead  ^WindowManager::WindowQueue::HideWindows$   # no caller
 4f    ^BuildingHovers::(Show|Hide)WorldDialog$   # WorldHintHoverWindow (4f), the talking-NPC dialog; only the tutorial, campaign, combat and PvP show it
@@ -96,37 +96,38 @@ dead  @1ea1f8  # Projectile::SetOwner(Building*): only Building::DoAttack
 dead  @1ea554  # Projectile::MoveTo(x, y): only Building::DoAttack and Entity::LaunchProjectile
 dead  ^(GameState::GetAvailableSoldierCountByID|EntityManager::(EnumEntitiesByID|GetEnemySoldier)|HUDWindow::SetActiveButton)$   # no caller in 5.11
 dead  ^TargetedAI::(GetClosestReachableWPTo|GetClosestReachableWPToBuilding|GetClosestReachableWPToDecor)$   # vtable +0x40..+0x48: only EasyAI::DoRangedAttackIfReady calls them
-5  @e309c   # AI::GetNearestReachableWPZeroWeight: the arena and async combats' UpdateAttackPosition
-5  ^AI::EnemyInMeleeRange$   # only ArenaCombat::WaitingForContinue
-5  ^(CmdIgnoreDamage|CmdDebugCombat|CmdGodMode|CmdAddSoldier)$   # EditorConsole commands (the admin mode)
-5  ^GameState::AddSoldiersToSquad$   # only HireTroopsWindow
+5x  @e309c   # AI::GetNearestReachableWPZeroWeight: the arena and async combats' UpdateAttackPosition
+5x  ^AI::EnemyInMeleeRange$   # only ArenaCombat::WaitingForContinue
+5w  ^(CmdIgnoreDamage|CmdDebugCombat|CmdGodMode|CmdAddSoldier)$   # EditorConsole commands (the admin mode)
+5x  ^GameState::AddSoldiersToSquad$   # only HireTroopsWindow
 online  ^GameState::GetBIS$   # only PvP::GetBISItems
 
 # ---- moved out of 4g while porting it (2026-10-13) ----
-5  ^AIWarrior::(StartedMagicAttackArea|FindEpicenterPos|StartedMagicAttack|MagicDeath|MagicBlock|MagicHit|MagicAttackAreaFinished|MagicAttack|MagicAttackArea)$   # the fighters' side of spells (with Spells / AISpell)
-5  ^AIPlayer::PlayBuffAnimation$   # a buff's particles and cast animation (spells, potions' effects)
+5x  ^AIWarrior::(StartedMagicAttackArea|FindEpicenterPos|StartedMagicAttack|MagicDeath|MagicBlock|MagicHit|MagicAttackAreaFinished|MagicAttack|MagicAttackArea)$   # the fighters' side of spells (with Spells / AISpell)
+5x  ^AIPlayer::PlayBuffAnimation$   # a buff's particles and cast animation (spells, potions' effects)
 5s  ^BaseCombat::SwitchToArenaFight$   # hand the fight to ArenaCombat (the arena events); SwitchToBossFight: 5i-1, SwitchToPvPArenaFight: 4h
-5  ^TaskInfoWindow::(SkipBossTask|OnFight)$   # the boss form of the quest window
+5x  ^TaskInfoWindow::(SkipBossTask|OnFight)$   # the boss form of the quest window
 implicit ^PlayerBattleInOutWindow::(WinnerHolder::~WinnerHolder|FlagWindow::~FlagWindow|_INIT_105)$   # empty destructors and the static FunctionalWindow (Queue())
 implicit ^BottomBattleWindow::(ButtonFuryLarge::~ButtonFuryLarge|FUN_00257344)$   # empty destructor; FUN_00257344 wraps a function in a GUI::Callback
 util  ^ProjectileData::FUN_   # the Splitter's allocator and string copy for "anims"
 dead  ^AI::GetangleBetweenWPs$   # no caller in 5.11
 dead  ^HealthbarHoverWindow::   # hover type 0xd: BuildingHovers::Update never asks for it (only HoverInfo::SetHoverType's factory names it)
 removed  ^PlayerWeakWindow::   # "you are too weak" advice after repeated deaths: removed by the user 2026-10-18 (it pointed to the shop and paid chests)
-5  ^Shared::WarriorSlotInfo::   # PlayerWeakWindow, HireTroopsWindow, ChestsWindow
-5  ^Shared::(EndscreenProgressBar|ProgressBarLarge)::   # the boss / PvP end screens; CraftItemWindow, LevelInfoWindow
+5x  ^Shared::WarriorSlotInfo::   # PlayerWeakWindow, HireTroopsWindow, ChestsWindow
+5x  ^Shared::(EndscreenProgressBar|ProgressBarLarge)::   # the boss / PvP end screens; CraftItemWindow, LevelInfoWindow
 implicit ^Shared::PlayerHolder::~PlayerHolder$   # the plain struct's destructor
 4h  ^Shared::PlayerHolder::   # the hero's figure with its equipment: SelectHQWindow (4h) is its first user that matters; HealSquadWindow shows the plain figure until then
-5  ^BeltBarWindow::(OnCraftPanelMove|OnMovingCraftPanel|OnCrafting|ShowProfessionPoint|OnInventory|OnShowInventory|ShowInventory|OnEmptySlot)$   # the belt's Crafting button and bar (crafting, professions) and its inventory button (CharacterInfoWindow)
-5  ^BeltBarWindow::(RunRageAnimation|GetAdjustedBuffZoneLocation|RaiseWindow|OnAddMoreSlot)$   # the fury flash (spells), the buff row's place, the raised belt for the character window, the shop link
-5  ^Shared::(BuffHolder|BuffHolderManager)::   # the row of running buffs (timed potions): BeltBarWindow, HealSquadWindow, CharacterInfoWindow
-5  ^BottomBattleWindow::   # the rage bar (Rage_bar.xml): the spell slots and their fury buttons, auto-cast, the mana bar, the arena's stances and the taming net. It is the spells' HUD; the fight itself does not need it
+5o  ^BeltBarWindow::(OnCraftPanelMove|OnMovingCraftPanel|OnCrafting|ShowProfessionPoint)$   # the belt's Crafting button and bar (crafting, professions)
+5x  ^BeltBarWindow::(OnInventory|OnShowInventory|ShowInventory|OnEmptySlot)$   # the belt's inventory button (CharacterInfoWindow)
+5x  ^BeltBarWindow::(RunRageAnimation|GetAdjustedBuffZoneLocation|RaiseWindow|OnAddMoreSlot)$   # the fury flash (spells), the buff row's place, the raised belt for the character window, the shop link
+5x  ^Shared::(BuffHolder|BuffHolderManager)::   # the row of running buffs (timed potions): BeltBarWindow, HealSquadWindow, CharacterInfoWindow
+5x  ^BottomBattleWindow::   # the rage bar (Rage_bar.xml): the spell slots and their fury buttons, auto-cast, the mana bar, the arena's stances and the taming net. It is the spells' HUD; the fight itself does not need it
 dead  ^PlaceMagicHoverWindow::   # nothing constructs it (no caller of its constructors 0x390e34 / 0x390e8c): the large buttons confirm and cancel the aimed spell instead
 dead  ^TapHoverWindow::   # BeltBarWindow::Init creates it and Deinit deletes it; nothing shows it (no caller of Show / SetAction / Hide, direct or through its vtable slots)
 dead  ^HealSquadWindow::SortItemsByMetaSort$   # no caller, no address taken (UpdateContents keeps the setting's order)
 6  ^Render::CreateCustomTexture$   # a texture made from pixels: Particles::ImageParticleSystem, Render::Layer::Draw's effect, the buff row
-5  ^(HealHoverWindow::|BattleBarWindow::ShowHealSoldier$)   # healing a wounded soldier (the roadmap's "hiring / healing the army"): BattleBarWindow and HireTroopsWindow create it, ItemHoverWindow::OnHeal shows it
-5  ^BeltBarWindow::(Move|MoveIntoBelt|HasMovedIntoBelt|ArrowAtSlot)$   # an item put on the belt from the character window, the belt moved aside for the big windows, the rage bar's mana potion hint
+5x  ^(HealHoverWindow::|BattleBarWindow::ShowHealSoldier$)   # healing a wounded soldier (the roadmap's "hiring / healing the army"): BattleBarWindow and HireTroopsWindow create it, ItemHoverWindow::OnHeal shows it
+5x  ^BeltBarWindow::(Move|MoveIntoBelt|HasMovedIntoBelt|ArrowAtSlot)$   # an item put on the belt from the character window, the belt moved aside for the big windows, the rage bar's mana potion hint
 util  ^App::   # the App singleton's accessors: the port's managers are namespaces
 util  ^AIWarrior::FUN_000f3b4c$   # std::string::find
 
@@ -135,15 +136,15 @@ util  ^AIWarrior::FUN_000f3b4c$   # std::string::find
 util  ^Locations::FUN_001b2494$   # the location vector's reallocation helper (std::vector in the port)
 dead  ^Map::(Person::|PersonData::|LoadPersonList|GetPersonData|GetRandomPersonData|PersonsDeinit)   # the map's own person list (persons.xml read a second time): Map::Person is never constructed in 5.11, nothing reads the list
 online  ^GameState::LoadEntitiesFromCopy$   # only VisitFriendCity
-5  ^CmdOpenMap$   # an EditorConsole command (the admin mode), through GlobalMapWindow::SwitchMap
+5w  ^CmdOpenMap$   # an EditorConsole command (the admin mode), through GlobalMapWindow::SwitchMap
 4g  ^Entity::GetClosestWPTo$   # only EasyAI::DoMeleeAttackIfReady (needs AI::GetNearestReachableWPZeroWeight)
 dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever shows it (only UnregisterEntity and Deinit touch personWindow)
 4g  ^PlayerHintHoverWindow::   # the hero panel's own dialog: created, placed and shown by PlayerTopWindow (SetParameters / HideDialog / ShowArrowAndLock, 4g)
 4g  ^TapHoverWindow::   # the belt's tap hint, created by BeltBarWindow::Init (4g)
 implicit ^(CampaignCompleteWindow::(FUN_00271ddc|_INIT_70)|CampaignPerfectedWindow::FUN_00275ae8)\b   # the static FunctionalWindows (Queue()); _INIT_70 is not a function: Ghidra cut Show (0x272460..0x272770) there
-5  ^(CampaignCompleteWindow|CampaignPerfectedWindow)::   # only the global map shows them (GlobalMapWindow::*::ShowCompletionWindow / OnTaskCompleted)
+5x  ^(CampaignCompleteWindow|CampaignPerfectedWindow)::   # only the global map shows them (GlobalMapWindow::*::ShowCompletionWindow / OnTaskCompleted)
 implicit ^LoadingScreenWindow::FUN_002f4098\b   # the static FunctionalWindow (Queue())
-5  ^LoadingScreenWindow::   # Map::Load shows it only when the switch starts from the open global map; the other users are online (friends' cities)
+5x  ^LoadingScreenWindow::   # Map::Load shows it only when the switch starts from the open global map; the other users are online (friends' cities)
 implicit ^CampaignInfoWindow::(FUN_00272cd4|FlagInfo::~FlagInfo|_INIT_71)$   # the static FunctionalWindow (Queue()) with its scrollers and vectors, the flag's destructor; _INIT_71 is not a function: Ghidra cut UpdateContents (0x2731a8..0x2742f4) there
 implicit ^ChoosePathWindow::(FUN_00295378|_INIT_78)$   # the static FunctionalWindow (Queue()) with its scroller and vectors; _INIT_78 is not a function: Ghidra cut Update (0x298690..0x298df0) there
 dead ^ChoosePathWindow::CenterOn$   # no call, pointer or relocation in 5.11
@@ -193,8 +194,8 @@ online  ^Bonus::   # gifts from the server / Java (ServerFlags, mcSetBonus) and 
 online  ^GameState::(ShowGemBonusMessage|GetGemStepMessage|SetGemStepMessage)$   # ServerFlags' blocking message (ToS / exit) in Update
 removed  ^Tasks::SendTasksFootprint$   # sent with a real-money purchase (ExchangeWindow::OnPayFor*)
 4g  ^TaskInfoWindow::(OnFight|SkipBossTask)$   # the boss form of the quest window
-5   ^TaskInfoWindow::OnShop$   # the item shop's tab 3
-5   ^Tasks::ShowWarriorSlotUnlock$   # CraftSuccessWindow::SetParameters(0) and Show: with the craft windows
+5q   ^TaskInfoWindow::OnShop$   # the item shop's tab 3
+5o   ^Tasks::ShowWarriorSlotUnlock$   # CraftSuccessWindow::SetParameters(0) and Show: with the craft windows
 4d  ^Tasks::(TaskSubtask::OnHelp|HelpWithLocation|HelpWithMapSwitchTo|HelpWithMapSwitchToContinuation|RunLastSubTaskHelp|ShowWarriorSlotUnlock)$   # the task window's "Go" button (TaskInfoWindow::OnHelpActual) and what it navigates with; moved from 4c part 4
 util  ^TaskHolderWindow::FUN_(00355298|00355bc4|00355c64|00355df8)$   # std::sort with TaskOrdering (insertion sort, heap, introsort)
 util  ^HireTroopsWindow::FUN_(002d00d4|002d0174|002d0260)$   # std::sort with SortTavernInfoBySlot (insertion sort, heap adjust, heap select)
@@ -205,7 +206,7 @@ util  ^Tasks::FUN_(0023583c|00235eac)$   # a name hash map's insert and clear
 4c  ^MetaExpression::
 4c  ^MetaData::
 4c  ^GameState::(AddAutocompleteTask|AddAutoresetTask|AddSubTask|CompleteTask|ResetTask|StartTask|SubTaskCompleted|GetSubTaskDone|SetSubTaskDone|GetTaskEndTime|SetTaskEndTime|GetTaskShowTime|SetTaskShowTime|SetTaskBeginTime|GetCustomSubTaskRequrement|SetCustomSubTaskRequrement|TryToHelpWithTask|GetGemStepMessage|SetGemStepMessage|ShowGemBonusMessage)$
-5   ^GlobalMapWindow::OnTaskCompleted$   # with the world map window
+5x   ^GlobalMapWindow::OnTaskCompleted$   # with the world map window
 4c  ::(OnTaskStarted|OnSubTaskCompleted|OnTaskCompleted|OnTagUpdate|OnInteract|ExecuteStaticMeta)$
 4c  ^Map::Decor::(GetStartQuestID|GetEndQuestID|OnSetup)$
 4c  ^Map::(PrepareDecorationsForSetup|GetEndQuestTileLocation)$
@@ -220,7 +221,7 @@ util  ^TaskListWindow::FUN_(0035ef14|0035f000|0035f194|0035f210|0035fef8|0035ffe
 4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins
 4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::
 4d  ^Shared::TaskWindow::
-5   ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)   # the featured-quest button: every featured quest opens a milestone-5 window (pyramid exchange, chests, item shop sale, PvP); ASK the user which promotions stay
+5x   ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)   # the featured-quest button: every featured quest opens a milestone-5 window (pyramid exchange, chests, item shop sale, PvP); ASK the user which promotions stay
 4d  ^GameState::(GetFeaturedTaskClickTime|SetFeaturedTaskClickTime|IsFeaturedTaskClicked)$
 4d  ^HUDWindow::(OnFindTask|RemoveTaskArrows|SetTaskLocaterIcon|ShowTaskLocaterTo|UpdateTaskLocator|UpdateTasks|SetQuickLocatorForce|UpdatePlayerLocator|HideLocators)$
 4d  ^BattleBarWindow::(HideAllTasks|OnAllTasks|ShowAllTasks)$
@@ -288,23 +289,36 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 4h  ^PvPArenaCombat::(PvPArenaCombat|~PvPArenaCombat|Update|SetupWave|SpawnEnemies|ArenaCompleted|OnValorReceived|PostCombat|EndCombat|WaveCleared|PlayerDied|SwitchState|GetCurrentWave|GetWaveCount)$   # the ambush's PvP fight
 
 # ---- 5: the rest of the game --------------------------------------------------------------------
-5  ^(HireTroopsWindow|RepairWindow|Spells|SpellMovement|AISpell|PlaceMagicHoverWindow|BossCombat|BossCombatWaves|BossIntroWindow|BossOutroWindow|BossTimeHoverWindow|BossIntroEffect|FastBossIntroEffect|SiegeCombat|AISiegeAttacker|StartRaidingWindow|RaidInfoWindow|RaidCompleteWindow|GlobalMapWindow|ItemShopWindow|Chests|ChestsWindow|ChestOpenedWindow|CraftingWindow|CraftItemWindow|CraftSuccessWindow|Professions|Collections|Sets|SetInfoWindow|Tavern|DailyBonusWindow|SultanArrivingWindow|ResourceHelper|ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow|BottomArenaWindow|AsyncBaseCombat|AsyncCombat|AsyncCombat_v2|PvPArenaCombat|AIPlayerBot|CombatTestBot|PvP|PresentsContainer|Notifications|EditorConsole|Editor|DebugViewer|BottomScreenshotWindow|PlayerInfoWindow|PlayerNameHoverWindow)::
-5  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the admin mode
-5  ^ParseItemDrop\w+$   # chest drop lists
-5  ^(dollar\w+|bestDollarDifference)$   # spell gestures
-5  ^GameState::(AddArena\w+|GetStartingArenaHP|SetStartingArenaHP|IsArenaCombatActive|IsPvPCombatActive|SetPvPTutorial|AddEventCompletion|AddEventFail|GetEventCompletionCount|GetEventDifficulty|SetEventDifficulty|GetEventEndTime|SetEventEndTime|GetEventStartTime|SetEventStartTime|AddDailyChestItem|FinishDailyChestItems|GetDailyChestFailure|SetDailyChestFailure|GetProcessedChest|GetChest\w+|SetChest\w+|DailyBonusReceived|GetDailyBonusDays|GetDailyBonusTime|GetReceivedDailyBonusCount|IsDailyBonusAvailable|SetDailyBonusStatus|UpdateDailyBonusTime|AddProfessionPoints|GetProfessionPoints|HireSoldier|GetSoldierAcquireCount|GetSoldierAcquireTime|GetSoldierRecentTime|GetTavernWarriorHP|SetTavernWarriorHP|GetTavernWarriorTS|SetTavernWarriorTS|GetBossFightStartTime|ResetBossFightsOnMap|GetServerTime|SetServerTime|GetServerTimeOffset)$
-5  ^Map::DropBossReward$
-5  ^Entity::(GetBossAdditionalWavesInfo|GetBossMapID|GetBossTaskID|GetBossWaveInfo|OnAttackMagic|OnBlockMagic|OnDeathMagic|OnHitMagic|OnSpellCast|OrbsCanBeUsed|SetDefenseMagic|SetEffectOwner|WillDieMagic)$
-5  ^EntityFactory::(GetEntityForArena|GetTamedEntityForID)$
-5  ^EntityData::(GetSmallSpellIcon|GetWaves\w+)$
-5  ^CharacterInfoWindow::   # the window itself (its stat part was 4b.2)
-5  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|OnBuyItem|OnShop|HelpWithScreenshot)$
-5  ^BaseAI::|^AIPlayer::Retreat$
-5  ^BuildingPlacement::BuildingFromPresents$
-5  ^HUDWindow::(OnArenaEvent|SetCurrentCity)$
-5  ^SettingsWindow::(HelpWithScreenShot|OnScreenShot)$
-5  ^Shared::(ButtonCraftBuyNow|ButtonRaidStart|DiscountInfo|EffectDescriptionLine|FarmButtonPlant)::
-5  ^Map::GetCurrentCity|^GameState::(GetCurrentCity|SetCurrentCity)$
+5o  ^(CraftingWindow|CraftItemWindow|CraftSuccessWindow)::
+5p  ^(Chests|ChestsWindow|ChestOpenedWindow)::
+5q  ^(ItemShopWindow)::
+5r  ^(Tavern|DailyBonusWindow|ResourceHelper|Notifications)::
+5s  ^(ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow|BottomArenaWindow)::
+5t  ^(AsyncBaseCombat|AsyncCombat|PvPArenaCombat|AIPlayerBot|PvP)::
+5u  ^(AsyncCombat_v2|PlayerInfoWindow|PlayerNameHoverWindow)::
+5v  ^(PresentsContainer)::
+5w  ^(EditorConsole|Editor|DebugViewer|CombatTestBot)::
+5x  ^(HireTroopsWindow|RepairWindow|Spells|SpellMovement|AISpell|PlaceMagicHoverWindow|BossCombat|BossCombatWaves|BossIntroWindow|BossOutroWindow|BossTimeHoverWindow|BossIntroEffect|FastBossIntroEffect|SiegeCombat|AISiegeAttacker|StartRaidingWindow|RaidInfoWindow|RaidCompleteWindow|GlobalMapWindow|Professions|Collections|Sets|SetInfoWindow|SultanArrivingWindow|BottomScreenshotWindow)::
+5w  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the admin mode
+5p  ^ParseItemDrop\w+$   # chest drop lists
+5x  ^(dollar\w+|bestDollarDifference)$   # spell gestures
+5s  ^GameState::(AddArena\w+|GetStartingArenaHP|SetStartingArenaHP|IsArenaCombatActive|AddEventCompletion|AddEventFail|GetEventCompletionCount|GetEventDifficulty|SetEventDifficulty|GetEventEndTime|SetEventEndTime|GetEventStartTime|SetEventStartTime)$
+5t  ^GameState::(IsPvPCombatActive|SetPvPTutorial)$
+5p  ^GameState::(AddDailyChestItem|FinishDailyChestItems|GetDailyChestFailure|SetDailyChestFailure|GetProcessedChest|GetChest\w+|SetChest\w+)$
+5r  ^GameState::(DailyBonusReceived|GetDailyBonusDays|GetDailyBonusTime|GetReceivedDailyBonusCount|IsDailyBonusAvailable|SetDailyBonusStatus|UpdateDailyBonusTime|HireSoldier|GetSoldierAcquireCount|GetSoldierAcquireTime|GetSoldierRecentTime|GetTavernWarriorHP|SetTavernWarriorHP|GetTavernWarriorTS|SetTavernWarriorTS|GetServerTime|SetServerTime|GetServerTimeOffset)$
+5x  ^GameState::(AddProfessionPoints|GetProfessionPoints|GetBossFightStartTime|ResetBossFightsOnMap)$
+5x  ^Map::DropBossReward$
+5x  ^Entity::(GetBossAdditionalWavesInfo|GetBossMapID|GetBossTaskID|GetBossWaveInfo|OnAttackMagic|OnBlockMagic|OnDeathMagic|OnHitMagic|OnSpellCast|OrbsCanBeUsed|SetDefenseMagic|SetEffectOwner|WillDieMagic)$
+5x  ^EntityFactory::(GetEntityForArena|GetTamedEntityForID)$
+5x  ^EntityData::(GetSmallSpellIcon|GetWaves\w+)$
+5x  ^CharacterInfoWindow::   # the window itself (its stat part was 4b.2)
+5x  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|OnBuyItem|OnShop|HelpWithScreenshot)$
+5x  ^BaseAI::|^AIPlayer::Retreat$
+5x  ^BuildingPlacement::BuildingFromPresents$
+5x  ^HUDWindow::(OnArenaEvent|SetCurrentCity)$
+5x  ^SettingsWindow::(HelpWithScreenShot|OnScreenShot)$
+5x  ^Shared::(ButtonCraftBuyNow|ButtonRaidStart|DiscountInfo|EffectDescriptionLine|FarmButtonPlant)::
+5x  ^Map::GetCurrentCity|^GameState::(GetCurrentCity|SetCurrentCity)$
 
 # ---- 6: sound and effects -----------------------------------------------------------------------
 6  ^(Sounds|SoundsManager|Particles|ParticlePresets)::
@@ -330,7 +344,7 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 # ---- residue triage (2026-10-07): each checked against its callers --------------------------------
 online  ^(GameState::(LoadShort|GetUpgraderState|SetUpgraderState|GetUpgradeProgress|SetUpgradeProgress|LockGame|IsGameLocked|ResetGameLock|GetActiveMaps)|Map::(LoadShort|UpdateCityMap))$   # friend visits, the server heartbeat lock, store upgrades, task footprints
 7  ^GameState::GetGameStateInfo$   # PlayerProfileManager
-5  ^(Map::(GetTavern|GetBarracks|DebugAdvanceTime|ShowLevelStats)|Entity::SetXP|EntityData::GetDiscountSize|GameState::(GetSettingCount|EnumSetting))$   # hiring (HireSoldier), the debug console
+5x  ^(Map::(GetTavern|GetBarracks|DebugAdvanceTime|ShowLevelStats)|Entity::SetXP|EntityData::GetDiscountSize|GameState::(GetSettingCount|EnumSetting))$   # hiring (HireSoldier), the debug console
 4c  ^(Map::(GetBuildingDataWithContract|GetBuildingWithContract|GetNextAreaID|GetUpgradeableBuilding|GetFarmWithPatchToBuy)|EntityManager::GetEntityWithGUID|GameState::AddEntity)$   # Tasks::TaskSubtask::OnHelp, Bonus::Give
 4e  ^(GameState::GetGoblin|Entity::GetCurrentAnimation)$   # SendGoblinToWork, PlayBuffAnimation
 4g  ^(Entity::(SetUpdateSpeedScale|GetCenterWorldXY)|Map::Building::(GetCenterPoint|GetCenterWorldXY)|EntityManager::EnumEntitiesByID|GameState::IsVirtualTutorial)$
@@ -343,7 +357,7 @@ online  ^(GameState::(LoadShort|GetUpgraderState|SetUpgraderState|GetUpgradeProg
 4e  ^(BaseAnimController::Update|BuildingHovers::ShowIconHover|Render::CenteringInProgress)$   # Decor::Update / UpdateImage
 4f  ^(Map::PersonData::LoadImage|GUI::(Register|Unregister)HighlightBlocker)$
 4g  ^(AI::GetNearestReachableWPZeroWeight|BuildingHovers::(GetClickCallback|PreventArrowAutoHide)|AIWarrior::FUN_000f3b4c|Render::CreateCustomTexture|Render::CreateSolidFillTexture)$
-5  ^(Resources::GetSolidColor|Render::CreateLine|Render::CreateScreenTexture|StringTable::GetExtendedTimeString)$
+5x  ^(Resources::GetSolidColor|Render::CreateLine|Render::CreateScreenTexture|StringTable::GetExtendedTimeString)$
 6  ^(Entity::FUN_00155abc|Render::GetImageData)$
 7  ^(GUI::GetHoverHighDPIScaleFactor|GUI::GetHudHighDPIScaleFactor|HUDWindow::RestoreTextures|BuildingHovers::RestoreTextures|SystemFuncs::FUN_003d890c|Render::IsInitialized)$
 online  ^(FileManager::(CheckExpansion|FUN_0016d350)|Timer::GetServerGlobalTime|IconManager::GetLoadingIcon|ClearPointerVector|Render::GetSurfaceFromPath)
