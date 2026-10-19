@@ -54,7 +54,7 @@ void SetLine(ItemHoverWindow::EffectLine& l, const char32_t* text, const char* i
 // Systems of later milestones the window asks about. UNVERIFIED stand-ins until they are ported.
 bool LevelInfoWindowIsVisible() { return LevelInfoWindow::IsVisible(); }
 bool RaidInfoWindowIsVisible() { return RaidInfoWindow::IsVisible(); }
-bool ChestsWindowIsVisible() { return false; }             // ChestsWindow::IsVisible (5)
+bool ChestsWindowIsVisible() { return ChestsWindow::IsVisible(); }
 bool ItemCanBeBought(uint32_t) { return false; }           // ItemShopWindow::ItemCanBeBought (5)
 uint32_t GetMissionMapForItem(uint32_t id) { return GlobalMapWindow::GetMissionMapForItem(id, 0); }
 uint32_t GetMapForCraftItem(uint32_t id) { return GlobalMapWindow::GetMapForCraftItem(id, 0); }

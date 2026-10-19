@@ -750,6 +750,7 @@ int main_Loop_Init() {
     ChapterWindow::Queue();
     CharacterInfoWindow::Queue();
     ChestOpenedWindow::Queue();
+    ChestsWindow::Queue();
     ChoosePathWindow::Queue();
     CityRenameWindow::Queue();
     ConfirmPurchaseWindow::Queue();

@@ -72,7 +72,8 @@ void OnTweenOut() {
     if (GameState::GetCurrentMapID() == 0x70) Map::EnqueueLoadMap((int)GameState::mReturnMapID, false, false, 0.f);
     g_name = nullptr;
     if (g_returnToChest == 0xffffffff) return;
-    // UNVERIFIED (5p-3): ChestsWindow::Show and SetChest(g_returnToChest).
+    ChestsWindow::Show();
+    ChestsWindow::SetChest(g_returnToChest);
     g_returnToChest = 0xffffffff;
 }
 

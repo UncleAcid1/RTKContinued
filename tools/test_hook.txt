@@ -92,11 +92,14 @@
             if (i == envi("RTK_LEVELHIDE", -1)) { std::printf("[t] LevelInfo hide visible=%d\n", (int)LevelInfoWindow::IsVisible()); LevelInfoWindow::Hide(); }
             if (i == envi("RTK_INVHIDE", -1)) { std::printf("[t] Hide\n"); CharacterInfoWindow::Hide(); }
             if (i == envi("RTK_INVCHK", -1)) std::printf("[t] char visible=%d z=%.4f raise=%d\n", (int)CharacterInfoWindow::IsVisible(), CharacterInfoWindow::IsVisible() ? CharacterInfoWindow::GetZ() : 0.f, (int)CharacterInfoWindow::CanRaiseBelt());
+            if (i == envi("RTK_CHESTSWIN", -1)) { ChestsWindow::Show(); std::printf("[t] chests window visible=%d\n", (int)ChestsWindow::IsVisible()); }   // 5p-3
+            if (i == envi("RTK_CHESTSCHK", -1)) std::printf("[t] chests window visible=%d\n", (int)ChestsWindow::IsVisible());
             if (i == envi("RTK_CHESTWIN", -1)) {   // 5p-2: ChestOpenedWindow with a chest's roll (RTK_CHESTID, RTK_CHESTTX: the chests window's mode)
                 Chests::ChestInfo* c = Chests::GetChestInfo((uint32_t)envi("RTK_CHESTID", 57)); Chests::DropItem d[16]; unsigned n = c ? c->GenerateContents(d, 16, false) : 0;
                 FoundItemsWindow::ClearCollected(); FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));
                 for (unsigned k = 0; k < n; ++k) { std::printf("[t] drop %u %u x%d\n", d[k].type, d[k].item, d[k].amount); if (d[k].type == 0xb) FoundItemsWindow::AddCollectedItem(d[k].item, d[k].amount); else FoundItemsWindow::AddCollectedResource((int)d[k].type, d[k].amount); }
                 if (envi("RTK_CHESTTX", 0)) ChestOpenedWindow::SetChestTransactionMode(c->id);
+                if (envi("RTK_CHESTRET", 0)) ChestOpenedWindow::SetReturnToChestWindow(1);
                 ChestOpenedWindow::SetName(c ? c->name : nullptr); ChestOpenedWindow::Show();
                 std::printf("[t] chestwin visible=%d gold=%d\n", (int)ChestOpenedWindow::IsVisible(), GameState::GetResourceAmount(GameState::kGold));
             }

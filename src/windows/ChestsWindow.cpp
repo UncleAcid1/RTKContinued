@@ -1,0 +1,769 @@
+// ChestsWindow: the chests window (Window_chests.xml): the four store chests (architect, warrior,
+// hunter, collector) in selectors down the side, the selected chest's contents (a scrolled reward
+// line, or the five-of-a-kind sets that win its ultimate prize), its luck circle, and the buttons to
+// preview, buy / open, reroll and collect; the starter chest opens here too ("starter mode"). A
+// chest's result (the items rolled) comes back as reward items and is shown in the reward line until
+// collected.
+// Port of ChestsWindow (libkingdom.so 5.11), 0x28979c..0x294f84. Statics at 0x61ad14..0x61c1d0 and
+// 0x60f1b8..0x60f1c4.
+//
+// DECIDED (user 2026-10-19): the chests are bought for crystals (see Chests::Init); the real-money
+// purchase (OnPaymentDataReceived, Billing) is not ported.
+// PORT (online removed): the daily chest's server request (GameState::IsDailyChestRequestProcessing
+// is false offline, LoadingInternetWindow and the failure popups "FB_ONLINE_NOTICE" are not
+// ported) and Show's expansion-pack check (Expansions::AreEnabled is false offline).
+#include <cmath>
+#include <cstdio>
+#include <vector>
+
+#include "engine/Render.h"
+#include "engine/Resources.h"
+#include "engine/Timer.h"
+#include "game/Chests.h"
+#include "game/EntityData.h"
+#include "game/GameState.h"
+#include "game/Items.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
+#include "game/Rand48.h"
+#include "game/Setting.h"
+#include "game/StringTable.h"
+#include "gui/GUI.h"
+#include "gui/WindowManager.h"
+#include "hud/ContentScroller.h"
+#include "hud/ItemHoverWindow.h"
+#include "hud/Shared.h"
+#include "windows/Windows.h"
+
+namespace ChestsWindow {
+namespace {
+
+using GUI::Textfield;
+using GUI::Window;
+
+// @0x28b060 ChestWindowHolder (0x28 bytes): a chest's picture, open (4 frames) or closed (5).
+struct ChestWindowHolder {
+    Window* root = nullptr;           // +0x00 "%s"
+    Window* open[4] = {};             // +0x04 chest_01_open..04
+    Window* closed[5] = {};           // +0x14 chest_01_closed..05
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        for (int i = 0; i != 4; ++i) open[i] = GUI::GetWindowTypedF<Window>(w, "%s.chest_%02d_open", p, i + 1);
+        for (int i = 0; i != 5; ++i) closed[i] = GUI::GetWindowTypedF<Window>(w, "%s.chest_%02d_closed", p, i + 1);
+    }
+};
+
+// @0x28b0fc ChestExpireHolder (0x14 bytes): the time left of an offer.
+struct ChestExpireHolder {
+    Window* root = nullptr;           // +0x00 "%s"
+    Window* timer = nullptr;          // +0x04 timer_60 (takes a depth slot)
+    Textfield* timeLeft = nullptr;    // +0x08 text_time_left
+    Textfield* time = nullptr;        // +0x0c text_time
+    Textfield* expired = nullptr;     // +0x10 text_time_expired
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        timer = GUI::GetWindowTypedF<Window>(w, "%s.timer_60", p);
+        timer->takesZ = true;
+        timeLeft = GUI::GetWindowTypedF<Textfield>(w, "%s.text_time_left", p);
+        time = GUI::GetWindowTypedF<Textfield>(w, "%s.text_time", p);
+        expired = GUI::GetWindowTypedF<Textfield>(w, "%s.text_time_expired", p);
+    }
+};
+
+// @0x28b1a0 LuckHolder (0x38 bytes): the luck circle, its colour by the best luck item, and the four
+// percents.
+struct LuckHolder {
+    enum BackgroundType { kPurple = 0, kOrange = 1, kBlue = 2, kRed = 3 };
+    Window* root = nullptr;           // +0x00 "%s"
+    Window* circleHolder = nullptr;   // +0x04 luck_circle_holder
+    Window* circles[5] = {};          // +0x08 its luck_circle_purple, _orange, _blue, _red, _red again
+    Textfield* luck = nullptr;        // +0x1c text_luck_01
+    Textfield* percent[4] = {};       // +0x20 text_luck_percent_04, _03, _02, _01
+    Textfield* percent1 = nullptr;    // +0x30 text_luck_percent_01 too
+    Window* icon = nullptr;           // +0x34 icon_luck (takes a depth slot)
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        circleHolder = GUI::GetWindowTypedF<Window>(w, "%s.luck_circle_holder", p);
+        circles[0] = GUI::GetWindowTypedF<Window>(w, "%s.luck_circle_holder.luck_circle_purple", p);
+        circles[1] = GUI::GetWindowTypedF<Window>(w, "%s.luck_circle_holder.luck_circle_orange", p);
+        circles[2] = GUI::GetWindowTypedF<Window>(w, "%s.luck_circle_holder.luck_circle_blue", p);
+        circles[3] = GUI::GetWindowTypedF<Window>(w, "%s.luck_circle_holder.luck_circle_red", p);
+        circles[4] = GUI::GetWindowTypedF<Window>(w, "%s.luck_circle_holder.luck_circle_red", p);
+        luck = GUI::GetWindowTypedF<Textfield>(w, "%s.text_luck_01", p);
+        percent[0] = GUI::GetWindowTypedF<Textfield>(w, "%s.text_luck_percent_04", p);
+        percent[1] = GUI::GetWindowTypedF<Textfield>(w, "%s.text_luck_percent_03", p);
+        percent[2] = GUI::GetWindowTypedF<Textfield>(w, "%s.text_luck_percent_02", p);
+        percent[3] = percent1 = GUI::GetWindowTypedF<Textfield>(w, "%s.text_luck_percent_01", p);
+        icon = GUI::GetWindowTypedF<Window>(w, "%s.icon_luck", p);
+        icon->takesZ = true;
+    }
+    // @0x28979c: the circle of that colour (the fifth, a second red, is never asked for).
+    void SetBackground(BackgroundType type) {
+        for (int i = 0; i != 5; ++i) circles[i]->SetVisibility((int)type == i);
+    }
+};
+
+// @0x28b328 ChestOpenPile (0x34 bytes): the opened chest with the days of its offer.
+struct ChestOpenPile {
+    Window* root = nullptr;           // +0x00 "%s"
+    ChestWindowHolder chest;          // +0x04 chest_win_holder
+    Textfield* day1 = nullptr;        // +0x2c text_day_01
+    Textfield* day2 = nullptr;        // +0x30 text_day_02
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        char sub[0x100];
+        std::snprintf(sub, sizeof sub, "%s.chest_win_holder", p);
+        chest.LoadFrom(w, sub);
+        day1 = GUI::GetWindowTypedF<Textfield>(w, "%s.text_day_01", p);
+        day2 = GUI::GetWindowTypedF<Textfield>(w, "%s.text_day_02", p);
+    }
+};
+
+// @0x28b3ec ChestFiveWarriors (0x488 bytes): five soldiers that make the hunter chest's prize, with
+// the gold "+" or tick of each.
+struct ChestFiveWarriors {
+    Window* root = nullptr;           // +0x00 "%s"
+    Shared::WarriorSlotInfo slots[5]; // +0x004 slot_warrior_01..05
+    uint32_t entities[5] = {};        // +0x450
+    Window* add[4] = {};              // +0x464 icon_gold_add_01..04 (take a depth slot)
+    Window* confirm[5] = {};          // +0x474 icon_gold_confirm_01..05 (take a depth slot)
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        char sub[0x100];
+        for (int i = 0; i != 5; ++i) {
+            std::snprintf(sub, sizeof sub, "%s.slot_warrior_%02d", p, i + 1);
+            slots[i].LoadFrom(w, sub);
+        }
+        for (uint32_t& e : entities) e = 0;
+        for (int i = 0; i != 4; ++i) {
+            add[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_gold_add_%02d", p, i + 1);
+            add[i]->takesZ = true;
+        }
+        for (int i = 0; i != 5; ++i) {
+            confirm[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_gold_confirm_%02d", p, i + 1);
+            confirm[i]->takesZ = true;
+        }
+    }
+};
+
+// @0x28b558 ChestFiveItems (0x2e4 bytes): five items that make a chest's prize.
+struct ChestFiveItems {
+    Window* root = nullptr;           // +0x00 "%s"
+    Shared::ItemHolder items[5];      // +0x004 slot_01..05.inventory_item_icon
+    uint32_t ids[5] = {};             // +0x2ac
+    Window* add[4] = {};              // +0x2c0 icon_gold_add_01..04 (take a depth slot)
+    Window* confirm[5] = {};          // +0x2d0 icon_gold_confirm_01..05 (take a depth slot)
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        char sub[0x100];
+        for (int i = 0; i != 5; ++i) {
+            std::snprintf(sub, sizeof sub, "%s.slot_%02d.inventory_item_icon", p, i + 1);
+            items[i].LoadFrom(w, sub, false);
+        }
+        for (uint32_t& id : ids) id = 0;
+        for (int i = 0; i != 4; ++i) {
+            add[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_gold_add_%02d", p, i + 1);
+            add[i]->takesZ = true;
+        }
+        for (int i = 0; i != 5; ++i) {
+            confirm[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_gold_confirm_%02d", p, i + 1);
+            confirm[i]->takesZ = true;
+        }
+    }
+};
+
+// @0x28af5c ChestFiveObjects (0x50 bytes): five buildings (statues) that make the architect
+// chest's prize.
+struct ChestFiveObjects {
+    Window* root = nullptr;           // +0x00 "%s"
+    Window* icons[5] = {};            // +0x04 icon_statue_01..05 (take a depth slot)
+    uint32_t ids[5] = {};             // +0x18
+    Window* add[4] = {};              // +0x2c icon_gold_add_01..04 (take a depth slot)
+    Window* confirm[5] = {};          // +0x3c icon_gold_confirm_01..05 (take a depth slot)
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        for (int i = 0; i != 5; ++i) {
+            icons[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_statue_%02d", p, i + 1);
+            icons[i]->takesZ = true;
+        }
+        for (uint32_t& id : ids) id = 0;
+        for (int i = 0; i != 4; ++i) {
+            add[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_gold_add_%02d", p, i + 1);
+            add[i]->takesZ = true;
+        }
+        for (int i = 0; i != 5; ++i) {
+            confirm[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_gold_confirm_%02d", p, i + 1);
+            confirm[i]->takesZ = true;
+        }
+    }
+};
+
+// @0x28b6b8 ChestSelectorHolder (0x70 bytes): a chest in the side list, with four animated
+// sparkles ("bless") at random frames and phases.
+struct ChestSelectorHolder {
+    Window* root = nullptr;           // +0x00 "%s"
+    Window* bg = nullptr;             // +0x04 chest_holder_bg
+    Window* activeBg = nullptr;       // +0x08 chest_holder_active_bg_mobile
+    Textfield* name1 = nullptr;       // +0x0c text_chest_name_01
+    Textfield* name2 = nullptr;       // +0x10 text_chest_name_02
+    Window* typeIcon = nullptr;       // +0x14 icon_chest_type (takes a depth slot)
+    ChestWindowHolder chest;          // +0x18 chest_win_holder
+    Window* sparkles[4] = {};         // +0x40 sparkle_01..04
+    int sparkleFrame[4] = {};         // +0x50
+    float sparkleTime[4] = {};        // +0x60
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        bg = GUI::GetWindowTypedF<Window>(w, "%s.chest_holder_bg", p);
+        activeBg = GUI::GetWindowTypedF<Window>(w, "%s.chest_holder_active_bg_mobile", p);
+        name1 = GUI::GetWindowTypedF<Textfield>(w, "%s.text_chest_name_01", p);
+        name2 = GUI::GetWindowTypedF<Textfield>(w, "%s.text_chest_name_02", p);
+        typeIcon = GUI::GetWindowTypedF<Window>(w, "%s.icon_chest_type", p);
+        typeIcon->takesZ = true;
+        char sub[0x100];
+        std::snprintf(sub, sizeof sub, "%s.chest_win_holder", p);
+        chest.LoadFrom(w, sub);
+        for (int i = 0; i != 4; ++i) {
+            sparkles[i] = GUI::GetWindowTypedF<Window>(w, "%s.sparkle_%02d", p, i + 1);
+            sparkles[i]->SetTexture(Resources::GetImage("images/Buildings/mk/bless/bless"), true, 0, 0, false, 0);
+        }
+        for (int i = 0; i != 4; ++i)
+            sparkleFrame[i] = (int)(Rand48::lrand48() % Resources::GetFrameCount("images/Buildings/mk/bless/bless"));
+        for (int i = 0; i != 4; ++i) sparkleTime[i] = (float)(Rand48::lrand48() % 100) / 10.f;
+    }
+};
+
+// @0x28ba00 ChestRewardLine (0x720 bytes): a scrolled line of eleven item cells and eleven object
+// icons (what the chest holds or gave), with its arrows and scroll bar.
+struct ChestRewardLine {
+    Window* root = nullptr;           // +0x000 "%s"
+    Shared::ItemHolder items[11];     // +0x004 slot_01..11.inventory_item_icon
+    Window* objects[11] = {};         // +0x5dc icon_object_01..11 (take a depth slot)
+    Window* arrowLeft = nullptr;      // +0x608 arrow_left
+    Window* arrowRight = nullptr;     // +0x60c arrow_right
+    int f610 = 0;                     // +0x610
+    Shared::ContentScroller scroller; // +0x614 (its windows are the cells' slots and the objects)
+    Window* scrollBarBg = nullptr;    // +0x68c scroll_bar_chests (the scroller's +0x78)
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        char sub[0x100];
+        for (int i = 0; i != 11; ++i) {
+            std::snprintf(sub, sizeof sub, "%s.slot_%02d.inventory_item_icon", p, i + 1);
+            items[i].LoadFrom(w, sub, false);
+        }
+        // The eleventh cell and object follow the tenth by the cells' spacing.
+        items[10].root->MoveWindow(items[1].root->x - items[0].root->x, 0);
+        for (int i = 0; i != 11; ++i) {
+            objects[i] = GUI::GetWindowTypedF<Window>(w, "%s.icon_object_%02d", p, i + 1);
+            objects[i]->takesZ = true;
+        }
+        objects[10]->MoveWindow(objects[1]->x - objects[0]->x, 0);
+        arrowLeft = GUI::GetWindowTypedF<Window>(w, "%s.arrow_left", p);
+        arrowRight = GUI::GetWindowTypedF<Window>(w, "%s.arrow_right", p);
+        f610 = 0;
+        scroller.Init();
+        Window* mask = GUI::GetWindowTypedF<Window>(w, "%s.mask_universal", p);
+        scroller.track = mask;
+        scroller.viewport = {mask->x, mask->y, mask->x + mask->w, mask->y + mask->h};
+        for (Shared::ItemHolder& it : items) {
+            it.root->SetClipRect(&scroller.viewport);
+            scroller.windows.push_back(it.root->parent);
+        }
+        for (Window* o : objects) {
+            o->SetClipRect(&scroller.viewport);
+            scroller.windows.push_back(o);
+        }
+        scrollBarBg = GUI::GetWindowTypedF<Window>(w, "%s.scroll_bar_chests", p);
+        scroller.scrollbar = GUI::GetWindowTypedF<Window>(w, "%s.scroll_bar_chests.scroll_bar_tiny", p);
+        scroller.scrollbar->SetTexture(Resources::GetDirectImage("images/scroll.png"), false, 0, 0, false, 0);
+        scroller.perLine = 1;
+        scroller.itemSize = items[1].root->x - items[0].root->x;
+        scroller.onScroll = UpdateContents;
+        scroller.unkA0 = 11;
+        scroller.horizontal = true;
+    }
+};
+
+// @0x28be40 ChestItemHolder (0x10a8 bytes): the selected chest's panel.
+struct ChestItemHolder {
+    Window* root = nullptr;           // +0x000 "%s"
+    Window* arrowed = nullptr;        // +0x004 arrowed_itemiser
+    Window* noArrowBg = nullptr;      // +0x008 sliced_crem_bg_no_arrow
+    Window* bg = nullptr;             // +0x00c sliced_crem_bg
+    Textfield* containLarge = nullptr;    // +0x010 text_contain_large
+    Textfield* noChest = nullptr;     // +0x014 text_no_chest_selected
+    Window* navLeft = nullptr;        // +0x018 button_navigate_left
+    Window* navRight = nullptr;       // +0x01c button_navigate_right
+    Window* ultiBg = nullptr;         // +0x020 bg_ulti_reward
+    Textfield* ultiLong = nullptr;    // +0x024 text_ulti_long
+    Textfield* name[5] = {};          // +0x028 item_class_holder_med.text_item_class_01..05
+    Textfield* contain = nullptr;     // +0x03c text_contain
+    Window* ultiBg2 = nullptr;        // +0x040 bg_ulti_reward (again)
+    Window* statIcon[2] = {};         // +0x044 info_stat_1_line.icon, info_stat_2_line.icon (take a depth slot)
+    Textfield* statText[2] = {};      // +0x04c info_stat_1_line.text_stat, info_stat_2_line.text_stat
+    Textfield* needToGet = nullptr;   // +0x054 text_need_to_get
+    ChestRewardLine line;             // +0x058 chest_reward_line
+    ChestFiveItems fiveItems;         // +0x778 chest_need_5_items
+    ChestFiveWarriors fiveWarriors;   // +0xa5c chest_need_5_troops
+    ChestFiveObjects fiveObjects;     // +0xee4 chest_need_5_objects
+    Shared::WarriorSlotInfo ultiWarrior;  // +0xf34 slot_ulti_warrior
+    uint32_t ultiEntity = 0;          // +0x1010
+    Shared::ItemHolder ultiItem;      // +0x1014 slot_ulti_item.inventory_item_icon
+    uint32_t ultiItemId = 0;          // +0x109c
+    Window* ultiStatue = nullptr;     // +0x10a0 icon_statue_ulti (takes a depth slot)
+    uint32_t ultiStatueId = 0;        // +0x10a4
+
+    void LoadFrom(Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
+        arrowed = GUI::GetWindowTypedF<Window>(w, "%s.arrowed_itemiser", p);
+        Window* left = GUI::GetWindowTypedF<Window>(w, "%s.arrowed_itemiser.sliced_crem_bg_left", p);
+        Window* right = GUI::GetWindowTypedF<Window>(w, "%s.arrowed_itemiser.sliced_crem_bg_right", p);
+        left->SetSize((unsigned)left->w, (unsigned)(left->h + 1));
+        right->SetSize((unsigned)right->w, (unsigned)(right->h + 1));
+        noArrowBg = GUI::GetWindowTypedF<Window>(w, "%s.sliced_crem_bg_no_arrow", p);
+        bg = GUI::GetWindowTypedF<Window>(w, "%s.sliced_crem_bg", p);
+        containLarge = GUI::GetWindowTypedF<Textfield>(w, "%s.text_contain_large", p);
+        noChest = GUI::GetWindowTypedF<Textfield>(w, "%s.text_no_chest_selected", p);
+        navLeft = GUI::GetWindowTypedF<Window>(w, "%s.button_navigate_left", p);
+        navRight = GUI::GetWindowTypedF<Window>(w, "%s.button_navigate_right", p);
+        ultiBg = GUI::GetWindowTypedF<Window>(w, "%s.bg_ulti_reward", p);
+        ultiLong = GUI::GetWindowTypedF<Textfield>(w, "%s.text_ulti_long", p);
+        for (int i = 0; i != 5; ++i)
+            name[i] = GUI::GetWindowTypedF<Textfield>(w, "%s.item_class_holder_med.text_item_class_%02d", p, i + 1);
+        contain = GUI::GetWindowTypedF<Textfield>(w, "%s.text_contain", p);
+        ultiBg2 = GUI::GetWindowTypedF<Window>(w, "%s.bg_ulti_reward", p);
+        for (int i = 0; i != 2; ++i) {
+            statIcon[i] = GUI::GetWindowTypedF<Window>(w, "%s.info_stat_%d_line.icon", p, i + 1);
+            statIcon[i]->takesZ = true;
+        }
+        for (int i = 0; i != 2; ++i)
+            statText[i] = GUI::GetWindowTypedF<Textfield>(w, "%s.info_stat_%d_line.text_stat", p, i + 1);
+        needToGet = GUI::GetWindowTypedF<Textfield>(w, "%s.text_need_to_get", p);
+        char sub[0x100];
+        std::snprintf(sub, sizeof sub, "%s.chest_reward_line", p);
+        line.LoadFrom(w, sub);
+        std::snprintf(sub, sizeof sub, "%s.chest_need_5_items", p);
+        fiveItems.LoadFrom(w, sub);
+        std::snprintf(sub, sizeof sub, "%s.chest_need_5_troops", p);
+        fiveWarriors.LoadFrom(w, sub);
+        std::snprintf(sub, sizeof sub, "%s.chest_need_5_objects", p);
+        fiveObjects.LoadFrom(w, sub);
+        std::snprintf(sub, sizeof sub, "%s.slot_ulti_warrior", p);
+        ultiWarrior.LoadFrom(w, sub);
+        ultiEntity = 0;
+        std::snprintf(sub, sizeof sub, "%s.slot_ulti_item.inventory_item_icon", p);
+        ultiItem.LoadFrom(w, sub, false);
+        ultiItemId = 0;
+        ultiStatue = GUI::GetWindowTypedF<Window>(w, "%s.icon_statue_ulti", p);
+        ultiStatueId = 0;
+        ultiStatue->takesZ = true;
+    }
+};
+
+// A chest's result (0x20 bytes): what it gave, a resource or an item (AddRewardItem).
+struct RewardItemInfo {
+    uint32_t type = 0xb;              // +0x00 GameState::ResourceType, 0xb an item
+    uint32_t chest = 0;               // +0x04
+    uint32_t item = 0;                // +0x08
+    uint32_t decoration = 0;          // +0x0c
+    int amount = 1;                   // +0x10
+    uint32_t f14 = 0, f18 = 0, f1c = 0;
+};
+
+// The store's chests in the selectors' order (0x592b8c) and the settings naming their prizes'
+// sets (0x6016f0: five ids, then the prize "id|amount").
+const uint32_t kChests[4] = {0x1b, 0x1c, 0x1d, 0x1e};
+const char* const kPrizeSettings[4] = {"architect_chest", "warrior_chest", "hunter_chest", "collector_chest"};
+const char* const kSparkle = "images/Buildings/mk/bless/bless";
+
+WindowManager::FunctionalWindow* g_queue = nullptr;   // ChestsWindow::wnd 0x61c1d4
+Window* g_root = nullptr;             // 0x61ad14
+GUI::TweenEffect* g_tween = nullptr;  // 0x61ad18
+ChestItemHolder g_items;              // 0x61ad1c chests_items_holder
+bool g_blockClicks = false;           // 0x61bdc4
+LuckHolder g_luck;                    // 0x61bdc8 luck_holder
+ItemHoverWindow* g_hover = nullptr;   // 0x61be00
+std::vector<RewardItemInfo> g_rewards;    // 0x61be04 the result shown (sgl::vector, one inline)
+bool g_collecting = false;            // 0x61be30 a result waits to be collected
+bool g_starterMode = false;           // 0x61be31
+bool g_starterFlag = false;           // 0x61be32 SetStarterChestMode's first argument
+uint32_t g_starterChest = 0;          // 0x61be34
+bool g_be38 = false;                  // 0x61be38 (blocks the clicks)
+bool g_ultimatePending = false;       // 0x61be39 the ultimate prize shows 2 s after it is won
+ChestSelectorHolder g_selectors[4];   // 0x61be3c chest_selector_holder_01..04
+ChestOpenPile g_pile;                 // 0x61bffc chest_open_pile
+Window* g_chains[8] = {};             // 0x61c030 chain_01..08
+std::vector<RewardItemInfo> g_pending;    // 0x61c050 a result not shown yet (AddRewardItem)
+Window* g_close = nullptr;            // 0x61c07c x_button
+Textfield* g_title = nullptr;         // 0x61c080 text_title
+Window* g_chainBorder = nullptr;      // 0x61c084 chain_border_holder_chests
+Window* g_darkBg = nullptr;           // 0x61c088 sliced_dark_bg
+Window* g_luxBg = nullptr;            // 0x61c08c sliced_lux_bg
+Window* g_back = nullptr;             // 0x61c090 back_simple
+Window* g_separator = nullptr;        // 0x61c094 sepparator_chests
+ChestExpireHolder g_expire;           // 0x61c098 chest_expire_holder
+Shared::ButtonRaidStart g_previewButton;  // 0x61c0ac button_raid_start_02
+Shared::ButtonRaidStart g_openButton;     // 0x61c0f0 button_raid_start
+Shared::ButtonRaidStart g_rerollButton;   // 0x61c134 button_raid_start_04
+Shared::ButtonRaidStart g_collectButton;  // 0x61c178 button_raid_start_centre
+bool g_preview = false;               // 0x61c1bc the contents preview
+int g_background = 0;                 // 0x61c1c0 0..3 (OnLeft / OnRight; Show: random)
+float g_ultimateTime = 0.f;           // 0x61c1c4
+int g_lastSecond = 0;                 // 0x61c1c8 the contents follow the clock once a second
+float g_pulse = 0.f;                  // 0x61c1cc the selectors' highlight, one after the other
+float g_time = 0.f;                   // 0x61c1d0
+uint32_t g_loadingChest = 0xffffffff; // 0x60f1b8
+int g_selected = -1;                  // 0x60f1bc the selector chosen (-1: none)
+bool g_tablet = false;                // 0x60f1c0
+float g_rootScale = 1.f;              // 0x60f1c4
+
+// STUBS (5p-5): the actions.
+void OnLuckHolder() {}
+void OnUltimateItem() {}
+void OnRequiredItem(unsigned) {}
+void OnRewardItem(unsigned) {}
+void OnOpen() {}
+void OnReroll() {}
+void OnCollect() {}
+
+// @0x289aa8
+void OnTweenOut() {
+    WindowManager::WindowHide(false);
+    g_queue->shown = false;
+    g_queue->MoveWindowDown(true);
+    GameState::DropGamePauseState();
+}
+
+// @0x294208: the starter chest opens with a sound.
+void OnTweenIn() {
+    // UNVERIFIED (milestone 6): with g_starterMode SoundsManager::PlaySound("chest_opened", 1, false).
+    UpdateContents();
+}
+
+// @0x28987c / @0x2898b0: the reward line scrolls by a cell.
+void OnLeftReward() { g_items.line.scroller.bounce += (float)g_items.line.scroller.itemSize; }
+void OnRightReward() { g_items.line.scroller.bounce -= (float)g_items.line.scroller.itemSize; }
+
+// @0x294244: the contents preview on or off (the reward line back at its start).
+void OnTogglePreview() {
+    g_preview = !g_preview;
+    g_items.line.scroller.HandleMove(-g_items.line.scroller.offset);
+    g_items.line.scroller.firstIndex = 0;
+    g_items.line.scroller.offset = 0;
+    UpdateContents();
+}
+
+// @0x294294
+void OnChest(unsigned index) {
+    g_selected = (int)index;
+    UpdateContents();
+}
+
+// @0x2942a8 / @0x2942cc: the background cycles through four.
+void OnRight() {
+    g_background = g_background == 3 ? 0 : g_background + 1;
+    UpdateContents();
+}
+void OnLeft() {
+    g_background = g_background == 0 ? 3 : g_background - 1;
+    UpdateContents();
+}
+
+// @0x28a5f8: the item card closes first; a result waiting to be collected keeps the window.
+bool OnBack() {
+    if (!g_queue->shown) return false;
+    if (g_blockClicks) return true;
+    if (g_hover->shownHover) {
+        g_hover->Hide();
+        return true;
+    }
+    if (!g_collecting) Hide();
+    return true;
+}
+
+// @0x2897f0
+void SetZ(float z) {
+    if (IsVisible()) g_root->SetZ(z);
+    g_root->SetPosition(g_tween->GetCenteredX(), g_tween->GetCenteredY());
+}
+
+// @0x28add8
+void Move(int x, int y) { g_items.line.scroller.Move(x, y); }
+
+// @0x28adf8: the reward line's drag, then the item card, then the window.
+bool Click(int x, int y, bool pressed) {
+    if (g_blockClicks || g_be38 || g_ultimatePending) return true;
+    if (g_root->visibleSelf && g_items.line.scroller.Click(x, y, pressed, g_root)) return true;
+    if (g_hover->Click(x, y, pressed)) return true;
+    const bool visible = g_root->visibleSelf;
+    g_root->Click(x, y, pressed, false);
+    return visible;
+}
+
+// @0x2898e4
+float ZRange() { return g_queue->shown ? 0.077f : 0.001f; }
+
+// @0x28aef4
+void Deinit() {
+    GUI::RemoveTweenEffect(g_tween);
+    g_tween = nullptr;
+    delete g_root;
+    g_root = nullptr;
+    delete g_hover;
+    g_hover = nullptr;
+}
+
+// @0x2946b8: the selectors' highlight runs down the list while none is chosen; the item card stays
+// in front; a result (g_pending) moves into the reward line; the reward line scrolls and the
+// sparkles turn; the ultimate prize is shown two seconds after it was won; once a second the
+// contents are brought up to date.
+void Update(float dt) {
+    g_time += dt;
+    if (g_queue->shown && g_selected == -1) {
+        g_pulse += dt;
+        for (int i = 0; i != 4; ++i) {
+            Window* bg = g_selectors[i].activeBg;
+            bg->SetVisibility(true);
+            const int which = (int)g_pulse;
+            const double c = std::cos((double)std::fmod(g_pulse, 1.f) * 3.141592653589793);
+            if (g_pulse > 5.f) g_pulse = 0.f;
+            float alpha = 0.f;
+            if (which == i) alpha = 1.f - std::fabs((float)c);
+            bg->SetAlpha(alpha, false);
+        }
+    }
+    if (g_hover->shownHover && g_hover->GetZ() != 0.001f) {
+        g_hover->SetZ(0.001f);
+        Render::SortRenderLayer(0xe, 1);
+    }
+    // (!GameState::IsDailyChestRequestProcessing(): always so offline.)
+    if (!g_pending.empty()) {
+        if (!g_queue->shown) Show();
+        int found = -1;
+        for (int i = 0; i != 4; ++i)
+            if (kChests[i] == GameState::GetProcessedChest()) found = i;
+        if (found == -1) {
+            std::fprintf(stderr, "ERROR: ChestsWindow::OnChestBought() Chest %d is not from the known list\n",
+                         GameState::GetProcessedChest());   // ErrorReporter::Printf
+            g_pending.clear();
+            return;
+        }
+        // (LoadingInternetWindow::Hide when shown: online.)
+        if (CharacterInfoWindow::IsVisible()) CharacterInfoWindow::Hide();
+        g_rewards = g_pending;
+        g_collecting = true;
+        g_pending.clear();
+        g_selected = found;
+        g_preview = false;
+        g_items.line.scroller.HandleMove(-g_items.line.scroller.offset);
+        g_items.line.scroller.firstIndex = 0;
+        g_items.line.scroller.offset = 0;
+        g_items.line.scroller.velocity = 0.f;
+        UpdateContents();
+    }
+    // (A failed daily chest request's popup, "FB_ONLINE_NOTICE": online.)
+    if (g_queue->shown) {
+        Shared::ContentScroller& sc = g_items.line.scroller;
+        sc.Update(dt);
+        g_items.line.arrowLeft->SetEnabled(sc.CanMoveLeft());
+        g_items.line.arrowRight->SetEnabled(sc.CanMoveRight());
+        for (ChestSelectorHolder& s : g_selectors) {
+            for (int j = 0; j != 4; ++j) {
+                const int frames = Resources::GetFrameCount(kSparkle);
+                Render::Sprite* sprite = frames ? s.sparkles[j]->sprite : nullptr;
+                if (!sprite) continue;
+                s.sparkleTime[j] += dt;
+                int frame = s.sparkleFrame[j];
+                while (s.sparkleTime[j] > 0.2f) {
+                    s.sparkleTime[j] -= 0.2f;
+                    s.sparkleFrame[j] = ++frame;
+                    if (frames <= frame) s.sparkleFrame[j] = frame = 0;
+                }
+                Render::Texture* tex = sprite->tex;
+                Render::SetFrame(sprite, (float)(tex->h / frames), (float)tex->w, frame);
+                Render::SetMagnifyFilter(sprite->tex, true);
+                sprite->w *= g_rootScale;
+                sprite->h *= g_rootScale;
+            }
+        }
+    }
+    g_ultimateTime += dt;
+    if (g_ultimatePending && g_ultimateTime > 2.f) {
+        g_ultimatePending = false;
+        FoundItemsWindow::ClearCollected();
+        FoundItemsWindow::SetHeader(StringTable::GetString("CAMPAIGN_INFO_FOUND"));
+        // The set's five are counted again from zero; the prize ("id|amount") is collected.
+        Setting set(kPrizeSettings[g_selected]);
+        if (g_selected == 0) {
+            for (unsigned i = 0; i != 5; ++i) GameState::SetChestBuildingReceivedCount((uint32_t)set.GetChild(i).GetInt(), 0);
+            FoundItemsWindow::AddCollectedItem((uint32_t)set.GetChild(5).GetChild(0).GetInt() + 0x8000,
+                                               set.GetChild(5).GetChild(1).GetInt());
+        } else if (g_selected == 2) {
+            for (unsigned i = 0; i != 5; ++i) {
+                Items::ItemInfo* info = Items::GetItemInfo((uint32_t)set.GetChild(i).GetInt());
+                const MetaData* d = info && info->meta ? info->meta->FindChildData(0x27) : nullptr;
+                if (!d) continue;
+                if (EntityData* e = EntityFactory::GetEntityByID(d->GetInt())) GameState::SetChestEntityReceivedCount(e->id, 0);
+            }
+            FoundItemsWindow::AddCollectedItem((uint32_t)set.GetChild(5).GetChild(0).GetInt(),
+                                               set.GetChild(5).GetChild(1).GetInt());
+        } else {
+            for (unsigned i = 0; i != 5; ++i) GameState::SetChestItemReceivedCount((uint32_t)set.GetChild(i).GetInt(), 0);
+            FoundItemsWindow::AddCollectedItem((uint32_t)set.GetChild(5).GetChild(0).GetInt(),
+                                               set.GetChild(5).GetChild(1).GetInt());
+        }
+        ChestOpenedWindow::SetName(StringTable::GetString("CHESTS_ULTIMATE_PRIZE"));
+        ChestOpenedWindow::Show();
+        Hide();
+    }
+    if (Timer::GetGlobalTime() != g_lastSecond) {
+        g_lastSecond = Timer::GetGlobalTime();
+        if (g_queue->shown) UpdateContents();
+    }
+}
+
+}  // namespace
+
+// STUB (5p-4): the contents.
+void UpdateContents() {}
+
+WindowManager::FunctionalWindow* Queue() {
+    if (!g_queue) {
+        WindowManager::FunctionalWindow::Functions f;
+        f.init = Init;
+        f.deinit = Deinit;
+        f.click = Click;
+        f.move = Move;
+        f.setZ = SetZ;
+        f.hide = Hide;
+        g_queue = new WindowManager::FunctionalWindow("ChestsWindow", std::move(f));
+    }
+    return g_queue;
+}
+
+bool IsVisible() { return g_queue->shown; }              // @0x2897dc
+void BlockClicks(bool block) { g_blockClicks = block; }  // @0x289914
+
+// @0x2942f0
+void SetChest(unsigned index) {
+    g_selected = (int)index;
+    UpdateContents();
+}
+
+// @0x294304: the starter chest (chest), with its preview on.
+void SetStarterChestMode(bool flag, uint32_t chest) {
+    g_preview = true;
+    g_starterChest = chest;
+    g_starterFlag = flag;
+    g_starterMode = true;
+    UpdateContents();
+}
+
+// @0x289a30: the waiting picture of a chest being fetched. PORT (online): LoadingInternetWindow
+// (its SetParameters with the chest item's drop icon and "WEBVIEW_LOADING", Show) is not ported.
+void StartLoading() {
+    Items::ItemInfo* info = Items::GetItemInfo(Chests::GetItemForChest(g_loadingChest));
+    if (!info) return;
+    g_loadingChest = 0xffffffff;
+}
+
+// @0x28a5d4
+void Hide() {
+    if (!g_root->visibleSelf) return;
+    g_tween->AnimateOut();
+}
+
+// @0x29459c: no chest chosen, the background at random.
+void Show() {
+    g_queue->shown = true;
+    g_queue->MoveWindowOnTop(true);
+    if (!g_root->visibleSelf) {
+        WindowManager::WindowShow(false);
+        g_tween->AnimateIn();
+        GameState::RaiseGamePauseState();
+        g_pulse = 0.f;
+    }
+    g_root->SetVisibility(true);
+    g_starterMode = false;
+    g_selected = -1;
+    g_blockClicks = false;
+    g_preview = false;
+    g_collecting = false;
+    g_background = (int)(Rand48::lrand48() % 4);
+    UpdateContents();
+    g_root->PreloadTextures();   // GUI::PreloadWindow
+}
+
+// @0x28c4fc
+void Init() {
+    g_tablet = GUI::IsTabletVersion();
+    g_root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Window_chests.xml", "Window_chests.png", -1.f, 0, 0, 0, 0,
+                             false, 1.f);
+    g_queue->RegisterTopWindow(g_root);
+    g_rootScale = g_root->scale;
+    g_root->SetVisibility(false);
+    g_tween = GUI::CreateTweenEffect(g_root, nullptr, OnTweenIn, OnTweenOut);
+    g_close = GUI::GetWindowTyped<Window>(g_root, "x_button");
+    g_close->SetOnClick(Hide);
+    g_close->SetActionSound("ui_close", 1);
+    g_title = GUI::GetWindowTyped<Textfield>(g_root, "text_title");
+    g_chainBorder = GUI::GetWindowTyped<Window>(g_root, "chain_border_holder_chests");
+    g_chainBorder->unk5f = true;   // +0x5f (Update9Slices skips the centre slice)
+    g_darkBg = GUI::GetWindowTyped<Window>(g_root, "sliced_dark_bg");
+    g_darkBg->unk5f = true;
+    g_luxBg = GUI::GetWindowTyped<Window>(g_root, "sliced_lux_bg");
+    g_back = GUI::GetWindowTyped<Window>(g_root, "back_simple");
+    g_separator = GUI::GetWindowTyped<Window>(g_root, "sepparator_chests");
+    for (int i = 0; i != 4; ++i) {
+        char name[0x40];
+        std::snprintf(name, sizeof name, "chest_selector_holder_%02d", i + 1);
+        g_selectors[i].LoadFrom(g_root, name);
+        g_selectors[i].root->SetOnClick([i] { OnChest((unsigned)i); });
+        g_selectors[i].typeIcon->MoveWindow(1, 0);
+    }
+    // (As the original: the last selector's type icon is moved once more.)
+    g_selectors[3].typeIcon->MoveWindow(1, 0);
+    g_pile.LoadFrom(g_root, "chest_open_pile");
+    g_luck.LoadFrom(g_root, "luck_holder");
+    g_luck.root->SetOnClick(OnLuckHolder);
+    g_items.LoadFrom(g_root, "chests_items_holder");
+    g_items.navLeft->SetOnClick(OnLeft);
+    g_items.navRight->SetOnClick(OnRight);
+    for (int i = 0; i != 11; ++i) g_items.line.objects[i]->SetOnClick([i] { OnRewardItem((unsigned)i); });
+    for (int i = 0; i != 11; ++i) g_items.line.items[i].root->SetOnClick([i] { OnRewardItem((unsigned)i); });
+    for (int i = 0; i != 5; ++i) g_items.fiveItems.items[i].root->SetOnClick([i] { OnRequiredItem((unsigned)i); });
+    for (int i = 0; i != 5; ++i) g_items.fiveObjects.icons[i]->SetOnClick([i] { OnRequiredItem((unsigned)i); });
+    for (int i = 0; i != 5; ++i) g_items.fiveWarriors.slots[i].root->SetOnClick([i] { OnRequiredItem((unsigned)i); });
+    g_items.ultiItem.root->SetOnClick(OnUltimateItem);
+    g_items.ultiStatue->SetOnClick(OnUltimateItem);
+    g_items.ultiWarrior.root->SetOnClick(OnUltimateItem);
+    g_items.ultiBg2->SetOnClick(OnUltimateItem);
+    g_items.line.arrowLeft->SetOnClick(OnLeftReward);
+    g_items.line.arrowRight->SetOnClick(OnRightReward);
+    g_expire.LoadFrom(g_root, "chest_expire_holder");
+    for (int i = 0; i != 8; ++i) g_chains[i] = GUI::GetWindowTypedF<Window>(g_root, "chain_%02d", i + 1);
+    g_previewButton.LoadFrom(g_root, "button_raid_start_02");
+    g_previewButton.root->SetOnClick(OnTogglePreview);
+    g_openButton.LoadFrom(g_root, "button_raid_start");
+    g_openButton.root->SetOnClick(OnOpen);
+    g_rerollButton.LoadFrom(g_root, "button_raid_start_04");
+    g_rerollButton.root->SetOnClick(OnReroll);
+    g_collectButton.LoadFrom(g_root, "button_raid_start_centre");
+    g_collectButton.root->SetOnClick(OnCollect);
+    g_queue->hideOnOuterClick = true;
+    g_queue->fn.zRange = ZRange;
+    g_queue->fn.update = Update;
+    g_queue->fn.back = OnBack;
+    g_queue->fn.show = Show;
+    g_hover = new ItemHoverWindow();
+}
+
+}  // namespace ChestsWindow

@@ -177,6 +177,20 @@ void Hide();                                // @0x2e77f8
 bool IsVisible();                           // @0x2e73b4
 }
 
+// The chests window (windows/ChestsWindow.cpp).
+namespace ChestsWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChestsWindow"
+void Init();                                // @0x28c4fc
+void Show();                                // @0x29459c
+void Hide();                                // @0x28a5d4
+bool IsVisible();                           // @0x2897dc
+void UpdateContents();                      // the contents (a stub until 5p-4)
+void BlockClicks(bool block);               // @0x289914
+void SetChest(unsigned index);              // @0x2942f0 the selector chosen
+void SetStarterChestMode(bool flag, uint32_t chest);   // @0x294304
+void StartLoading();                        // @0x289a30
+}
+
 // "<chest> opened": the loot of a chest (windows/ChestOpenedWindow.cpp).
 namespace ChestOpenedWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChestOpenedWindow"
