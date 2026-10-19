@@ -414,15 +414,17 @@ void KeyDown(int scancode) {
     }
     if (scancode == SDL_SCANCODE_AC_BACK || scancode == SDL_SCANCODE_Y) {
         // Not taken by a window (and no death animation or camera move): an open
-        // popup closes, else the exit question. UNVERIFIED (milestone 5): CampaignComplete,
-        // CampaignPerfected and BossOutro windows (not ported) also block the question.
+        // popup closes, else the exit question. UNVERIFIED (milestone 5i): BossOutroWindow also
+        // blocks the question.
         if (WindowManager::ProcessBack() || Entity::IsDeathAnimationRunning() || Map::IsCameraMoving()) return;
         if (!GUI::IsAnyAnimationActive() && !GUI::CanInteractWith(nullptr) && PopupWindow::IsVisible()) {
             PopupWindow::Hide();
             return;
         }
         if (GUI::IsAnyAnimationActive()) return;
-        if (RaidCompleteWindow::IsVisible()) return;
+        if (RaidCompleteWindow::IsVisible() || CampaignCompleteWindow::IsVisible() ||
+            CampaignPerfectedWindow::IsVisible())
+            return;
         PopupWindow::Show(StringTable::GetString("MOBILE_EXIT_CONFIRM"), ExitWithSendSave, PopupWindow::Hide,
                           nullptr);
     }
@@ -726,7 +728,9 @@ int main_Loop_Init() {
     BottomCityWindow::Queue();
     BottomFarmWindow::Queue();
     BuildingHovers::Queue();
+    CampaignCompleteWindow::Queue();
     CampaignInfoWindow::Queue();
+    CampaignPerfectedWindow::Queue();
     CastleTopWindow::Queue();
     ChapterWindow::Queue();
     ChoosePathWindow::Queue();
@@ -957,8 +961,8 @@ int main_Exit_Func() {
     gameLoaded = false;
     GameState::EndActiveCombat(true);
     RaidCompleteWindow::ForceHide();
-    // UNVERIFIED (their milestones): CampaignPerfectedWindow::ForceHide (5h), SpellMovement's
-    // Decline and Deinit (5).
+    CampaignPerfectedWindow::ForceHide();
+    // UNVERIFIED (milestone 5): SpellMovement's Decline and Deinit.
     TaskCompleteWindow::Hide();
     BuildingHovers::CollectAll();
     BuildingMovement::Decline();

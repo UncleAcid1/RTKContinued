@@ -2,8 +2,7 @@
 // and the missions' side nodes over a scrolling parchment; the hero's marker travels between them.
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
-// UNVERIFIED (milestone 5): the windows its nodes open (SultanArrivingWindow, CampaignCompleteWindow,
-// CampaignPerfectedWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
+// UNVERIFIED (milestone 5): the windows its nodes open (SultanArrivingWindow, PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
 // Sounds and music: milestone 6 (each call site is noted).
@@ -248,7 +247,8 @@ void Location::ShowCompletionWindow() {
     if (4 < crystals) crystals = 5;
     std::printf("Adding %d crystals for completing the campaign\n", crystals);
     GameState::AddCrystals(crystals);
-    // UNVERIFIED (milestone 5): CampaignCompleteWindow::SetParameters(info->id) and Show.
+    CampaignCompleteWindow::SetParameters(info->id);
+    CampaignCompleteWindow::Show();
 }
 
 void Location::GetMarkerLocation(int& x, int& y) {
@@ -646,7 +646,8 @@ void CoreLocation::ShowCompletionWindow() {
         if (4 < crystals) crystals = 5;
         std::printf("Adding %d crystals for completing the campaign\n", crystals);
         GameState::AddCrystals(crystals);
-        // UNVERIFIED (milestone 5): CampaignCompleteWindow::SetParameters(info->id) and Show.
+        CampaignCompleteWindow::SetParameters(info->id);
+        CampaignCompleteWindow::Show();
     } else {
         RaidCompleteWindow::SetParameters(info->id);
         RaidCompleteWindow::Show();
@@ -1045,7 +1046,8 @@ void OnTaskCompleted(uint32_t task) {
             std::printf("Adding %d crystals for 100%% completion of campaign %d\n", crystals, (int)i->id);
             GameState::AddCrystals(crystals);
             // (SoundsManager "ui_100_percents": milestone 6)
-            // UNVERIFIED (milestone 5): CampaignPerfectedWindow::SetParameters(i->id, t) and Show.
+            CampaignPerfectedWindow::SetParameters(i->id, t);
+            CampaignPerfectedWindow::Show();
         }
     }
 }

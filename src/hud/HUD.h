@@ -183,6 +183,7 @@ void HideQuickTaskDescription();
 
 namespace CastleTopWindow {
 inline void HideTools() {}         // @0x2769cc (empty in 5.11)
+void BlinkCompass();               // @0x276c50 the compass blinks until the map changes
 void OnFindPlayer();               // @0x2772e8
 }
 

@@ -62,7 +62,7 @@ Textfield* g_friendsNotifyText = nullptr;
 Window* g_giNotify = nullptr;
 Textfield* g_giNotifyText = nullptr;
 bool g_campaignToCityDirect = false;   // 0x61922c Setting "campaign_to_city_direct" == 1
-int g_blinkMap = 0;                    // 0x619214 BlinkCompass's map (milestone 5: nothing sets it)
+int g_blinkMap = 0;                    // 0x619214 BlinkCompass's map
 int g_arrowCallback = 0;               // 0x61921c the id of the tutorial arrow's callback
 unsigned g_shownWindows = 0;           // 0x619220 the fewest windows shown since the arrow went up
 int g_friendRequests = 0;              // 0x61924c (online: always 0)
@@ -171,6 +171,9 @@ void OnReturn() {
     }
     if (choosePath) ChoosePathWindow::Show();
 }
+
+// @0x276c50
+void BlinkCompass() { g_blinkMap = (int)GameState::GetCurrentMapID(); }
 
 // @0x2772e8 (the HUD's player locator): the camera glides to the hero in a fight, else to the castle.
 void OnFindPlayer() {

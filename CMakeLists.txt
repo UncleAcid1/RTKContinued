@@ -92,7 +92,9 @@ add_executable(rtk
   src/windows/ExchangeWindow.cpp
   src/windows/FoundItemsWindow.cpp
   src/windows/ChapterWindow.cpp
+  src/windows/CampaignCompleteWindow.cpp
   src/windows/CampaignInfoWindow.cpp
+  src/windows/CampaignPerfectedWindow.cpp
   src/windows/ChoosePathWindow.cpp
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp

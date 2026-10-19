@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5h (CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow). (5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5h-2 (LoadingScreenWindow, SultanArrivingWindow). (5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -1887,6 +1887,31 @@ Milestones:
                    closes it. Not played: a real mission's end (its end tasks) and quitting while
                    the banner is up.
        5h [ ] CampaignCompleteWindow, CampaignPerfectedWindow, LoadingScreenWindow, SultanArrivingWindow.
+              SPLIT (2026-10-18, about 56 functions):
+              5h-1 [x] (2026-10-18) windows/CampaignCompleteWindow.cpp (Endscreen_campaign_end.xml)
+                   and windows/CampaignPerfectedWindow.cpp (Endscreen_campaign_100_percent.xml),
+                   RaidCompleteWindow's siblings: banner over the 37% black band, cheering squad,
+                   loot strip. Complete: "CAMPAIGN_YOU_FOUND" (the campaign's finds after the
+                   "campaign_complete_cb" crystals), "<name> completed" in text_01 / text_02; Hide
+                   leaves the queue at once, location 0xb enqueues ChoosePathWindow's show-on-load;
+                   the slide-out shows the world map and SwitchMapAnimated(0) home (Show's code
+                   0x272460..0x272770, Ghidra's bogus _INIT_70 cuts it). Perfected: SetParameters
+                   (location, 100% task) sets the task's no_complete / do_not_show_reward; the strip
+                   is the task's reward (TASK_COMPLETE_DESC, "campaign_complete_full_cb" crystals
+                   first), "CAMPAIGN_PERFECTED" / "CAMPAIGN_PROGRESS" / "100%"; Hide blinks the
+                   compass (CastleTopWindow::BlinkCompass now ported); the slide-out completes the
+                   task with its reward dropped; ForceHide on exit. Wired: Location / CoreLocation::
+                   ShowCompletionWindow, OnTaskCompleted's 100% branch, FoundItemsWindow::OnClose,
+                   HUD darkening, the back key, main_Exit_Func. PORT (online): QueueSendSave.
+                   UNVERIFIED: the sound (6); ForceHide in the reload paths (not ported yet).
+                   VERIFIED (the 5d-2 save; new test aids RTK_CAMPEND=n / RTK_CAMPPERF=n open the
+                   n-th campaign's window, RTK_GOMAP=m switches to map m at frame 30, RTK_AT=f
+                   opens the windows at frame f): "Campaign Complete!", "During this campaign you
+                   found: 1 crystal"; from map 14 (RTK_GOMAP=14 RTK_AT=200) Ok -> world map, travel
+                   home, "Select a path!" after the city loads (from the city itself the same-map
+                   switch only hides the world map: faithful). "Ultimate Completion!", "Progress:
+                   100%", the reward strip; Ok -> "Done task 1056", crystals 6 -> 12, LevelUpWindow.
+              5h-2 [ ] LoadingScreenWindow, SultanArrivingWindow.
        Fights:
        5i [ ] bosses: BossCombat, BossCombatWaves, BossOutroWindow, BossTimeHoverWindow, BossIntroEffect,
               FastBossIntroEffect, BossIntroWindow::SetReputation.

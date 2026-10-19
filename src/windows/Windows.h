@@ -473,6 +473,27 @@ void Hide();                                // @0x32fe84
 bool IsVisible();                           // @0x32f1f4
 }
 
+// "Campaign complete!" at a campaign's end (windows/CampaignCompleteWindow.cpp).
+namespace CampaignCompleteWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CampaignCompleteWindow"
+void Init();                                // @0x2728c4
+void SetParameters(uint32_t location);      // @0x271dc8 the campaign (location id)
+void Show();                                // @0x272460
+void Hide();                                // @0x272770
+bool IsVisible();                           // @0x271db4
+}
+
+// "Campaign perfected!" when every quest of a campaign is done (windows/CampaignPerfectedWindow.cpp).
+namespace CampaignPerfectedWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CampaignPerfectedWindow"
+void Init();                                // @0x276694
+void SetParameters(uint32_t location, Tasks::TaskInfo* task);   // @0x275ac4 the campaign, its 100% task
+void Show();                                // @0x27622c
+void Hide();                                // @0x27653c
+void ForceHide();                           // @0x2761c4 closed at once, the task completed
+bool IsVisible();                           // @0x275ab0
+}
+
 // "Raid complete!" at a mission's end (windows/RaidCompleteWindow.cpp).
 namespace RaidCompleteWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "RaidCompleteWindow"
