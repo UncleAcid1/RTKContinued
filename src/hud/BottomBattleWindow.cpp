@@ -31,11 +31,13 @@
 #include "game/MetaExpression.h"
 #include "game/Rand48.h"
 #include "game/SoldierSlots.h"
+#include "game/Spells.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
+#include "windows/Windows.h"
 
 namespace BottomBattleWindow {
 namespace {
@@ -175,6 +177,13 @@ unsigned g_selected = (unsigned)-1;    // 0x60f100 the stance: 0 attack, 1 block
 bool g_enabled = false;                // 0x60f104 SetEnabled's last state
 int g_offsetX = 0;                     // 0x60f10c
 int g_spell = -1;                      // 0x60f110 (the spells': milestone 5)
+int g_castSlot = 0;                    // 0x60f108 the rage button cast last: 1..3
+// The spell flying from its rage button to the target (OnAutoCast starts it, Update 5j-3c moves it).
+int g_flyX = 0, g_flyY = 0;            // 0x6183f8 0x6183fc where the marker starts: over the button
+Render::Sprite* g_flySprite = nullptr; // 0x618400 the spell's marker image
+bool g_flying = false;                 // 0x618404
+float g_flyT = 0.f;                    // 0x618408 its flight, 0..1
+int g_flyToX = 0, g_flyToY = 0;        // 0x61840c 0x618410 the target's place
 bool g_tablet = false;                 // 0x60f118
 float g_scale = 1.f;                   // 0x60f11c
 
@@ -507,6 +516,121 @@ void OnManaBar() {
     OnShowManaPotion((unsigned)-1);
 }
 
+// The hint over rage button i: its text rises from the button (style 0xe).
+void ShowSlotHint(unsigned i, const char32_t* text) {
+    const Window* b = g_rage[i].root;
+    int x = g_root->x + b->x + b->w / 2, y = g_root->y + b->y;
+    Map::MouseCoordinatesToWorld(x, y);
+    BuildingHovers::ShowTextHoverWithStyle((float)x, (float)y, text, 0xe, 2.f, 50.f, true, false);
+}
+
+// The slot's spell can be cast (its background is not the "inactive" one): in the arenas it is
+// aimed with SpellMovement at a random opponent, else it flies to the opponent the hero faces.
+bool CastSlot(unsigned i) {
+    BaseCombat* combat = GameState::GetActiveCombat();
+    if (!combat) {
+        ShowSlotHint(i, StringTable::GetString("SPELL_NO_TARGET"));
+        return false;
+    }
+    if (combat->GetState() == 0x11) return true;
+    BaseSquad* enemy = combat->GetEnemySquad();
+    if (!enemy) return false;
+    Entity* player = EntityManager::GetPlayer();
+    int type = combat->GetType();
+    if (type == 5 || type == 6) {
+        if (!combat->CanSpellCastNow()) return true;
+        Spells::SpellInfo* spell = Spells::GetBestSpellForSlot(i + 1, (uint32_t)player->GetAP(), true);
+        if (!spell) return false;
+        Entity* target = enemy->GetRandomAliveSolider();
+        enemy->SetActiveSoldier(target);
+        // UNVERIFIED (milestone 5, 5k): SpellMovement::Activate(spell, target's tile); (milestone 6:
+        // SoundsManager "ui_swing_in", ParticlePresets::SpellPreload(spell id, 0)).
+        return true;
+    }
+    Entity* target = enemy->GetActiveSoldier();
+    if (!target) return false;
+    if (!target->IsEnemy() || target->IsDead() || target->IsDying()) return true;
+    if (!combat->CanSpellCastNow()) return true;
+    Spells::SpellInfo* spell = Spells::GetBestSpellForSlot(i + 1, (uint32_t)player->GetAP(), true);
+    if (!spell) return false;
+    // The marker starts on the button, centred on it horizontally.
+    const Render::Texture* marker = spell->marker;
+    g_flyX = g_root->x + g_rage[i].root->x - marker->w / 2;
+    g_castSlot = (int)i + 1;
+    g_flyY = g_root->y + g_rage[i].root->y + marker->h / 2;
+    if (!g_flySprite) {
+        g_flySprite = Render::CreateSprite(spell->marker, 0xd, false, false);
+        g_flySprite->screenSpace = true;
+        Render::SetShaderType(g_flySprite, 1);
+        Render::SetPosition(g_flySprite, (float)g_flyX, (float)g_flyY, 0.001f);
+        g_flySprite->w *= GUI::GetHoverScaleFactor(1.f, 1.f);
+        g_flySprite->h *= GUI::GetHoverScaleFactor(1.f, 1.f);
+    }
+    g_flyT = 0.f;
+    g_flying = true;
+    g_flyToX = (int)target->worldX;
+    g_flyToY = (int)(target->worldY - 20.f);
+    player->OnSpellCast(target);
+    // (milestone 6: SoundsManager "spell_fly"; ParticlePresets::SpellPreload(spell id, 0). Online,
+    // dormant: OG::MakeRequest(0x14, 0x10, spell id, -1, 0).)
+    return true;
+}
+
+// The slot is locked: its hint says what unlocks the spell: the level, or the quest (the first of
+// a chain that is not yet open: its window opens, else its name shows). The original asks for
+// slot i, not i + 1, here.
+void ShowLockedHint(unsigned i) {
+    Spells::SpellInfo* spell = Spells::GetBestSpellForSlot(i, 300, false);
+    if (!spell) return;
+    std::u32string text;
+    if (spell->level > (uint32_t)GameState::GetLevel()) {
+        text = SWPrintf(0x100, StringTable::GetString("BUILDING_BAKERY_UNLOCKS"), {ToWideString((int)spell->level)});
+    } else {
+        if (spell->unlockQuest == 0 || GameState::TaskCompleted(spell->unlockQuest)) return;
+        uint32_t quest = spell->unlockQuest;
+        for (int n = 0; n != 0x10;) {
+            Tasks::TaskInfo* task = Tasks::GetTask(quest);
+            if (!task) break;
+            bool locked = task->IsLockedByTask();
+            ++n;
+            if (!locked) break;
+            uint32_t before = (uint32_t)task->lockTasks->GetChild(0)->GetInt();
+            Tasks::TaskInfo* prior = Tasks::GetTask(before);
+            if (prior && !prior->tutorialType && !prior->isHint &&
+                (prior->subtasks[0].type != 0x25 || prior->subtasks[1].type != 0))
+                quest = before;
+        }
+        if (GameState::GetTaskBeginTime(quest) != 0 && !GameState::IsBossCombatActive() &&
+            !GameState::IsArenaCombatActive()) {
+            TaskInfoWindow::SetTask(quest, false);
+            TaskInfoWindow::Show();
+            return;
+        }
+        // (The messages are the original's; "HIRE_TROOPS_TASK_LOCK" and "BUILDING_BAKERY_UNLOCKS"
+        // belong to other lines of the game.)
+        if (Tasks::TaskInfo* task = Tasks::GetTask(quest))
+            text = SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {task->name});
+        else
+            text = SWPrintf(0x100, U"%s", {StringTable::GetString("UPGRADE_LOCKED")});
+    }
+    ShowSlotHint(i, text.c_str());
+}
+
+// @0x2577d4: a rage button was tapped. False when nothing came of it.
+bool OnAutoCastImpl(unsigned i) {
+    if (g_netTarget != 0 || !g_rage[i].root->enabled) return false;
+    if (GameState::secondTutorial == 0x9d) GameState::secondTutorial = 0x9e;
+    if (!g_rage[i].activeMid->visibleSelf) return CastSlot(i);
+    if (!g_rage[i].iconLocked->visibleSelf) {
+        // No mana: a mana potion is pointed out, else the hint says so.
+        if (OnShowManaPotion(i)) return false;
+        ShowSlotHint(i, StringTable::GetString("SPELL_NO_MANA"));
+        return false;
+    }
+    ShowLockedHint(i);
+    return false;
+}
+
 // @0x2594dc: the click reaches the bar. UNVERIFIED (milestone 5): the spells' drag (a rage button
 // pressed, held and dropped on the map: OnSpell / OnAutoCast), and no click while one flies.
 bool Click(int x, int y, bool pressed) { return g_root->Click(x, y, pressed, false); }
@@ -555,11 +679,12 @@ void Init() {
     const char* const barBgs[3] = {"rage_bar_orange_bg", "rage_bar_green_bg", "rage_bar_red_bg"};
     const char* const barTexts[3] = {"text_orange", "text_green", "text_red"};
     for (int i = 0; i < 3; ++i) g_mana[i].LoadFrom(g_root, bars[i], barBgs[i], barTexts[i]);
-    // UNVERIFIED (milestone 5, 5j-3b): each slot's click area calls OnAutoCast(i).
     for (int i = 0; i < 3; ++i) {
         char name[32];
         std::snprintf(name, sizeof name, "rage_bar_button_%02d", i + 1);
         g_rage[i].LoadFrom(g_root, name);
+        // (FUN_00259c18, its callback object @0x259c28: calls OnAutoCast(i))
+        g_rage[i].clickArea->SetOnClick([i] { OnAutoCast((unsigned)i); });
     }
     g_queue->fn.zRange = WindowManager::ReturnSmallZRange;
     g_queue->fn.update = Update;
@@ -605,15 +730,10 @@ void ShowBlockButton(unsigned task, bool lock, bool arrow) {
     PointAt((int)task, OnRight, b, lock, arrow, (float)(b->x + g_root->x + b->w / 2), (float)(b->y + g_root->y));
 }
 
-// @0x25d3bc: the same at the first rage button. UNVERIFIED (milestone 5): its arrow callback is the
-// spell's (FUN_00259c18(0)) and the lock is on its click area; until then they stay as they are.
+// @0x25d3bc: the same at the first rage button (the arrow's tap is its spell's).
 void ShowMagicButton(unsigned task, bool lock, bool arrow) {
-    g_netTask = task;
-    (void)lock;
-    if (!arrow) return;
     Window* b = g_rage[0].root;
-    BuildingHovers::ArrowAt((float)(b->x + b->w / 2), (float)b->y, false, false, false, false, true, false, false);
-    BuildingHovers::PreventArrowAutoHide();
+    PointAt((int)task, [] { OnAutoCast(0); }, g_rage[0].clickArea, lock, arrow, (float)(b->x + b->w / 2), (float)b->y);
 }
 
 // @0x259708
@@ -696,6 +816,45 @@ void EnableNet(uint32_t spawn) {
 }
 
 void TameNext() { g_tameNext = true; }   // @0x25710c
+
+bool OnAutoCast(unsigned i) { return OnAutoCastImpl(i); }
+
+// @0x25858c: the PvP bot casts: not while the slot is locked or a spell is flying.
+bool OnBotAutoCast(unsigned i) {
+    if (g_rage[i].iconLocked->visibleSelf || g_flySprite) return false;
+    return OnAutoCast(i);
+}
+
+// @0x25d170: points the player at the way to cast spell `spellId`: no mana or another spell
+// better for its slot: the popup / the arrow that offers the explanation again; no fight: the
+// same for "no target"; else the arrow at its button, which casts it.
+void HelpWithSpell(unsigned spellId, bool popup) {
+    Spells::SpellInfo* spell = Spells::GetSpellInfo(spellId);
+    if (!spell) return;
+    unsigned slot = spell->slot - 1;
+    Entity* player = EntityManager::GetPlayer();
+    Spells::SpellInfo* best = Spells::GetBestSpellForSlot(spell->slot, (uint32_t)player->GetAP(), true);
+    int callback;
+    if ((uint32_t)player->GetAP() < spell->cost || spell != best) {
+        if (popup) {
+            PopupWindow::Show(StringTable::GetString("SPELL_NO_MANA"), PopupWindow::Hide, nullptr, nullptr);
+            return;
+        }
+        callback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([spellId] { HelpWithSpell(spellId, true); }));
+    } else if (!GameState::IsCombatActive()) {
+        if (popup) {
+            PopupWindow::Show(StringTable::GetString("SPELL_NO_TARGET"), PopupWindow::Hide, nullptr, nullptr);
+            return;
+        }
+        callback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([spellId] { HelpWithSpell(spellId, true); }));
+    } else {
+        callback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([slot] { OnAutoCast(slot); }));
+    }
+    g_netArrowCallback = callback;
+    Window* area = g_rage[slot].clickArea;
+    BuildingHovers::ArrowAt((float)(g_root->x + area->x + area->w / 2), (float)(g_root->y + area->y), false, false, false,
+                            false, true, false, false);
+}
 
 // @0x2570ec: the rage buttons glow from now on (Update, 5j-3c, reads g_furyGlow).
 void EnableFuryGlow() {

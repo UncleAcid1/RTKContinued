@@ -115,6 +115,9 @@ void TameNext();                    // @0x25710c
 uint32_t GetNetTargetSpawnID();     // @0x257090
 void OnCenter();                    // @0x2588b4 the centre button (the net)
 void EnableFuryGlow();               // @0x2570ec the rage buttons glow
+bool OnAutoCast(unsigned slot);       // @0x2577d4 a rage button's tap (slot 0..2): false when nothing came of it
+bool OnBotAutoCast(unsigned slot);    // @0x25858c the PvP bot's cast
+void HelpWithSpell(unsigned spell, bool popup);   // @0x25d170 the arrow / popup that explains how to cast it
 void OnSpell(unsigned spell, int x, int y, bool flag);   // @0x257594 the hero's choice of a spell
 }
 // The "Heal Hero" window (windows/HealSquadWindow.cpp).

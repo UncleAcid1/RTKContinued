@@ -48,6 +48,7 @@
                 std::printf("[t] ap after=%d\n", pl->GetAP());
             }
             if (i == envi("RTK_ONSPELL", -1)) { pl->AddAP(1000); std::printf("[t] OnSpell(1) ap=%d\n", pl->GetAP()); BottomBattleWindow::OnSpell(1, 0, 0, false); std::printf("[t] OnManaBar\n"); BottomBattleWindow::EnableFuryGlow(); }
+            if (const char* ac = getenv("RTK_AUTOCAST")) { int f = 0, n = 0, sl = 0; while (std::sscanf(ac, "%d:%d%n", &f, &sl, &n) == 2) { if (f == i) { if (sl >= 10) BottomBattleWindow::HelpWithSpell((unsigned)sl - 10, false); else std::printf("[t] OnAutoCast(%d)=%d\n", sl, (int)BottomBattleWindow::OnAutoCast((unsigned)sl)); } ac += n; if (*ac == ',') ++ac; } }
             if (const char* tl = getenv("RTK_TILE")) { int f, x, y; if (std::sscanf(tl, "%d:%d:%d", &f, &x, &y) == 3 && f == i) { std::printf("[t] tap tile %d,%d\n", x, y); pl->GetAI()->ClickedTile(x, y, 0, 0); } }
             if (const char* cl = getenv("RTK_COLLECT")) { int f = 0, n = 0; while (std::sscanf(cl, "%d%n", &f, &n) == 1) { if (f == i) { std::printf("[t] collect one\n"); BuildingHovers::CollectOne(0); } cl += n; if (*cl == ',') ++cl; } }
             if (i == envi("RTK_WIN", -1)) { std::printf("[t] win: the enemies hang by a thread\n"); for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k) if (e->IsEnemy() && !e->IsDead()) e->SetHP(1); }
