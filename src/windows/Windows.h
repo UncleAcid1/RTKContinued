@@ -199,8 +199,15 @@ uint32_t GetBestLuckItem(unsigned& luck);   // @0x289adc the owned item with the
 void RollChest(uint32_t chest, unsigned luck);
 }
 
-// The item shop (windows/ItemShopWindow.cpp; 5q-1: the item lists, the window is 5q-2 .. 5q-4).
+// The item shop (windows/ItemShopWindow.cpp; UpdateContents is 5q-3, the actions 5q-4).
 namespace ItemShopWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ItemShopWindow"
+void Show();                                // @0x2e6858 (not in the tutorials)
+void Hide();                                // @0x2de34c
+bool IsVisible();                           // @0x2dd1bc
+float GetZ();                               // @0x2dd1a8
+// @0x2dd1d0: cb (owned) runs when the shop closes after its target was bought; set after Show.
+void SetContinuationAfterTargetIsPurchased(std::function<void()>* cb);
 void GetItemsForTabAndMode(unsigned tab);   // @0x2e0fc0 the tab's items into the shop's list
 bool ItemCanBeBought(uint32_t id, uint32_t pack);   // @0x2e13f4 (a chest key never: 5p-6)
 bool PackCanBeBought(uint32_t pack);        // @0x2e152c (packs are not sold: user 2026-10-19)

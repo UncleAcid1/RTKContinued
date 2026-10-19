@@ -222,6 +222,27 @@ struct ButtonCraftBuyNow {
     void LoadFrom(GUI::Window* root, const char* prefix);
 };
 
+// Shared::EffectDescriptionLine (0x18 bytes), LoadFrom @0x343cd0: one effect line of an item's card
+// (CraftItemWindow, ItemShopWindow).
+struct EffectDescriptionLine {
+    GUI::Window* root = nullptr;         // +0x00 "%s"
+    GUI::Textfield* text = nullptr;      // +0x04 text_desc
+    GUI::Textfield* broken = nullptr;    // +0x08 text_desc_broken
+    GUI::Textfield* green = nullptr;     // +0x0c text_desc_green
+    GUI::Window* icon = nullptr;         // +0x10 icon (takes a depth slot)
+    int f14 = 0;                         // +0x14
+
+    void LoadFrom(GUI::Window* w, const char* p) {
+        root = GUI::GetWindowTypedF<GUI::Window>(w, "%s", p);
+        text = GUI::GetWindowTypedF<GUI::Textfield>(w, "%s.text_desc", p);
+        broken = GUI::GetWindowTypedF<GUI::Textfield>(w, "%s.text_desc_broken", p);
+        green = GUI::GetWindowTypedF<GUI::Textfield>(w, "%s.text_desc_green", p);
+        icon = GUI::GetWindowTypedF<GUI::Window>(w, "%s.icon", p);
+        icon->takesZ = true;
+        f14 = 0;
+    }
+};
+
 // Shared::DiscountInfo (8 bytes): a discount label. LoadFrom @0x343984.
 struct DiscountInfo {
     GUI::Window* root = nullptr;         // +0x00 "%s"

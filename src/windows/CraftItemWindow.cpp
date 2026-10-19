@@ -196,25 +196,7 @@ struct LockedCraftInfo {
     }
 };
 
-// Shared::EffectDescriptionLine (0x18 bytes), LoadFrom @0x343cd0: one effect line of the item's card.
-struct EffectDescriptionLine {
-    Window* root = nullptr;           // +0x00 "%s"
-    Textfield* text = nullptr;        // +0x04 text_desc
-    Textfield* broken = nullptr;      // +0x08 text_desc_broken
-    Textfield* green = nullptr;       // +0x0c text_desc_green
-    Window* icon = nullptr;           // +0x10 icon (takes a depth slot)
-    int f14 = 0;                      // +0x14
-
-    void LoadFrom(Window* w, const char* p) {
-        root = GUI::GetWindowTypedF<Window>(w, "%s", p);
-        text = GUI::GetWindowTypedF<Textfield>(w, "%s.text_desc", p);
-        broken = GUI::GetWindowTypedF<Textfield>(w, "%s.text_desc_broken", p);
-        green = GUI::GetWindowTypedF<Textfield>(w, "%s.text_desc_green", p);
-        icon = GUI::GetWindowTypedF<Window>(w, "%s.icon", p);
-        icon->takesZ = true;
-        f14 = 0;
-    }
-};
+using Shared::EffectDescriptionLine;
 
 void OnSkillLevelHolderDown();
 void OnSkillLevelHolderUp();

@@ -770,6 +770,7 @@ int main_Loop_Init() {
     NeedItemWindow::Queue();
     HealSquadWindow::Queue();
     HireTroopsWindow::Queue();
+    ItemShopWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerBattleInOutWindow::Queue();
     PlayerTopWindow::Queue();
