@@ -6,17 +6,26 @@
 // the net (EnableNet, the centre button's net look, the throw and the catch), the stances of the
 // arena and boss fights (OnLeft / OnRight: OnAttack, OnBlock, their look in Update, SetEnabled,
 // the tutorial's arrows ShowAttackButton / ShowBlockButton / ShowMagicButton).
-// UNVERIFIED (milestone 5, the rage bar): the spells and fury (OnAutoCast, OnSpell, SpellMovement's
-// accept / decline on the large buttons, the rage buttons beyond their roots, the mana bars and
-// potion, HelpWithSpell, the spell drag in Click, EnableFuryGlow), running on the centre button and
-// its look, showing the bar on every campaign map (Map::Load). (milestone 6: the "ui_click" sound.)
+// PORTED (5j): the rage bar: the mana bars and their numbers, the three spell slots (tiers, locks,
+// the new-spell marker, connectors), the spell that flies from a slot to its target, OnAutoCast /
+// OnSpell / HelpWithSpell, the run / walk switch of the centre button, the stances of every
+// fight, the tutorial's arrow at the first slot, EnableFuryGlow.
+// UNVERIFIED (milestone 5): SpellMovement (5k: placing an area spell in the arenas, the large
+// buttons' accept / decline, the second tutorial's step 0x9e), the spell drag in Click, hurrying a
+// search job with fury (Professions, 5n), the mana potion hints' actions (5k, 5l, 5q), the round
+// mask on the centre button's icon, showing the bar on every campaign map (Map::Load).
+// (milestone 6: the "ui_click" sound and the spells' sounds and particles.)
 #include "hud/HUD.h"
 
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
+#include <cstring>
+#include <string>
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Timer.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
 #include "game/Combat.h"
@@ -171,7 +180,16 @@ float g_netToX = 0.f, g_netToY = 0.f;       // 0x618424 0x618428
 float g_netTimer = 0.f;                // 0x61842c how long the dying monster can still be caught
 Textfield* g_stance = nullptr;         // 0x618458 text_stance
 GUI::MovementEffect* g_effect = nullptr;   // 0x618430
-float g_rageTimer = 0.f;               // 0x618368 (reset when the bar is enabled or disabled)
+uint32_t g_slotStamp = 0;              // 0x618368 the game time the rage slots were last refreshed (0: now)
+bool g_manaInit = false;               // 0x618444 g_manaShown has a first value
+float g_manaShown = 0.f;               // 0x618448 the mana the bars show: eases to the hero's
+float g_manaTimer = 0.f;               // 0x61844c
+float g_spin = 0.f;                    // 0x61845c the swirls' angle, 0..pi
+int g_lastMana = 0;                    // 0x60f114 the mana the slots were last refreshed for
+bool g_placing = false;                // 0x618434 a spell is being placed (SpellMovement, 5k: sets it)
+int g_dragX = 0;                       // 0x618438 where a press on a rage slot began
+int g_dragY = 0;                       // 0x61843c
+bool g_dragging = false;               // 0x618440 a press on a rage slot is held
 int g_offsetY = 0x17;                  // 0x60f0fc
 unsigned g_selected = (unsigned)-1;    // 0x60f100 the stance: 0 attack, 1 block, 3 auto, -1 none
 bool g_enabled = false;                // 0x60f104 SetEnabled's last state
@@ -199,55 +217,75 @@ void SetStanceText(const char* stance) {
     g_stance->SetText(SWPrintf(0x100, StringTable::GetString("STANCE_PRE"), {StringTable::GetString(stance)}).c_str());
 }
 
-// The large buttons' look in a boss fight (types 3, 4) and in the arenas (5, 6): attack on the
-// left, block on the right, the chosen one glowing (all glow before a choice in a boss fight).
-void UpdateStances() {
-    if (!GameState::IsArenaCombatActive()) {
-        g_left.root->SetVisibility(true);
-        g_right.root->SetVisibility(true);
-        g_centre.root->SetVisibility(false);
-        g_left.root->SetEnabled(true);
-        for (Window* b : g_left.bg) b->SetEnabled(true);
-        g_left.icon->SetEnabled(true);
-        g_right.root->SetEnabled(true);
-        for (Window* b : g_right.bg) b->SetEnabled(true);
-        g_right.icon->SetEnabled(true);
-        g_left.SetColor(1);
-        g_left.icon->SetTexture(IconManager::GetIcon("gold_attack"), true);
-        g_left.active->SetVisibility(g_selected == 0);
+float FromBits(uint32_t bits) {
+    float f;
+    std::memcpy(&f, &bits, sizeof f);
+    return f;
+}
+
+// SpellMovement::Activated @0x3a56f4: a spell is being placed. UNVERIFIED (milestone 5, 5k):
+// SpellMovement is not ported, so never.
+bool SpellAiming() { return false; }
+
+// The large buttons' look before a fight object exists (a boss's, GameState::IsBossCombatActive):
+// attack on the left, block on the right, both glowing until one is chosen.
+void UpdateFirstLook() {
+    g_left.root->SetVisibility(true);
+    g_right.root->SetVisibility(true);
+    g_centre.root->SetVisibility(false);
+    g_left.root->SetEnabled(true);
+    for (Window* b : g_left.bg) b->SetEnabled(true);
+    g_left.icon->SetEnabled(true);
+    g_right.root->SetEnabled(true);
+    for (Window* b : g_right.bg) b->SetEnabled(true);
+    g_right.icon->SetEnabled(true);
+    g_left.SetColor(1);
+    g_left.icon->SetTexture(IconManager::GetIcon("gold_attack"), true);
+    g_left.active->SetVisibility(g_selected == 0);
+    g_left.active->SetAlpha(Pulse(8.f), false);
+    g_right.SetColor(0);
+    g_right.icon->SetTexture(IconManager::GetIcon("gold_shield"), true);
+    g_right.active->SetVisibility(g_selected == 1);
+    g_right.active->SetAlpha(Pulse(8.f), false);
+    if (g_selected == (unsigned)-1) {
+        g_left.active->SetVisibility(true);
         g_left.active->SetAlpha(Pulse(8.f), false);
-        g_right.SetColor(0);
-        g_right.icon->SetTexture(IconManager::GetIcon("gold_shield"), true);
-        g_right.active->SetVisibility(g_selected == 1);
+        g_right.active->SetVisibility(true);
         g_right.active->SetAlpha(Pulse(8.f), false);
-        if (g_selected == (unsigned)-1) {
-            g_left.active->SetVisibility(true);
-            g_left.active->SetAlpha(Pulse(8.f), false);
-            g_right.active->SetVisibility(true);
-            g_right.active->SetAlpha(Pulse(8.f), false);
-            g_stance->SetText(StringTable::GetString("STANCE_NONE"));
-        } else if (g_selected < 2) {
-            SetStanceText(g_selected == 1 ? "STANCE_BLOCK" : "STANCE_ATTACK");
-        }
-        for (RageButton& r : g_rage) r.root->SetEnabled(true);
-        return;
+        g_stance->SetText(StringTable::GetString("STANCE_NONE"));
+    } else if (g_selected < 2) {
+        SetStanceText(g_selected == 1 ? "STANCE_BLOCK" : "STANCE_ATTACK");
     }
+    for (RageButton& r : g_rage) r.root->SetEnabled(true);
+}
+
+// The large buttons' look in a fight (any combat, the arenas' too): attack on the left, block on
+// the right, the chosen one glowing. While a spell is being placed they are its confirm and
+// cancel.
+void UpdateFightLook() {
     g_left.root->SetVisibility(true);
     g_right.root->SetVisibility(true);
     g_centre.root->SetVisibility(false);
     g_right.root->SetEnabled(true);
-    // UNVERIFIED (milestone 5): while a spell is being aimed (SpellMovement::Activated) the
-    // buttons are confirm (colour 2, "gold_confirm") and cancel (colour 3, "gold_cancel") without
-    // glows, and the line reads "cast_spell".
-    g_left.SetColor(1);
-    g_left.icon->SetTexture(IconManager::GetIcon("gold_attack"), true);
-    g_left.active->SetVisibility(g_selected == 0);
-    g_left.active->SetAlpha(Pulse(4.f), false);
-    g_right.SetColor(0);
-    g_right.icon->SetTexture(IconManager::GetIcon("gold_shield"), true);
-    g_right.active->SetVisibility(g_selected == 1);
-    g_right.active->SetAlpha(Pulse(4.f), false);
-    if (g_selected == (unsigned)-1) g_stance->SetText(StringTable::GetString("STANCE_NONE"));
+    if (!SpellAiming()) {
+        g_left.SetColor(1);
+        g_left.icon->SetTexture(IconManager::GetIcon("gold_attack"), true);
+        g_left.active->SetVisibility(g_selected == 0);
+        g_left.active->SetAlpha(Pulse(4.f), false);
+        g_right.SetColor(0);
+        g_right.icon->SetTexture(IconManager::GetIcon("gold_shield"), true);
+        g_right.active->SetVisibility(g_selected == 1);
+        g_right.active->SetAlpha(Pulse(4.f), false);
+    } else {
+        g_left.SetColor(2);
+        g_left.icon->SetTexture(IconManager::GetIcon("gold_confirm"), true);
+        g_left.active->SetVisibility(false);
+        g_right.SetColor(3);
+        g_right.icon->SetTexture(IconManager::GetIcon("gold_cancel"), true);
+        g_right.active->SetVisibility(false);
+    }
+    if (SpellAiming()) g_stance->SetText(StringTable::GetString("cast_spell"));
+    else if (g_selected == (unsigned)-1) g_stance->SetText(StringTable::GetString("STANCE_NONE"));
     else if (g_selected == 0) SetStanceText("STANCE_ATTACK");
     else if (g_selected == 1) SetStanceText("STANCE_BLOCK");
     else if (g_selected == 3) SetStanceText("ARENA_AUTO");
@@ -419,31 +457,88 @@ void NetLanded() {
     }
 }
 
-void UpdateCentre();
 void FlyNet(float dt);
 
-// @0x259c70 (the parts listed at the top of the file)
-void Update(float dt) {
-    if (!g_root->visibleSelf) return;
-    g_pulse += dt;
-    // The catch window closes; in the taming lesson it stays open.
-    if (GameState::tutorial == 0x17 || GameState::IsTameTutorial()) {
-        if (g_netTarget == 0x1f) g_netTarget = 0;
-    } else {
-        g_netTimer -= dt;
+// The spell marker's flight from its rage button to the target (OnAutoCast started it): a quarter
+// circle in half a second, then the spell is cast (OnSpell). It waits while a popup alone is open
+// and is dropped when any other window opens.
+void UpdateSpellFlight(float dt) {
+    int shown = WindowManager::GetShownWindowCount();
+    bool popupOnly = shown == 1 && PopupWindow::IsVisible();
+    if (shown != 0 && !popupOnly) {
+        g_dragging = false;
+        g_placing = false;
+        g_flySprite = Render::RemoveSprite(g_flySprite);
+        g_flying = false;
+        return;
     }
-    if (g_netTimer < 0.f && !g_net) g_netTarget = 0;
-    if (GameState::IsArenaCombatActive() || GameState::IsBossCombatActive()) {
-        UpdateStances();
-    } else {
-        UpdateCentre();
+    if (!g_flying || !g_flySprite) return;
+    if (!popupOnly) g_flyT += dt;
+    float t = g_flyT + g_flyT;
+    int x = g_flyToX, y = g_flyToY;
+    if (t < 1.f) {
+        Map::WorldCoordinatesToScreen(x, y);
+        float u = t - 1.f;
+        float ease = std::sqrt(1.f - u * u);
+        Render::SetPosition(g_flySprite, (float)g_flyX + ((float)x - (float)g_flyX) * ease + g_flySprite->w * -0.5f,
+                            (float)g_flyY + ((float)y - (float)g_flyY) * ease + g_flySprite->h * 0.5f,
+                            g_flySprite->z);
+        return;
     }
-    FlyNet(dt);
+    g_flySprite = Render::RemoveSprite(g_flySprite);
+    g_flying = false;
+    Map::WorldCoordinatesToScreen(x, y);
+    OnSpell((unsigned)g_castSlot, x, y, false);
 }
 
-// The centre button outside the boss and arena fights.
-void UpdateCentre() {
-    // The centre button offers the net while there is a target, a net and a tamed form.
+// The mana the bars show: the hero's, eased (a step of 13% every 1/30 s; the tutorial's rise is
+// slower). Fills the three bars (a bar holds 300) and the numbers. Returns the mana shown.
+int UpdateManaBars(float dt, Entity* player) {
+    float step = GameState::secondTutorial == 0x9a ? dt * 0.75f : dt;
+    int ap = player->GetAP();
+    if (!g_manaInit) g_manaShown = (float)ap;
+    g_manaTimer = step + g_manaTimer;
+    g_manaInit = true;
+    if (g_manaTimer > FromBits(0x3d088889)) {
+        g_manaTimer = 0.f;
+        g_manaShown = g_manaShown - ((float)ap - g_manaShown) * FromBits(0xbe0930a4);
+    }
+    int mana;
+    float share;
+    bool full;
+    if (GameState::secondTutorial == 0x98 || GameState::secondTutorial == 0x99) {
+        g_manaShown = 62.f;   // (the tutorial shows a fixed 62)
+        mana = 62;
+        share = FromBits(0x3e53a06d);
+        full = false;
+    } else {
+        mana = (int)(g_manaShown + 0.5f);
+        share = (float)mana / 300.f;
+        full = mana > 99;
+    }
+    if (ap != 0 || g_pulse - g_furyGlowStart > 2.f) g_furyGlow = false;
+    if (GameState::secondTutorial == 0x9a && full) GameState::secondTutorial = 0x9d;
+    std::u32string stats = SWPrintf(0x100, StringTable::GetString("MANA_BAR_STATS"),
+                                    {ToWideString(mana), ToWideString(player->GetApMax())});
+    g_holderText->SetText(stats.c_str());
+    for (ManaProgress& m : g_mana) {
+        m.text->SetText(stats.c_str());
+        float filled = share <= 1.f ? share : 1.f;
+        m.clip.right = (int)((float)m.clip.left + (float)m.bar->w * (filled * 0.782f + 0.088f));
+        share -= 1.f;
+    }
+    return mana;
+}
+
+// The big centre button outside fights: the net while there is a target and a net, else the run /
+// walk switch. UNVERIFIED (milestone 5, 5n): a search job the hero works is hurried with fury
+// (the profession's tool as the icon, "BUILDING_BOOST" / "HEAL_SCREEN_FOR" with the cost in
+// mana): Professions are not ported.
+void UpdateCentre(Entity* player) {
+    g_left.root->SetVisibility(false);
+    g_right.root->SetVisibility(false);
+    g_centre.root->SetVisibility(true);
+    g_centre.active->SetVisibility(false);
     uint32_t net = 0;
     bool offer = false;
     if (g_netTarget != 0) {
@@ -461,15 +556,167 @@ void UpdateCentre() {
     if (offer && !g_net) {
         g_centre.SetColor(1);
         g_centre.active->SetVisibility(true);
-        g_centre.active->SetAlpha(0.5f + std::cos(g_pulse * 8.f) * 0.6f, false);
+        g_centre.active->SetAlpha(Pulse(8.f), false);
         if (Items::ItemInfo* info = Items::GetItemInfo(net)) {
             g_centre.icon->SetTexture(info->GetIcon(), true);
             // UNVERIFIED (milestone 5, the mask shader): the icon is masked round
             // (button_large_round_mask.png, GUI::Window::ApplyMask).
         }
         g_stance->SetText(StringTable::GetString("TAME_HINT"));
+    } else {
+        // Running: the icon offers walking and the line says "run".
+        bool running = player->IsSpeedRunning();
+        g_centre.SetColor(0);
+        g_centre.active->SetVisibility(running);
+        g_centre.active->SetAlpha(Pulse(8.f), false);
+        g_centre.icon->SetTexture(IconManager::GetIcon(running ? "gold_walk" : "gold_run"), true);
+        g_stance->SetText(SWPrintf(0x100, StringTable::GetString("STANCE_MODE"),
+                                   {StringTable::GetString(running ? "player_spell_run" : "player_spell_walk")})
+                              .c_str());
     }
-    // UNVERIFIED (milestone 5): otherwise the run / walk look (gold_run / gold_walk, STANCE_MODE).
+    for (RageButton& r : g_rage) r.root->SetEnabled(true);
+}
+
+// The rage slots: each shows its spell (the dearest the hero can pay) with the colour of its cost
+// tier (orange 1..300, green 301..600, red 601..900), the "new spell" marker, the lock with what
+// unlocks it and the connector to the next slot. Refreshed when the mana or the second changes.
+void UpdateSlots(float dt, Entity* player, int mana) {
+    g_spin += dt;
+    if ((double)g_spin > 3.141592653589793) g_spin -= FromBits(0x40490fdb);
+    uint32_t now = (uint32_t)Timer::GetGlobalTime();
+    auto tier = [](const Spells::SpellInfo* s, uint32_t first) { return s->cost - first < 300u; };
+    for (unsigned i = 0; i < 3; ++i) {
+        RageButton& r = g_rage[i];
+        unsigned slot = i + 1;
+        r.swirlHolder->SetRotation(g_spin * -6.f);
+        if (r.addedMarker->visibleSelf) {
+            r.addedMarker->SetRotation(g_spin * -2.f);
+            float t = r.f3c;
+            if (t < 0.3f) r.addedMarker->SetAlpha(t / 0.3f, false);
+            else if (t < 0.7f) r.addedMarker->SetAlpha(1.f, false);
+            else if (t < 1.f) r.addedMarker->SetAlpha((t - 0.7f) / -0.3f + 1.f, false);
+            else r.addedMarker->SetVisibility(false);
+            r.f3c += dt;
+        }
+        if (g_lastMana == mana && g_slotStamp == now) continue;
+        // A new spell comes within reach: the marker flashes.
+        if (!Spells::GetBestSpellForSlot(slot, (uint32_t)mana, true)) {
+            r.swirlHolder->SetVisibility(false);
+            r.f38 = false;
+        } else {
+            r.swirlHolder->SetVisibility(true);
+            if (!r.f38) {
+                r.f38 = true;
+                r.f3c = 0.f;
+                r.addedMarker->SetVisibility(true);
+                r.addedMarker->SetAlpha(0.f, false);
+            }
+        }
+        Spells::SpellInfo* castable = Spells::GetBestSpellForSlot(slot, (uint32_t)player->GetAP(), true);
+        if (!castable) {
+            // Nothing to cast: the inactive look, the locked spell's icon and cost.
+            r.activeMid->SetVisibility(true);
+            r.activeOrange->SetVisibility(false);
+            r.activeGreen->SetVisibility(false);
+            r.activeRed->SetVisibility(false);
+            r.red->SetEnabled(false);
+            if (Spells::SpellInfo* shown = Spells::GetBestSpellForSlot(slot, 300, false)) {
+                r.iconActive->SetTexture(shown->icon, false);
+                r.costNotEnough->SetText(ToWideString((int)shown->cost));
+                r.iconLocked->SetVisibility(shown->level > (uint32_t)GameState::GetLevel() ||
+                                            (shown->unlockQuest != 0 && !GameState::TaskCompleted(shown->unlockQuest)));
+            } else {
+                r.iconLocked->SetVisibility(true);
+            }
+            r.costNotEnough->SetVisibility(true);
+            r.costOrange->SetVisibility(false);
+            r.costGreen->SetVisibility(false);
+            r.costRed->SetVisibility(false);
+        } else {
+            r.activeMid->SetVisibility(false);
+            r.activeOrange->SetVisibility(tier(castable, 1));
+            r.activeGreen->SetVisibility(tier(castable, 301));
+            r.activeRed->SetVisibility(tier(castable, 601));
+            r.red->SetEnabled(true);
+            r.iconActive->SetTexture(castable->icon, false);
+            r.iconLocked->SetVisibility(false);
+            r.costNotEnough->SetVisibility(false);
+            Textfield* costs[3] = {r.costOrange, r.costGreen, r.costRed};
+            const uint32_t firsts[3] = {1, 301, 601};
+            for (int k = 0; k < 3; ++k) {
+                costs[k]->SetVisibility(tier(castable, firsts[k]));
+                if (costs[k]->visibleSelf) costs[k]->SetText(ToWideString((int)castable->cost));
+            }
+        }
+        // The connector to the next slot: in the colour of the dearest spell the hero could pay
+        // with more mana, plain when there is none.
+        Spells::SpellInfo* connect = Spells::GetBestSpellForSlot(slot, (uint32_t)player->GetAP(), false);
+        r.connectorBg->SetVisibility(connect == nullptr);
+        r.connectorOrange->SetVisibility(connect && tier(connect, 1));
+        r.connectorGreen->SetVisibility(connect && tier(connect, 301));
+        r.connectorRed->SetVisibility(connect && tier(connect, 601));
+        r.bronze->SetVisibility(false);
+    }
+}
+
+// @0x259c70 (its middle and tail, the stance look and the slots, are _INIT_63 @0x25c784), the whole of it: the spell in flight, the mana bars and the glow, the stance / run /
+// net buttons, the flying net, the rage slots and the tutorial's arrow at the first one.
+void Update(float dt) {
+    if (!g_root->visibleSelf) return;
+    UpdateSpellFlight(dt);
+    Entity* player = EntityManager::GetPlayer();
+    int mana = UpdateManaBars(dt, player);
+    g_pulse += dt;
+    // The bar's glow: while the fury is ready it pulses, else it settles back to normal.
+    if (g_furyGlow) {
+        g_background->SetAlpha(1.2f + std::cos(g_pulse * 8.f) * 0.2f, false);
+    } else {
+        float a = g_background->alpha;
+        if (a != 1.f) {
+            if (a < 1.f) {
+                a += dt;
+                if (a > 1.f) a = 1.f;
+            } else {
+                a -= dt;
+                if (!(a >= 1.f)) a = 1.f;
+            }
+        }
+        g_background->SetAlpha(a, false);
+    }
+    // The catch window closes; in the taming lesson it stays open.
+    if (GameState::tutorial == 0x17 || GameState::IsTameTutorial()) {
+        if (g_netTarget == 0x1f) g_netTarget = 0;
+    } else {
+        g_netTimer -= dt;
+    }
+    if (g_netTimer < 0.f && !g_net) g_netTarget = 0;
+    bool arena = GameState::IsArenaCombatActive();
+    if (arena || GameState::IsBossCombatActive() || GameState::IsCombatActive()) {
+        if (!arena && !GameState::IsCombatActive()) UpdateFirstLook();
+        else UpdateFightLook();
+    } else {
+        UpdateCentre(player);
+    }
+    FlyNet(dt);
+    UpdateSlots(dt, player, mana);
+    // The second tutorial's arrow at the first slot (the arrow at the target, step 0x9e, is
+    // SpellMovement's: UNVERIFIED, 5k).
+    if (GameState::secondTutorial == 0x9d && !g_flying) {
+        if (!g_placing && !g_dragging) {
+            Window* a = g_rage[0].clickArea;
+            GUI::SetInteractionObjectLock(g_root, a);
+            if (BuildingHovers::GetArrowClickCallbackID() != g_netArrowCallback)
+                g_netArrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnAutoCast(0); }));
+            BuildingHovers::ArrowAt((float)(g_root->x + a->x + a->w / 2), (float)(g_root->y + a->y), false, false, false,
+                                    false, true, false, false);
+        } else {
+            BuildingHovers::HideArrow();
+            g_netArrowCallback = 0;
+        }
+    }
+    if (g_lastMana != mana) g_root->UpdatePosition();
+    g_slotStamp = (uint32_t)Timer::GetGlobalTime();
+    g_lastMana = mana;
 }
 
 // The flying net: from the hero to the monster in 2/3 s, growing from 0.2 to its full size.
@@ -631,9 +878,42 @@ bool OnAutoCastImpl(unsigned i) {
     return false;
 }
 
-// @0x2594dc: the click reaches the bar. UNVERIFIED (milestone 5): the spells' drag (a rage button
-// pressed, held and dropped on the map: OnSpell / OnAutoCast), and no click while one flies.
-bool Click(int x, int y, bool pressed) { return g_root->Click(x, y, pressed, false); }
+// @0x2594dc: the click reaches the bar. After the second tutorial's step 0x9e, in a fight, a press on
+// a rage slot starts a drag: released where it was pressed (within 20 pixels) it is a tap on the slot
+// (OnAutoCast); a spell being placed (SpellMovement, 5k) is cast where it is released. No click
+// while a spell flies.
+bool Click(int x, int y, bool pressed) {
+    if (g_flying) return false;
+    if (GUI::CanInteractWith(g_root) && g_root->visibleSelf && GameState::secondTutorial >= 0x9e &&
+        !GameState::IsVirtualTutorial()) {
+        if (pressed) {
+            for (unsigned i = 0; i < 3; ++i) {
+                const Window* a = g_rage[i].clickArea;
+                int left = g_root->x + a->x, top = g_root->y + a->y;
+                if (left <= x && x <= left + a->w && top <= y && y <= top + a->h && GameState::IsCombatActive()) {
+                    g_flySprite = Render::RemoveSprite(g_flySprite);
+                    g_dragX = x;
+                    g_flyX = x;
+                    g_flyY = y;
+                    g_castSlot = (int)i + 1;
+                    g_dragY = y;
+                    g_dragging = true;
+                    break;
+                }
+            }
+        } else if (g_placing) {
+            g_placing = false;
+            g_dragging = false;
+            g_flySprite = Render::RemoveSprite(g_flySprite);
+            OnSpell((unsigned)g_castSlot, x, y, true);
+            return true;
+        } else if (g_dragging) {
+            g_dragging = false;
+            if (std::abs(g_dragY - y) + std::abs(g_dragX - x) < 0x14 && OnAutoCast((unsigned)(g_castSlot - 1))) return true;
+        }
+    }
+    return g_root->Click(x, y, pressed, false);
+}
 
 }  // namespace
 
@@ -714,7 +994,7 @@ void SetEnabled(bool on, bool, bool) {
     for (RageButton& r : g_rage) r.root->SetEnabled(on);
     if (g_enabled != on) {
         g_enabled = on;
-        g_rageTimer = 0.f;
+        g_slotStamp = 0;
     }
 }
 
@@ -881,12 +1161,34 @@ void OnSpell(unsigned spell, int, int, bool) {
 
 uint32_t GetNetTargetSpawnID() { return g_root && g_root->visibleSelf ? g_netTarget : 0; }   // @0x257090
 
-// @0x2588b4: with a net target the net is thrown at it and the hero cheers.
-// UNVERIFIED (milestone 5): without one, a search job is hurried with fury (search_to_fury_mult)
-// or the hero starts / stops running (or "SPELL_NO_MANA").
+// @0x2588b4: with a net target the net is thrown at it and the hero cheers; without one the hero
+// starts or stops running (running costs mana: with none, the hint says so).
+// UNVERIFIED (milestone 5, 5n): a search job the hero works is first hurried with fury
+// (search_to_fury_mult, Professions::GetProfessionForObject): Professions are not ported.
 void OnCenter() {
     Entity* player = EntityManager::GetPlayer();
-    if (g_netTarget == 0) return;
+    if (g_netTarget == 0) {
+        const Window* b = g_centre.root;
+        int x = g_root->x + b->x + b->w / 2, y = g_root->y + b->y;
+        Map::MouseCoordinatesToWorld(x, y);
+        if (player->GetAP() == 0) {
+            BuildingHovers::ShowTextHoverWithStyle((float)x, (float)y, StringTable::GetString("SPELL_NO_MANA"), 0xe, 2.f,
+                                                   50.f, true, false);
+            return;
+        }
+        // The line names the mode the hero goes into.
+        std::u32string text = SWPrintf(
+            0x100, U"%s\n%s",
+            {StringTable::GetString("player_spell_run"),
+             StringTable::GetString(player->IsSpeedRunning() ? "BOTTOM_BAR_DEACTIVATED" : "BOTTOM_BAR_ACTIVATED")});
+        BuildingHovers::ShowTextHoverWithStyle((float)x, (float)y, text.c_str(), 0xe, 2.f, 50.f, true, false);
+        if (!player->IsSpeedRunning()) {
+            if (player->GetAP() != 0) player->GetSquad()->EnableSpeedRun();   // (milestone 6: "ui_activate_slot")
+        } else {
+            player->GetSquad()->DisableSpeedRun();   // (milestone 6: "ui_deactivate_slot")
+        }
+        return;
+    }
     if (g_netTask != 0) Tasks::CompleteTask(g_netTask, true, true, false);
     if (GameState::IsTameTutorial()) {
         // (step 0x17: TutorialSender::AddTutorialStep(0x4c8))

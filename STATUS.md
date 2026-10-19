@@ -11,7 +11,7 @@ the world map and the ambush, and the city tutorial up to step 0x61 ("train your
 which needs HireTroopsWindow: step 5a). The user play-tested it on 2026-10-18: one bug (the
 map-switch sepia was upside down), fixed in e69dc64.
 
-**Next.** Milestone 5, step 5j-3c (BottomBattleWindow::Update's rage part: the bars, the slots' looks, the spell's flight). (5j-3b done 2026-10-18: OnAutoCast, OnBotAutoCast, HelpWithSpell; 5j-3a done 2026-10-18: the rage bar's buttons, mana bars, OnSpell, OnManaBar; 5j-3 is split in 5j-3a .. 5j-3c, see the roadmap; 5j-2 done 2026-10-18: AISpell, AIWarrior's magic, PlayBuffAnimation, ParticlePresets::OnSpell's delay; 5j-1 done 2026-10-18: Spells + Entity's magic; 5j is split in 5j-1 .. 5j-3, see the roadmap; 5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
+**Next.** Milestone 5, step 5k (spells 2: SpellMovement, PlaceMagicHoverWindow, BeltBarWindow's spell parts). (5j DONE 2026-10-18; 5j-3c done: Update's rage part, Click's drag, OnCenter's run part; 5j-3b done 2026-10-18: OnAutoCast, OnBotAutoCast, HelpWithSpell; 5j-3a done 2026-10-18: the rage bar's buttons, mana bars, OnSpell, OnManaBar; 5j-3 is split in 5j-3a .. 5j-3c, see the roadmap; 5j-2 done 2026-10-18: AISpell, AIWarrior's magic, PlayBuffAnimation, ParticlePresets::OnSpell's delay; 5j-1 done 2026-10-18: Spells + Entity's magic; 5j is split in 5j-1 .. 5j-3, see the roadmap; 5i-3 done 2026-10-18: BossCombatWaves, BossIntroEffect, FastBossIntroEffect; 5i done; 5i-2 done 2026-10-18: BossOutroWindow + the return from a won boss fight, BossTimeHoverWindow, DropBossReward; SetReputation moved to 5n; 5i-1 done 2026-10-18: BaseCombat::SwitchToBossFight + BossCombat, the skeleton boss fight plays; 5i is split in 5i-1 .. 5i-3, see the roadmap; 5h done 2026-10-18: 5h-2 LoadingScreenWindow + SultanArrivingWindow; 5h-1 done 2026-10-18: CampaignCompleteWindow + CampaignPerfectedWindow; 5h is split in 5h-1 / 5h-2, see the roadmap; 5g done 2026-10-18: 5g-2 RaidCompleteWindow + StartRaidingWindow; 5g-1 done 2026-10-18: RaidInfoWindow, the mission brief; 5e done 2026-10-18: 5e-2 RepairWindow; 5e-1 done 2026-10-18: HealHoverWindow, the healing card; 5f done 2026-10-18: 5f-2 ChoosePathWindow, the Navigate button's "where to next"; 5d done 2026-10-18: 5d-2 verified the node -> map 0xe -> step 0x80 and two save round trips; the opening tutorial is complete; 5f-1 done 2026-10-18: CampaignInfoWindow + HintHoverWindow, the world map's campaign node opens its brief; 5f is split in 5f-1 / 5f-2, see the roadmap; 5d-1 done 2026-10-18: the tutorial plays to the world map at step 0x67; 5c done 2026-10-18 in 5c-1 .. 5c-3, see the roadmap; 5c-3 done 2026-10-18: the build / upgrade / task button; 5c-2 done 2026-10-18: the hints, refresh, slot unlock; 5c-1 done 2026-10-18: Train / Hire / the hire glide / Update / OnTweenIn; 5b done 2026-10-18: HireTroopsWindow::UpdateContents complete; 5b-2 done 2026-10-18: timers, locks, refresh / build buttons; 5b-1 done 2026-10-18: the cards' text and buttons; 5a done 2026-10-18: HireTroopsWindow opens, contents empty; 5b is
 split in 5b-0 .. 5b-3, all done, see the roadmap near the end of this file:
 "5. [ ] The rest of the game").
 WORK RULE (user 2026-10-18): ONE step per sitting (about 20-40 min): build, a short check, commit,
@@ -2040,9 +2040,25 @@ Milestones:
                    VERIFIED (temporary hook, boss fight on map 15): with the slot forced castable the
                    fire spell's marker sprite is made and its flight set to the boss; slots without
                    spells do nothing; before Update sets the looks all slots read "locked".
-              5j-3c [ ] Update's rage part (_INIT_63 = the tail of Update @0x259c70..0x25cfd8): the
-                   mana bars' fill, each slot's look (spell, lock, cost colours, glow), the stance /
-                   centre look with spells, OnCenter's run part.
+              5j-3c [x] (2026-10-18) BottomBattleWindow::Update in full (the original's order): the spell
+                   marker's flight (a quarter circle in 0.5 s, then OnSpell; dropped when a window
+                   opens, held for a popup), the mana bars (eased 13% per 1/30 s, a bar holds 300, the
+                   "Fury: x/900" numbers, the tutorial's fixed 62 and its rise 0x9a -> 0x9d), the
+                   background's glow, the stances (FirstLook = a boss before its fight object;
+                   FightLook = ANY combat: attack / block, confirm / cancel while a spell is placed),
+                   the centre button (net, else the run / walk switch + OnCenter's run part: "Mode:
+                   Walking", the BOTTOM_BAR_* hint), the rage slots (spell icon, cost tiers orange 1..300 /
+                   green 301..600 / red 601..900, lock with level or quest, new-spell marker, swirls,
+                   connectors), the tutorial's arrow at the first slot (0x9d), and Click's slot drag
+                   (a tap within 20 px = OnAutoCast; only from step 0x9e on, in a fight).
+                   UNVERIFIED: SpellMovement::Activated is false until 5k (so also the 0x9e arrow and
+                   the area spell's placing: g_placing); hurrying a search job with fury (5n); the
+                   round mask on the centre icon; the hover texts.
+                   VERIFIED (map 15, screenshots): the bar shows the run button, "Mode: Walking", the
+                   mana bar "Fury: 125/900", fire (100) lit and lightning / arcane locked (200 / 300);
+                   in the boss fight attack + block with "Stance: None" and OnAutoCast(0) sends the
+                   fire marker flying toward the target.
+              5j is DONE.
        5k [ ] spells 2: SpellMovement, PlaceMagicHoverWindow, BeltBarWindow's spell/buff parts.
        The hero's things:
        5l [ ] CharacterInfoWindow 1: equipment and belt (the inventory button, item moves).
