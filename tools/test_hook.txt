@@ -119,6 +119,11 @@
                 for (unsigned c = 0; c < 200; ++c) if (Chests::ChestInfo* ci = Chests::GetChestInfo(c)) if (ci->requiredItem) { Items::ItemInfo* k = Items::GetItemInfo(ci->requiredItem); std::printf("[t] chest %u type %u lvl %u key %u %s\n", c, ci->type, ci->level, ci->requiredItem, k ? k->name : "?"); }
                 for (int id : {55,58,93,97,100,121,122,123,124,125,127,137,138,151,172,176,177,178,179,180,185,186,189,252,253,254,348,384,385,386,387,388,513,538,539}) { Items::ItemInfo* it = Items::GetItemInfo((uint32_t)id); std::printf("[t] item %d %s type %u shop %u cost %u/%u premium %d\n", id, it ? it->name : "?", it ? it->type : 0, it ? it->shopTab : 0, it ? it->cost : 0, it ? it->cost2 : 0, it ? (int)it->premium : -1); }
             }
+            if (i == envi("RTK_SHOPLIST", -1)) {   // 5q-1: the shop's lists
+                for (int id : {122, 513, 348, 349, 0x88, 56, 771, 1, 0x2d2}) std::printf("[t] canBuy %d: %d\n", id, (int)ItemShopWindow::ItemCanBeBought((uint32_t)id, 0));
+                std::printf("[t] pack1: %d\n", (int)ItemShopWindow::PackCanBeBought(1));
+                if (envi("RTK_HALLO", 0)) GameState::StartTask(0x77b); ItemShopWindow::PrepareSpecialEventCost(); Items::ItemInfo* h = Items::GetItemInfo(0x2d2); std::printf("[t] 0x2d2 %s sell %d costItem %u x%u cost2 %u halloween %d\n", h->name, (int)h->sellable, h->costItem, h->costItemCount, h->cost2, (int)Tasks::IsTaskActive(0x77b, true));
+            }
             if (i == envi("RTK_KEYMAP", -1)) {   // 5p-6: a map's chest key rolls (RTK_KMAP)
                 const uint32_t m = (uint32_t)envi("RTK_KMAP", 91);
                 if (SaveManager::SaveBlock* b = SaveManager::GetMapData(m)) { GameState::SetCurrentMapID(m); Map::Load(b, 1, false, false); }

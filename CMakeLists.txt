@@ -110,6 +110,7 @@ add_executable(rtk
   src/windows/ChestOpenedWindow.cpp
   src/windows/ChestsWindow.cpp
   src/windows/ChoosePathWindow.cpp
+  src/windows/ItemShopWindow.cpp
   src/windows/LandExpandedWindow.cpp
   src/windows/LandWindow.cpp
   src/windows/LevelInfoWindow.cpp

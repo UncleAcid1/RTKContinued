@@ -199,6 +199,14 @@ uint32_t GetBestLuckItem(unsigned& luck);   // @0x289adc the owned item with the
 void RollChest(uint32_t chest, unsigned luck);
 }
 
+// The item shop (windows/ItemShopWindow.cpp; 5q-1: the item lists, the window is 5q-2 .. 5q-4).
+namespace ItemShopWindow {
+void GetItemsForTabAndMode(unsigned tab);   // @0x2e0fc0 the tab's items into the shop's list
+bool ItemCanBeBought(uint32_t id, uint32_t pack);   // @0x2e13f4 (a chest key never: 5p-6)
+bool PackCanBeBought(uint32_t pack);        // @0x2e152c (packs are not sold: user 2026-10-19)
+void PrepareSpecialEventCost();             // @0x2dd75c the Halloween pumpkin prices (task 0x77b)
+}
+
 // "<chest> opened": the loot of a chest (windows/ChestOpenedWindow.cpp).
 namespace ChestOpenedWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ChestOpenedWindow"
