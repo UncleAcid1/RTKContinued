@@ -2339,7 +2339,7 @@ Milestones:
               (the locked hint popup "CRAFTING_LOCKED_HINT"), ShowProfessionPoint and the bar's part of
               BeltBarWindow::Update (the point's picture flies in an arc for 0.7 s to the bar's icon,
               swells and shrinks for 0.5 s, the points count up, the bar slides away after 2 s; read from
-              the asm, the arrow of the original's sin / easing constants kept). Wired: the gathering
+              the asm, the original's sin arc and constants kept). Wired: the gathering
               (Map::Decor) and a profession point item's collect (ItemDrop::Collect: shows the bar and
               skips the belt flight, as the original). VERIFIED (hook RTK_BELTPT): the bar "Miner -
               Beginner - 5/10 -> 6/10" slides in, the pickaxe flies, the bar leaves; the Crafting button
