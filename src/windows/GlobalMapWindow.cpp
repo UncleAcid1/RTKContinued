@@ -22,6 +22,8 @@
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Map.h"
+#include "game/PvP.h"
+#include "game/AIState.h"
 #include "game/MetaData.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
@@ -1397,9 +1399,20 @@ void Update(float dt) {
             g_start.window->SetVisibility(false);
             g_traveling = false;
             if (g_dest == 0x70) {
-                // UNVERIFIED (milestone 5): the PvP fight against PlayerCompetitionWindow's chosen
-                // player (a hero entity 0xc / 0xd, an AggroCombat switched to the PvP arena
-                // (ForceBossFight(6, 0x70))), then Map::Update(0).
+                // The PvP fight against PlayerCompetitionWindow's chosen player: his hero (the man
+                // 0xc or the woman 0xd) with a squad, an aggro fight switched to the PvP arena.
+                if (PvP::PlayerInfo* rival = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff)) {
+                    if (Entity* hero = EntityManager::CreateEntity(rival->male ? 0xc : 0xd, true, true)) {
+                        Tasks::Update(true);
+                        GameState::SetCombat(new AggroCombat());
+                        hero->CreateSquad();
+                        hero->GetAI()->UpdateLastTarget();
+                        hero->player = false;
+                        GameState::GetActiveCombat()->BeginCombat(EntityManager::GetPlayer()->GetSquad(), hero->GetSquad());
+                        GameState::GetActiveCombat()->ForceBossFight(6, 0x70);
+                    }
+                }
+                Map::Update(0.0);
             } else if (!g_ambush) {
                 SwitchMap(g_dest, g_keep, false);
             }

@@ -1,0 +1,81 @@
+diff --git a/src/hud/CastleTopWindow.cpp b/src/hud/CastleTopWindow.cpp
+index da05ef8..8a0ef06 100644
+--- a/src/hud/CastleTopWindow.cpp
++++ b/src/hud/CastleTopWindow.cpp
+@@ -67,6 +67,7 @@ bool g_campaignToCityDirect = false;   // 0x61922c Setting "campaign_to_city_dir
+ int g_blinkMap = 0;                    // 0x619214 BlinkCompass's map
+ uint32_t g_buyItem = 0;                // 0x619228 OnBuyItem's item: the shop opens on it once
+ int g_arrowCallback = 0;               // 0x61921c the id of the tutorial arrow's callback
++unsigned g_pvpHelpWindows = 0;         // 0x619220 HelpWithPvP: the windows shown under the arrow
+ unsigned g_shownWindows = 0;           // 0x619220 the fewest windows shown since the arrow went up
+ int g_friendRequests = 0;              // 0x61924c (online: always 0)
+ int g_lastSecond = 0;                  // 0x619250
+@@ -207,6 +208,36 @@ void OnBuyItem(uint32_t item) {
+     BuildingHovers::PreventArrowAutoHide();
+ }
+ 
++// @0x276d64 the PvP button (help: a help page, HelpWindow online): only in the city while nothing is being
++// placed and no fight beyond an aggro one runs; before the PvP quest 0x74d is done its help.
++void OnPvP(unsigned help) {
++    if (!GameState::IsPlayerCity() || BuildingMovement::Activated() || BuildingPlacement::Activated() ||
++        ShopWindow::IsVisible())
++        return;
++    if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 2) return;
++    if (GameState::IsCombatActive()) {
++        PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
++        return;
++    }
++    if (!GameState::TaskCompleted(0x74d)) {
++        LevelInfoWindow::HelpWithPvP(false);
++        return;
++    }
++    if (help != 0xffffffffu) return;   // (HelpWindow::Show(help): the platform's help web view, online)
++    PlayerCompetitionWindow::Show();
++    PlayerCompetitionWindow::OnTab(4);
++}
++
++// @0x277048: the arrow at the PvP button (over the windows shown now); its tap is the button's.
++void HelpWithPvP() {
++    g_pvpHelpWindows = WindowManager::GetShownWindowCount();
++    BuildingHovers::SetArrowVisibleWindowLimit(g_pvpHelpWindows);
++    g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnPvP(0xffffffffu); }));
++    BuildingHovers::ArrowAt((float)(g_root->x + g_pvp->x), (float)(g_root->y + g_pvp->y + g_pvp->h / 2), false, true,
++                            true, true, true, false, false);
++    BuildingHovers::PreventArrowAutoHide();
++}
++
+ // @0x276c50
+ void BlinkCompass() { g_blinkMap = (int)GameState::GetCurrentMapID(); }
+ 
+@@ -247,8 +278,7 @@ void Init() {
+     g_effect = GUI::CreateMovementEffect(g_root);
+     GUI::GetWindowTyped<Window>(g_root, "hud_navigation_main_bg")->noInput = true;
+ 
+-    // UNVERIFIED (later milestones / online): OnFriends and OnPvP open windows that are not ported;
+-    // those callbacks are installed as no-ops.
++    // OnFriends opens the friends' tabs of PlayerCompetitionWindow (online, dormant): a no-op.
+     g_friends = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01");
+     g_friends->SetOnClick([] {});
+     g_friendsBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01.button_large_blue_bg");
+@@ -272,7 +302,7 @@ void Init() {
+     g_compassText->SetText(StringTable::GetString("main_menu_button_shop"));   // replaced by Update
+ 
+     g_pvp = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_03");
+-    g_pvp->SetOnClick([] {});
++    g_pvp->SetOnClick([] { OnPvP(0xffffffffu); });
+     g_pvpBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_03.button_large_red_bg");
+     g_pvpIcon = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_03.icon_60");
+     g_pvpText = GUI::GetWindowTyped<Textfield>(g_root, "text_pvp");
+diff --git a/src/hud/HUD.h b/src/hud/HUD.h
+index d04c1ab..490cd8b 100644
+--- a/src/hud/HUD.h
++++ b/src/hud/HUD.h
+@@ -209,6 +209,8 @@ void BlinkCompass();               // @0x276c50 the compass blinks until the map
+ void OnFindPlayer();               // @0x2772e8
+ void OnShop();                     // @0x2778b0 the item shop (the shop's quest help first)
+ void OnBuyItem(uint32_t item);     // @0x27723c the arrow at the Shop button, the shop then opens on item
++void OnPvP(unsigned help);          // @0x276d64 the PvP button (help 0xffffffff: the opponents' window)
++void HelpWithPvP();                // @0x277048 the arrow at the PvP button
+ }
+ 
+ namespace BottomCityWindow {

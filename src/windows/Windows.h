@@ -661,6 +661,29 @@ void OnStartEvent();                        // @0x24500c the event starts at the
 }
 
 // An arena event's card (windows/ArenaEventWindow.cpp): event 1 the arena's boss, 2 its waves.
+// The PvP opponents' window (windows/PlayerCompetitionWindow.cpp). DECIDED 2026-10-20: only its PvP
+// tab (tab 4) is ported; the activity, friends, gifts, top players and invite tabs stay dormant.
+namespace PlayerCompetitionWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PlayerCompetitionWindow" (0x629e10)
+void Init();                                // @0x306120
+bool IsVisible();                           // @0x301f18
+void Show();                                // @0x31daf8
+void Hide();                                // @0x302d00
+void OnTab(unsigned tab);                   // @0x31d514 (4: the PvP tab)
+void UpdateContents();                      // @0x30a720
+void RefreshCurrentView();                  // @0x305874
+void SetViewMode(int type);                 // @0x301ea0 the list type (1 the PvP tab's, 2 the friends')
+void SetCurrentView(int type);              // @0x302050
+int GetCurrentView();                       // @0x302040
+bool CombatQueued();                        // @0x30202c a fight was chosen (OnFight) and the window is closing
+int GetSelectedPlayerGID();                 // @0x301f2c
+void SetSelectedPlayerGID(int gid, bool fetch);   // @0x30255c
+void SetReturnWithoutWindow(bool on);       // @0x301f40
+bool HasReturnWithoutWindow();              // @0x301f54
+void SetDefeatedPlayer(uint32_t spawn);     // @0x301f68
+bool HasDefeatedPlayer(uint32_t spawn);     // @0x301f7c
+}
+
 namespace ArenaEventWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaEventWindow"
 void Init();                                // @0x248780

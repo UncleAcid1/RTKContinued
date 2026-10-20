@@ -149,12 +149,3 @@ bool ParsePvPData(const uint8_t* data, uint32_t size, std::vector<PvP::PvPSave>&
                   uint32_t& refreshDelay, uint32_t& cost, std::vector<char32_t*>& names);
 }
 
-// The PvP opponents' window (online, milestone 5): only the selection the fights read.
-namespace PlayerCompetitionWindow {
-int GetSelectedPlayerGID();                      // @0x301f2c
-void SetSelectedPlayerGID(int gid, bool fetch);  // @0x30255c
-void SetReturnWithoutWindow(bool on);            // @0x301f40
-bool HasReturnWithoutWindow();                   // @0x301f54
-void SetDefeatedPlayer(uint32_t spawn);          // @0x301f68
-bool HasDefeatedPlayer(uint32_t spawn);          // @0x301f7c
-}

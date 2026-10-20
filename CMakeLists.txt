@@ -144,6 +144,7 @@ add_executable(rtk
   src/windows/BossOutroWindow.cpp
   src/windows/ArenaTurnWindow.cpp
   src/windows/PlayerBattleInOutWindow.cpp
+  src/windows/PlayerCompetitionWindow.cpp
   src/windows/SetInfoWindow.cpp
   src/hud/PlayerTopWindow.cpp
   src/hud/CastleTopWindow.cpp

@@ -23,6 +23,7 @@
 #include "game/Setting.h"
 #include "game/Squad.h"
 #include "gui/GUI.h"
+#include "windows/Windows.h"
 
 namespace {
 
