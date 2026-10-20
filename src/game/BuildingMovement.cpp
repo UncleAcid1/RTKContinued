@@ -28,6 +28,8 @@ namespace {
 using Map::Building;
 using Map::Decor;
 
+// The road mode (kRoad, painting roads / water) is set only by ToggleRoadType @0x39c874, which nothing
+// calls in 5.11 (dead), so the road branches of Click, Move, Accept and UndoAction never run: not ported.
 enum Mode { kMove = 0, kRotate = 1, kRemove = 2, kRoad = 3, kWarehouse = 4 };
 enum ActionType { kActMove = 0, kActRemove = 2, kActRoad = 3, kActWarehouse = 4, kActContinue = 5 };
 
@@ -51,7 +53,7 @@ bool g_active = false;                // 0x630b40
 bool g_legacy = false;                // 0x630b41
 std::vector<Action> g_actions;        // 0x630b44
 HiddenObjects g_hidden;               // 0x630b50 decorations faded under the previews
-int g_roadCost = 0;                   // 0x630b68 (roads, not ported)
+int g_roadCost = 0;                   // 0x630b68 (roads: dead, see kRoad)
 int g_mode = kMove;                   // 0x630b6c
 bool g_grabbed = false;               // 0x630b70 a preview follows the drag
 Render::Texture* g_redTex = nullptr;  // 0x630b74 images/red_mid_02
@@ -378,7 +380,7 @@ void UndoAction(bool quiet) {
             a.decor->UpdateMapLink();
         }
     }
-    // kActRoad: the road tiles (not ported).
+    // kActRoad: the road tiles (dead, see kRoad).
     g_actions.pop_back();
     CheckAll();
     if (g_actions.empty()) BottomCityWindow::EnableUndoButton(false);
@@ -496,7 +498,7 @@ bool Accept() {
                 Map::RemoveBuilding(a.building->x, a.building->y, false, false);   // the warehouse keeps it
             }
         }
-        // kActRoad: not ported.
+        // kActRoad: dead (see kRoad).
     }
     g_actions.clear();
     UpdateRendering();
@@ -718,7 +720,7 @@ bool Click(int x, int y, bool pressed, bool moving) {
         return true;
     }
 
-    if (g_mode != kRemove && g_mode != kWarehouse) return false;   // kRoad: not ported
+    if (g_mode != kRemove && g_mode != kWarehouse) return false;   // kRoad: dead
 
     if (!pressed) return ReleaseOnGround(x, y, false);
 
@@ -790,7 +792,7 @@ bool Move(int x, int y, int dx, int dy) {
     (void)x, (void)y;
     if (!g_active) return false;
     if (!g_actions.empty()) BottomCityWindow::EnableUndoButton(true);
-    if (g_mode != kMove) return false;   // kRoad painting: not ported
+    if (g_mode != kMove) return false;   // kRoad painting: dead
     if (g_actions.empty()) return false;
     const int lastType = g_actions.back().type;
     if (lastType != kActMove && lastType != kActContinue) return false;

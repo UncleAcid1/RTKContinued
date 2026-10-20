@@ -42,7 +42,7 @@ float g_dragX = 0.f, g_dragY = 0.f;            // 0x630c0c 0x630c10 the drag in 
 int g_grabX = 0, g_grabY = 0;                  // 0x630c14 0x630c18 the grab point minus the drag
 bool g_fromPresents = false;                   // 0x630c1c a present: free and built at once
 bool g_declineOnAccept = false;                // 0x630c1d
-PresentsContainer::Present* g_present = nullptr;   // 0x630c20 the present being built (5x: BuildingFromPresents)
+PresentsContainer::Present* g_present = nullptr;   // 0x630c20 the present being built (only read; BuildingFromPresents @0x3a19bc: dead)
 // 0x630c24 is a sprite chain removed by Accept (milestone 5, with the gifts' window); nothing sets it yet.
 
 // @0x3a1b18
