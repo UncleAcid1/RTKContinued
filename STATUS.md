@@ -3231,8 +3231,9 @@ Milestones:
                    Kings" -> auto fight won -> Victory (valor 28, rank Challenger) -> valor credited
                    -> the city, the window back with the rival greyed and "Killed / You won this
                    battle!", no crash in repeated runs; a loss leaves defeated 2.
-                   Regression: AMBUSH still reaches 0x1b; the CITY list now stalls at step 0x21 (a
-                   world dialog up), the same on the previous commit c32f17d: not from 5t-5, to look at.
+                   Regression: AMBUSH still reaches 0x1b, CITY still reaches 0x61 (run it with the SL and
+                   CO lines of tools/test_inputs.txt: without them the tax lesson 0x21 never ends, which
+                   was first taken for a stall).
        5u [ ] PvP 2: AsyncCombat_v2, PlayerInfoWindow, PlayerNameHoverWindow. (5t-1: AsyncCombat_v2
               is dead in 5.11, nothing creates one.)
        5v [ ] PresentsContainer. DECIDED 2026-10-18: ported but dormant (no gifts arrive offline); the
