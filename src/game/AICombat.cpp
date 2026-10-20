@@ -109,9 +109,54 @@ void AIWarrior::Attack(bool forceBlock) {
     if (entity->GetAttackRanged() > 0) defense = target->GetDefenseRanged();
     if (entity->GetAttackMagic() > 0) defense = target->GetDefenseMagic();
     int crit = entity->GetCritChance();
-    // UNVERIFIED (milestone 5, the arena and PvP): the first arena events' monsters always get
-    // blocked (map 0x70 before event 1 was won; an arena fight before event 2), and the PvP
-    // tutorial's stances fix the outcome (BottomBattleWindow::IsInAttackStance / IsInBlockStance).
+    // The first arena events' monsters (class 9) are always blocked: on map 0x70 outside an arena
+    // fight before event 1 was won, in an arena fight (not PvP) before event 2 was.
+    const int clas = entity->GetEntityData()->clas;
+    if (clas == 9 && GameState::GetCurrentMapID() == 0x70 && !GameState::IsArenaCombatActive() &&
+        GameState::GetEventCompletionCount(1) == 0) {
+        forceBlock = true;
+        crit = 0;
+    }
+    if (clas == 9 && GameState::IsArenaCombatActive() && !GameState::IsPvPCombatActive() &&
+        GameState::GetEventCompletionCount(2) == 0) {
+        forceBlock = true;
+        crit = 0;
+    }
+    // The PvP tutorial (the ambush, tutorial step 0x17) fixes the outcome by the stance: blows at
+    // the 5-HP rival are blocked in the attack stance; in the block stance the rival's blow lands
+    // as 6 and the tutorial moves on (0x80, second tutorial 0x91). In a PvP fight in the block
+    // stance a tamed target (type 0x11) is struck for 5, else a 5 strike becomes 2.
+    bool pvpStances = false;
+    if (target->player && GameState::IsPvPTutorial()) {
+        crit = 0;
+        forceBlock = true;
+    }
+    if (GameState::tutorial == 0x17 && GameState::IsPvPCombatActive()) {
+        if (BottomBattleWindow::IsInAttackStance() && target->GetHpMax() == 5) {
+            forceBlock = true;
+            crit = 0;
+        }
+        if (BottomBattleWindow::IsInBlockStance() && target->GetHpMax() == 5) {
+            entity->SetAttackMelee(6);
+            defense = 0;
+            GameState::tutorial = 0x80;
+            forceBlock = false;
+            GameState::secondTutorial = 0x91;
+            crit = 0;
+            pvpStances = true;
+        }
+    }
+    if (!pvpStances && GameState::secondTutorial != 0x100) pvpStances = true;
+    if (pvpStances && GameState::IsPvPCombatActive() && BottomBattleWindow::IsInBlockStance()) {
+        if (target->GetEntityData()->type == 0x11) {
+            defense = 0;
+            entity->SetAttackMelee(5);
+            forceBlock = false;
+            crit = 0;
+        } else if (entity->GetAttackMelee() == 5) {
+            entity->SetAttackMelee(2);
+        }
+    }
     bool noCrit = crit < BRand::Percent();
     if ((blockRoll <= defense && noCrit && GameState::tutorial == 0x80) || forceBlock) {
         target->GetAI()->Block(delay);

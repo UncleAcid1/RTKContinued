@@ -133,11 +133,22 @@ void Entity::OnTaskStarted(uint32_t task) {
         const MetaData* d = e->GetDataWithType(kExpArenaSpawn);
         if (!d || d->type != MetaData::kList || d->GetChildrenCount() < 2 || (uint32_t)Int(d, 1) != task) continue;
         if (!IsDead()) {
-            // UNVERIFIED (milestone 5): the arena's entity for this type
-            // (EntityFactory::GetEntityForArena(Int(d, 0), 0), 0x1610fc): when there is one the
-            // entity becomes it (SwitchEntityData 0x1594e4), its spawn point takes the type and
-            // its HP at the player's level and is alive again, then SetActive(true, false) and
-            // it fades in (alpha 0, Appear(true, false)).
+            // An ARENA_SPAWN entity becomes a random arena monster of its kind: its spawn point
+            // takes it, its HP at the player's level and is alive again; it fades in.
+            EntityData* arena = EntityFactory::GetEntityForArena((unsigned)Int(d, 0), 0);
+            if (!arena) continue;
+            SwitchEntityData(arena);
+            if (spawnPoint) {
+                spawnPoint->deathTime = 0;
+                spawnPoint->entityId = arena->id;
+                spawnPoint->hp = arena->GetHpForLevel(GameState::GetLevel());
+                spawnPoint->hpMax = arena->GetHpForLevel(GameState::GetLevel());
+                hp = spawnPoint->hp;
+                hpMax = spawnPoint->hpMax;
+            }
+            SetActive(true, false);
+            alpha = 0.f;
+            Appear(true, false);
             continue;
         }
         if (spawnPoint && spawnPoint->deathTime == 0) spawnPoint->deathTime = GetCurrentTime();

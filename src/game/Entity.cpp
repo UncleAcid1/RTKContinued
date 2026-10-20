@@ -336,14 +336,33 @@ void Entity::Update(float dt) {
         !BuildingHovers::SetHoverWindowPosition(hoverWindow, (int)worldX, (int)(worldY - GetIdleHeight())))
         hoverWindow = nullptr;
     // A dead mob with a restore time comes back once it has passed since its death: an
-    // ARENA_SPAWN (meta 0x96) one as the arena's entity while its task runs (UNVERIFIED,
-    // milestone 5: EntityFactory::GetEntityForArena), a MOB_SPAWN (0x97) one as itself while its
-    // spawn point has respawned it fewer times than the first number says (0: always).
+    // ARENA_SPAWN (meta 0x96) one as a random arena monster of its kind while its task is started
+    // and open, a MOB_SPAWN (0x97) one as itself while its spawn point has respawned it fewer
+    // times than the first number says (0: always).
     if (data->restoreTime != 0 && spawnPoint && spawnPoint->deathTime != 0 &&
         (uint32_t)(data->restoreTime + (int)spawnPoint->deathTime) < GetCurrentTime()) {
         if (MetaExpression* m = GetMetaExpression()) {
+            const MetaData* arena = m->FindChildData(kExpArenaSpawn);
+            if (arena && arena->type == MetaData::kList && arena->GetChildrenCount() > 1) {
+                const uint32_t task = (uint32_t)arena->GetChild(1)->GetInt();
+                if (task != 0 && GameState::IsTaskStarted(task) && Tasks::IsTaskActive(task, false))
+                    if (EntityData* d = EntityFactory::GetEntityForArena((unsigned)arena->GetChild(0)->GetInt(), 0)) {
+                        Disappear();
+                        SetUpdateSpeedScale(0.25f);
+                        SpawnPoint* sp = spawnPoint;
+                        spawnPoint = nullptr;
+                        sp->deathTime = 0;
+                        sp->entityId = d->id;
+                        sp->hp = d->GetHpForLevel(GameState::GetLevel());
+                        sp->hpMax = d->GetHpForLevel(GameState::GetLevel());
+                        if (Entity* e = EntityManager::SpawnEntityAt(sp, true, true)) e->OnSetup();
+                    }
+            }
+        }
+        if (MetaExpression* m = GetMetaExpression()) {
             const MetaData* mob = m->FindChildData(kExpMobSpawn);
-            if (mob && !(mob->GetChild(0)->GetInt() > 0 && mob->GetChild(0)->GetInt() <= spawnPoint->f50)) {
+            // PORT: spawnPoint checked again (gone when the arena branch took it).
+            if (mob && spawnPoint && !(mob->GetChild(0)->GetInt() > 0 && mob->GetChild(0)->GetInt() <= spawnPoint->f50)) {
                 Disappear();
                 SetUpdateSpeedScale(0.25f);
                 SpawnPoint* sp = spawnPoint;

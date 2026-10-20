@@ -133,9 +133,19 @@ void AIWarrior::Update(float dt) {
     AIBaseState::Update(dt);
 }
 
+// @0xf2328: in an arena fight (types 5, 6) the tile it leaves is free again (weight 1); without a
+// waypoint there it is put on (x, y) at once.
 void AIWarrior::WalkTo(int x, int y) {
-    // UNVERIFIED (milestone 5, arenas): in an arena combat (types 5, 6) the waypoint under the entity gets
-    // weight 1 first (no waypoint: an error, SetPos(x, y) and UpdateLastTarget).
+    if (BaseCombat* c = GameState::GetActiveCombat(); c && (c->GetType() == 5 || c->GetType() == 6)) {
+        if (AI::Waypoint* wp = AI::GetWaypoint(entity->tileX, entity->tileY, false)) {
+            wp->weight = 1.f;
+        } else {
+            // (ErrorReporter::Printf in red.)
+            std::printf("ERROR: AIWarrior::WalkTo() No waypoint at %d %d\n", entity->tileX, entity->tileY);
+            entity->SetPos(x, y);
+            UpdateLastTarget();
+        }
+    }
     AIBaseState::WalkTo(x, y);
 }
 
@@ -153,7 +163,10 @@ void AIWarrior::WalkCompleted() {
         Tasks::CompleteSubtask(Tasks::kTrainAnyWorker, 1, 1);
         GameState::tutorial = 0x65;
     }
-    // UNVERIFIED (milestone 5, arenas): in an arena combat (types 5, 6) the waypoint under it gets weight 1000.
+    // In an arena fight (types 5, 6) the tile it stands on is taken (weight 1000).
+    if (BaseCombat* c = GameState::GetActiveCombat(); c && (c->GetType() == 5 || c->GetType() == 6))
+        if (AI::Waypoint* wp = AI::GetWaypoint(entity->tileX, entity->tileY, false))   // PORT: checked
+            wp->weight = 1000.f;
 }
 
 void AIWarrior::StartTraining() {

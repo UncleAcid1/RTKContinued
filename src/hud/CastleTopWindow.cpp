@@ -15,6 +15,8 @@
 #include "game/GameState.h"
 #include "game/Locations.h"
 #include "game/Map.h"
+#include "game/Rand48.h"
+#include "game/SaveManager.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -127,8 +129,19 @@ void OnReturn() {
             return;
         }
         if (location != 2 && location != 0) {
-            // UNVERIFIED (milestone 5): the arena (location 3, after step 0x80) saves, loads the city
-            // and hides the world map ("ui_map_opened").
+            // The arena (location 3, after tutorial step 0x7f): saved, straight back to the city.
+            if (location != 3 || GameState::tutorial <= 0x7f) return;
+            // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_map_opened", 1, false).
+            if (GameState::GetCurrentMapID() != 0) {
+                Map::Save(0);
+                const bool cached = SaveManager::GetMainSave()->HasMapInCache(0);
+                SaveManager::SaveBlock* block = SaveManager::GetMapData(0);
+                GameState::SetCurrentMapID(0);
+                Map::Load(block, (uint32_t)Rand48::lrand48(), false, cached);
+                Map::UpdateOfflineResources();
+            }
+            GlobalMapWindow::Hide();
+            TaskHolderWindow::UpdateTasks();
             return;
         }
         GlobalMapWindow::CenterOnMap(GameState::GetCurrentMapID());

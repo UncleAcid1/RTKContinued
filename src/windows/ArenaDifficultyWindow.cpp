@@ -3,7 +3,7 @@
 // button. Port of ArenaDifficultyWindow (libkingdom.so 5.11, @0x242b4c..0x245ec8, Win_arn_dif.xml;
 // statics 0x616bc4).
 //
-// The fight itself (BaseCombat's arena switch) is 5s-7.
+// The fight itself is BaseCombat::SwitchToArenaFight and ArenaCombat (game/ArenaCombat.cpp).
 #include <cstdio>
 #include <cstring>
 #include <string>

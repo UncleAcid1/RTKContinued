@@ -1,8 +1,7 @@
 // ArenaCombat and PvPArenaCombat (see Combat.h). Port of libkingdom.so 5.11 @0xfa030..0xfee54 and
 // @0x1f31dc..0x1f4da4.
 //
-// UNVERIFIED (milestone 5): the spells (Spells::GetBestSpellForSlot in the auto fight,
-// SpellMovement while an area spell is aimed) and the sounds (milestone 6).
+// UNVERIFIED (milestone 6): the sounds.
 #include "game/Combat.h"
 
 #include <cmath>
@@ -28,6 +27,7 @@
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/SpellMovement.h"
+#include "game/Spells.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -1002,11 +1002,17 @@ void ArenaCombat::WaitingForContinue() {
                 ++turn;
                 playerTurn = !playerTurn;
                 if (autoCombat && playerTurn) {
-                    // UNVERIFIED (milestone 5): the auto fight casts a random spell the hero can
-                    // afford (Spells::GetBestSpellForSlot for slots 1..3 with his AP) at the first
-                    // enemy when there is one; without spells it picks a stance.
-                    const int spells = 0;
-                    if (spells == 0 || badGuys.empty()) {
+                    // The auto fight: with spells the hero can afford (Spells::GetBestSpellForSlot
+                    // for slots 1..3 with his AP) a random slot of that many is queued at the first
+                    // enemy's tile; without, or without an enemy, it picks a stance.
+                    unsigned spells = 0;
+                    for (unsigned slot = 1; slot != 4; ++slot)
+                        if (Spells::GetBestSpellForSlot(slot, (uint32_t)playerSquad->GetOwner()->GetAP(), true)) ++spells;
+                    if (spells != 0 && !badGuys.empty()) {
+                        spellQueued = true;
+                        spell = (unsigned)Rand48::lrand48() % spells + 1;
+                        spellEpicenter = AI::GetWaypoint(badGuys[0]->tileX, badGuys[0]->tileY, false);
+                    } else {
                         Entity* hero = playerSquad->GetOwner();
                         if (!AI::EnemyInMeleeRange(AI::GetWaypoint(hero->tileX, hero->tileY, false)) ||
                             (Rand48::lrand48() & 1) == 0)

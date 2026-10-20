@@ -482,8 +482,18 @@ void UpdateTasks() {
     // (While the expansion download window is up nothing changes: online.)
     Tasks::TaskInfo* list[0x80] = {};
     unsigned count = Tasks::GetCurrentTasks(list, 0x80, true, false);
-    // UNVERIFIED (milestone 5): on the arena map 0x74, with an arena event open, task 0x5da joins
-    // as a campaign task (priority 10, campaign 0xf).
+    // On the arena map 0x74 the arena events' task 0x5da joins as the arena's campaign task
+    // (priority 10, campaign 0xf) once an event was won or both are open, while one is ready.
+    if (GameState::GetCurrentMapID() == 0x74 &&
+        (GameState::GetEventCompletionCount(2) != 0 || GameState::GetEventCompletionCount(1) != 0 ||
+         (ArenaEventWindow::IsEventUnlocked(1) && ArenaEventWindow::IsEventUnlocked(2))) &&
+        (ArenaEventWindow::GetEventCooldownTime(1) == 0 || ArenaEventWindow::GetEventCooldownTime(2) == 0))
+        if (Tasks::TaskInfo* t = Tasks::GetTask(0x5da)) {
+            t->priority = 10;
+            t->f_1e4 = true;
+            t->campaign = 0xf;
+            list[count++] = t;
+        }
     if (GameState::GetCurrentLocation() == 3 && GameState::GetTaskBeginTime(0x43f) != 0)
         if (Tasks::TaskInfo* t = Tasks::GetTask(0x5fb)) {
             t->priority = 10;
@@ -618,8 +628,9 @@ void UpdateTasks() {
         g_small[i].window->SetOnClick([id] { OnTaskInfo(id); });
 
         // Which background: the top slot of the city shows a battle task as its campaign.
-        bool battle = GameState::GetCurrentLocation() == 0 && w.target == 0 && t->showInBattle;
-        // (the arena map's task 0x5da is always one: milestone 5)
+        // (On the arena map its events' task 0x5da always is one.)
+        bool battle = GameState::GetCurrentLocation() == 0 && w.target == 0 &&
+                      (t->showInBattle || (GameState::GetCurrentMapID() == 0x74 && t->id == 0x5da));
         bool showCampaign = false, campaignDone = false, raid = false;
         if (battle) {
             if (t->campaign != 0) {
