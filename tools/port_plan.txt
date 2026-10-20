@@ -297,7 +297,8 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 5p  ^(Chests|ChestsWindow|ChestOpenedWindow)::
 5q  ^(ItemShopWindow)::
 5r  ^(Tavern|DailyBonusWindow|ResourceHelper|Notifications)::
-5s  ^(ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow|BottomArenaWindow)::
+dead  ^BottomArenaWindow::   # (checked 2026-10-20) Init loads it hidden and sets no show function; no code outside the class calls it (Show, IsVisible, SetSelectedButton...), its Update and Click do nothing while hidden: the arenas use BottomBattleWindow's large buttons
+5s  ^(ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow)::
 5t  ^(AsyncBaseCombat|AsyncCombat|PvPArenaCombat|AIPlayerBot|PvP)::
 5u  ^(AsyncCombat_v2|PlayerInfoWindow|PlayerNameHoverWindow)::
 5v  ^(PresentsContainer)::
