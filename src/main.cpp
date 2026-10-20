@@ -270,12 +270,14 @@ void Tick(float dt) {
     Render::UpdateCamera(dt);
     Render::ApplyViewportLimit();
     Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
+    // (EditorConsole::Update and, in its debug mode, Editor::Update: the admin mode, dead in 5.11.)
     UpdateTagState();
     GameState::UpdatePaymentItems(dt);
     WindowManager::DestroyPendingWindows();
 }
 
-// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED): the touch/pinch path (Game::touchDown) and EditorConsole/Editor.
+// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED): the touch/pinch path (Game::touchDown). Left out:
+// EditorConsole::IsVisible / Click / Move / OnScroll* and Editor::OnMouseOver (the admin mode, dead in 5.11: never shown).
 void MouseDown(int x, int y, bool left) {
     longTapTime = 0.f;
     lastX = x;
@@ -914,8 +916,8 @@ int main_Loop_Init() {
     Render::SortRenderLayer(Render::kLayerGUI, 1);
     // (LoadingInternetWindow::AllowToShow: online.) The queued start presents (none offline):
     PresentsContainer::UnqueueStartPresents();
-    // (The sandbox mode sets tutorial 0x80 / secondTutorial 0x100 here. EditorConsole::Init: milestone
-    // 5, the admin mode. FileManager::GameLoaded: a call to Java.)
+    // (The sandbox mode sets tutorial 0x80 / secondTutorial 0x100 here. EditorConsole::Init: the admin mode,
+    // dead in 5.11 (port_plan 5w). FileManager::GameLoaded: a call to Java.)
 
     // PORT test aids: entities to spawn and a view other than Map::Load's (on the player, in the
     // city on tile (0x1e, 0xc)).
@@ -1060,7 +1062,7 @@ bool main_Loop_Func() {
 
 // @0x185200 Game::main_Exit_Func
 int main_Exit_Func() {
-    // (EditorConsole::Deinit: milestone 5. ErrorReporter::Deinit: online.)
+    // (EditorConsole::Deinit: the admin mode, dead. ErrorReporter::Deinit: online.)
     gameLoaded = false;
     GameState::EndActiveCombat(true);
     RaidCompleteWindow::ForceHide();

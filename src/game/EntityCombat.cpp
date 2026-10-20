@@ -324,7 +324,7 @@ void Entity::Hit() {
 
 int Entity::OnHit(Entity* attacker, int* absorbed) {
     // (Entity::PlayHitSound(attacker): milestone 6. The arena bot and the combat test keep a
-    // non-enemy at 50 HP: milestone 5 / the admin mode.)
+    // non-enemy at 50 HP: CombatTestBot and the console's debug combat, dead in 5.11.)
     int damage = attacker ? BaseDamage(attacker) : 0;
     if (f15c) damage <<= 1;
     if (!attacker) {

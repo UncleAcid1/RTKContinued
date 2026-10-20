@@ -99,7 +99,7 @@ dead  ^(GameState::GetAvailableSoldierCountByID|EntityManager::(EnumEntitiesByID
 dead  ^TargetedAI::(GetClosestReachableWPTo|GetClosestReachableWPToBuilding|GetClosestReachableWPToDecor)$   # vtable +0x40..+0x48: only EasyAI::DoRangedAttackIfReady calls them
 5x  @e309c   # AI::GetNearestReachableWPZeroWeight: the arena and async combats' UpdateAttackPosition
 5x  ^AI::EnemyInMeleeRange$   # only ArenaCombat::WaitingForContinue
-5w  ^(CmdIgnoreDamage|CmdDebugCombat|CmdGodMode|CmdAddSoldier)$   # EditorConsole commands (the admin mode)
+dead  ^(CmdIgnoreDamage|CmdDebugCombat|CmdGodMode|CmdAddSoldier)$   # EditorConsole commands: the admin mode is dead (5w, below)
 5x  ^GameState::AddSoldiersToSquad$   # only HireTroopsWindow
 online  ^GameState::GetBIS$   # only PvP::GetBISItems
 
@@ -137,7 +137,7 @@ util  ^AIWarrior::FUN_000f3b4c$   # std::string::find
 util  ^Locations::FUN_001b2494$   # the location vector's reallocation helper (std::vector in the port)
 dead  ^Map::(Person::|PersonData::|LoadPersonList|GetPersonData|GetRandomPersonData|PersonsDeinit)   # the map's own person list (persons.xml read a second time): Map::Person is never constructed in 5.11, nothing reads the list
 online  ^GameState::LoadEntitiesFromCopy$   # only VisitFriendCity
-5w  ^CmdOpenMap$   # an EditorConsole command (the admin mode), through GlobalMapWindow::SwitchMap
+dead  ^CmdOpenMap$   # an EditorConsole command, through GlobalMapWindow::SwitchMap: the admin mode is dead (5w, below)
 4g  ^Entity::GetClosestWPTo$   # only EasyAI::DoMeleeAttackIfReady (needs AI::GetNearestReachableWPZeroWeight)
 dead  ^ResourceHelper::   # a Windows dev tool (Init reads "c:/kingdom/" + name; AddRes / ClearMapResources keep per-map resource lists, SaveRes / DumpResourcesForCurrentMap are empty): nothing calls any of it in 5.11 (no bl, GOT or vtable entry; checked 2026-10-19)
 dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever shows it (only UnregisterEntity and Deinit touch personWindow)
@@ -311,9 +311,16 @@ dead  ^PvP::(QueuePvPWindowOpen|GetMyRating|GetPlayerCount|GetPlayerInfo)$   # (
 dead  ^AsyncCombat_v2::   # (checked 2026-10-20) no call to its constructors (@0x104340 / @0x104390) and no vtable load outside them and its destructors
 5u  ^(PlayerInfoWindow|PlayerNameHoverWindow)::
 5v  ^(PresentsContainer)::
-5w  ^(EditorConsole|Editor|DebugViewer|CombatTestBot)::
+# 5w DECIDED 2026-10-20 (user): the admin mode is dead in 5.11 (checked 2026-10-20). No key, tap or setting
+# opens the console: the SDL key events go to the volume / settings / back keys or TextInput, never to
+# EditorConsole::On* or Editor::HandleModeKey (no bl, GOT or vtable entry); Show's only caller is Print, and
+# Print's only callers are CMyServer::NET_Sync{Send,Receive}InitialSave_* (online, dormant). Editor's debug mode
+# is entered only by HandleModeKey, so IsInDebugMode stays 0 (main's Editor::Update, Map::Load's ExitDebugMode
+# never run); Editor::OnMouseOver is empty; DebugViewer and CombatTestBot have no caller. The commands are
+# cheats (add item / resource / soldier, unlock all, god mode, tasks, open map, load save), not a free store.
+dead  ^(EditorConsole|Editor|DebugViewer|CombatTestBot)::
 5x  ^(HireTroopsWindow|RepairWindow|Spells|SpellMovement|AISpell|PlaceMagicHoverWindow|BossCombat|BossCombatWaves|BossIntroWindow|BossOutroWindow|BossTimeHoverWindow|BossIntroEffect|FastBossIntroEffect|SiegeCombat|AISiegeAttacker|StartRaidingWindow|RaidInfoWindow|RaidCompleteWindow|GlobalMapWindow|Professions|Collections|Sets|SetInfoWindow|SultanArrivingWindow|BottomScreenshotWindow)::
-5w  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the admin mode
+dead  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the admin mode is dead (5w, above)
 5p  ^ParseItemDrop\w+$   # chest drop lists
 5x  ^(dollar\w+|bestDollarDifference)$   # spell gestures
 5s  ^GameState::(AddArena\w+|GetStartingArenaHP|SetStartingArenaHP|IsArenaCombatActive|AddEventCompletion|AddEventFail|GetEventCompletionCount|GetEventDifficulty|SetEventDifficulty|GetEventEndTime|SetEventEndTime|GetEventStartTime|SetEventStartTime)$
