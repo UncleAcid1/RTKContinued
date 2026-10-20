@@ -128,6 +128,8 @@
             if (i == envi("RTK_SETITEM", -1) + 30) { SetInfoWindow::OnItem((unsigned)envi("RTK_SLOT", 0)); std::printf("[t] set item: shop %d\n", (int)ItemShopWindow::IsVisible()); }   // 5q-5b
             if (i == envi("RTK_NOTENOUGH", -1)) { NotEnoughWindow::AddItemRequirement((unsigned)envi("RTK_NEEDITEM", 136), 1); NotEnoughWindow::Show(); }
             if (i == envi("RTK_LEVELINFO", -1)) LevelInfoWindow::Show();
+            if (i == envi("RTK_BUYITEM", -1)) CastleTopWindow::OnBuyItem((uint32_t)envi("RTK_NEEDITEM", 136));   // 5q-5c
+            if (i == 31 && envi("RTK_BELTEMPTY", 0)) { GameState::BindBeltItemTo(1, (uint32_t)envi("RTK_BELTEMPTY", 0)); BeltBarWindow::UpdateBeltItems(); BeltBarWindow::UpdateContents(); }
             if (i == envi("RTK_SHOPVIS2", -1)) std::printf("[t] shop visible %d need %d\n", (int)ItemShopWindow::IsVisible(), (int)NeedItemWindow::IsVisible());
             if (i == envi("RTK_SHOP", -1)) { ItemShopWindow::Show(); std::printf("[t] shop shown %d\n", (int)ItemShopWindow::IsVisible()); }   // 5q-2
             if (i == envi("RTK_SHOPLIST", -1)) {   // 5q-1: the shop's lists

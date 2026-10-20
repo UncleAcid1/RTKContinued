@@ -322,7 +322,8 @@ void FactoryHoverWindow::OnSpeedUp(bool confirmed) {
         NotEnoughWindow::AddItemRequirement(boostItem, (unsigned)boostAmount);
         if (!NotEnoughWindow::CheckRequirements()) {
             BuildingHovers::Hide();
-            // UNVERIFIED (milestone 5): ItemShopWindow::Show / ShowShopItem(boostItem).
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopItem(boostItem, 0, true, (unsigned)-1);
             return;
         }
     }

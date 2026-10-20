@@ -168,10 +168,14 @@ void OnTweenIn() {
     g_inventoryPending = false;
 }
 
-// (0x24d9e4): none of the slot's item left. Before the shop's quest: "later"; after it the item
-// shop opens at the item (UNVERIFIED, milestone 5: ItemShopWindow::Show / ShowShopItem).
+// @0x24d9e4: none of the slot's item left. Before the shop's quest: "later"; after it the item
+// shop opens at the item.
 void OnAddMoreSlot(unsigned i) {
-    if (GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt())) return;
+    if (GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt())) {
+        ItemShopWindow::Show();
+        ItemShopWindow::ShowShopItem(GameState::GetBeltItemAt(i), 0, true, (unsigned)-1);
+        return;
+    }
     int x, y;
     SlotWorldPoint(i, x, y);
     BuildingHovers::ShowTextHoverWithStyle((float)x, (float)y, StringTable::GetString("BOTTOM_BAR_LATER"), 0xe, 2.f,
@@ -179,10 +183,10 @@ void OnAddMoreSlot(unsigned i) {
 }
 
 // @0x24f0e4: a tap on a slot: the item's card (Drink / Turn on) over it; with the character window
-// open the window shows the item (none left: the shop, once unlocked). UNVERIFIED (milestone 5, 5q):
-// with the item shop open nothing happens, and the shop's ShowShopItem.
+// open the window shows the item (none left: the shop, once unlocked). With the item shop open
+// nothing happens (so the original's own branch for the open shop, 0x24f3ac, never runs).
 void OnSlot(unsigned i) {
-    if (i >= 3) return;
+    if (ItemShopWindow::IsVisible() || i >= 3) return;
     Items::ItemInfo* info = Items::GetItemInfo(GameState::GetBeltItemAt(i));
     if (!info) {
         OnEmptySlot(i);
@@ -198,7 +202,8 @@ void OnSlot(unsigned i) {
                                                    2.f, 50.f, true, true);
         } else {
             CharacterInfoWindow::Hide();
-            // UNVERIFIED (milestone 5, 5q): ItemShopWindow::Show + ShowShopItem(id, 0, true, -1).
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopItem(info->id, 0, true, (unsigned)-1);
         }
         return;
     }
@@ -389,9 +394,9 @@ bool Click(int x, int y, bool pressed) {
 }
 
 // @0x24d0fc: the inventory button. In the second tutorial (0xa4) and the opening one (0x14 / 0x15)
-// the window opens at the item to equip. UNVERIFIED (milestone 5, 5q): not while the item shop is
-// open (ItemShopWindow::IsVisible).
+// the window opens at the item to equip. Not while the item shop is open.
 void OnInventory() {
+    if (ItemShopWindow::IsVisible()) return;
     CharacterInfoWindow::Show();
     if (GameState::secondTutorial == 0xa4) CharacterInfoWindow::ShowInventoryItem(0x6b, 1, nullptr);
     if ((unsigned)(GameState::tutorial - 0x14) < 2) CharacterInfoWindow::ShowInventoryItem(0x5b, 1, nullptr);

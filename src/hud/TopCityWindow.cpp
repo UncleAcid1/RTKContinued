@@ -3,6 +3,7 @@
 #include <string>
 
 #include "engine/Render.h"
+#include "game/BuildingHovers.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
@@ -208,11 +209,19 @@ void Hide() {
     g_effect->Animate(x, g_offsetY, g_effect->GetCenteredX() + g_offsetX, -g_root->h, false);
 }
 
-// @0x3657a4. UNVERIFIED: the dialog-dependent depths (0.01 while the shop, crafting, exchange ...
-// windows are open) need those windows; the HUD depth is used.
-void SetZ(float) {
+// @0x3657a4: the HUD's depth (z itself while the mission brief is up); 0.01, in front, while one
+// of the dialogs below is open and no building hover shows. (The original's last RaidInfoWindow
+// test, also 0.01, cannot be reached.)
+void SetZ(float z) {
     if (!g_root) return;
-    g_root->SetZ(HUDWindow::GetZ());
+    if (!CampaignInfoWindow::IsVisible()) z = HUDWindow::GetZ();
+    if (!BuildingHovers::IsHoverVisible() &&
+        (ItemShopWindow::IsVisible() || CraftingWindow::IsVisible() || CraftItemWindow::IsVisible() ||
+         ExchangeWindow::IsVisible() || HealSquadWindow::IsVisible() || HireTroopsWindow::IsVisible() ||
+         LandWindow::IsVisible() || NotEnoughWindow::IsVisible() || RaidInfoWindow::IsVisible() ||
+         RepairWindow::IsVisible() || TaskInfoWindow::IsVisible()))
+        z = 0.01f;
+    g_root->SetZ(z);
     if (g_root->visibleSelf) g_root->SetPosition(g_effect->GetCenteredX() + g_offsetX, g_offsetY);
 }
 

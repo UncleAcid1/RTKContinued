@@ -12,7 +12,7 @@
 // fight, the tutorial's arrow at the first slot, EnableFuryGlow.
 // UNVERIFIED (milestone 5): SpellMovement (5k: placing an area spell in the arenas, the large
 // buttons' accept / decline, the second tutorial's step 0x9e), the spell drag in Click, the mana
-// potion hints' actions (5k, 5l, 5q), the round mask on the centre button's icon, showing the bar
+// potion hints' actions (5k, 5l), the round mask on the centre button's icon, showing the bar
 // on every campaign map (Map::Load).
 // (milestone 6: the "ui_click" sound and the spells' sounds and particles.)
 #include "hud/HUD.h"
@@ -795,8 +795,7 @@ void FlyNet(float dt) {
 }
 
 // @0x25769c (the belt's potion, else the inventory's, else the shop's): points the player at a
-// mana potion. UNVERIFIED (milestone 5, 5q): the shop's part (ItemShopWindow::ItemCanBeBought(0x88,
-// 0), Show, ShowShopItem(0x88, 0, true, -1)).
+// mana potion (the shop's: 0x88).
 bool OnShowManaPotion(unsigned) {
     for (unsigned slot = 0; slot < GameState::GetBeltSlotCount(); ++slot) {
         GameState::PlayerItem* item = GameState::GetFirstItemByID(GameState::GetBeltItemAt(slot), true);
@@ -812,7 +811,11 @@ bool OnShowManaPotion(unsigned) {
             CharacterInfoWindow::ShowInventoryItem(item->id, 4, item);
             return true;
         }
-    // (ItemShopWindow::ItemCanBeBought(0x88, 0): the mana potion can be bought: 5q.)
+    if (ItemShopWindow::ItemCanBeBought(0x88, 0)) {
+        ItemShopWindow::Show();
+        ItemShopWindow::ShowShopItem(0x88, 0, true, (unsigned)-1);
+        return true;
+    }
     return false;
 }
 

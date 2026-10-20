@@ -63,6 +63,7 @@ Window* g_giNotify = nullptr;
 Textfield* g_giNotifyText = nullptr;
 bool g_campaignToCityDirect = false;   // 0x61922c Setting "campaign_to_city_direct" == 1
 int g_blinkMap = 0;                    // 0x619214 BlinkCompass's map
+uint32_t g_buyItem = 0;                // 0x619228 OnBuyItem's item: the shop opens on it once
 int g_arrowCallback = 0;               // 0x61921c the id of the tutorial arrow's callback
 unsigned g_shownWindows = 0;           // 0x619220 the fewest windows shown since the arrow went up
 int g_friendRequests = 0;              // 0x61924c (online: always 0)
@@ -172,6 +173,27 @@ void OnReturn() {
     if (choosePath) ChoosePathWindow::Show();
 }
 
+// @0x2778b0 the Shop button: the help with the shop's quest while it is not done, else the item
+// shop (on OnBuyItem's item, once).
+void OnShop() {
+    if (GameState::TryToHelpWithTask((unsigned)Setting("shop_unlock_task").GetInt())) return;
+    ItemShopWindow::Show();
+    if (g_buyItem != 0) {
+        ItemShopWindow::ShowShopItem(g_buyItem, 0, true, (unsigned)-1);
+        g_buyItem = 0;
+    }
+}
+
+// @0x27723c: the arrow at the Shop button; its tap (or the button's) opens the shop on item.
+void OnBuyItem(uint32_t item) {
+    g_buyItem = item;
+    const int id = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnShop));
+    g_arrowCallback = id;
+    BuildingHovers::ArrowAt((float)(g_root->x + g_shop->x + g_shop->w / 2), (float)(g_root->y + g_shop->y + g_shop->h),
+                            false, false, false, true, true, false, false);
+    BuildingHovers::PreventArrowAutoHide();
+}
+
 // @0x276c50
 void BlinkCompass() { g_blinkMap = (int)GameState::GetCurrentMapID(); }
 
@@ -212,8 +234,8 @@ void Init() {
     g_effect = GUI::CreateMovementEffect(g_root);
     GUI::GetWindowTyped<Window>(g_root, "hud_navigation_main_bg")->noInput = true;
 
-    // UNVERIFIED (later milestones / online): OnFriends, OnShop, OnReturn and OnPvP open windows that
-    // are not ported; those callbacks are installed as no-ops.
+    // UNVERIFIED (later milestones / online): OnFriends and OnPvP open windows that are not ported;
+    // those callbacks are installed as no-ops.
     g_friends = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01");
     g_friends->SetOnClick([] {});
     g_friendsBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01.button_large_blue_bg");
@@ -223,7 +245,7 @@ void Init() {
     g_friendsText->SetText(StringTable::GetString("FRIENDS_BUTTON"));
 
     g_shop = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_02");
-    g_shop->SetOnClick([] {});
+    g_shop->SetOnClick(OnShop);
     g_shopBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_02.button_large_blue_bg");
     g_shopIcon = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_02.icon_60");
     g_shopIcon->SetTexture(IconManager::GetIcon("Icon_bottom_bar_shop", false), true);

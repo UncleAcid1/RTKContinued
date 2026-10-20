@@ -195,6 +195,7 @@ online  ^GameState::(ShowGemBonusMessage|GetGemStepMessage|SetGemStepMessage)$  
 removed  ^Tasks::SendTasksFootprint$   # sent with a real-money purchase (ExchangeWindow::OnPayFor*)
 4g  ^TaskInfoWindow::(OnFight|SkipBossTask)$   # the boss form of the quest window
 5q   ^TaskInfoWindow::OnShop$   # the item shop's tab 3
+5q   ^CastleTopWindow::(OnShop|OnBuyItem)$   # the HUD's Shop button (5q-5c)
 5o   ^Tasks::ShowWarriorSlotUnlock$   # CraftSuccessWindow::SetParameters(0) and Show: with the craft windows
 4d  ^Tasks::(TaskSubtask::OnHelp|HelpWithLocation|HelpWithMapSwitchTo|HelpWithMapSwitchToContinuation|RunLastSubTaskHelp|ShowWarriorSlotUnlock)$   # the task window's "Go" button (TaskInfoWindow::OnHelpActual) and what it navigates with; moved from 4c part 4
 util  ^TaskHolderWindow::FUN_(00355298|00355bc4|00355c64|00355df8)$   # std::sort with TaskOrdering (insertion sort, heap, introsort)
@@ -312,7 +313,7 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 5x  ^EntityFactory::(GetEntityForArena|GetTamedEntityForID)$
 5x  ^EntityData::(GetSmallSpellIcon|GetWaves\w+)$
 5x  ^CharacterInfoWindow::   # the window itself (its stat part was 4b.2)
-5x  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|OnBuyItem|OnShop|HelpWithScreenshot)$
+5x  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|HelpWithScreenshot)$
 5x  ^BaseAI::|^AIPlayer::Retreat$
 5x  ^BuildingPlacement::BuildingFromPresents$
 5x  ^HUDWindow::(OnArenaEvent|SetCurrentCity)$

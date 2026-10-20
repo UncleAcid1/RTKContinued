@@ -207,6 +207,8 @@ namespace CastleTopWindow {
 inline void HideTools() {}         // @0x2769cc (empty in 5.11)
 void BlinkCompass();               // @0x276c50 the compass blinks until the map changes
 void OnFindPlayer();               // @0x2772e8
+void OnShop();                     // @0x2778b0 the item shop (the shop's quest help first)
+void OnBuyItem(uint32_t item);     // @0x27723c the arrow at the Shop button, the shop then opens on item
 }
 
 namespace BottomCityWindow {
