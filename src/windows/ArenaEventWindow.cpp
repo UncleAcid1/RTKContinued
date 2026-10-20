@@ -5,19 +5,27 @@
 // reputation bar and the start / unlock button. SetParameters picks the event (0 / 1) the arrow
 // points at when the window comes in.
 //
-// UNVERIFIED (milestone 5s-3b): Update and OnStartEvent are still empty.
+// UNVERIFIED (milestones 5s-4 .. 5s-6): event 2's start goes to ArenaDifficultyWindow (not ported yet).
+#include <cmath>
 #include <cstdio>
 #include <string>
 
 #include "engine/IconManager.h"
+#include "engine/Render.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
 #include "game/Entity.h"
+#include "game/EntityData.h"
 #include "game/EntityManager.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/GameState.h"
 #include "game/Professions.h"
 #include "game/Setting.h"
+#include "game/SpawnPoint.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
+#include "game/AIState.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
@@ -144,14 +152,188 @@ EventInfo g_events[2];                    // 0x617254
 std::u32string g_description;             // 0x617384 GetEventDescription's text (0x80 characters)
 Textfield* g_title = nullptr;             // 0x617584 text_title
 Window* g_close = nullptr;                // 0x617590 x_button.clickArea
+float g_pulseTime = 0.f;                  // 0x617588 the chosen event's picture pulse
+int g_lastSecond = 0;                     // 0x61758c Update's last wall-clock second
 unsigned g_event = 0xffffffff;            // 0x60f0a0 SetParameters: the event (0 / 1) to point at
 bool g_tablet = false;                    // 0x60f0a4
 float g_scale = 1.f;                      // 0x60f0a8
 
-// UNVERIFIED (milestone 5s-3b): the event's start (OnStartEvent @0x247d64).
-void OnStartEvent(unsigned) {}
-// UNVERIFIED (milestone 5s-3b): @0x247594.
-void Update(float) {}
+// The arena NPC at spawn point `spawn` offers its talk `talk` (none while it has a quest to give).
+void OfferTalk(uint32_t spawn, uint32_t talk, bool needPvP) {
+    Entity* e = EntityManager::GetEntityBySpawnPoint(spawn);
+    if (!e || BuildingHovers::IsWorldDialogVisible()) return;
+    if (needPvP && !GameState::TaskCompleted(0x74d)) return;
+    e->AssignSpecialTalk(e->GetTalkTask() != 0 ? 0 : talk);
+}
+
+// @0x247594: while the window is up, the chosen event's pictures swell to 1.2 and back each second
+// (the others shrink back by dt). Once a wall-clock second the contents are refreshed and the
+// events are kept: a running event whose time is up ends (its quests reset: event 1's 0x5b1 ..
+// 0x5b7, event 2's 0x5b9) and starts its cooldown; one whose last quest (0x5b7 / 0x5b9) is done
+// counts as completed; then the arena NPCs offer their talks.
+void Update(float dt) {
+    if (g_queue->shown) {
+        for (unsigned i = 0; i != 2; ++i) {
+            EventInfo& e = g_events[i];
+            if (i == g_event) {
+                const float t = g_pulseTime;
+                if (t > 1.f) {
+                    e.f94 = 1.f;
+                    g_pulseTime = 0.f;
+                } else if (t < 0.5f) {
+                    const float x = t + t;
+                    const float s = std::sqrt(1.f - x * x) - 1.f;
+                    const float d = 0.f + s * -0.2f;
+                    e.f94 = d + 1.f;
+                } else {
+                    float x = t - 0.5f;
+                    x = x + x;
+                    x = x - 1.f;
+                    const float s = std::sqrt(1.f - x * x);
+                    const float d = 0.2f + s * -0.2f;
+                    e.f94 = d + 1.f;
+                }
+            } else if (e.f94 > 1.f) {
+                e.f94 -= dt;
+                if (e.f94 < 1.f) e.f94 = 1.f;
+            } else {
+                continue;
+            }
+            e.chestBg->SetAlpha(e.f94, true);
+            e.wavesBg->SetAlpha(e.f94, true);
+        }
+        g_pulseTime += dt;
+    }
+    if (Timer::GetGlobalTime() == g_lastSecond) return;
+    g_lastSecond = Timer::GetGlobalTime();
+    if (g_queue->shown) UpdateContents();
+    for (unsigned event = 1; event <= 2; ++event) {
+        if (GameState::GetEventStartTime(event) != 0 && GetEventRemainingTime(event) == 0) {
+            if (event == 1) {
+                GameState::SetEventStartTime(1, 0);
+                GameState::SetEventEndTime(1, (uint32_t)Timer::GetGlobalTime());
+                if (Tasks::TaskInfo* t = Tasks::GetTask(0x5b1)) t->dnShow = t->dnShowDefault;
+                GameState::ResetTask(0x5b1);
+                GameState::SetTaskBeginTime(0x5b1, 1);
+                GameState::ResetTask(0x5b2);
+                GameState::ResetTask(0x5b3);
+                GameState::ResetTask(0x5b4);
+                GameState::ResetTask(0x5b7);
+                Tasks::Update(true);
+                HUDWindow::UpdateTasks();
+            } else {
+                GameState::SetEventStartTime(2, 0);
+                GameState::SetEventStartTime(0x400, 0);
+                GameState::SetEventEndTime(2, (uint32_t)Timer::GetGlobalTime());
+                if (Tasks::TaskInfo* t = Tasks::GetTask(0x5b9)) t->dnShow = t->dnShowDefault;
+                GameState::ResetTask(0x5b9);
+            }
+        }
+        if (GameState::GetEventStartTime(event) == 0 || GetEventRemainingTime(event) == 0) continue;
+        if (!GameState::TaskCompleted(event == 1 ? 0x5b7 : 0x5b9)) continue;
+        GameState::SetEventStartTime(event, 0);
+        if (event == 2) GameState::SetEventStartTime(0x400, 0);
+        GameState::AddEventCompletion(event);
+        if (GameState::GetEventEndTime(event) == 0) GameState::SetEventEndTime(event, (uint32_t)Timer::GetGlobalTime());
+    }
+    OfferTalk(0x4b6, 0x4b6, true);
+    OfferTalk(0x4b4, 0x4b4, true);
+    if (Entity* e = EntityManager::GetEntityBySpawnPoint(0x578)) {
+        if (!BuildingHovers::IsWorldDialogVisible())
+            e->AssignSpecialTalk(e->GetTalkTask() == 0 && GameState::GetTaskBeginTime(0x5b7) != 0 &&
+                                         !GameState::TaskCompleted(0x5b7)
+                                     ? 0x578
+                                     : 0);
+    }
+    // PORT: the NPC at spawn point 0x695 would offer talk 0x695 (PlayerCompetitionWindow, online and
+    // not ported; milestones 5t / 5u decide); it is left without one so its bubble leads nowhere.
+}
+
+// @0x247d64 (holder i: event i + 1): a locked event shows the help to unlock it. Event 1 not yet
+// running starts: its time, difficulty 1 the first time (0 afterwards), its quests 0x5b1 .. 0x5b7
+// afresh (all but the last done at once by a held item 0x201, with the arrow at the NPC 0x578), and
+// the guardian at spawn point 0x4e4 becomes a random arena-1 monster (0x21a on difficulty 1) at the
+// player's level, fighting on map 112; a running event 1 shows its open quest. Event 2 opens the
+// difficulty choice, or goes on when it runs.
+void OnStartEvent(unsigned i) {
+    const unsigned event = i + 1;
+    if (!IsEventUnlocked(event)) {
+        LevelInfoWindow::HelpWithArena(event);
+        Hide();
+        return;
+    }
+    if (event == 1) {
+        if (GameState::GetEventStartTime(1) == 0) {
+            GameState::SetEventStartTime(1, (uint32_t)Timer::GetGlobalTime());
+            GameState::SetEventEndTime(1, 0);
+            const uint32_t done = GameState::GetEventCompletionCount(1);
+            GameState::SetEventDifficulty(1, done <= 1 ? 1 - done : 0);
+            GameState::ResetTask(0x5b1);
+            GameState::StartTask(0x5b1);
+            GameState::ResetTask(0x5b2);
+            GameState::ResetTask(0x5b3);
+            GameState::ResetTask(0x5b4);
+            GameState::ResetTask(0x5b7);
+            if (GameState::GetItemAmount(0x201, false) != 0) {
+                GameState::CompleteTask(0x5b2, false);
+                GameState::CompleteTask(0x5b3, false);
+                GameState::CompleteTask(0x5b4, false);
+                GameState::CompleteTask(0x5b1, false);
+                if (Entity* npc = EntityManager::GetEntityBySpawnPoint(0x578)) {
+                    AIBaseState* ai = EntityManager::GetPlayer()->GetAI();
+                    BuildingHovers::SetArrowClickCallback(new GUI::Callback([ai, npc] { ai->ClickedEntity(npc); }));
+                    const float x = npc->worldX;
+                    const float y = npc->worldY;
+                    BuildingHovers::ArrowAt(x, y - npc->GetIdleHeight() - 70.f, false, false, false, false, false,
+                                            false, false);
+                    Render::CenterOn(npc->worldX, npc->worldY, true, 0.4f, 0, false);
+                }
+            }
+            if (Entity* guard = EntityManager::GetEntityBySpawnPoint(0x4e4)) {
+                EntityData* d = EntityFactory::GetEntityForArena(1, 0);
+                if (GameState::GetEventDifficulty(1) == 1) d = EntityFactory::GetEntityByID(0x21a);
+                if (d) {
+                    guard->SwitchEntityData(d);
+                    if (SpawnPoint* sp = guard->GetSpawnPoint()) {
+                        sp->deathTime = 0;
+                        sp->entityId = d->id;
+                        sp->hp = d->GetHpForLevel(GameState::GetLevel());
+                        sp->hpMax = d->GetHpForLevel(GameState::GetLevel());
+                        char* text = nullptr;
+                        if (d->bossMinionsLevels) {
+                            text = new char[0x80];
+                            std::sprintf(text, "MAP_ID=112,BOSS=%d:%d", d->bossMinionsLevels->GetChild(0)->GetInt(),
+                                         d->bossMinionsLevels->GetChild(1)->GetInt());
+                        } else if (GameState::GetEventDifficulty(1) == 1) {
+                            text = new char[0x80];
+                            std::memcpy(text, "MAP_ID=112,BOSS=539:3", 0x16);
+                        }
+                        if (text) {
+                            delete sp->meta;
+                            sp->meta = new MetaExpression(text, true);
+                        }
+                    }
+                }
+            }
+            Tasks::Update(true);
+            HUDWindow::UpdateTasks();
+        } else {
+            unsigned task = 0;
+            if (!GameState::TaskCompleted(0x5b1)) task = 0x5b1;
+            else if (!GameState::TaskCompleted(0x5b3)) task = 0x5b3;
+            else if (!GameState::TaskCompleted(0x5b7)) task = 0x5b7;
+            if (task) {
+                TaskInfoWindow::SetTask(task, false);
+                TaskInfoWindow::Show();
+            }
+        }
+    } else if (event == 2) {
+        // UNVERIFIED (milestones 5s-4 .. 5s-6): GameState::GetEventStartTime(2) == 0 ?
+        // ArenaDifficultyWindow::Show() : ArenaDifficultyWindow::OnStartEvent().
+    }
+    UpdateContents();
+    Hide();
+}
 
 // @0x247acc: a cooling-down event (holder i: event i + 1) starts over at once for "arena_unlock"
 // crystals (not enough: the NotEnough dialog); the price is confirmed first (pay = false). Event 2's

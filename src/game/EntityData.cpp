@@ -231,6 +231,16 @@ EntityData* GetEntityByID(int id) {
     return it != g_byId.end() ? it->second : nullptr;
 }
 
+// @0x1610fc
+EntityData* GetEntityForArena(unsigned arena, unsigned pick) {
+    std::vector<EntityData*> found;
+    for (auto& [id, d] : g_byId)
+        if (d->type == 0x10 && (unsigned)d->monsterType == arena) found.push_back(d);
+    if (found.empty()) return nullptr;
+    if (pick == 0) pick = (unsigned)Rand48::lrand48();
+    return found[pick % found.size()];
+}
+
 // @0x160720: the tamed form of a monster: the first entity (by id) of type 0x11 with its enemy
 // class; none for an entity that is itself tamed.
 EntityData* GetTamedEntityForID(uint32_t id) {

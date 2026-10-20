@@ -131,6 +131,9 @@ void Init();                                      // @0x161a1c InitNames: the wo
 EntityData* GetEntityByID(int id);                // @0x15f7b4
 void GetEntitiesForBuilding(unsigned building, unsigned* out, unsigned count);   // @0x160680
 EntityData* GetTamedEntityForID(uint32_t id);    // @0x160720
+// @0x1610fc: a monster (type 0x10) of the arena's kind (monster_type == arena), by id order: the
+// pick-th % count one, a random one for pick 0; none when there is none.
+EntityData* GetEntityForArena(unsigned arena, unsigned pick);
 EntityData* EnumEntity(unsigned i);               // @0x1608a8 (file order)
 int GetEntityIDByName(const std::string& name);   // @0x1605c8 (-1 if none)
 // The worker/farmer name lists (female: EntityData::female, farmer: 1 for farmers). An index out of
