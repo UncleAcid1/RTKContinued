@@ -24,6 +24,9 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/MetaData.h"
+#include "game/MetaExpression.h"
+#include "game/EntityManager.h"
+#include "game/Sets.h"
 #include "game/Professions.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -610,7 +613,162 @@ void PrepareSpecialEventCost() {
 
 namespace {
 
-void UpdateCard() {}                   // STUB (5q-3b): the selected item's card, UpdateContents' rest
+// GetSelectedItem @0x2dd2dc: the selected cell's list entry (none: no item).
+MixedItem GetSelectedItem() {
+    if (g_selected == -1 || g_selected >= (int)g_items.size()) return MixedItem{};
+    return MixedItem{nullptr, g_items[g_selected].info};
+}
+
+void UpdateCardButtons(Items::ItemInfo*) {}   // STUB (5q-3c): the card's buttons, compared item, equip
+
+// The card's effect lines (part of UpdateContents) when there is no large description: three or
+// more effects (or the type-0x17 one, counted twice) take the four small lines, where an effect
+// followed by a type-0x17 one leaves the second line empty and the first moves down half a line
+// (with four counted, the third line moves); one or two take the two large lines (one alone moves
+// down half a line).
+void UpdateCardEffects(Items::ItemInfo* info) {
+    GenericItemInfo& g = g_info;
+    for (Shared::EffectDescriptionLine& l : g.lines) {
+        l.root->SetVisibility(false);
+        l.root->MoveWindow(0, -l.f14);
+        l.f14 = 0;
+    }
+    for (Shared::EffectDescriptionLine& l : g.huge) {
+        l.root->SetVisibility(false);
+        l.root->MoveWindow(0, -l.f14);
+        l.f14 = 0;
+    }
+    std::u32string desc;
+    MetaExpression* m = info->meta;
+    unsigned n = 0;
+    if (!g.descLarge->visibleSelf && m) {
+        unsigned last;
+        do {
+            last = n;
+            m = m->GetNext();
+            ++n;
+        } while (m && n < 4);
+        m = info->meta;
+        if (n >= 3 && info->meta->FindByType(0x17)) n = last + 2;
+        if (n >= 3) {
+            unsigned k = 0;
+            do {
+                m->GenerateDescription(desc, 0x80, EntityManager::GetPlayer());
+                Shared::EffectDescriptionLine& l = g.lines[k];
+                l.root->SetVisibility(true);
+                l.text->SetVisibility(true);
+                l.text->SetText(desc.c_str());
+                l.icon->SetTexture(IconManager::GetIcon(m->GetBonusIcon(info), false), true);
+                if (k == 0 && m->GetNext() && m->GetNext()->GetData()->type == 0x17) {
+                    k = 2;
+                    g.lines[0].f14 = (g.lines[1].root->y - g.lines[0].root->y) / 2;
+                    g.lines[0].root->MoveWindow(0, g.lines[0].f14);
+                } else {
+                    ++k;
+                }
+                m = m->GetNext();
+            } while (!g.descLarge->visibleSelf && m && k < 4);
+            if (n == 3) {
+                g.lines[2].f14 = (g.lines[1].root->y - g.lines[0].root->y) / 2;
+                g.lines[2].root->MoveWindow(0, g.lines[2].f14);
+            }
+            return;
+        }
+    }
+    if (!g.descLarge->visibleSelf && m) {
+        for (unsigned k = 0; k < 2 && m; ++k) {
+            m->GenerateDescription(desc, 0x80, EntityManager::GetPlayer());
+            Shared::EffectDescriptionLine& l = g.huge[k];
+            l.root->SetVisibility(true);
+            l.text->SetVisibility(true);
+            l.text->SetText(desc.c_str());
+            l.icon->SetTexture(IconManager::GetIcon(m->GetBonusIcon(info), false), true);
+            m = m->GetNext();
+            if (g.descLarge->visibleSelf) break;
+        }
+    }
+    if (n == 1) {
+        g.huge[0].f14 = (g.huge[1].root->y - g.huge[0].root->y) / 2;
+        g.huge[0].root->MoveWindow(0, g.huge[0].f14);
+    }
+}
+
+// The selected item's card (UpdateContents from 0x2e2964): everything hidden, "no selection", or the
+// item's name in its quality, its description ("<name>_DESC", not for equipment and type 3, nor
+// with effects), its effect lines, and its type line: with a set, the type and the set's name; with
+// a reputation (or profession) and no set, the type and the reputation's icon and rank; else the
+// large type line. PORT (user 2026-10-19): a pack's contents line (type 0x80: "ITEM_PACK_CONTAINS",
+// "ITEM_BONUS", the building that makes the packed item) is not ported; packs are not sold.
+void UpdateCard() {
+    GenericItemInfo& g = g_info;
+    for (Textfield* n : g.name) n->SetVisibility(false);
+    g.descLarge->SetVisibility(false);
+    g.typeHolderLarge->SetVisibility(false);
+    g.typeHolder->SetVisibility(false);
+    g.setHolder->SetVisibility(false);
+    g.packHolder->SetVisibility(false);
+    g.equip->SetVisibility(false);
+    g.buySingle.root->SetVisibility(false);
+    g.three->SetVisibility(false);
+    g.two->SetVisibility(false);
+    g.two2->SetVisibility(false);
+    g.unlock.root->SetVisibility(false);
+    for (Shared::EffectDescriptionLine& l : g.lines) l.root->SetVisibility(false);
+    g.huge[0].root->SetVisibility(false);
+    g.huge[1].root->SetVisibility(false);
+    Items::ItemInfo* const info = GetSelectedItem().info;
+    g_noSelected->SetVisibility(info == nullptr);
+    g_noSelected->SetText(StringTable::GetString("INVENTORY_NO_SELECTION"));
+    if (!info) {
+        UpdateCardButtons(nullptr);
+        return;
+    }
+    Sets::Set* const set = Sets::GetSetForItem(info->id);
+    Render::Texture* const typeIcon = IconManager::GetIcon(info->GetItemTypeIcon(0), false);
+    const char32_t* const typeName = info->GetItemTypeName(0);
+    for (int i = 0; i != 5; ++i) g.name[i]->SetVisibility((int)info->itemLevel == i);
+    g.name[info->itemLevel]->SetText(info->title);
+    char key[0x40];
+    std::snprintf(key, sizeof key, "%s_DESC", info->name);
+    g.descLarge->SetVisibility(StringTable::StringNotEmpty(key) && info->type != 8 && info->type != 3 &&
+                               info->meta == nullptr);
+    if (g.descLarge->visibleSelf) g.descLarge->SetText(StringTable::GetString(key));
+    UpdateCardEffects(info);
+    if (set) {
+        g.typeHolderLarge->SetVisibility(false);
+        g.typeHolder->SetVisibility(true);
+        g.setHolder->SetVisibility(true);
+        g.typeIcon->SetVisibility(typeIcon != nullptr);
+        if (typeIcon) g.typeIcon->SetTexture(typeIcon, true);
+        g.typeText->SetVisibility(typeName != nullptr);
+        if (typeName) g.typeText->SetText(typeName);
+        g.setIcon->SetVisibility(false);
+        g.setText->SetText(set->name);
+    } else {
+        g.typeHolderLarge->SetVisibility(info->reputationId == 0);
+        g.typeHolder->SetVisibility(info->reputationId != 0);
+        g.setHolder->SetVisibility(info->reputationId != 0);
+        Professions::Profession* const prof =
+            info->reputationId ? Professions::GetProfession(info->reputationId) : nullptr;
+        if (prof) {
+            Professions::ProfessionLevel* const level =
+                Professions::GetProfessionLevel(info->reputationId, info->reputationLevel);
+            g.typeIcon->SetVisibility(typeIcon != nullptr);
+            if (typeIcon) g.typeIcon->SetTexture(typeIcon, true);
+            g.typeText->SetVisibility(typeName != nullptr);
+            if (typeName) g.typeText->SetText(typeName);
+            g.setIcon->SetVisibility(true);
+            g.setIcon->SetTexture(prof->icon, false);
+            g.setText->SetText(level ? level->name : prof->title);
+        } else {
+            g.typeIconLarge->SetVisibility(typeIcon != nullptr);
+            if (typeIcon) g.typeIconLarge->SetTexture(typeIcon, true);
+            g.typeTextLarge->SetVisibility(typeName != nullptr);
+            if (typeName) g.typeTextLarge->SetText(typeName);
+        }
+    }
+    UpdateCardButtons(info);
+}
 
 // One cell of the grid (part of UpdateContents): the item's price (the cost item's, else gold, else
 // crystals; the discounted one and the full one), what is owned, the names in the item's quality,
@@ -813,7 +971,7 @@ void UpdateCell(ItemInfo& c, unsigned index) {
 
 }  // namespace
 
-// @0x2e1538 (5q-3a: the header, the tabs and the grid; the card is 5q-3b, UpdateCard). The
+// @0x2e1538 (the header, the tabs and the grid; then the card, UpdateCard). The
 // server's discount clock (Items::SetTransactionTime) is not ported: no discount offline.
 void UpdateContents() {
     static const char* const kTabIcons[8] = {"tab_shop_discounts", "tab_inv_gear",      "tab_shop_armor",
@@ -832,6 +990,7 @@ void UpdateContents() {
     g_scroller.UpdateScroll();
     for (unsigned i = 0; i != 12; ++i) UpdateCell(g_cells[i], i + g_scroller.firstIndex);
     UpdateCard();
+    g_root->UpdatePosition();   // (the clip rectangles apply here)
 }
 
 namespace {
