@@ -10,6 +10,7 @@
 #include "game/EntityData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/PvP.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
 #include "game/Setting.h"
@@ -22,6 +23,9 @@ namespace {
 using SaveManager::PutChar;
 using SaveManager::PutShort;
 using SaveManager::PutUnsigned;
+
+bool g_reportPending = false;
+std::string g_report;
 
 unsigned Rand(unsigned n) { return n ? (unsigned)((unsigned long)Rand48::lrand48() % n) : 0; }
 
@@ -185,6 +189,20 @@ std::vector<uint8_t> GetData(int type, int, const char*) {
         out.insert(out.end(), b.begin(), b.end());
     }
     return out;
+}
+
+void ReportCombatState(int gid, int state) {
+    g_report.clear();
+    if (state == PvP::kStateWon)
+        if (const PvP::PlayerInfo* p = PvP::GetPlayerInfoByGID(gid, 0xff)) g_report = std::to_string(p->valor);
+    g_reportPending = true;
+}
+
+void Update() {
+    if (!g_reportPending) return;
+    g_reportPending = false;
+    const std::string answer = g_report;
+    PvP::ReportLoadFinished(true, answer.c_str(), (int)answer.size());
 }
 
 }  // namespace PvPServer

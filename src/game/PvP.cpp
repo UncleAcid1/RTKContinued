@@ -1,20 +1,32 @@
 #include "game/PvP.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <string>
 
 #include "engine/FileManager.h"
 #include "engine/Timer.h"
+#include "game/Combat.h"
+#include "game/Squad.h"
+#include "game/Entity.h"
 #include "game/EntityData.h"
+#include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/Items.h"
+#include "game/MetaData.h"
+#include "game/MetaExpression.h"
 #include "game/Professions.h"
 #include "game/PvPServer.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "engine/Splitter.h"
+#include "windows/Windows.h"
 
 namespace PvP {
 namespace {
@@ -25,7 +37,7 @@ uint32_t g_defeats = 0;               // 0x613f5c
 uint32_t g_lastLoaded[6] = {};        // 0x613f60 when each list type was last loaded
 uint32_t g_refreshTime[6] = {};       // 0x613f78 when each list may be refreshed (the index is not checked, as the original)
 void (*g_loadCallback)(bool) = nullptr;   // 0x613f90 LoadPvPData's callback
-uint32_t g_f3c = 0;                   // 0x613f94 (zeroed by Init only)
+int g_reportedState = 0;              // 0x613f94 the fight state last reported
 bool g_loading[2] = {};               // 0x613f98 a list is being asked for / (+0x41, never set)
 uint32_t g_tutorialLastRefresh = 0;   // 0x613f9c
 bool g_tutorialCompleted = false;     // 0x613fa0
@@ -97,7 +109,7 @@ void Init() {
     for (uint32_t& t : g_lastLoaded) t = 0;
     for (uint32_t& t : g_refreshTime) t = 0;
     g_loadCallback = nullptr;
-    g_f3c = 0;
+    g_reportedState = 0;
     g_loading[0] = g_loading[1] = false;
     g_tutorialLastRefresh = 0;
     g_tutorialCompleted = false;
@@ -303,6 +315,110 @@ void ResetTutorial() {
     g_tutorialCompleted = false;
 }
 
+
+int PlayerInfo::GetValorForVictory() {
+    uint32_t attack = 0, hp = 0;   // the player's squad
+    if (BaseSquad* squad = EntityManager::GetPlayer()->GetSquad()) {
+        for (unsigned i = 0; i < (unsigned)squad->GetSoldierCount(); ++i) {
+            Entity* e = squad->GetSoldier(i);
+            if (!e || e->IsDead()) continue;
+            hp += (uint32_t)e->GetHpMax();
+            int a = e->GetAttackMagic();
+            if (a == 0) a = e->GetAttackRanged();
+            if (a == 0) a = e->GetAttackMelee();
+            attack += (uint32_t)a;
+        }
+    }
+    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i) {
+        const Items::ItemInfo* it = Items::GetItemInfo(GameState::GetBeltItemAt(i));
+        if (!it || !it->meta) continue;
+        const MetaData* orb = it->meta->FindChildData(kExpOrbAttack);
+        if (!orb) continue;
+        attack += (uint32_t)orb->GetChild(0)->GetInt();
+    }
+    // His hero: the 11-value effect record (HP, melee attack, ...) with his unbroken gear.
+    int stats[11] = {};
+    const EntityData* hero = EntityFactory::GetEntityByID(male ? 0xc : 0xd);
+    stats[0] = hero->GetHpForLevel(level);
+    stats[1] = hero->GetAttackMeleeForLevel(level);
+    for (int b = 0; b < 10; ++b) {
+        const Items::ItemInfo* it = Items::GetItemInfo(equipment.items[b].id);
+        if (it && it->meta && !equipment.items[b].broken) it->meta->OnApplyItemEffect(stats, true);
+    }
+    uint32_t hisHp = (uint32_t)stats[0], hisAttack = (uint32_t)stats[1];
+    for (int w = 0; w < warriorCount; ++w) {
+        hisHp += (uint32_t)warriors[w].hp;
+        const EntityData* d = EntityFactory::GetEntityByID((int)warriors[w].id);
+        if (!d) continue;
+        int a = d->attackMagic;
+        if (a == 0) a = d->attackRanged;
+        if (a == 0) a = d->attackMelee;
+        hisAttack += (uint32_t)a;
+    }
+    const float ratio = ((float)hisHp / (float)attack) / ((float)hp / (float)hisAttack);
+    int valor = (int)(ratio * 20.f);
+    const Professions::ProfessionLevel* next = Professions::GetProfessionLevel(7, Professions::GetPlayerProfessionLevel(7) + 1);
+    const int points = next ? (int)next->points : 10;
+    if (valor < 1) valor = 1;
+    const int cap = (int)(std::log((double)points) / 2.302585092994046 * 33.0);
+    return std::min(cap, valor);
+}
+
+void ReportStateToServer(int gid, int state) {
+    if (gid != 0) {
+        PlayerInfo* p = GetPlayerInfoByGID(gid, 0xff);
+        if (state == kStateWon || state == kStateLost) {
+            for (unsigned i = 0; PlayerInfo* q = EnumPlayers(i); ++i) {
+                if (q->gid != gid) continue;
+                if (state == kStateWon) {
+                    q->defeated = 1;
+                    q->lastFight = (uint32_t)Timer::GetGlobalTime();
+                } else {
+                    q->defeated = 2;
+                }
+                UpdateCachedData(q->type);
+            }
+        }
+        if (!p) return;   // PORT: the original reads a missing opponent
+        p->valor = (uint32_t)p->GetValorForVictory();
+        if (!g_tutorialCompleted) return;
+        const int t = p->type;
+        if (t != 1 && t != 2 && t != 4 && t != 5) return;
+    }
+    g_loading[1] = true;
+    g_reportedState = state;
+    // PORT (offline, DECIDED 2026-10-18): CMyServer::NET_PvPReportCombatState sent the state (with the
+    // player's gid and army); its callbacks passed the answer to ReportLoadFinished. The offline
+    // server answers on the next frame (PvPServer::Update), as a reply would arrive.
+    PvPServer::ReportCombatState(gid, state);
+}
+
+void ReportLoadFinished(bool ok, const char* data, int) {
+    if (!ok) {
+        if (g_reportedState == kStateWon) {
+            if (GameState::IsCombatActive()) GameState::GetActiveCombat()->OnValorReceived(0);
+            PopupWindow::Show(StringTable::GetString("FB_ONLINE_NOTICE"), PopupWindow::Hide, nullptr, nullptr);
+        }
+    } else if (data && g_reportedState == kStateWon && GameState::IsCombatActive()) {
+        int valor;
+        const char* bar = std::strchr(data, '|');
+        if (!bar) {
+            valor = std::atoi(data);
+        } else {
+            valor = std::atoi(std::string(data, bar).c_str());
+            for (const std::string& entry : SplitterParse(bar + 1, ";")) {
+                if (entry.empty()) continue;
+                const std::vector<std::string> kv = SplitterParse(entry.c_str(), ":");
+                if (kv[0].empty() || kv.size() < 2 || kv[1].empty()) continue;
+                GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), (uint32_t)std::atoi(kv[0].c_str()),
+                                                    std::atoi(kv[1].c_str()));
+            }
+        }
+        GameState::GetActiveCombat()->OnValorReceived((unsigned)valor);
+    }
+    g_reportedState = 0;
+    g_loading[1] = false;
+}
 
 void LoadPvPData(int type, void (*done)(bool), int cost, const char* uid) {
     if (IsLoadingData()) return;

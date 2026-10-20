@@ -16,6 +16,13 @@ namespace PvPServer {
 // answer's cost is 0, refreshing is free. The refresh delay is the setting "pvp_refresh_time".
 std::vector<uint8_t> GetData(int type, int cost, const char* uid);
 
+// NET_PvPReportCombatState's answer, delivered by Update: for a win, the opponent's valor
+// (PlayerInfo +0x424, worked out by ReportStateToServer: kept locally, DECIDED 2026-10-18); for the
+// other states an empty answer.
+void ReportCombatState(int gid, int state);
+// Each frame (Tick): a pending answer goes to PvP::ReportLoadFinished.
+void Update();
+
 // One rival's game state block (the chunks GameState::Save writes for the player).
 std::vector<uint8_t> MakeRivalBlock(int level, bool male);
 

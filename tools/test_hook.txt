@@ -219,6 +219,40 @@
                 std::printf("[t] pause event:\n"); SDL_Event ev{}; ev.type = SDL_EVENT_WILL_ENTER_BACKGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func();
             }
             if (i == envi("RTK_NOTIF", -1) + 1) { std::printf("[t] after pause: last %d\n", g_lastSystemNotificationTime); SDL_Event ev{}; ev.type = SDL_EVENT_DID_ENTER_FOREGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func(); }
+            if (i == envi("RTK_PVPFIGHT", -1)) {   // 5t-4: a generated rival fought (the ambush's way into the PvP arena 0x91)
+                PvP::LoadPvPData(1, nullptr, 0, nullptr);
+                PvP::PlayerInfo* r = nullptr;
+                for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) if (p->type == 1 && p->gid > 0) { r = p; break; }
+                if (r) {
+                    if (envi("RTK_PVPWEAK", 0)) { r->level = 1; r->warriorCount = 0; for (auto& w : r->warriors) w = PvP::PlayerInfo::WarriorInfo(); for (auto& it : r->equipment.items) it = PvP::PlayerEquipmentInfo::ItemInfo(); }
+                    r->valor = (uint32_t)r->GetValorForVictory();
+                    std::printf("[t] pvp rival gid=%d level=%d warriors=%d valor=%u (victories %u defeats %u, valor item %d)\n", r->gid, r->level, r->warriorCount, r->valor, PvP::GetVictoryCount(), PvP::GetDefeatCount(), GameState::GetItemAmount(0x249, false));
+                    PlayerCompetitionWindow::SetSelectedPlayerGID(r->gid, false);
+                    if (Entity* hero = EntityManager::CreateEntity(r->male ? 0xc : 0xd, true, true)) {
+                        GameState::SetCombat(new AggroCombat());
+                        hero->CreateSquad();
+                        hero->GetAI()->UpdateLastTarget();
+                        hero->player = false;
+                        GameState::GetActiveCombat()->BeginCombat(EntityManager::GetPlayer()->GetSquad(), hero->GetSquad());
+                        GameState::GetActiveCombat()->ForceBossFight(6, 0x91);
+                        GameState::DropGamePauseState();
+                    }
+                }
+            }
+            if (envi("RTK_PVPFIGHT", -1) >= 0 && i > envi("RTK_PVPFIGHT", -1)) {
+                static bool autoOn = false, done = false;
+                BaseCombat* c = GameState::GetActiveCombat();
+                if (!autoOn && c && c->GetType() == 6 && GameState::GetCurrentMapID() == 0x91 && i % 10 == 0) {
+                    if (auto* a = dynamic_cast<ArenaCombat*>(c)) { a->AutoCombat(); autoOn = true; std::printf("[t] f=%d auto combat on, state %d\n", i, c->GetState()); }
+                }
+                if (i % 50 == 0 && c) std::printf("[t] f=%d map %u combat type %d state %d\n", i, GameState::GetCurrentMapID(), c->GetType(), c->GetState());
+                PvP::PlayerInfo* r = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
+                if (!done && r && r->defeated != 0) {
+                    done = true;
+                    std::printf("[t] f=%d result: rival defeated=%d wins=%d losses=%d lastFight=%u valor=%u; victories %u defeats %u\n", i, r->defeated, r->wins, r->losses, r->lastFight, r->valor, PvP::GetVictoryCount(), PvP::GetDefeatCount());
+                }
+                if (done && i % 50 == 0) std::printf("[t] f=%d after: victories %u, loading %d, collected valor %d\n", i, PvP::GetVictoryCount(), (int)PvP::IsLoadingData(), GameState::GetMapItemCollectionInfo(0x91, 0x249));
+            }
             if (i == envi("RTK_PVPLOAD", -1)) {   // 5t-3: the offline server's list, the cache, the tutorial's end
                 auto dump = [](int type) {
                     int n = 0;

@@ -60,6 +60,7 @@
 #include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/PvP.h"
+#include "game/PvPServer.h"
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Spells.h"
@@ -235,6 +236,7 @@ const char* QueueName(WindowManager::WindowQueue* q) {
 // camera step (the CenterOn glide and ApplyViewportLimit), UpdateTagState, UpdatePaymentItems and
 // DestroyPendingWindows; its drawing is Render::Frame.
 void Tick(float dt) {
+    PvPServer::Update();   // PORT: the offline PvP server's replies (the original's network callbacks)
     if (!GameState::IsPaused()) GameState::UpdateHPRegen(dt);
     GameState::Update(dt);
     GameState::UpdateOfflineBuildings(dt);

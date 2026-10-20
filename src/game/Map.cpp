@@ -2317,7 +2317,14 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     LoadScreenFrame();   // (after Background::CreateLand on the original; the port creates the land earlier)
     CreateRoadAI();
     LoadScreenFrame();
-    if (GameState::GetCurrentMapID() == 0) UpdateStorageMax();
+    // In the city (outside the PvP tutorial and fights) the rivals met on the maps are loaded anew.
+    if (GameState::GetCurrentMapID() == 0) {
+        UpdateStorageMax();
+        if (!GameState::IsPvPTutorial() && !GameState::IsCombatActive()) {
+            PvP::ClearPlayerInfo(4);
+            PvP::LoadPvPData(4, nullptr, 0, nullptr);
+        }
+    }
     // (ProcessOfflineContracts @0x1b7434 is empty.) Music: milestone 6.
     GameState::RefreshOfflineGoblins();
     AssignEntities();
@@ -2400,7 +2407,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     Render::SortRenderLayer(Render::kLayerObjects, 1);
     LoadScreenFrame();
     // The map's name; a boss or arena fight with an enemy squad shows its intro instead: the PvP
-    // one the players' (PlayerBattleInOutWindow; a real opponent is told online, dormant),
+    // one the players' (PlayerBattleInOutWindow; a real opponent's fight is reported as started),
     // UNVERIFIED (milestone 5) the others the boss's banner (BossIntroWindow with the boss name).
     if (EntityManager::GetPlayer()) {
         BaseCombat* combat = GameState::GetActiveCombat();
@@ -2410,6 +2417,10 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
             PlayerBattleInOutWindow::SetModeIntro();
             PlayerBattleInOutWindow::SetParameters(PlayerCompetitionWindow::GetSelectedPlayerGID(), false);
             PlayerBattleInOutWindow::Show();
+            // PORT: p null-checked (the original reads it as is).
+            const PvP::PlayerInfo* p = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
+            if (p && (unsigned)(p->gid + 4) > 3)
+                PvP::ReportStateToServer(PlayerCompetitionWindow::GetSelectedPlayerGID(), PvP::kStateStarted);
         }
         CharacterInfoWindow::UpdateContents();
         GameState::SetupPlayerRegenerationState();

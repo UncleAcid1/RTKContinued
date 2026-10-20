@@ -36,6 +36,12 @@ struct PlayerInfo {                    // 0x428 bytes (constructor @0x1eb9cc)
     int f420 = 0;                      // +0x420 (counts the hero's defeats too)
     uint32_t valor = 0;                // +0x424 valor for beating him
     ~PlayerInfo();                     // @0x1eb94c
+    // @0x1ebd20 The valor for beating him: 20 x (his HP / the squad's attack) / (the squad's HP /
+    // his attack), at least 1, at most 33 x log10 of the points of the player's next valor (profession
+    // 7) level (10 without one). His side: the hero of his gender at his level with his unbroken
+    // gear, his warriors' max HP and attack; the player's: the squad's living members' max HP and
+    // attack (magic, else ranged, else melee) plus the belt items' ORB_ATTACK.
+    int GetValorForVictory();
 };
 
 // One opponent as the server sent it (0x24 bytes): his game state block (the chunks
@@ -100,6 +106,16 @@ int GetTutorialDeadPlayers();                    // @0x1ec7a8
 // goes through PvPDataLoadFinished as the server's did. The callback gets whether a list came.
 void LoadPvPData(int type, void (*done)(bool), int cost, const char* uid);   // @0x1f2a88
 void PvPDataLoadFinished(bool unused, const uint8_t* data, int size);       // @0x1f131c
+// A fight against an opponent (state 1 started, 2 won, 3 lost): a win marks him beaten now, a loss
+// marks him as having won (2), both saved into his list's cache; his valor is worked out again.
+// Once the PvP tutorial is done, real opponents (types 1, 2, 4, 5) are reported; gid 0 always is.
+// The server's answer comes back through ReportLoadFinished (offline: PvPServer, next frame).
+enum ClientStates { kStateNone = 0, kStateStarted = 1, kStateWon = 2, kStateLost = 3 };
+void ReportStateToServer(int gid, int state);    // @0x1f1de4
+// @0x1efa28 For a reported win while the fight runs: "valor" or "valor|item:count;..." gives the
+// valor to the fight (OnValorReceived) and the items to the map's loot; no answer to a win shows
+// FB_ONLINE_NOTICE and gives no valor.
+void ReportLoadFinished(bool ok, const char* data, int size);
 // A new record from an opponent's save (the name, when given, is shown instead of his own).
 bool LoadPlayerInfo(const PvPSave& save, int type, const char32_t* name);   // @0x1ecc08
 int GetRandomPlayerGID(int type, bool unused);   // @0x1ed9fc a random one of `type` not beaten

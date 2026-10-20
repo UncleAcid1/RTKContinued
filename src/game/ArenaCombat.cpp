@@ -1408,8 +1408,9 @@ void PvPArenaCombat::PlayerDied() {
 }
 
 // A win marks the opponent beaten (and when, before the PvP tutorial is done) and pays its valor;
-// real players' wins are reported to the server (online, dormant). A loss resets the winning
-// streak.
+// a real opponent's win is reported first and the valor comes with the answer (PvP::
+// ReportLoadFinished -> OnValorReceived; offline PvPServer answers on the next frame). A loss
+// resets the winning streak.
 void PvPArenaCombat::ArenaCompleted() {
     if (ArenaTurnWindow::IsVisible()) ArenaTurnWindow::Hide();
     if (!TopCityWindow::IsVisible()) TopCityWindow::Show();
@@ -1420,9 +1421,9 @@ void PvPArenaCombat::ArenaCompleted() {
         if (!PvP::IsCompletedPvPTutorial()) opponent->lastFight = (uint32_t)Timer::GetGlobalTime();
         const unsigned t = (unsigned)opponent->type;
         if (3 < (unsigned)(opponent->gid + 4) && (t == 1 || t == 2 || t == 4 || t == 5)) {
-            // A real opponent (online): PvP::ReportStateToServer(gid, 2) and LoadingInternetWindow
-            // until the server answers with the valor. Offline nothing answers.
+            PvP::ReportStateToServer(PlayerCompetitionWindow::GetSelectedPlayerGID(), PvP::kStateWon);
             waitingForServer = true;
+            // (LoadingInternetWindow "WEBVIEW_LOADING" with rep_pvp_valor_120 until the answer: online)
         } else {
             OnValorReceived(opponent->valor);
         }
