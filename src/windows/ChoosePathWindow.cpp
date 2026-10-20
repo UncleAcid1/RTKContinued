@@ -343,9 +343,7 @@ void OnTravel(unsigned type) {
                 } else if (!Locations::IsLocationLocked(loc)) {
                     ShowGlobalMap();
                     if (!Locations::IsLocationLocked(loc) && GameState::TaskCompleted(0x773)) {
-                        // UNVERIFIED (milestone 5s): when ArenaEventWindow::IsEventUnlocked(event),
-                        // GlobalMapWindow::EnqueueArenaEventWindow(event).
-                        (void)event;
+                        if (ArenaEventWindow::IsEventUnlocked(event)) GlobalMapWindow::EnqueueArenaEventWindow(event);
                         GlobalMapWindow::SwitchMapAnimated(map, false, 500.f, false);
                     } else {
                         GlobalMapWindow::ArrowAtMap(map, false, true);
@@ -462,10 +460,15 @@ void Update(float dt) {
     arena.desc2->SetAlpha(alpha, false);
     if (Items::ItemInfo* item = Items::GetItemInfo(event == 1 ? 0x1bb : 0x1ba))
         arena.icon->SetTexture(item->GetIcon(), true);
-    // UNVERIFIED (milestone 5s): with Professions::GetProfession(3 - event) (the event's
-    // reputation: 2 for event 1, 1 for event 2), desc = its name and desc2 = ArenaEventWindow::IsEventActive(event) ?
-    // "%s (%s)" (CAMPAIGN_INFO_RESUME, the GetTimeString of GetEventRemainingTime(event)) :
-    // START_CAMP. No profession is known until then, which the original skips the same way.
+    // The event's reputation (2 for event 1, 1 for event 2): its name, and "Resume (time left)" or
+    // "Start".
+    if (const Professions::Profession* p = Professions::GetProfession(event == 1 ? 2 : 1)) {
+        const std::u32string left = StringTable::GetTimeString((int)ArenaEventWindow::GetEventRemainingTime(event), false);
+        arena.desc->SetText(p->title);
+        arena.desc2->SetText(ArenaEventWindow::IsEventActive(event)
+                                 ? ToWideString(U"%s (%s)", {StringTable::GetString("CAMPAIGN_INFO_RESUME"), left.c_str()})
+                                 : StringTable::GetString("START_CAMP"));
+    }
     // The running missions take turns every five seconds; their lines fade.
     const unsigned oldIndex = g_missionIndex;
     g_missionTime += dt;

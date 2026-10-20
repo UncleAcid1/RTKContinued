@@ -102,6 +102,8 @@ U32Map g_mapVersion;            // 0x61314c
 std::map<uint32_t, std::pair<uint32_t, uint32_t>> g_warriorRespawn;   // 0x613164
 U32Map g_itemBuff;              // 0x61317c Get/ActivateItemBuff
 U32Map g_featuredTaskClickTime; // 0x613194
+// 0x6131ac event fails, then 0x18 apart: arena 1 / 2 deaths by boss, wins by boss, arena 2's
+// difficulties, its deaths and wins by difficulty, arena 1 / 2 wins by level, losses by level.
 U32Map g_arenaStats[12];        // 0x6131ac, 0x6131c4, ... 0x6132b4
 U32Map g_itemAcquireTime;       // 0x6132cc
 U32Map g_itemRecentTime;        // 0x6132e4
@@ -351,6 +353,7 @@ bool arenaBotActive = false;    // 0x613520 (a test bot plays the arenas: never 
 bool IsPvPTutorial() { return g_pvpTutorial; }       // @0x190b8c
 void SetPvPTutorial(bool on) { g_pvpTutorial = on; }  // @0x190ba0
 void SetStartingArenaHP(int hp) { g_startingArenaHP = hp; }   // @0x191504
+// @0x191518
 int GetStartingArenaHP() { return g_startingArenaHP; }
 bool IsFirstVirtualTutorial() { return (unsigned)(secondTutorial - 0x200) < 6; }
 
@@ -463,7 +466,38 @@ void SetEventStartTime(unsigned event, uint32_t t) { g_eventStartTime[event] = t
 void SetEventEndTime(unsigned event, uint32_t t) { g_eventEndTime[event] = t; }
 // @0x197f74 GameState::GetEventDifficulty
 uint32_t GetEventDifficulty(unsigned event) { return MapGet(g_eventDifficulty, event); }
+// @0x197f04 GameState::GetEventCompletionCount
 uint32_t GetEventCompletionCount(unsigned event) { return g_eventCompletion[event]; }
+// @0x197ec8 GameState::AddEventCompletion
+void AddEventCompletion(unsigned event) { ++g_eventCompletion[event]; }
+// @0x197f38 GameState::SetEventDifficulty
+void SetEventDifficulty(unsigned event, uint32_t difficulty) { g_eventDifficulty[event] = difficulty; }
+// @0x197fe4 GameState::GetEventEndTime
+uint32_t GetEventEndTime(unsigned event) { return g_eventEndTime[event]; }
+// @0x197a30 GameState::AddEventFail
+void AddEventFail(unsigned event) { ++g_arenaStats[0][event]; }
+// @0x1979f4 GameState::AddArena1DeathByBoss
+void AddArena1DeathByBoss(unsigned boss) { ++g_arenaStats[1][boss]; }
+// @0x1979b8 GameState::AddArena2DeathByBoss
+void AddArena2DeathByBoss(unsigned boss) { ++g_arenaStats[2][boss]; }
+// @0x19797c GameState::AddArena1WinByBoss
+void AddArena1WinByBoss(unsigned boss) { ++g_arenaStats[3][boss]; }
+// @0x197940 GameState::AddArena2WinByBoss
+void AddArena2WinByBoss(unsigned boss) { ++g_arenaStats[4][boss]; }
+// @0x197904 GameState::AddArena2Difficulty
+void AddArena2Difficulty(unsigned difficulty) { ++g_arenaStats[5][difficulty]; }
+// @0x1978c8 GameState::AddArena2DeathByDifficulty
+void AddArena2DeathByDifficulty(unsigned difficulty) { ++g_arenaStats[6][difficulty]; }
+// @0x19788c GameState::AddArena2WinByDifficulty
+void AddArena2WinByDifficulty(unsigned difficulty) { ++g_arenaStats[7][difficulty]; }
+// @0x197850 GameState::AddArena1WinByLevel
+void AddArena1WinByLevel(unsigned level) { ++g_arenaStats[8][level]; }
+// @0x197814 GameState::AddArena2WinByLevel
+void AddArena2WinByLevel(unsigned level) { ++g_arenaStats[9][level]; }
+// @0x1977d8 GameState::AddArena1LossByLevel
+void AddArena1LossByLevel(unsigned level) { ++g_arenaStats[10][level]; }
+// @0x19779c GameState::AddArena2LossByLevel
+void AddArena2LossByLevel(unsigned level) { ++g_arenaStats[11][level]; }
 
 // @0x1963bc GameState::AddAutocompleteTask
 void AddAutocompleteTask(unsigned id) {
@@ -2023,9 +2057,11 @@ void UpdateNotifications() {
         }
     }
     if (boss != 999999) GetNotifications().PushNotification(Notifications::kBossExpiring, boss);
-    // UNVERIFIED (milestone 5s): for the arena events 1 and 2, kArenaEvent1 / kArenaEvent2 with
-    // ArenaEventWindow::GetEventCooldownTime(event) when the event is not active
-    // (ArenaEventWindow::IsEventActive) and the cooldown is not 0.
+    // The arena events that can start again.
+    if (!ArenaEventWindow::IsEventActive(1) && ArenaEventWindow::GetEventCooldownTime(1) != 0)
+        GetNotifications().PushNotification(Notifications::kArenaEvent1, ArenaEventWindow::GetEventCooldownTime(1));
+    if (!ArenaEventWindow::IsEventActive(2) && ArenaEventWindow::GetEventCooldownTime(2) != 0)
+        GetNotifications().PushNotification(Notifications::kArenaEvent2, ArenaEventWindow::GetEventCooldownTime(2));
 }
 int GetVirtualHP() { return g_virtualHealth; }
 void ResetVirtualHP() { g_virtualHealth = 0; }

@@ -649,6 +649,16 @@ void Show();                                // @0x2ab6cc (only in the city)
 void Hide();                                // @0x2a9324
 }
 
+// An arena event's card (windows/ArenaEventWindow.cpp): event 1 the arena's boss, 2 its waves.
+namespace ArenaEventWindow {
+const char32_t* GetEventName(unsigned event);          // @0x246124
+const char32_t* GetEventDescription(unsigned event);   // @0x24629c
+bool IsEventActive(unsigned event);                    // @0x246154
+bool IsEventUnlocked(unsigned event);                  // @0x246168
+unsigned GetEventCooldownTime(unsigned event);         // @0x24617c
+unsigned GetEventRemainingTime(unsigned event);        // @0x246200
+}
+
 // The crafting window (windows/CraftItemWindow.cpp): the professions and their recipes.
 namespace CraftItemWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftItemWindow" (FUN_002a11cc)

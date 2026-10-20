@@ -304,7 +304,8 @@ void BossCombat::EndCombat() {
     if (enemySquad && enemySquad->GetAliveSoldierCount() == 0) {
         killedBoss = true;
         if (GameState::GetCurrentMapID() == 0x70) {
-            // UNVERIFIED (milestone 5s): GameState::AddArena1WinByBoss(boss id), AddArena1WinByLevel(level).
+            GameState::AddArena1WinByBoss(enemySquad->GetOwner()->GetEntityData()->id);
+            GameState::AddArena1WinByLevel((unsigned)GameState::GetLevel());
             arenaWon = true;
         } else {
             BossOutroWindow::Show();
@@ -313,8 +314,9 @@ void BossCombat::EndCombat() {
     if (enemySquad && enemySquad->GetAliveSoldierCount() != 0) {
         enemySquad->GetOwner()->SetForeignMetaExpression(nullptr);
         if (GameState::GetCurrentMapID() == 0x70) {
-            // UNVERIFIED (milestone 5s): GameState::AddEventFail(1), AddArena1DeathByBoss(boss id),
-            // AddArena1LossByLevel(level).
+            GameState::AddEventFail(1);
+            GameState::AddArena1DeathByBoss(enemySquad->GetOwner()->GetEntityData()->id);
+            GameState::AddArena1LossByLevel((unsigned)GameState::GetLevel());
         }
     }
     BaseCombat::EndCombat();

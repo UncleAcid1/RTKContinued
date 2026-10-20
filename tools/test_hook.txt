@@ -194,6 +194,12 @@
                 const char* dl = "1|2=3,4"; MetaData* q = ParseItemDropCommaDividedList(dl, false); std::printf("[t] droplist kids %u first kids %u\n", q->GetChildrenCount(), q->GetChild(0)->GetChildrenCount()); delete q;
                 GameState::SetChestItemReceivedCount(5, 7); std::printf("[t] received item5 %u item6 %u\n", GameState::GetChestItemReceivedCount(5), GameState::GetChestItemReceivedCount(6));
             }
+            if (i == envi("RTK_ARENAQ", -1)) {   // 5s-1: the arena event queries (RTK_ARENAQ_SET: event 2 ended 100 s ago, event 1 started 50 s ago and won once)
+                auto a = [](const char32_t* w) { std::string o; for (; w && *w; ++w) o += *w < 128 ? (char)*w : '?'; return o; };
+                if (envi("RTK_ARENAQ_SET", 0)) { const uint32_t now = (uint32_t)Timer::GetGlobalTime(); GameState::SetEventEndTime(2, now - 100); GameState::SetEventStartTime(1, now - 50); GameState::AddEventCompletion(1); GameState::AddArena2WinByLevel(5); }
+                for (unsigned ev = 1; ev <= 2; ++ev) std::printf("[t] event %u name '%s' active %d unlocked %d cooldown %u remaining %u completions %u end %u\n[t]   desc '%s'\n", ev, a(ArenaEventWindow::GetEventName(ev)).c_str(), (int)ArenaEventWindow::IsEventActive(ev), (int)ArenaEventWindow::IsEventUnlocked(ev), ArenaEventWindow::GetEventCooldownTime(ev), ArenaEventWindow::GetEventRemainingTime(ev), GameState::GetEventCompletionCount(ev), GameState::GetEventEndTime(ev), a(ArenaEventWindow::GetEventDescription(ev)).c_str());
+                std::printf("[t] arena notifications:\n"); GetNotifications().PurgeNotifications(); GameState::UpdateNotifications(); GetNotifications().FlushNotifications();
+            }
             if (i == envi("RTK_NOTIF", -1)) {   // 5r-6: each source's reminder, then the real pause event (RTK_NOTIFOFF: setting off, RTK_BOSSF: a boss fight 10 s old)
                 if (envi("RTK_NOTIFOFF", 0)) SettingsWindow::SetNotificationState(0);
                 if (envi("RTK_BOSSF", 0)) { for (unsigned k = 0; EntityData* d = EntityFactory::EnumEntity(k); ++k) if (d->restoreTime > 0) { std::printf("[t] boss entity %u restore %d\n", d->id, d->restoreTime); GameState::SetBossFightTimer(0x7777, (uint32_t)Timer::GetGlobalTime() - 10); GameState::BossFight(0x7777) = {{d->id, 50u}}; break; } }

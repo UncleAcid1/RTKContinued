@@ -171,7 +171,7 @@ extern bool arenaBotActive;                    // 0x613520 the arenas' test bot 
 bool IsPvPTutorial();                          // @0x190b8c (0x612d4c)
 void SetPvPTutorial(bool on);                  // @0x190ba0 the ambush of the opening tutorial
 void SetStartingArenaHP(int hp);               // @0x191504 (mStartingArenaHP)
-int GetStartingArenaHP();
+int GetStartingArenaHP();                      // @0x191518
 bool TaskCompleted(unsigned id);               // @0x1908ac (the 0x1000-entry lookup cache is not ported)
 bool IsTaskStarted(unsigned id);               // @0x190988
 uint32_t GetTaskBeginTime(unsigned id);        // @0x198624 (0 when not begun)
@@ -207,6 +207,22 @@ void SetEventStartTime(unsigned event, uint32_t t);   // @0x198018
 void SetEventEndTime(unsigned event, uint32_t t);     // @0x197fa8
 uint32_t GetEventDifficulty(unsigned event);   // @0x197f74
 uint32_t GetEventCompletionCount(unsigned event);   // @0x197f04 (std::map operator[])
+void AddEventCompletion(unsigned event);       // @0x197ec8
+void AddEventFail(unsigned event);             // @0x197a30
+void SetEventDifficulty(unsigned event, uint32_t difficulty);   // @0x197f38
+uint32_t GetEventEndTime(unsigned event);      // @0x197fe4 (std::map operator[])
+// The arena statistics (saved, never read back in 5.11): one count per boss id, level or difficulty.
+void AddArena1DeathByBoss(unsigned boss);      // @0x1979f4
+void AddArena2DeathByBoss(unsigned boss);      // @0x1979b8
+void AddArena1WinByBoss(unsigned boss);        // @0x19797c
+void AddArena2WinByBoss(unsigned boss);        // @0x197940
+void AddArena2Difficulty(unsigned difficulty);         // @0x197904
+void AddArena2DeathByDifficulty(unsigned difficulty);  // @0x1978c8
+void AddArena2WinByDifficulty(unsigned difficulty);    // @0x19788c
+void AddArena1WinByLevel(unsigned level);      // @0x197850
+void AddArena2WinByLevel(unsigned level);      // @0x197814
+void AddArena1LossByLevel(unsigned level);     // @0x1977d8
+void AddArena2LossByLevel(unsigned level);     // @0x19779c
 // @0x1963bc / @0x1a9548: the tasks to complete / reset automatically (0 empties the list).
 void AddAutocompleteTask(unsigned id);
 void AddAutoresetTask(int id);
