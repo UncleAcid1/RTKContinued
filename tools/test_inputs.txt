@@ -28,3 +28,7 @@ CO=540,1800,2220
 #    arrow: settings open, the arrow at button_01), 90:345:205 (the screenshot mode), then
 #    140:595:745 Okay (the PNG in the storage dir, quest 1180 done, 300:640:646 claims it) or
 #    140:683:745 Cancel; 300 frames.
+# 6) The featured-quest button (5x-5) from `base`: RTK_SECOND=256 (none during the second tutorial)
+#    RTK_FEAT=35 (the starter chest key 0x2b6 as its pickup gives it: task 0x75b started) SL=40,42,44,46,
+#    60,62,64 (the list is made once a second) RTK_FEATCHK=frames (GetFeaturedOffset, the windows);
+#    tap 70:1175:125: the chests window's starter chest; 100 frames.

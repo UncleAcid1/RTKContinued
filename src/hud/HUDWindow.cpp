@@ -645,7 +645,7 @@ void Update(float dt) {
     UpdateScreenDarkening(dt);
     // UNVERIFIED (milestones 4g/5): the mission timer box (+0x60: "MISSION_TIME_LEFT" with
     // Locations::GetMissionRemainingTime on a mission map, a boss fight's time left in a boss
-    // combat), placed under the top bar.
+    // combat), placed under the top bar left of the featured button (CastleTopWindow::GetFeaturedOffset).
     // Once a second on a campaign map without a help arrow: the locator of whoever the newest open
     // quest wants the hero to talk to, when that somebody is out of view.
     const int now = Timer::GetGlobalTime();

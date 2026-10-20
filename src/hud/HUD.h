@@ -224,6 +224,9 @@ void OnBuyItem(uint32_t item);     // @0x27723c the arrow at the Shop button, th
 void OnPvP(unsigned help);          // @0x276d64 the PvP button (help 0xffffffff: the opponents' window)
 void HelpWithPvP();                // @0x277048 the arrow at the PvP button
 void HelpWithScreenshot();         // @0x277188 the arrow at the settings button (the screenshot quest)
+void Deinit();                    // @0x2780f4
+void ActivateFeatureHolders();     // @0x276ac4 the featured button's glow spins for 5 s
+int GetFeaturedOffset();           // @0x2769d0 how far the featured button reaches left (HUDWindow's mission timer)
 }
 
 namespace BottomCityWindow {

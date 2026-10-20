@@ -244,7 +244,7 @@ util  ^TaskListWindow::FUN_(0035ef14|0035f000|0035f194|0035f210|0035fef8|0035ffe
 4f  ^TaskListWindow::(FindGoblin|BuyGoblin)$   # with the offline goblins
 4d  ^(TaskHolderWindow|TaskInfoWindow|TaskCompleteWindow|TaskListWindow|TaskQuickCompleteWindow|LevelInfoWindow|HelpWindow)::
 4d  ^Shared::TaskWindow::
-5x   ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)   # the featured-quest button: every featured quest opens a milestone-5 window (pyramid exchange, chests, item shop sale, PvP); ASK the user which promotions stay
+5x   ^CastleTopWindow::(ActivateFeatureHolders|BlinkCompass|FeaturedQuestHolder::|GetFeaturedOffset|OnFeatured)   # the featured-quest button (DECIDED 2026-10-20: ported as is; offline only the starter chest 0x75b reaches it)
 4d  ^GameState::(GetFeaturedTaskClickTime|SetFeaturedTaskClickTime|IsFeaturedTaskClicked)$
 4d  ^HUDWindow::(OnFindTask|RemoveTaskArrows|SetTaskLocaterIcon|ShowTaskLocaterTo|UpdateTaskLocator|UpdateTasks|SetQuickLocatorForce|UpdatePlayerLocator|HideLocators)$
 4d  ^BattleBarWindow::(HideAllTasks|OnAllTasks|ShowAllTasks)$

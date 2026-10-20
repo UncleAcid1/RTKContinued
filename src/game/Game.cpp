@@ -60,7 +60,7 @@ void FileManager::RestartGame() {
 void OnResume() {
     // (PlayerProfileManager::ResetNoConnectionWarning: online. PlayerWeakWindow::ResetSession:
     // milestone 5.)
-    // UNVERIFIED (milestone 5): CastleTopWindow::ActivateFeatureHolders (0x28a53c).
+    CastleTopWindow::ActivateFeatureHolders();
     // The first daily bonus ever (none received yet), once task 0x35c is done, with no window,
     // fight, hover, world dialog or pause: forced. As the original it never happens: the check
     // SystemFuncs::GetTemporarySetting(2, 1) gives its default 1 (nothing in 5.11 sets setting 2).

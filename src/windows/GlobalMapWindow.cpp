@@ -1193,7 +1193,7 @@ void SwitchMap(uint32_t map, bool keep, bool animated) {
         else BottomBattleWindow::Show();
         if (!Render::IsLowPerformanceDevice()) AnimateSepiaOut();
     }
-    // UNVERIFIED (milestone 5): back in the city CastleTopWindow::ActivateFeatureHolders.
+    if (map == 0) CastleTopWindow::ActivateFeatureHolders();   // back in the city
 }
 
 // @0x2c1734: the marker travels to `map`'s location at `pixelsPerSecond` (at most 1.5 s), then

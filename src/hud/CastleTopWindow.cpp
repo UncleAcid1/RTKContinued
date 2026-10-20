@@ -1,6 +1,8 @@
 // CastleTopWindow: the navigation panel at the top right (Friends, Shop, world map / attack, PvP,
 // settings). Port of CastleTopWindow (libkingdom.so 5.11), 0x276934..0x279f6c.
+#include <cmath>
 #include <cstdio>
+#include <vector>
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
@@ -19,6 +21,7 @@
 #include "game/SaveManager.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
@@ -71,11 +74,113 @@ unsigned g_shownWindows = 0;           // 0x619220 the fewest windows shown sinc
 bool g_screenshotHelp = false;         // 0x619218 HelpWithScreenshot: the settings open with the screenshot help
 int g_friendRequests = 0;              // 0x61924c (online: always 0)
 int g_lastSecond = 0;                  // 0x619250
+uint32_t g_lastActivate = 0;           // 0x619254 ActivateFeatureHolders' last time (every 300 s)
+float g_scale = 1.f;                   // 0x60f168 the panel's layout scale
+
+// CastleTopWindow::FeaturedQuestHolder (0x40 bytes, @0x27823c; ~ @0x276934 deletes the root):
+// Quest_featured_holder.xml, the round button below the panel that leads to a featured quest. Two
+// of them share one place and cross-fade when the featured quests take turns.
+struct FeaturedQuestHolder {
+    Window* root = nullptr;        // +0x00
+    Window* glows[5] = {};         // +0x04 pickup_item_glow_green, _blue, _purple, _common, glow
+    Window* icon = nullptr;        // +0x18 featured_icon_holder.icon_60 (takesZ)
+    Textfield* time = nullptr;     // +0x1c featured_icon_holder.text_time
+    Button* clickArea = nullptr;   // +0x20
+    bool active = false;           // +0x24 it shows a quest
+    uint32_t task = 0;             // +0x28
+    float shownTime = 0.f;         // +0x2c seconds since it took the quest
+    bool fading = false;           // +0x30 the alpha moves to targetAlpha
+    float targetAlpha = 0.f;       // +0x34
+    float spin = 0.f;              // +0x38 the glow's rotation and pulse phase
+    float pulse = 0.f;             // +0x3c seconds of spinning left (ActivateFeatureHolders: 5)
+
+    FeaturedQuestHolder() {
+        root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Quest_featured_holder.xml", "Quest_featured_holder.png",
+                               GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);
+        static const char* const names[5] = {
+            "item_pickup_holder.pickup_item_glow_green", "item_pickup_holder.pickup_item_glow_blue",
+            "item_pickup_holder.pickup_item_glow_purple", "item_pickup_holder.pickup_item_glow_common",
+            "item_pickup_holder.pickup_item_glow"};
+        for (int i = 0; i < 5; ++i) glows[i] = GUI::GetWindowTyped<Window>(root, names[i]);
+        icon = GUI::GetWindowTyped<Window>(root, "featured_icon_holder.icon_60");
+        icon->takesZ = true;
+        time = GUI::GetWindowTyped<Textfield>(root, "featured_icon_holder.text_time");
+        clickArea = GUI::GetWindowTyped<Button>(root, "clickArea");
+    }
+    ~FeaturedQuestHolder() { delete root; }
+
+    // @0x27698c: only glow `type` shows (4: the plain glow).
+    void SetBackground(int type) {
+        for (int i = 0; i < 5; ++i) glows[i]->SetVisibility(i == type);
+    }
+    // It fades out and gives up its quest (Hide, Update's turns, outside the city).
+    void FadeOut() {
+        targetAlpha = 0.f;
+        active = false;
+        fading = true;
+    }
+    // It fades in with `id` (the plain glow and the quest's icon).
+    void TakeQuest(uint32_t id) {
+        root->SetVisibility(true);
+        root->SetAlpha(0.f, true);
+        SetBackground(4);
+        if (Tasks::TaskInfo* t = Tasks::GetTask(id)) icon->SetTexture(t->GetIcon(), true);
+        targetAlpha = 1.f;
+        shownTime = 0.f;
+        fading = true;
+        active = true;
+        task = id;
+    }
+};
+
+FeaturedQuestHolder* g_holders[2] = {};   // 0x61919c
+std::vector<uint32_t> g_featured;         // 0x619204 (count 0x619210) this second's featured quests
+unsigned g_featuredIndex = 0;             // 0x619234 the one shown
+
+// @0x276e60: the featured button's tap: the quest's window (the pyramid exchange's crystals tab, the
+// chests, the PvP rivals, the item shop's sale tabs), else its first step's help for a quick quest.
+void OnFeatured() {
+    FeaturedQuestHolder* h = g_holders[0]->active ? g_holders[0] : g_holders[1];
+    if (!h->active) return;
+    const uint32_t id = h->task;
+    if (id == 0x4d8 || id == 0x4da || id == 0x4db) {
+        ExchangeWindow::Show();
+        ExchangeWindow::OnTab(1, nullptr);
+        return;
+    }
+    const bool cityView = !Map::GetCurrentFarm() && !GlobalMapWindow::IsVisible();
+    if (id == 0x6b4 && cityView) {
+        ChestsWindow::Show();
+        return;
+    }
+    if (id == 0x75b && cityView) {
+        ChestsWindow::Show();
+        ChestsWindow::SetStarterChestMode(false, Setting("starter_chest_b").GetInt() != 0 ? 0x3f : 0x35);
+        return;
+    }
+    if (id == 0x77b && !Map::GetCurrentFarm()) {
+        OnPvP(0x317);
+        return;
+    }
+    if (id - 0x77cu < 5) {
+        ItemShopWindow::Show();
+        switch (id) {
+        case 0x77c: ItemShopWindow::ShowShopTab(1); break;
+        case 0x77d: ItemShopWindow::ShowShopItem(0xaf, 0, false, 0xffffffffu); break;
+        case 0x77e: ItemShopWindow::ShowShopTab(2); break;
+        case 0x77f: ItemShopWindow::ShowShopPack(2, false); break;
+        default: ItemShopWindow::ShowShopTab(3); break;
+        }
+        return;
+    }
+    Tasks::TaskInfo* t = Tasks::GetTask(id);
+    if (t && t->quickTask) t->subtasks[0].OnHelp(true);
+}
 
 // @0x277f5c: the panel takes clicks even on disabled buttons (force), and the tutorial arrow at the
 // compass first. While a building is edited or placed, the shop is open or at tutorial step 0x17 it
 // only absorbs the clicks that land on it (while editing, only presses); so in the screenshot mode.
-// (The featured-quest holders, which take clicks after the root, are 5x-5.)
+// The featured-quest holders take the clicks the panel leaves.
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
     const bool editing = BuildingMovement::Activated() || BuildingPlacement::Activated();
@@ -86,7 +191,8 @@ bool Click(int x, int y, bool pressed) {
     }
     if (BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback && BuildingHovers::ClickOnArrow(x, y, pressed))
         return true;
-    return g_root->Click(x, y, pressed, true);
+    return g_root->Click(x, y, pressed, true) || g_holders[0]->root->Click(x, y, pressed, true) ||
+           g_holders[1]->root->Click(x, y, pressed, true);
 }
 
 // @0x276d0c: with the screenshot help pending its arrow goes and the settings get the help.
@@ -272,6 +378,7 @@ WindowManager::FunctionalWindow* Queue() {
     if (!g_queue) {
         WindowManager::FunctionalWindow::Functions f;
         f.init = Init;
+        f.deinit = Deinit;
         f.setZ = SetZ;
         f.hide = Hide;
         f.click = Click;
@@ -291,6 +398,7 @@ void Init() {
     g_root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Hud_navigation_map.xml", "Hud_navigation_map.png",
                              GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);
     if (!g_root) return;
+    g_scale = g_root->scale;
     g_root->SetVisibility(false);
     g_root->SetPosition(GUI::ScreenWidth(), 0);
     g_effect = GUI::CreateMovementEffect(g_root);
@@ -351,8 +459,26 @@ void Init() {
     Queue()->fn.back = [] { return false; };   // OnBack @0x277894
     // UNVERIFIED: Setting("campaign_to_city_direct") comes from dynamic_config (milestone 3).
     g_campaignToCityDirect = false;
-    // The two featured-quest holders (Quest_featured_holder.xml) start hidden; they follow with
-    // the featured quests (milestone 5).
+    g_offsetY = (int)((float)g_offsetY * g_scale);
+    g_offsetX = (int)((float)g_offsetX * g_scale);
+    for (FeaturedQuestHolder*& h : g_holders) {
+        h = new FeaturedQuestHolder();
+        h->root->SetVisibility(false);
+        h->clickArea->SetOnClick(OnFeatured);
+    }
+    g_featuredIndex = 0;
+}
+
+// @0x2780f4
+void Deinit() {
+    for (FeaturedQuestHolder*& h : g_holders) {
+        delete h;
+        h = nullptr;
+    }
+    GUI::RemoveMovementEffect(g_effect);
+    g_effect = nullptr;
+    delete g_root;
+    g_root = nullptr;
 }
 
 // @0x277c60: slide in from the right, in the city after the tutorial's first level (at step 0x34
@@ -370,11 +496,18 @@ void Show() {
     g_root->SetVisibility(true);
 }
 
-// @0x277b6c (the featured holders' reset: milestone 5)
+// @0x277b6c: slides out; the featured holders fade out at once.
 void Hide() {
-    if (!g_root || !g_root->visibleSelf) return;
-    int W = GUI::ScreenWidth();
-    g_effect->Animate((W + g_offsetX) - g_root->w, g_offsetY, W, g_offsetY, false);
+    if (!g_root) return;
+    if (g_root->visibleSelf) {
+        int W = GUI::ScreenWidth();
+        g_effect->Animate((W + g_offsetX) - g_root->w, g_offsetY, W, g_offsetY, false);
+    }
+    g_featuredIndex = 0;
+    for (FeaturedQuestHolder* h : g_holders) {
+        h->root->SetVisibility(false);
+        h->FadeOut();
+    }
 }
 
 // @0x277ddc
@@ -386,13 +519,41 @@ void SetZ(float) {
         if (!g_root->visibleSelf) g_root->SetPosition(W, g_offsetY);
         else g_root->SetPosition((g_offsetX + W) - g_root->w, g_offsetY);
     }
+    // The featured holders just above the panel's depth, (50 * scale) right of and below its corner.
+    const int d = (int)(g_scale * 50.f);
+    for (FeaturedQuestHolder* h : g_holders) {
+        h->root->SetZ(HUDWindow::GetZ() + 0.001f);
+        h->root->SetPosition((g_offsetX + GUI::ScreenWidth() + d) - g_root->w, d);
+    }
 }
 
-// @0x278e40: the buttons' states, the tutorial's arrows at the compass (its tap is the compass's)
-// and, once a second, the shop's. UNVERIFIED (milestone 5): the two featured-quest holders (their
-// slide, pulse and timers, ActivateFeatureHolders every 300 s, the featured tasks list) and the
-// compass blink (BlinkCompass).
-void Update(float) {
+// @0x276ac4: the holders' glow spins for 5 seconds (every 300 s, on resume, back in the city).
+void ActivateFeatureHolders() {
+    for (FeaturedQuestHolder* h : g_holders) h->pulse = 5.f;
+}
+
+// @0x2769d0: how far the shown holder reaches left of its place (half its width, by its alpha while
+// both are still).
+int GetFeaturedOffset() {
+    int shown;
+    unsigned moving;
+    if (g_holders[0]->active) {
+        shown = 0;
+        moving = g_holders[0]->fading + g_holders[1]->fading + 1 + g_holders[1]->active;
+    } else {
+        shown = g_holders[1]->active ? 1 : -1;
+        moving = g_holders[0]->fading + g_holders[1]->fading + g_holders[1]->active;
+    }
+    if (shown == -1) return 0;
+    Window* r = g_holders[shown]->root;
+    const float f = moving == 0 ? r->alpha : 1.f;
+    return (int)(f * (float)r->w * 0.5f);
+}
+
+// @0x278e40: the buttons' states, the tutorial's arrows at the compass (its tap is the compass's),
+// the featured holders' fades, glow and timers, the compass blink and, once a second, the shop's
+// state and the featured quests' turns.
+void Update(float dt) {
     if (!g_root || !g_root->visibleSelf) return;
     const unsigned shown = WindowManager::GetShownWindowCount();
     const unsigned before = g_shownWindows;
@@ -433,18 +594,120 @@ void Update(float) {
                                 (float)(g_compass->y + g_root->y + g_compass->h), false, false, false, true, true, false,
                                 false);
     }
-    if (!GameState::IsPlayerCity()) return;   // (the featured holders are reset: milestone 5)
-    if (GameState::GetCurrentMapID() != g_blinkMap) {
+    if (!GameState::IsPlayerCity()) {
+        g_featuredIndex = 0;
+        g_shop->SetEnabled(false);
+        for (FeaturedQuestHolder* h : g_holders) {
+            h->root->SetVisibility(false);
+            h->FadeOut();
+        }
+        return;
+    }
+    for (FeaturedQuestHolder* h : g_holders) {
+        if (h->fading) {
+            // Fading in at 1 per second, out at 3; gone at 0.
+            float a = h->root->alpha;
+            const float speed = h->targetAlpha == 0.f ? 3.f : 1.f;
+            if (a < h->targetAlpha) a = std::min(a + speed * dt, h->targetAlpha);
+            else if (a > h->targetAlpha) a = std::max(a - speed * dt, h->targetAlpha);
+            h->root->SetAlpha(a, true);
+            if (h->root->alpha == h->targetAlpha && h->targetAlpha == 0.f) {
+                h->root->SetVisibility(false);
+                h->fading = false;
+            }
+            // The glow spins while pulse lasts (at most 1 radian a second) and breathes with it.
+            if (h->pulse > 0.f) {
+                h->pulse -= dt;
+                h->spin += std::min(h->pulse, 1.f) * dt;
+            }
+            h->glows[4]->SetAlpha(h->root->alpha + std::cos(h->spin * 8.f) * 0.2f, false);
+            h->glows[4]->SetRotation(h->spin);
+        }
+        if (h->active) {
+            Tasks::TaskInfo* t = Tasks::GetTask(h->task);
+            h->shownTime += dt;
+            if (t && t->HasTimeout()) {
+                h->time->SetVisibility(true);
+                int left = t->GetRemainingTime();
+                // The starter chest's offer runs from the key's arrival (item 0x2b6).
+                if (t->id == 0x75b && GameState::GetItemAmount(0x2b6, false) != 0)
+                    left = Setting("starter_chest_time").GetInt() -
+                           (int)((uint32_t)Timer::GetGlobalTime() - GameState::GetItemRecentTime(0x2b6));
+                h->time->SetText(StringTable::GetNumericTimeString(left < 0 ? 0 : left, true).c_str());
+            } else {
+                h->time->SetVisibility(false);
+            }
+        }
+    }
+    // BlinkCompass's map: the compass pulses until the map changes.
+    if ((int)GameState::GetCurrentMapID() == g_blinkMap) {
+        if (g_blinkMap != 0) g_compass->SetAlpha(1.15f + std::cos((float)Timer::GetTime() * 8.f) * 0.15f, true);
+    } else {
         g_compass->SetAlpha(1.f, true);
         g_blinkMap = 0;
     }
     if (Timer::GetGlobalTime() == g_lastSecond) return;
     g_lastSecond = Timer::GetGlobalTime();
+    if ((uint32_t)g_lastSecond - g_lastActivate > 300) {
+        g_lastActivate = (uint32_t)g_lastSecond;
+        ActivateFeatureHolders();
+    }
     g_shop->SetEnabled(!GameState::IsPvPCombatActive() && GameState::IsPlayerCity());
     const bool shopOn = GameState::TaskCompleted((unsigned)Setting("shop_unlock_task").GetInt());
     g_shopBg->SetEnabled(shopOn);
     g_shopIcon->SetEnabled(shopOn);
     g_shopText->SetEnabled(shopOn);
+
+    // This second's featured quests: the promotions first (the pyramid exchange's sales, the chest
+    // offers in the city view, the PvP and item-shop events), then every active "featured" quest.
+    // The server starts the promotions; offline they never start (DECIDED 2026-10-20: ported as is).
+    g_featured.clear();
+    const bool farm = Map::GetCurrentFarm() != nullptr;
+    if (Tasks::IsTaskActive(0x4d8, false)) g_featured.push_back(0x4d8);
+    if (Tasks::IsTaskActive(0x4da, false)) g_featured.push_back(0x4da);
+    if (Tasks::IsTaskActive(0x4db, true)) g_featured.push_back(0x4db);
+    if (Tasks::IsTaskActive(0x6b4, true) && !farm && !GlobalMapWindow::IsVisible()) g_featured.push_back(0x6b4);
+    if (Tasks::IsTaskActive(0x75b, false) && GameState::GetItemAmount(0x2b6, false) != 0 && !farm &&
+        !GlobalMapWindow::IsVisible())
+        g_featured.push_back(0x75b);
+    if (Tasks::IsTaskActive(0x77b, true) && !farm) g_featured.push_back(0x77b);
+    if (Tasks::IsTaskActive(0x791, false) && !farm) g_featured.push_back(0x791);
+    for (unsigned i = 0; Tasks::TaskInfo* t = Tasks::EnumTask(i); ++i)
+        if (t->featured && Tasks::IsTaskActive(t->id, t->dnShowDefault)) g_featured.push_back(t->id);
+    // None during the second tutorial or a boss fight.
+    if (GameState::secondTutorial != 0x100 || GameState::IsBossCombatActive()) g_featured.clear();
+    const unsigned n = (unsigned)g_featured.size();
+
+    // One holder shows a quest at a time; with several, the next takes over (the other holder fades
+    // in) after 15 s; a quest that left the list makes way at once.
+    int cur, other;
+    if (g_holders[0]->active) {
+        cur = 0;
+        other = 1;
+    } else if (g_holders[1]->active) {
+        cur = 1;
+        other = 0;
+    } else {
+        if (n != 0) {
+            g_featuredIndex = 0;
+            g_holders[0]->TakeQuest(g_featured[0]);
+        }
+        return;
+    }
+    if (n != 0) {
+        bool found = false;
+        for (uint32_t id : g_featured)
+            if (id == g_holders[cur]->task) found = true;
+        if (n > 1 && (g_holders[cur]->shownTime > 15.f || !found)) {
+            if (++g_featuredIndex >= n) g_featuredIndex = 0;
+            g_holders[cur]->FadeOut();
+            g_holders[other]->TakeQuest(g_featured[g_featuredIndex]);
+            return;
+        }
+        if (n != 1 || found) return;
+    }
+    g_featuredIndex = 0;
+    g_holders[cur]->FadeOut();
 }
 
 }  // namespace CastleTopWindow
