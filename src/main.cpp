@@ -37,6 +37,7 @@
 #include "engine/SystemFuncs.h"
 #include "game/Tavern.h"
 #include "game/Notifications.h"
+#include "game/Tags.h"
 #include "game/AI.h"
 #include "engine/Text.h"
 #include "engine/TextInput.h"
@@ -206,6 +207,11 @@ int lastX = 0x96, lastY = 0x96;   // 0x60ef50: the previous pointer position
 bool held = false;                // 0x6122ec: a button is down
 float longTapTime = 0.f;          // 0x6122f0: seconds since the press or release
 bool longTapStarted = false;      // 0x6122f4: GUI::OnLongTapStart ran for this press
+// Game::mActionToDo / mActionValue: a request to open a screen, set by CommonSetAction (Java's
+// mcAddAction, coupons, server flags, blog commands). Nothing sets it offline, so the switch in
+// AfterEvents is dormant (DECIDED, user 2026-10-19).
+int mActionToDo = 0;              // 0x6124a8
+int mActionValue = 0;             // 0x6124ac
 float edgeX = 0.f, edgeY = 0.f;   // 0x612314 0x612318: edge-scroll drag not yet passed on
 bool firstMove = true;            // only the first motion event of a frame reaches ProcessMove
 uint64_t lastTicks = 0;           // Game::time: when the previous frame started
@@ -470,7 +476,50 @@ void AfterEvents(double frameDt) {
         GUI::OnLongTapStart();
         longTapStarted = true;
     }
-    // (GameState::UpdateServerFlags and the mActionToDo requests from Java: online)
+    // (GameState::UpdateServerFlags: online)
+    // The social requests (Expansions::IsRequiredUpdateRunning and FacebookSyncWindow, which hold
+    // them back, are never on offline): 8 opened the Facebook login (SystemFuncs::LoginToFB,
+    // online), 9 nothing, 13 / 14 PlayerProfileManager::OnAFB (online).
+    if (mActionToDo == 8) {
+        std::printf("FBB: AFB_SOCIAL_CONNECT_WINDOW");
+        mActionToDo = 0;
+    } else if (mActionToDo == 9 || (unsigned)(mActionToDo - 0xd) < 2u) {
+        mActionToDo = 0;
+    }
+    // With no window open and outside the city tutorial, the request opens its screen and is done.
+    if (WindowManager::GetShownWindowCount() == 0 && mActionToDo != 0 && !GameState::IsCityTutorial()) {
+        switch (mActionToDo) {
+            case 1: Map::PlayerDefaultSpawn(); break;
+            case 2:
+                ShopWindow::Show();
+                ShopWindow::OnSelectItemID((unsigned)mActionValue);
+                ShopWindow::ShowArrowOnItem((unsigned)mActionValue);
+                break;
+            case 3:
+                ShopWindow::Show();
+                ShopWindow::OnTabSelect((unsigned)mActionValue);
+                break;
+            case 5:
+                ExchangeWindow::Show();
+                ExchangeWindow::OnTab((unsigned)mActionValue, nullptr);
+                break;
+            case 6:
+                ItemShopWindow::Show();
+                ItemShopWindow::OnTab((unsigned)mActionValue);
+                break;
+            case 7:
+                ItemShopWindow::Show();
+                ItemShopWindow::ShowArrowOnItem((uint32_t)mActionValue);
+                break;
+            case 11: ChestsWindow::Show(); break;
+            // 10 PlayerCompetitionWindow::Show + OnTab(4); 12 the friends' gift reminder (with
+            // task "task_friends_enable" done, outside a farm: NeighboursServer and the settings
+            // "last_gift_send" / "last_gift_remind"); 15 PlayerCompetitionWindow's Facebook tab (5,
+            // after RefreshServer) for a registered player signed in to "fb": all online.
+            default: break;
+        }
+        mActionToDo = 0;
+    }
     AskLanguageQuestion();
     // More than 2 s in the background goes to the buildings in one Map::OfflineUpdate.
     if (2.f < pauseTime) {

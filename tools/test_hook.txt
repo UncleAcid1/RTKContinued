@@ -206,6 +206,12 @@
                 std::printf("[t] pause event:\n"); SDL_Event ev{}; ev.type = SDL_EVENT_WILL_ENTER_BACKGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func();
             }
             if (i == envi("RTK_NOTIF", -1) + 1) { std::printf("[t] after pause: last %d\n", g_lastSystemNotificationTime); SDL_Event ev{}; ev.type = SDL_EVENT_DID_ENTER_FOREGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func(); }
+            if (i == envi("RTK_TAGS", -1)) {   // 5r-7: the calendar on chosen local dates, then the tags now
+                const int dates[][3] = {{2026,11,22},{2026,11,23},{2026,11,26},{2026,11,29},{2026,11,30},{2026,12,1},{2027,1,6},{2027,1,7},{2024,11,24},{2024,11,25},{2024,12,1},{2024,12,2},{2025,11,24},{2025,11,30},{2026,10,19}};
+                for (auto& d : dates) { std::tm t{}; t.tm_year = d[0] - 1900; t.tm_mon = d[1] - 1; t.tm_mday = d[2]; t.tm_hour = 12; t.tm_isdst = -1; time_t w = std::mktime(&t); std::printf("[t] date %d-%02d-%02d xmas %d thanks %d\n", d[0], d[1], d[2], (int)Tags::CalendarActive("xmas_2012", w), (int)Tags::CalendarActive("thanksgiving_2012", w)); }
+                for (unsigned k = 0; Tags::Tag* tg = Tags::EnumTag(k); ++k) std::printf("[t] tag %s active %d\n", tg->name, (int)tg->IsActive());
+            }
+            if (const char* ac = getenv("RTK_ACTION")) { int f, a, v; if (std::sscanf(ac, "%d:%d:%d", &f, &a, &v) == 3 && f == i) { mActionToDo = a; mActionValue = v; std::printf("[t] action %d value %d\n", a, v); } }
             if (i == envi("RTK_SLEEP", -1)) SDL_Delay(2100);
             if (const char* sl = getenv("RTK_SLEEPS")) { int f = 0, n = 0; while (std::sscanf(sl, "%d%n", &f, &n) == 1) { if (f == i) SDL_Delay(1100); sl += n; if (*sl == ',') ++sl; } }
             if (i == envi("RTK_RETREAT", -1)) { std::printf("[t] retreat\n"); pl->GetAI()->Retreat(); }
