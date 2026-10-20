@@ -5,11 +5,11 @@
 // reputation bar and the start / unlock button. SetParameters picks the event (0 / 1) the arrow
 // points at when the window comes in.
 //
-// UNVERIFIED (milestone 5s-3): UpdateContents, Update, OnStartEvent, OnUnlockEvent and
-// OnReputationInfo are still empty.
+// UNVERIFIED (milestone 5s-3b): Update and OnStartEvent are still empty.
 #include <cstdio>
 #include <string>
 
+#include "engine/IconManager.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
 #include "game/Entity.h"
@@ -20,6 +20,7 @@
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
+#include "hud/HUD.h"
 #include "windows/Windows.h"
 
 namespace ArenaEventWindow {
@@ -147,13 +148,45 @@ unsigned g_event = 0xffffffff;            // 0x60f0a0 SetParameters: the event (
 bool g_tablet = false;                    // 0x60f0a4
 float g_scale = 1.f;                      // 0x60f0a8
 
-// UNVERIFIED (milestone 5s-3): the event's start (OnStartEvent @0x247d64), unlock
-// (OnUnlockEvent @0x247acc) and reputation card (OnReputationInfo @0x2481a0).
+// UNVERIFIED (milestone 5s-3b): the event's start (OnStartEvent @0x247d64).
 void OnStartEvent(unsigned) {}
-void OnUnlockEvent(unsigned, bool) {}
-void OnReputationInfo(unsigned) {}
-// UNVERIFIED (milestone 5s-3): @0x247594.
+// UNVERIFIED (milestone 5s-3b): @0x247594.
 void Update(float) {}
+
+// @0x247acc: a cooling-down event (holder i: event i + 1) starts over at once for "arena_unlock"
+// crystals (not enough: the NotEnough dialog); the price is confirmed first (pay = false). Event 2's
+// companion record 0x400 is cleared with it.
+void OnUnlockEvent(unsigned i, bool pay) {
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)Setting("arena_unlock").GetInt());
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::Show();
+        return;
+    }
+    if (!pay) {
+        ConfirmPurchaseWindow::SetParameters([i] { OnUnlockEvent(i, true); },
+                                             (unsigned)Setting("arena_unlock").GetInt(), true);
+        ConfirmPurchaseWindow::Show();
+        return;
+    }
+    const unsigned event = i + 1;
+    GameState::ChangeResourceAmount(GameState::kCrystal, -Setting("arena_unlock").GetInt());
+    // (Billing::LogCBPurchase(0x21, event, price): online logging, not ported.)
+    GameState::SetEventStartTime(event, 0);
+    GameState::SetEventEndTime(event, 0);
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals", 1, false).
+    if (i == 1) GameState::SetEventStartTime(0x400, 0);
+    UpdateContents();
+    HUDWindow::UpdateTasks();
+}
+
+// @0x2481a0: the event's reputation in LevelInfoWindow (holder 0: reputation 2, holder 1: 1).
+void OnReputationInfo(unsigned i) {
+    Hide();
+    LevelInfoWindow::Show();
+    if (const Professions::Profession* p = Professions::GetProfession(i == 0 ? 2 : 1))
+        LevelInfoWindow::OnTab(p->tab, true);
+}
 
 // @0x2481ec
 bool Click(int x, int y, bool pressed) {
@@ -281,8 +314,87 @@ void Hide() {
     g_tween->AnimateOut();
 }
 
-// UNVERIFIED (milestone 5s-3): @0x2466f8.
-void UpdateContents() {}
+// @0x2466f8: per event (holder i: event i + 1) its pictures (grey while cooling down or locked),
+// names, description, the reputation's rank and bar towards the next rank, the time left or the
+// cooldown, and the button: start (begin / select a difficulty / unlock quests), in progress, or
+// start over early for crystals.
+void UpdateContents() {
+    g_title->SetText(StringTable::GetString("ARENA_EVENT_TITLE"));
+    for (unsigned i = 0; i != 2; ++i) {
+        EventInfo& e = g_events[i];
+        const unsigned event = i + 1;
+        const bool boss = event == 1;
+        const unsigned rep = boss ? 2 : 1;
+        const bool open = GetEventCooldownTime(event) == 0 && IsEventUnlocked(event);
+        e.chestBg->SetEnabled(open);
+        e.wavesBg->SetEnabled(open);
+        e.day1->SetText(GetEventName(event));
+        e.day2->SetText(GetEventName(event));
+        e.description->SetText(GetEventDescription(event));
+        e.repDefence->SetVisibility(boss);
+        e.repAttack->SetVisibility(!boss);   // (the original passes the loop's previous index)
+        const uint32_t level = Professions::GetPlayerProfessionLevel(rep);
+        const Professions::ProfessionLevel* next = Professions::GetProfessionLevel(rep, level + 1);
+        if (!next) next = Professions::GetProfessionLevel(rep, level);
+        e.repRank->SetText(StringTable::GetString(level != 0 ? "ARENA_EVENT_RANK" : "ARENA_EVENT_UNRANKED"));
+        e.repText->SetVisibility(level != 0);
+        e.repText->SetText(ToWideString((int)level));
+        e.unlockItems->SetText(StringTable::GetString("ARENA_EVENT_TAP_FOR_UNLOCKED"));
+        e.infoIcon->SetTexture(IconManager::GetIcon("gold_info", false), true);
+        const uint32_t points = GameState::GetProfessionPoints(rep);
+        const std::u32string progress =
+            SWPrintf(0x100, U"%s - %d - %s: %d/%d",
+                     {StringTable::GetString("ARENA_EVENT_NEXT_RANK"), (int)(level + 1), next->name, (int)points,
+                      (int)next->points});
+        e.under->SetText(progress.c_str());
+        e.over->SetText(progress.c_str());
+        float part = (float)points / (float)next->points;
+        if (part > 1.f) part = 1.f;
+        const float fill = (float)e.barFill->w * part;
+        e.clip.right = (int)((float)e.clip.left + fill);
+        e.time.root->SetVisibility(IsEventActive(event) || GetEventCooldownTime(event) != 0);
+        e.time.timer->SetVisibility(IsEventActive(event));
+        e.time.timer->SetAsyncUpdate(false);
+        e.time.timerOut->SetVisibility(GetEventCooldownTime(event) != 0);
+        e.time.timerOut->SetAsyncUpdate(false);
+        if (GetEventCooldownTime(event) == 0) {
+            e.time.title->SetText(StringTable::GetString("ARENA_EVENT_TIMER_ACTIVE"));
+            e.time.timer->SetText(StringTable::GetTimeString((int)GetEventRemainingTime(event), false).c_str());
+        } else {
+            e.time.title->SetText(StringTable::GetString("ARENA_EVENT_IN_TIMEOUT"));
+            e.time.timerOut->SetText(StringTable::GetTimeString((int)GetEventCooldownTime(event), false).c_str());
+        }
+        ButtonInfo& b = e.button;
+        b.locked->SetVisibility(false);
+        const bool startable = !IsEventActive(event) && GetEventCooldownTime(event) == 0;
+        const bool cooling = !startable && !IsEventActive(event);
+        b.backdrop->SetVisibility(false);
+        b.inProgress->SetVisibility(false);
+        b.active->SetVisibility(!cooling);
+        b.begin->SetVisibility(!cooling);
+        b.icon->SetVisibility(!cooling);
+        b.gold->SetVisibility(cooling);
+        b.crystal->SetVisibility(cooling);
+        b.goldText->SetVisibility(cooling);
+        b.price->SetVisibility(cooling);
+        if (cooling) {
+            b.goldText->SetText(StringTable::GetString("ARENA_EVENT_LAUNCH_EARLY"));
+            b.price->SetText(ToWideString(Setting("arena_unlock").GetInt()));
+        } else {
+            b.icon->SetTexture(IconManager::GetIcon("gold_attack", false), true);
+            if (!startable)
+                b.begin->SetText(StringTable::GetString("ARENA_EVENT_INPROGRESS"));
+            else if (!IsEventUnlocked(event))
+                b.begin->SetText(StringTable::GetString("PERFORM_UNLOCK"));
+            else
+                b.begin->SetText(StringTable::GetString(boss ? "ARENA_EVENT_BEGIN_CHALLENGE"
+                                                             : "ARENA_EVENT_SELECT_DIFFICULTY"));
+        }
+        b.active->SetEnabled(true);
+        b.begin->SetEnabled(true);
+        b.icon->SetEnabled(true);
+    }
+}
 
 // @0x246124
 const char32_t* GetEventName(unsigned event) {
