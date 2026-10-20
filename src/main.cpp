@@ -789,6 +789,7 @@ int main_Loop_Init() {
     GUI::Init(font, false);
     // The game's windows: their static FunctionalWindow objects are constructed in the binary's
     // static-initialiser order (by source file), then WindowQueue::InitWindows runs their Init.
+    ArenaDifficultyWindow::Queue();
     ArenaEventWindow::Queue();
     ArenaTurnWindow::Queue();
     BattleBarWindow::Queue();

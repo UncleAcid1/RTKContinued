@@ -649,6 +649,17 @@ void Show();                                // @0x2ab6cc (only in the city)
 void Hide();                                // @0x2a9324
 }
 
+// The waves event's difficulty choice (windows/ArenaDifficultyWindow.cpp).
+namespace ArenaDifficultyWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaDifficultyWindow" (FUN_00242c44)
+void Init();                                // @0x245670
+bool IsVisible();                           // @0x242bd8
+void Show();                                // @0x244f1c
+void Hide();                                // @0x243104
+void UpdateContents();                      // @0x243894
+void OnStartEvent();                        // @0x24500c the event starts at the chosen difficulty
+}
+
 // An arena event's card (windows/ArenaEventWindow.cpp): event 1 the arena's boss, 2 its waves.
 namespace ArenaEventWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaEventWindow"

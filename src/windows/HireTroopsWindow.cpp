@@ -2026,8 +2026,8 @@ void OnBlueButton(unsigned n) {
         OnTaskDo(n);
         return;
     }
-    // UNVERIFIED (milestone 5s): ArenaDifficultyWindow and PlayerCompetitionWindow are hidden first
-    // when open.
+    // The windows over it close first (PlayerCompetitionWindow: online, not ported).
+    if (ArenaDifficultyWindow::IsVisible()) ArenaDifficultyWindow::Hide();
     Hide();
     if (GameState::GetCurrentMapID() != 0x52) {
         if (!GlobalMapWindow::IsVisible()) GlobalMapWindow::Show();

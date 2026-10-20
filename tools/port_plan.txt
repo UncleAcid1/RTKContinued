@@ -38,6 +38,7 @@ util  ^(StringHash|StringTable::FUN_00228ba4)$   # the GUI name hash (the port's
 util  ^GUI::FUN_(0017c258|0017c284|0017c2b8|0017c2ec|0017ebd4|0017ee7c|0017f0d0|001803d8)   # RegisterBinaryUI's vector sizes / inserts and its std::map<string> lookup
 util  ^(EntityFactory::FUN_(0015fb4c|00160374|0016134c)|SoldierSlots::FUN_(0021e738|0021ea08)|HiddenObjects::FUN_003a4b80|CastleTopWindow::FUN_002784cc)   # wcsdup/strdup, vector inserts, std::map inserts, push_back
 implicit  ^CastleTopWindow::FUN_00277144   # a callback object factory (Update's three callbacks)
+implicit  ^ArenaDifficultyWindow::FUN_(00242ee0|00245fd4)$   # a GUI::Callback factory; ArenaEventWindow's static FunctionalWindow (ArenaEventWindow::Queue)
 4b.5  ^Map::Building::AddSmoke$   # a hole the review found behind an `@0x` reference (workshop smoke)
 4h    ^(OnTutorialFarmerWomanAction|EntityManager::GetEntityByClass)$   # tutorial paths (BottomCityWindow::Update, Building::WorkEnded)
 5x     ^BuildingHovers::CheckForSpecialDrops$   # the Ruby / Diamond Pyramid finds (tasks 0x4d7 / 0x4d9): a real-money sale promotion in 5.11 (30% more gold and crystals for 24 h); ask the user how it works offline, with the exchange

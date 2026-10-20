@@ -369,10 +369,14 @@ void OnFind(unsigned i) {
         return;
     }
     BuildingHovers::Hide();
+    HireTroopsWindow::Hide();
     GlobalMapWindow::Hide();
+    CampaignInfoWindow::Hide();
+    RaidInfoWindow::Hide();
     HealSquadWindow::Hide();
-    // UNVERIFIED (milestone 5): HireTroops, CampaignInfo, RaidInfo, Crafting, CraftItem and
-    // ArenaDifficulty windows are hidden too.
+    CraftingWindow::Hide();
+    CraftItemWindow::Hide();
+    ArenaDifficultyWindow::Hide();
     if (g_lines[i].type != kPopulation) ShopWindow::Hide();
     g_pendingFind = i;
 }

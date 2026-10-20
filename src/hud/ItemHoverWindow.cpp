@@ -1048,13 +1048,14 @@ void ItemHoverWindow::OnFind() {
     }
     if (!info && resource == 0xb) return;
     BuildingHovers::HideArrow();
-    // The windows the popup may sit over are hidden first. UNVERIFIED (milestones 5s / 5u):
-    // ArenaDifficultyWindow, PlayerInfoWindow and PlayerCompetitionWindow (not ported yet).
+    // The windows the popup may sit over are hidden first. UNVERIFIED (milestone 5u / online):
+    // PlayerInfoWindow and PlayerCompetitionWindow (not ported yet).
     CharacterInfoWindow::Hide();
     ItemShopWindow::Hide();
     HireTroopsWindow::Hide();
     CraftItemWindow::Hide();
     LevelInfoWindow::Hide();
+    ArenaDifficultyWindow::Hide();
     CampaignInfoWindow::Hide();
     if (!info) {
         if (resource == 8) {

@@ -97,6 +97,7 @@ add_executable(rtk
   src/hud/TutorialWindow.cpp
   src/hud/BottomBattleWindow.cpp
   src/hud/PlayerHolder.cpp
+  src/windows/ArenaDifficultyWindow.cpp
   src/windows/ArenaEventWindow.cpp
   src/windows/CityRenameWindow.cpp
   src/windows/ConfirmPurchaseWindow.cpp

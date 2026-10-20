@@ -5,7 +5,6 @@
 // reputation bar and the start / unlock button. SetParameters picks the event (0 / 1) the arrow
 // points at when the window comes in.
 //
-// UNVERIFIED (milestones 5s-4 .. 5s-6): event 2's start goes to ArenaDifficultyWindow (not ported yet).
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -328,8 +327,8 @@ void OnStartEvent(unsigned i) {
             }
         }
     } else if (event == 2) {
-        // UNVERIFIED (milestones 5s-4 .. 5s-6): GameState::GetEventStartTime(2) == 0 ?
-        // ArenaDifficultyWindow::Show() : ArenaDifficultyWindow::OnStartEvent().
+        if (GameState::GetEventStartTime(2) == 0) ArenaDifficultyWindow::Show();
+        else ArenaDifficultyWindow::OnStartEvent();
     }
     UpdateContents();
     Hide();
@@ -429,7 +428,7 @@ bool OnBack() {
 }  // namespace
 
 WindowManager::FunctionalWindow* Queue() {
-    if (!g_queue) {
+    if (!g_queue) {   // FUN_00245fd4 (static init)
         WindowManager::FunctionalWindow::Functions f;
         f.init = Init;
         f.click = Click;

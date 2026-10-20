@@ -433,14 +433,15 @@ void Update(float dt) {
 
 // @0x2eb14c: the help the window asked for (OnHelp, HelpWithArena, HelpWithPvP): the windows in
 // the way close, then the player is taken to the PvP arena's, the arena event's or the arena's
-// first quests. UNVERIFIED (milestones 5s / 5t): the closes of ArenaDifficultyWindow,
-// PlayerCompetitionWindow and PlayerInfoWindow; CastleTopWindow's HelpWithPvP / OnPvP.
+// first quests. UNVERIFIED (milestones 5t / 5u): the closes of PlayerCompetitionWindow and
+// PlayerInfoWindow; CastleTopWindow's HelpWithPvP / OnPvP.
 void OnActualHelp() {
     CharacterInfoWindow::Hide();
     ItemShopWindow::Hide();
     HireTroopsWindow::Hide();
     CraftItemWindow::Hide();
     Hide();
+    ArenaDifficultyWindow::Hide();
     CampaignInfoWindow::Hide();
     if (GameState::GetCurrentMapID() == 0) {
         HealSquadWindow::Hide();
