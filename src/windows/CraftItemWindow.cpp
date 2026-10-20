@@ -5,7 +5,6 @@
 //
 // PORT (user 2026-10-19): the crystal "Buy now" buttons of the missing parts are not offered (as in
 // CraftingWindow); OnBuy does nothing.
-// UNVERIFIED (milestone 5q): OnFind's item shop (ItemShopWindow::ItemCanBeBought / Show / ShowShopItem).
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -851,17 +850,16 @@ void OnFind(unsigned part) {
     if (!c) return;
     Items::ItemInfo* info = Items::GetItemInfo(c->parts[part].item);
     if (!info) return;
-    // UNVERIFIED (milestone 5q): ItemShopWindow::ItemCanBeBought(info->id, 0), false until the shop.
-    const bool canBuy = false;
     unsigned slot = 0;
     if ((info->type == 6 || info->type == 9) &&
-        (NeedItemWindow::GetBuildingThatProducesItem(info->id, slot) != 0 || canBuy)) {
+        (NeedItemWindow::GetBuildingThatProducesItem(info->id, slot) != 0 ||
+         ItemShopWindow::ItemCanBeBought(info->id, 0))) {
         // Made in a building (or sold): the building, else the "item needed" dialog.
         Hide();
         CharacterInfoWindow::Hide();
         if (NeedItemWindow::GetBuildingThatProducesItem(info->id, slot) != 0) {
             NeedItemWindow::OnProduce(info->id);
-        } else if (canBuy) {
+        } else if (ItemShopWindow::ItemCanBeBought(info->id, 0)) {
             NeedItemWindow::SetParameters(info->id, nullptr);
             NeedItemWindow::Show();
         }
@@ -906,8 +904,10 @@ void OnFind(unsigned part) {
         GlobalMapWindow::ArrowAtMap(map, false, true);
         return;
     }
-    if (canBuy) {
-        // UNVERIFIED (milestone 5q): Hide(), ItemShopWindow::Show(), ShowShopItem(info->id, 0, true, -1).
+    if (ItemShopWindow::ItemCanBeBought(info->id, 0)) {
+        Hide();
+        ItemShopWindow::Show();
+        ItemShopWindow::ShowShopItem(info->id, 0, true, (unsigned)-1);
         return;
     }
     PopupWindow::Show(StringTable::GetString("HELP_FIND_RUBY"), PopupWindow::Hide, nullptr, nullptr);

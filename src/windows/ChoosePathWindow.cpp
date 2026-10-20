@@ -329,9 +329,7 @@ void OnTravel(unsigned type) {
                 GlobalMapWindow::ArrowAtMap(0, false, true);
             }
         } else if (type == 5) {
-            if (GameState::TaskCompleted((uint32_t)Setting("shop_unlock_task").GetInt())) {
-                // UNVERIFIED (milestone 5q): ItemShopWindow::Show.
-            }
+            if (GameState::TaskCompleted((uint32_t)Setting("shop_unlock_task").GetInt())) ItemShopWindow::Show();
         } else if (type == 6) {
             LevelInfoWindow::HelpWithPvP(true);
         } else if (type == 7) {

@@ -6,7 +6,7 @@
 // Not ported, marked where they happen: the boss form of the window (a boss's portrait, fight /
 // shop buttons, OnFight: milestone 5), the task locator icon (4d part 4), ExecuteFirstHelp
 // (0x35d3dc, the autoplay bot: 4d part 4), the windows Show opens for a few special tasks (chests,
-// PvP, the item shop's tabs: milestone 5), sounds (6).
+// PvP: milestone 5), sounds (6).
 #include <cstdio>
 #include <vector>
 
@@ -755,8 +755,9 @@ void Show() {
         HUDWindow::UpdateTasks();
     }
     // The tasks that open another window instead: 0x6b4 the chests, 0x75b the starter chest (0x3f
-    // with the setting starter_chest_b, else 0x35). UNVERIFIED (milestone 5q / 5t): 0x77b the PvP
-    // button (CastleTopWindow::OnPvP(0x317)), 0x77c..0x780 the item shop's tabs and packs.
+    // with the setting starter_chest_b, else 0x35), 0x77c..0x780 the item shop on its tab 1, the
+    // item 0xaf, tab 2, pack 2 (packs are not sold) and tab 3. UNVERIFIED (milestone 5t): 0x77b the
+    // PvP button (CastleTopWindow::OnPvP(0x317)).
     if (g_task == 0x6b4) {
         ChestsWindow::Show();
         return;
@@ -764,6 +765,15 @@ void Show() {
     if (g_task == 0x75b) {
         ChestsWindow::Show();
         ChestsWindow::SetStarterChestMode(false, Setting("starter_chest_b").GetInt() ? 0x3f : 0x35);
+        return;
+    }
+    if (g_task - 0x77cu < 5) {
+        ItemShopWindow::Show();
+        if (g_task == 0x77c) ItemShopWindow::ShowShopTab(1);
+        if (g_task == 0x77d) ItemShopWindow::ShowShopItem(0xaf, 0, false, (unsigned)-1);
+        if (g_task == 0x77e) ItemShopWindow::ShowShopTab(2);
+        if (g_task == 0x77f) ItemShopWindow::ShowShopPack(2, false);
+        if (g_task == 0x780) ItemShopWindow::ShowShopTab(3);
         return;
     }
     if (!t || !t->quickTask) {

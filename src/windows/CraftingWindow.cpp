@@ -5,7 +5,6 @@
 // PORT (user 2026-10-19): the crystal "Buy now" buttons of the missing parts are not offered: they
 // stay hidden (UpdateContents) and OnBuy does nothing, so nothing here spends crystals. The online
 // request of OnCraft (OG::MakeRequest) is dropped and the sound is milestone 6.
-// UNVERIFIED (milestone 5q): OnFind's item shop (ItemShopWindow::Show / ShowShopItem).
 #include <cstdio>
 
 #include "engine/IconManager.h"
@@ -521,8 +520,13 @@ void OnFind(unsigned param) {
         }
         return;
     }
-    // UNVERIFIED (milestone 5q): with ItemShopWindow::ItemCanBeBought(info->id, 0) and the task
-    // "shop_unlock_task" done: Hide(), ItemShopWindow::Show() and ShowShopItem(info->id, 0, true, -1).
+    if (ItemShopWindow::ItemCanBeBought(info->id, 0) &&
+        GameState::TaskCompleted((uint32_t)Setting("shop_unlock_task").GetInt())) {
+        Hide();
+        ItemShopWindow::Show();
+        ItemShopWindow::ShowShopItem(info->id, 0, true, (unsigned)-1);
+        return;
+    }
     std::printf("ERROR: CraftingWindow::OnFind() Cannot find a place with item %d\n", (int)info->id);
 }
 

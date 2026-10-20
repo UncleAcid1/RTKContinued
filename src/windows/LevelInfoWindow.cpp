@@ -433,13 +433,14 @@ void Update(float dt) {
 
 // @0x2eb14c: the help the window asked for (OnHelp, HelpWithArena, HelpWithPvP): the windows in
 // the way close, then the player is taken to the PvP arena's, the arena event's or the arena's
-// first quests. UNVERIFIED (milestones 5q / 5s / 5t): the closes of ItemShopWindow,
-// ArenaDifficultyWindow, PlayerCompetitionWindow and PlayerInfoWindow; ArenaEventWindow's
-// Show / SetParameters and CastleTopWindow's HelpWithPvP / OnPvP.
+// first quests. UNVERIFIED (milestones 5s / 5t): the closes of ArenaDifficultyWindow,
+// PlayerCompetitionWindow and PlayerInfoWindow; ArenaEventWindow's Show / SetParameters and
+// CastleTopWindow's HelpWithPvP / OnPvP.
 void OnActualHelp() {
-    CraftItemWindow::Hide();
     CharacterInfoWindow::Hide();
+    ItemShopWindow::Hide();
     HireTroopsWindow::Hide();
+    CraftItemWindow::Hide();
     Hide();
     CampaignInfoWindow::Hide();
     if (GameState::GetCurrentMapID() == 0) {
@@ -602,11 +603,12 @@ void OnLevelHolderUp() {
 }
 
 // @0x2eb0f0: a holder's shop button: the shop on the holder's first item (the valor shop tab 7 on
-// the valor tab). UNVERIFIED (milestone 5q): ItemShopWindow::Show and ShowShopItem(item, 0, true,
-// tab) are not ported: the window only closes.
+// the valor tab).
 void OnShop(unsigned holder) {
     if (holder >= 3) return;
     Hide();
+    ItemShopWindow::Show();
+    ItemShopWindow::ShowShopItem((uint32_t)g_general.level[holder].items[0].item, 0, true, g_tab == 1 ? 7 : (unsigned)-1);
 }
 
 // @0x2eb384: the help button: closes this window (OnTweenOut then runs OnActualHelp), or not

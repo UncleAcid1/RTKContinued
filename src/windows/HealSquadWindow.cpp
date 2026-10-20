@@ -306,8 +306,12 @@ void OnHome() {
     GameState::SetCurrentLocation(GameState::GetCurrentMapID() == 0 ? 0 : 2);
 }
 
-// @0x2ca494. UNVERIFIED (milestone 5): ItemShopWindow::Show with items 0x250 and 0x162 pointed out.
-void OnShop() {}
+// @0x2ca494: the shop on the healing potions: 0x250 in tab 3, then 0x162.
+void OnShop() {
+    ItemShopWindow::Show();
+    ItemShopWindow::ShowShopItem(0x250, 0, false, 3);
+    ItemShopWindow::ShowShopItem(0x162, 0, false, (unsigned)-1);
+}
 
 // @0x2ca440: the character window on its first tab, at the first broken piece worn.
 void OnRepair() {

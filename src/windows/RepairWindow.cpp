@@ -173,7 +173,7 @@ void OnRepair() {
     if (g_option == 2 && it->f0c != it->info->durability) SetParameters(it);
     else Hide();
     CharacterInfoWindow::UpdateContents();
-    // UNVERIFIED (milestone 5q): ItemShopWindow::UpdateContents.
+    ItemShopWindow::UpdateContents();
 }
 
 // @0x337460

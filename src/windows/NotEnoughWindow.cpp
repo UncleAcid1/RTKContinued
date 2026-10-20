@@ -14,10 +14,13 @@
 #include "engine/Render.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
+#include "game/Collections.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Locations.h"
 #include "game/Map.h"
+#include "game/MetaExpression.h"
 #include "game/Professions.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
@@ -286,29 +289,61 @@ void OnFindActual(unsigned i) {
         break;
     case kItem: {
         // A lying drop (everything is picked up), else the mission map with it on the world map,
-        // else its building for types 6 / 9. (CharacterInfoWindow / ItemShopWindow::Hide with
-        // this window's: milestone 5.) UNVERIFIED (milestone 5): the map's RaidInfoWindow showing
-        // the item; the item shop (ItemShopWindow::ItemCanBeBought / ShowShopItem); the crafting
-        // windows for a collection's result (CraftingWindow, CraftItemWindow after
-        // "craft_unlock_task"); a PvP item (meta 0x30): CastleTopWindow::HelpWithPvP.
+        // else its building for types 6 / 9, the item shop, the crafting windows for a collection's
+        // result, a PvP item's (meta 0x30) PvP help. UNVERIFIED (milestone 5t):
+        // CastleTopWindow::HelpWithPvP.
         Items::ItemInfo* info = Items::GetItemInfo(l.itemId);
         if (!info) return;
         float x = 0.f, y = 0.f;
         if (BuildingHovers::HasDroppedItem(info->id, x, y)) {
             Hide();
+            CharacterInfoWindow::Hide();
+            ItemShopWindow::Hide();
             BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { BuildingHovers::CollectAll(); }));
             Tasks::HelpWithLocation((int)x, (int)y, 0, 0);
             return;
         }
         if (uint32_t map = GlobalMapWindow::GetMissionMapForItem(info->id, 0)) {
             Hide();
+            CharacterInfoWindow::Hide();
+            ItemShopWindow::Hide();
             GlobalMapWindow::Show();
             GlobalMapWindow::CenterOnMap(map);
+            if (Locations::LocationInfo* loc = Locations::GetLocationWithMap(map)) {
+                RaidInfoWindow::SetParameters(loc, map, false);
+                RaidInfoWindow::Show();
+                RaidInfoWindow::SetAnimationOnce();
+                RaidInfoWindow::ShowItem(info->id);
+            }
             return;
         }
         if (info->type == 6 || info->type == 9) {
             BuildingHovers::SetArrowVisibleWindowLimit(2);
             NeedItemWindow::OnProduce(info->id);
+            return;
+        }
+        if (ItemShopWindow::ItemCanBeBought(info->id, 0)) {
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopItem(info->id, 0, true, (unsigned)-1);
+            return;
+        }
+        if (Collections::Collection* c = Collections::GetCollectionWithResult(info->id)) {
+            if (info->type == 8) {
+                CraftingWindow::Show();
+                CraftingWindow::SelectTabFor(nullptr, Items::GetItemInfo(c->from));
+                return;
+            }
+            if (c->type == 1 && GameState::TaskCompleted((uint32_t)Setting("craft_unlock_task").GetInt())) {
+                CraftItemWindow::Show();
+                CraftItemWindow::ShowItem(info->id);
+                return;
+            }
+        }
+        if (info->meta && info->meta->FindByType(0x30)) {
+            Hide();
+            CharacterInfoWindow::Hide();
+            ItemShopWindow::Hide();
+            // UNVERIFIED (milestone 5t): CastleTopWindow::HelpWithPvP.
         }
         break;
     }
