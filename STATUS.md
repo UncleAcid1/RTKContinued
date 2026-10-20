@@ -3349,7 +3349,7 @@ Milestones:
               through the same inherited Update. Regression: AMBUSH reaches 0x1b, CITY 0x61.
          5x-3 [x] 2026-10-20 Entity::ExecutePvPSpawnMeta + SetCustomUnderlay: a rival met on a map (PVP_SPAWN meta).
               Reachable: maps 82, 83, 84, 89, 90, 113, 116 and 132 have PVP_SPAWN shadows (entity 0x285),
-              shown after task 1871 (0x74f, a PvP valor quest; map 84's after task 678). Ported from the asm
+              shown after task 1871 (0x74f, a PvP valor quest; map 84's also need task 678). Ported from the asm
               (game/EntityMeta.cpp); called by OnSetup for any PVP_SPAWN part and by OnTaskCompleted /
               OnSubTaskCompleted while the shadow has no GUID. A standing shadow (spawn +0x24 or a patrol)
               draws a type-1 rival (the PvP tab's list), a wandering one a type-4 rival (Map::Load loads that
