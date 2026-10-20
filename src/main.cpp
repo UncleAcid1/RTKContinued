@@ -36,6 +36,7 @@
 #include "engine/Resources.h"
 #include "engine/SystemFuncs.h"
 #include "game/Tavern.h"
+#include "game/Notifications.h"
 #include "game/AI.h"
 #include "engine/Text.h"
 #include "engine/TextInput.h"
@@ -80,6 +81,8 @@
 #include "game/SoldierSlots.h"
 #include "game/Tasks.h"
 #include "game/Squad.h"
+
+namespace Game { bool main_Loop_Func(); }   // below
 
 namespace {
 
@@ -915,8 +918,8 @@ bool main_Loop_Func() {
             case SDL_EVENT_WILL_ENTER_BACKGROUND:
                 // The app's pause (Java sets createAutosave and paused; desktop systems do not send
                 // this event, the exit saves): outside the city tutorial the drops are collected,
-                // the edit modes closed and the game saved. UNVERIFIED: the phone notifications are
-                // milestone 5.
+                // the edit modes closed, the game saved and the reminders handed to the system
+                // (Notifications; the OS side is milestone 7).
                 if (!forceExitNoSave && !GameState::IsCityTutorial()) {
                     TaskCompleteWindow::Hide();
                     BuildingHovers::CollectAll();
@@ -924,6 +927,10 @@ bool main_Loop_Func() {
                     BuildingPlacement::Decline();
                     SpellMovement::Decline();
                     Map::Save(0);
+                    GetNotifications().PurgeNotifications();
+                    GameState::UpdateNotifications();
+                    Map::UpdateNotifications();
+                    GetNotifications().FlushNotifications();
                 }
                 paused = true;   // SDLMain.mcPauseEvent(1)
                 break;

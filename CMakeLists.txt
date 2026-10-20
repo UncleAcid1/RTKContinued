@@ -33,6 +33,7 @@ add_executable(rtk
   src/game/BossIntroEffect.cpp
   src/game/Fog.cpp
     src/game/Locations.cpp
+    src/game/Notifications.cpp
     src/game/Spells.cpp
     src/game/SpellMovement.cpp
     src/game/ParticlePresets.cpp

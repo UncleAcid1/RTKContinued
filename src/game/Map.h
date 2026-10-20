@@ -265,6 +265,7 @@ void OnTaskCompleted(uint32_t task);        // @0x1b65d4
 void OnSubTaskCompleted(uint32_t subtask);  // @0x1b6650
 void OnInteract(uint32_t object);           // @0x1b66cc
 void AssignUniqueIDs();
+void UpdateNotifications();                  // @0x1b7e30 (Notifications)
 void Free();
 // @0x1bbbcc: the game state and the current map into the main save, then the save file (type 1:
 // the online save, not ported). In the city the buildings' offline records are refreshed first.

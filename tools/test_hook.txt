@@ -194,6 +194,18 @@
                 const char* dl = "1|2=3,4"; MetaData* q = ParseItemDropCommaDividedList(dl, false); std::printf("[t] droplist kids %u first kids %u\n", q->GetChildrenCount(), q->GetChild(0)->GetChildrenCount()); delete q;
                 GameState::SetChestItemReceivedCount(5, 7); std::printf("[t] received item5 %u item6 %u\n", GameState::GetChestItemReceivedCount(5), GameState::GetChestItemReceivedCount(6));
             }
+            if (i == envi("RTK_NOTIF", -1)) {   // 5r-6: each source's reminder, then the real pause event (RTK_NOTIFOFF: setting off, RTK_BOSSF: a boss fight 10 s old)
+                if (envi("RTK_NOTIFOFF", 0)) SettingsWindow::SetNotificationState(0);
+                if (envi("RTK_BOSSF", 0)) { for (unsigned k = 0; EntityData* d = EntityFactory::EnumEntity(k); ++k) if (d->restoreTime > 0) { std::printf("[t] boss entity %u restore %d\n", d->id, d->restoreTime); GameState::SetBossFightTimer(0x7777, (uint32_t)Timer::GetGlobalTime() - 10); GameState::BossFight(0x7777) = {{d->id, 50u}}; break; } }
+                if (envi("RTK_NOTIFSET", 0)) { std::set<Map::Building*> seen; for (int y = 0; y < Map::GetGridHeight(); ++y) for (int x = 0; x < Map::GetGridWidth(); ++x) { Map::Building* b = Map::GetBuilding(x, y); if (!b || !seen.insert(b).second) continue; if (b->data->buildingClass == 0 && envi("RTK_NOTIFSET", 0) == 1) b->stateTime = (uint32_t)Timer::GetGlobalTime() - 100; if (b->data->buildingClass == 4 && b->WorkerAssigned(0) && b->WorkerIsWorking(0)) b->resources[b->data->produceResource] = 10; } }   // 1: a tax house 100 s into its 1800 and a gatherer at 10 of 50; 2: the gatherer only
+                std::printf("[t] hp %d/%d regen %d next %.1f farmmap %u\n", pl->GetHP(), pl->GetHpMax(), pl->GetHPRegeneration(), GameState::mNextHP, Locations::GetNearestUnfinishedFarmMapTime());
+                { std::set<Map::Building*> seen; for (int y = 0; y < Map::GetGridHeight(); ++y) for (int x = 0; x < Map::GetGridWidth(); ++x) { Map::Building* b = Map::GetBuilding(x, y); if (!b || !seen.insert(b).second) continue; int c = (int)b->data->buildingClass; if (c == 0 || c == 4 || c == 0xd) std::printf("[t] bld %u class %d state %u collect %d gathered %d worker %d/%d arg0 %u contract0 %d\n", b->data->id, c, b->stateTime, b->data->collectTime, c == 4 ? b->GetGatheredResCount() : -1, (int)b->WorkerAssigned(0), (int)(b->WorkerAssigned(0) && b->WorkerIsWorking(0)), b->patchArg[0], b->patchContract[0]); } }
+                std::printf("[t] gamestate part:\n"); GetNotifications().PurgeNotifications(); GameState::UpdateNotifications(); GetNotifications().FlushNotifications();
+                std::printf("[t] map part:\n"); GetNotifications().PurgeNotifications(); Map::UpdateNotifications(); GetNotifications().FlushNotifications();
+                g_lastSystemNotificationTime = -1;
+                std::printf("[t] pause event:\n"); SDL_Event ev{}; ev.type = SDL_EVENT_WILL_ENTER_BACKGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func();
+            }
+            if (i == envi("RTK_NOTIF", -1) + 1) { std::printf("[t] after pause: last %d\n", g_lastSystemNotificationTime); SDL_Event ev{}; ev.type = SDL_EVENT_DID_ENTER_FOREGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func(); }
             if (i == envi("RTK_SLEEP", -1)) SDL_Delay(2100);
             if (const char* sl = getenv("RTK_SLEEPS")) { int f = 0, n = 0; while (std::sscanf(sl, "%d%n", &f, &n) == 1) { if (f == i) SDL_Delay(1100); sl += n; if (*sl == ',') ++sl; } }
             if (i == envi("RTK_RETREAT", -1)) { std::printf("[t] retreat\n"); pl->GetAI()->Retreat(); }

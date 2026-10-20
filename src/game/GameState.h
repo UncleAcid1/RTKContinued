@@ -95,6 +95,7 @@ extern int mBossMapPositions[12];
 // The hero's HP comes back by itself, one at a time (mNextHP counts down to the next).
 void UpdateHPRegen(float dt);                  // @0x19203c
 int GetTimeTillNextHP();                       // @0x190f14 seconds
+void UpdateNotifications();                     // @0x1a8b78 (Notifications)
 int GetVirtualHP();                            // @0x190f30 HP regenerated while he lay dead in a fight
 void ResetVirtualHP();                         // @0x190f44
 // PORT (freemium removal, user decision 2026-10-13): seconds per regenerated HP. A full bar takes

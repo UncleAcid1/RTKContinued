@@ -19,6 +19,8 @@
 #include "game/Combat.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/Notifications.h"
+#include "game/Locations.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 #include "game/SaveManager.h"
@@ -1993,6 +1995,38 @@ void UpdateHPRegen(float dt) {
 }
 
 int GetTimeTillNextHP() { return (int)mNextHP; }
+
+// @0x1a8b78: the pause's reminders: the hero's HP full again (when the hero is hurt), the nearest
+// unfinished hunting map, and the nearest boss fight under way (three quarters of the time left of
+// its boss's "restore_time" since the fight began).
+void UpdateNotifications() {
+    Entity* player = EntityManager::GetPlayer();
+    if (player->GetHP() < player->GetHpMax()) {
+        const int missing = player->GetHpMax() - player->GetHP();
+        const int rate = player->GetHPRegeneration();
+        // (sic: the rate's seconds less the wait for the next HP are taken off, not mNextHP alone)
+        const int t = (int)((float)(rate * missing) - ((float)player->GetHPRegeneration() - mNextHP));
+        if (t != 0) GetNotifications().PushNotification(Notifications::kFullHP, (uint32_t)t);
+    }
+    const uint32_t farm = Locations::GetNearestUnfinishedFarmMapTime();
+    if (farm < 999999) GetNotifications().PushNotification(Notifications::kFarmMapExpiring, farm);
+    uint32_t boss = 999999;
+    for (const auto& [key, start] : g_bossFightsTimers) {
+        if (g_bossFights.find(key) == g_bossFights.end()) continue;
+        const auto& enemies = g_bossFights[key];
+        if (enemies.empty() || enemies[0].second == 0) continue;   // PORT: empty (the original reads its first entry)
+        const EntityData* data = EntityFactory::GetEntityByID((int)enemies[0].first);
+        const uint32_t end = start + (uint32_t)data->restoreTime;
+        if ((uint32_t)Timer::GetGlobalTime() < end) {
+            const uint32_t left = (uint32_t)((float)(end - (uint32_t)Timer::GetGlobalTime()) * 0.75f);
+            if (left <= boss) boss = left;
+        }
+    }
+    if (boss != 999999) GetNotifications().PushNotification(Notifications::kBossExpiring, boss);
+    // UNVERIFIED (milestone 5s): for the arena events 1 and 2, kArenaEvent1 / kArenaEvent2 with
+    // ArenaEventWindow::GetEventCooldownTime(event) when the event is not active
+    // (ArenaEventWindow::IsEventActive) and the cooldown is not 0.
+}
 int GetVirtualHP() { return g_virtualHealth; }
 void ResetVirtualHP() { g_virtualHealth = 0; }
 

@@ -2,6 +2,7 @@
 #include "game/MetaExpression.h"
 #include "game/Professions.h"
 #include "game/Map.h"
+#include "game/Notifications.h"
 
 #include <cmath>
 #include <cstdio>
@@ -1349,6 +1350,52 @@ void AssignUniqueIDs() {
             b->SetUniqueID(GameState::latestUniqueID + 1);
         }
     std::printf("latest unique ID: %d\n", (int)GameState::latestUniqueID);
+}
+
+// @0x1b7e30: the pause's reminders from the buildings: the first farm patch to rot (three quarters
+// of the time left from a planted patch's rot timer to its order's timeRot), the last tax building
+// to be ready (class 0: collectTime after stateTime), and the gathering building that fills last
+// (class 4 with its worker at work: collectTime per resource still missing of 50).
+void UpdateNotifications() {
+    if (g_patches.empty()) return;
+    uint32_t rot = 99999999, gather = 0, money = 0;
+    for (auto& p : g_patches) {
+        for (auto& bp : p->buildings) {
+            Building* b = bp.get();
+            if (b->data->buildingClass == 2 && (uint32_t)Timer::GetGlobalTime() < b->f54)
+                Timer::GetGlobalTime();   // (sic: nothing comes of it)
+            if (b->data->buildingClass == 0xd) {
+                const int count = b->data->id == 0x3ee ? 1 : 6;
+                const auto& missions = b->data->delivery->missions;
+                for (int i = 0; i < count; ++i) {
+                    if (b->patchArg[i] == 0 || b->patchContract[i] < 1) continue;
+                    const uint32_t end = b->patchArg[i] + (uint32_t)missions[(size_t)b->patchContract[i] - 1].timeRot;
+                    const int left = (int)(end - (uint32_t)Timer::GetGlobalTime());
+                    // (unsigned while the timer has not run out, else signed: past the end, 0)
+                    const float f = (float)left * 0.75f;
+                    const uint32_t t = f > 0.f ? (uint32_t)f : 0;
+                    if (t <= rot) rot = t;
+                }
+            }
+            if (b->data->buildingClass == 0) {
+                const uint32_t end = (uint32_t)b->data->collectTime + b->stateTime;
+                if ((uint32_t)Timer::GetGlobalTime() < end) {
+                    const uint32_t left = end - (uint32_t)Timer::GetGlobalTime();
+                    if (money < left) money = left;
+                }
+            }
+            if (b->data->buildingClass == 4 && b->WorkerAssigned(0) && b->WorkerIsWorking(0)) {
+                const int missing = 0x32 - b->GetGatheredResCount();
+                if (missing > 0) {
+                    const uint32_t t = (uint32_t)b->data->collectTime * (uint32_t)missing;
+                    if (gather < t) gather = t;
+                }
+            }
+        }
+    }
+    if (rot != 99999999) GetNotifications().PushNotification(Notifications::kFarmWillRot, rot);
+    if (gather != 0) GetNotifications().PushNotification(Notifications::kResourcesReady, gather);
+    if (money != 0) GetNotifications().PushNotification(Notifications::kMoneyReady, money);
 }
 
 Patch* GetAreaByID(uint32_t id) {
