@@ -4,7 +4,7 @@
 // HelpWithMapSwitchTo @0x235964 (+ Continuation @0x235e24). RunLastSubTaskHelp is in Tasks.cpp.
 //
 // A step type whose target is not ported yet is marked in its case with the step that brings it:
-// decorations' jobs 4e, spawn points / the campaign maps / fog 4f, enemies 4g, the item shop, the
+// decorations' jobs 4e, spawn points / the campaign maps / fog 4f, enemies 4g, the
 // hire, craft, character, set, heal and level windows and the world map: milestone 5.
 #include <cstdio>
 
@@ -20,6 +20,7 @@
 #include "game/Fog.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Collections.h"
 #include "game/Locations.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
@@ -474,10 +475,56 @@ bool TaskSubtask::OnHelp(bool arrow) {
             NeedItemWindow::Show();
             return true;
         }
-        // UNVERIFIED (milestone 5): else the map where it is found or its craft resources grow
-        // (GlobalMapWindow::GetMissionMapForItem / GetMapForCraftItem; NeedItemWindow's find mode
-        // when the shop also sells it; "CRAFT_VISIT_LATER_HERB" / "_MINER" on this very map),
-        // the crafting windows for a craftable item, else the item shop.
+        // The mission map that gives it (when the shop also sells it: NeedItemWindow's find mode,
+        // whose Find goes there; a herbalist's / miner's item on this very map: "visit later").
+        if (info) {
+            if (uint32_t map = GlobalMapWindow::GetMissionMapForItem(value, GameState::GetCurrentMapID())) {
+                if (ItemShopWindow::ItemCanBeBought(value, 0)) {
+                    NeedItemWindow::SetFindParameters(
+                        value, new GUI::Callback([map, arrow, item = value] { HelpWithMapSwitchTo(map, arrow, false, item); }));
+                    NeedItemWindow::Show();
+                    return true;
+                }
+                if (map == GameState::GetCurrentMapID() && info->reputationId - 3 < 2) {
+                    PopupWindow::Show(StringTable::GetString(info->reputationId == 3 ? "CRAFT_VISIT_LATER_HERB"
+                                                                                     : "CRAFT_VISIT_LATER_MINER"),
+                                      PopupWindow::Hide, nullptr, nullptr);
+                    return true;
+                }
+                HelpWithMapSwitchTo(map, arrow, false, value);
+                return true;
+            }
+            // The map where its craft resource grows.
+            if (uint32_t map = GlobalMapWindow::GetMapForCraftItem(value, GameState::GetCurrentMapID())) {
+                if (ItemShopWindow::ItemCanBeBought(value, 0)) {
+                    NeedItemWindow::SetFindParameters(
+                        value, new GUI::Callback([map, arrow, item = value] { HelpWithMapSwitchTo(map, arrow, false, item); }));
+                    NeedItemWindow::Show();
+                    return true;
+                }
+                HelpWithMapSwitchTo(map, arrow, false, value);
+                return true;
+            }
+            // A collection's result: the improvement window on its source (type 8), the crafting
+            // window on the recipe once crafting is unlocked.
+            if (Collections::Collection* c = Collections::GetCollectionWithResult(value)) {
+                if (info->type == 8) {
+                    CraftingWindow::Show();
+                    CraftingWindow::SelectTabFor(nullptr, Items::GetItemInfo(c->from));
+                    return true;
+                }
+                if (c->type == 1 && GameState::TaskCompleted((unsigned)Setting("craft_unlock_task").GetInt())) {
+                    CraftItemWindow::Show();
+                    CraftItemWindow::ShowItem(value);
+                    return true;
+                }
+            }
+            if (ItemShopWindow::ItemCanBeBought(value, 0)) {
+                ItemShopWindow::Show();
+                ItemShopWindow::ShowShopItem(value, 0, true, (unsigned)-1);
+                return true;
+            }
+        }
         std::fprintf(stderr, "Tasks::TaskSubtask::OnHelp() cannot help with %s %d\n",
                      type == kGetItem ? "SUBTASK_GET_ITEM" : "SUBTASK_BALLANCE_ITEM", value);
         return false;
@@ -541,8 +588,12 @@ bool TaskSubtask::OnHelp(bool arrow) {
     }
     case kKillEnemyClass:
     case kTameEnemyClass: {   // an enemy of the class here, else the map where one lives
-        // UNVERIFIED (milestone 5, taming): a tame step without a net (Items::GetPlayersBestNet)
-        // opens the item shop on item 0x24f instead.
+        // A tame step without a net: the item shop on the net 0x24f.
+        if (type == kTameEnemyClass && Items::GetPlayersBestNet() == 0) {
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopItem(0x24f, 0, true, (unsigned)-1);
+            return true;
+        }
         Entity* e = EntityManager::GetNearestEnemyWithClassTo(EntityManager::GetPlayer(), value);
         if (!e) {
             uint32_t map = Locations::GetMapWithEntityOfClass(value, false);
@@ -617,8 +668,19 @@ bool TaskSubtask::OnHelp(bool arrow) {
         LevelInfoWindow::OnTab(0, true);
         LevelInfoWindow::OnLevel((unsigned)value);
         return true;
+    case kBuyOnMarketTask:     // the item shop on the item (for steps 0x42e / 0x42f the arrow at the HUD's Shop)
+        if (!ItemShopWindow::ItemCanBeBought(value, 0)) {
+            std::fprintf(stderr, "Tasks::TaskSubtask::OnHelp() cannot help with SUBTASK_BUY_ITEM item is not for sale in the shop (%d)\n", value);
+            return false;
+        }
+        if (id - 0x42eu < 2) {
+            CastleTopWindow::OnBuyItem(value);
+        } else {
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopItem(value, 0, true, (unsigned)-1);
+        }
+        return true;
     // UNVERIFIED (milestone 5): other windows.
-    case kBuyOnMarketTask:     // the item shop on the item (CastleTopWindow::OnBuyItem for steps 0x42e / 0x42f)
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
     case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item

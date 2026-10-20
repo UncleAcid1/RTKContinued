@@ -130,6 +130,8 @@
             if (i == envi("RTK_LEVELINFO", -1)) LevelInfoWindow::Show();
             if (i == envi("RTK_BUYITEM", -1)) CastleTopWindow::OnBuyItem((uint32_t)envi("RTK_NEEDITEM", 136));   // 5q-5c
             if (i == 31 && envi("RTK_BELTEMPTY", 0)) { GameState::BindBeltItemTo(1, (uint32_t)envi("RTK_BELTEMPTY", 0)); BeltBarWindow::UpdateBeltItems(); BeltBarWindow::UpdateContents(); }
+            if (i == envi("RTK_HELPSCAN", -1)) for (unsigned k = 0; Items::ItemInfo* in = Items::EnumItemInfo(k); ++k) { uint32_t m = GlobalMapWindow::GetMissionMapForItem(in->id, 0), c = GlobalMapWindow::GetMapForCraftItem(in->id, 0); if ((m || c) && ItemShopWindow::ItemCanBeBought(in->id, 0)) std::printf("[t] scan item %u mission %u craft %u type %u rep %u\n", in->id, m, c, in->type, in->reputationId); }
+            if (i == envi("RTK_HELP", -1)) { Tasks::TaskSubtask st; st.id = (uint32_t)envi("RTK_HELPID", 1); st.type = envi("RTK_HELPTYPE", 0x1a); st.value = (uint32_t)envi("RTK_HELPVAL", 136); bool r = st.OnHelp(true); std::printf("[t] help type %d val %u -> %d shop %d need %d\n", st.type, st.value, (int)r, (int)ItemShopWindow::IsVisible(), (int)NeedItemWindow::IsVisible()); }   // 5q-5d
             if (i == envi("RTK_SHOPVIS2", -1)) std::printf("[t] shop visible %d need %d\n", (int)ItemShopWindow::IsVisible(), (int)NeedItemWindow::IsVisible());
             if (i == envi("RTK_SHOP", -1)) { ItemShopWindow::Show(); std::printf("[t] shop shown %d\n", (int)ItemShopWindow::IsVisible()); }   // 5q-2
             if (i == envi("RTK_SHOPLIST", -1)) {   // 5q-1: the shop's lists
