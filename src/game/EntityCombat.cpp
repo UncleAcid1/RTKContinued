@@ -111,6 +111,7 @@ void Entity::SetItemDrop(MetaData* drop) {
 }
 
 void Entity::SetWarriorCost(int v) { data->warriorCost = v; }
+void Entity::SetXP(int v) { GetEntityData()->xp = v; }
 
 int Entity::GetDamage() const {
     int d = attackRanged < 1 ? attackMelee : attackRanged;

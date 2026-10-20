@@ -114,6 +114,14 @@ struct EntityData {              // 0x160 bytes
     int GetDefenseMeleeForLevel(int level) const;      // @0x15eb9c
     int GetDefenseRangedForLevel(int level) const;     // @0x15ebb8
     int GetDefenseMagicForLevel(int level) const;      // @0x15ebd4 (row 6 is never filled)
+    // The arena waves' stats per player level (the *_pool rows; 0 without them).
+    int GetWavesHpForLevel(int level) const;           // @0x15eaa4
+    int GetWavesAttackMeleeForLevel(int level) const;  // @0x15eab8
+    int GetWavesAttackRangedForLevel(int level) const; // @0x15eacc
+    int GetWavesDefenseMeleeForLevel(int level) const; // @0x15eae0
+    int GetWavesDefenseRangedForLevel(int level) const;   // @0x15eaf4
+    int GetWavesDefenseMagicForLevel(int level) const; // @0x15eb0c
+    int GetWavesCritChanceForLevel(int level) const;   // @0x15eb24
     // @0x15ec34: 100, or 100 - the sale's percentage (+0x140) while the server's transaction time
     // is inside the sale (+0x144..+0x148). Online only (dormant): no sale is ever set offline.
     int GetDiscountSize() const { return 100; }

@@ -261,6 +261,7 @@ public:
     void SetAdditiveFuryGain(float v) { f90 = v; }               // @0x150950
     float GetAdditiveFuryGain() const { return f90; }            // @0x150958
     void SetWarriorCost(int v);                                  // @0x150974 its gold (its data's)
+    void SetXP(int v);                                           // @0x150960 the XP it gives (its data's)
     void SetItemDrop(MetaData* drop);                            // @0x150988 replaces its data's "items_drop"
     int GetDamage() const;                                       // @0x1509c0 magic, else ranged, else melee
     int GetDefense() const { return defenseMagic + defenseMelee + defenseRanged; }   // @0x1509e0

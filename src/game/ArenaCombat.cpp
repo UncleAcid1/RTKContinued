@@ -1,9 +1,8 @@
 // ArenaCombat and PvPArenaCombat (see Combat.h). Port of libkingdom.so 5.11 @0xfa030..0xfee54 and
 // @0x1f31dc..0x1f4da4.
 //
-// UNVERIFIED (milestone 5): the arena event's own waves (ArenaCombat::SetupWave / SpawnEnemies,
-// its statistics and BossOutroWindow in ArenaCompleted), the spells (Spells::GetBestSpellForSlot
-// in the auto fight, SpellMovement while an area spell is aimed) and the sounds (milestone 6).
+// UNVERIFIED (milestone 5): the spells (Spells::GetBestSpellForSlot in the auto fight,
+// SpellMovement while an area spell is aimed) and the sounds (milestone 6).
 #include "game/Combat.h"
 
 #include <cmath>
@@ -23,6 +22,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/PvP.h"
 #include "game/Rand48.h"
@@ -42,6 +42,12 @@ const uint8_t kPlayerFormation[7][10] = {
     {0, 0, 2, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 2, 0, 0, 0, 0, 1, 0, 0}, {0, 1, 2, 1, 0, 0, 0, 0, 0, 0},
     {0, 1, 2, 1, 0, 0, 0, 1, 0, 0}, {0, 1, 2, 1, 0, 0, 1, 0, 1, 0}, {0, 1, 2, 1, 0, 0, 1, 1, 1, 0},
     {1, 1, 2, 1, 1, 0, 1, 1, 1, 0}};
+// The arena waves' (0x5796ce: its rows start at a squad of 2, the first is the zero gap before
+// it, so a lone owner finds no place, as in the original).
+const uint8_t kWaveFormation[8][10] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 0, 0, 2, 0, 0}, {0, 0, 0, 0, 0, 0, 1, 2, 1, 0},
+    {0, 0, 1, 0, 0, 0, 1, 2, 1, 0}, {0, 1, 0, 1, 0, 0, 1, 2, 1, 0}, {0, 1, 1, 1, 0, 0, 1, 2, 1, 0},
+    {1, 0, 1, 1, 1, 0, 1, 2, 1, 0}, {1, 1, 1, 1, 1, 0, 1, 2, 1, 0}};
 const uint8_t kOpponentFormation[7][10] = {
     {0, 0, 0, 0, 0, 0, 0, 2, 0, 0}, {0, 0, 1, 0, 0, 0, 0, 2, 0, 0}, {0, 0, 0, 0, 0, 0, 1, 2, 1, 0},
     {0, 0, 1, 0, 0, 0, 1, 2, 1, 0}, {0, 1, 0, 1, 0, 0, 1, 2, 1, 0}, {0, 1, 1, 1, 0, 0, 1, 2, 1, 0},
@@ -137,12 +143,14 @@ ArenaCombat::ArenaCombat() {
     spentGold = 0;
 }
 
-// (the boss's meta of the boss fights, BossCombatData::mLastBossMeta, is freed too: milestone 5)
+// The waves' squad lets its soldiers go; the boss's copied meta is freed.
 ArenaCombat::~ArenaCombat() {
     if (enemySquad) {
         enemySquad->RemoveAllSoldiers();
         enemySquad = nullptr;
     }
+    delete BossCombatData::mLastBossMeta;
+    BossCombatData::mLastBossMeta = nullptr;
     for (Pair1vs1* p : duels) delete p;
 }
 
@@ -299,11 +307,24 @@ void ArenaCombat::UpdateRunningToPos() {
     SetupWave();
 }
 
-// The arena event's end. UNVERIFIED (milestone 5): its statistics (GameState::AddEventFail(2),
-// AddArena2DeathByBoss / ByDifficulty / Difficulty / LossByLevel; on a win AddArena2WinByBoss /
-// ByDifficulty / Difficulty / WinByLevel) and BossOutroWindow::Show on a win.
+// @0xfaa1c the arena event's end: its statistics, and on a win the outro.
 void ArenaCombat::ArenaCompleted() {
     if (BottomBattleWindow::IsVisible()) return;
+    const uint32_t difficulty = GameState::GetEventDifficulty(2);
+    const uint32_t id = boss->GetEntityData()->id;
+    if (playerSquad->GetOwner()->IsDead()) {
+        GameState::AddEventFail(2);
+        GameState::AddArena2DeathByBoss(id);
+        GameState::AddArena2DeathByDifficulty(difficulty);
+        GameState::AddArena2Difficulty(difficulty);
+        GameState::AddArena2LossByLevel((unsigned)GameState::GetLevel());
+    } else {
+        GameState::AddArena2WinByBoss(id);
+        GameState::AddArena2WinByDifficulty(difficulty);
+        GameState::AddArena2Difficulty(difficulty);
+        GameState::AddArena2WinByLevel((unsigned)GameState::GetLevel());
+        BossOutroWindow::Show();
+    }
     EndCombat();
 }
 
@@ -781,12 +802,126 @@ void ArenaCombat::EndCombat() {
     BuildingHovers::HideArrow();
 }
 
-// UNVERIFIED (milestone 5): the arena event's wave (its enemies by difficulty, ArenaCombat's own
-// formation, the wave's banner).
-void ArenaCombat::SetupWave() {}
+// @0xfcae0: a wave of the boss's minions ("boss_minions", picked by a generator seeded with the
+// event's start time: x = x * 0x343fd + 0x269ec3, bits 16..30). 2..8 of them (2..3 and 3 HP, no
+// defence, 1 damage while the event was never won outside PvP), one fewer in the last wave, where the
+// boss leads them; else the last minion leads. Their HP shares the boss's "char_hp_pool" for the
+// player's level; their other stats come from its pools (a ranged one's ranged attack takes the
+// melee pool, as the original). The squads take their places and aim at each other; the intro shows
+// the wave (from the second), the outro gets "Wave n" or, in the last wave, the boss's name, and the
+// gold spent comes back on a win (arena_dropback_victory, at most all of it).
+void ArenaCombat::SetupWave() {
+    EntityData* d = boss->GetEntityData();
+    std::vector<uint32_t> ids;
+    for (unsigned i = 0; i < d->bossMinions->GetChildrenCount(); ++i)
+        ids.push_back((uint32_t)d->bossMinions->GetChild(i)->GetInt());
+    auto next = [this] { return eventStart = eventStart * 0x343fd + 0x269ec3; };
+    const bool easy = GameState::GetEventCompletionCount(2) == 0 && !GameState::IsPvPCombatActive();
+    unsigned count;
+    if (easy) {
+        next();
+        count = ((next() >> 16) & 1) + 2;
+    } else {
+        count = ((next() >> 16) & 0x7fff) % 7 + 2;
+    }
+    const bool last = wave == waveCount - 1;
+    if (last) --count;
+    const int hp = (int)((unsigned)d->GetWavesHpForLevel(GameState::GetLevel()) / count);
+    std::vector<Entity*> minions;
+    for (unsigned i = 0; i < count; ++i) {
+        const uint32_t pick = ((next() >> 16) & 0x7fff) % (unsigned)ids.size();
+        Entity* e = EntityManager::CreateEntity((int)ids[pick], false, true);
+        e->SetXP(0);
+        e->SetWarriorCost(0);
+        e->SetItemDrop(nullptr);
+        e->SetHP(easy ? 3 : hp);
+        e->SetHpMax(easy ? 3 : hp);
+        const int attack = easy ? 1 : d->GetWavesAttackMeleeForLevel(GameState::GetLevel());
+        if (e->GetAttackRanged() > 0) e->SetAttackRanged(attack);
+        else e->SetAttackMelee(attack);
+        if (easy) {
+            e->SetDefenseRanged(0);
+            e->SetDefenseMelee(0);
+            e->SetDefenseMagic(0);
+            e->SetCritChance(0);
+        } else {
+            e->SetDefenseRanged(d->GetWavesDefenseRangedForLevel(GameState::GetLevel()));
+            e->SetDefenseMelee(d->GetWavesDefenseMeleeForLevel(GameState::GetLevel()));
+            e->SetDefenseMagic(d->GetWavesDefenseMagicForLevel(GameState::GetLevel()));
+            e->SetCritChance(d->GetWavesCritChanceForLevel(GameState::GetLevel()));
+        }
+        e->f75 = true;
+        minions.push_back(e);
+    }
+    if (last) {
+        boss->SetActive(true, true);
+        enemySquad = boss->GetSquad();
+    } else {
+        Entity* leader = minions.back();
+        minions.pop_back();
+        leader->CreateSquad();
+        enemySquad = leader->GetSquad();
+    }
+    for (Entity* e : minions) enemySquad->AddSoldier(e);
+    ClearArenaWPs();
+    SpawnEnemies();
+    if (wave == 0) SpawnPlayer();
+    playerSquad->SetCurrentTarget(enemySquad->GetOwner());
+    enemySquad->SetCurrentTarget(playerSquad->GetOwner());
+    goodGuys.clear();
+    badGuys.clear();
+    for (Entity* e : playerSquad->GetSoldiers()) goodGuys.push_back(e);
+    for (Entity* e : enemySquad->GetSoldiers()) badGuys.push_back(e);
+    BossIntroWindow::SetWave(wave + 1, waveCount);
+    if (wave != 0 && !GameState::arenaBotActive) {
+        BossIntroWindow::SetBossName(boss->GetEntityData()->title);
+        BossIntroWindow::Show();
+    }
+    const std::u32string text = SWPrintf(0x80, U"Wave %d", {wave + 1});
+    const char32_t* name = text.c_str();
+    if (wave == waveCount - 1) {
+        float share = Setting("arena_dropback_victory").GetFloat();
+        if (share > 1.f) share = 1.f;
+        GameState::AddMapResourceCollectionInfo(0x70, 8, (int)((float)GetSpentGold() * share));
+        name = boss->GetEntityData()->title;
+    }
+    BossOutroWindow::SetBossName(name, boss->GetEntityData()->id);
+    autoCombat = false;
+    ++wave;
+    if (GameState::arenaBotActive) autoCombat = true;
+    paused = true;
+    playerTurn = true;
+    SwitchState(2);
+}
 
-// UNVERIFIED (milestone 5): the arena event's enemies.
-void ArenaCombat::SpawnEnemies() {}
+// @0xfdec0: the wave in its formation on the far side, facing the player.
+void ArenaCombat::SpawnEnemies() {
+    const int ex = GameState::mBossMapPositions[6], ey = GameState::mBossMapPositions[7];
+    int a = ex;
+    if (std::abs(ey) & 1) ++a;
+    int startX = a - 1, other;
+    if ((std::abs(ey - 1) & 1) == 0) {
+        other = startX - 1;
+    } else {
+        other = startX;
+        startX = a;
+    }
+    const int startY = ey - 3;
+    if ((ey - 2) % 2 != 1) startX = other;
+    std::printf("idx = %d\n", enemySquad->GetSoldierCount() - 2);
+    // (The original also prints each tried tile, "trying to spawn %d at %d, %d, weight = %f", and
+    // its formation cell, "array idx = %d", and "bad spawn" for a member of the wrong kind.)
+    unsigned spawned = 0;
+    PlaceFormation(enemySquad, kWaveFormation, startX, startY, [&spawned](Entity* e, int tx, int ty) {
+        ++spawned;
+        std::printf("spawning %d at %d, %d\n", (int)e->GetEntityData()->id, tx, ty);
+        Entity* s = EntityManager::SpawnEntityAt(e, (unsigned)tx, (unsigned)ty, false, false);
+        s->GetAI()->ClearPath();
+        s->SetAnimationP("idle_1", true, false, false);
+        s->SetDirection(7);
+    });
+    if (spawned != (unsigned)enemySquad->GetSoldierCount()) std::puts("ERROR!! didn't spawn all enemy soldiers");
+}
 
 // The player's squad stands in its formation on its side of the arena, facing the front.
 void ArenaCombat::SpawnPlayer() {

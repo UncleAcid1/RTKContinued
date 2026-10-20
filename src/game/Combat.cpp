@@ -379,8 +379,43 @@ void BaseCombat::SwitchToBossFight() {
     SwitchState(0x11);
 }
 
-// UNVERIFIED (milestone 5s, with ArenaCombat's arena events): the arena fight on map 0x70.
-void BaseCombat::SwitchToArenaFight() {}
+// @0x10fa40: the arena event's fight on the boss's map (loaded next frame): where the player came
+// from and stood, the boss's spot, the arena's positions from the map's "bat" list, the boss's meta
+// and the boss itself (ArenaCombat makes its waves).
+void BaseCombat::SwitchToArenaFight() {
+    Entity* boss = enemySquad->GetOwner();
+    const uint32_t map = boss->GetBossMapID();
+    Map::EnqueueLoadMap((int)map, false, true, 0.f);
+    GameState::mReturnMapID = (uint32_t)GameState::GetCurrentMapID();
+    const SpawnPoint* sp = enemySquad->GetOwner()->GetSpawnPoint();
+    GameState::mBossWaves.clear();
+    GameState::mBossSpawnID = sp ? (int)sp->id : 0;   // PORT: the original reads a spawn point it assumes
+    GameState::mBossWavesHP.clear();
+    GameState::mLastBossXY[0] = wp10->x;
+    GameState::mLastBossXY[1] = wp10->y;
+    GameState::mLastBossPlayerXY[0] = wp14->x;
+    GameState::mLastBossPlayerXY[1] = wp14->y;
+    const int dir = playerSquad->GetOwner()->GetDirection();
+    GameState::mCurrentBossCombatType = 5;
+    static const int kDefaults[12] = {3, 0x16, 5, 0x11, 0xb, 6, 8, 0xb, 0, 0, 6, 3};
+    for (int i = 0; i < 12; ++i) GameState::mBossMapPositions[i] = kDefaults[i];
+    GameState::mLastPlayerDir = dir;
+    if (const MetaData* bat = Locations::GetMapBat(map))
+        for (unsigned i = 0; i < bat->GetChildrenCount(); ++i) {
+            const MetaData* pair = bat->GetChild(i);
+            GameState::mBossMapPositions[i * 2] = pair->GetChild(0)->GetInt();
+            GameState::mBossMapPositions[i * 2 + 1] = pair->GetChild(1)->GetInt();
+        }
+    const char* text = enemySquad->GetOwner()->GetMetaExpression()->GetExpression();
+    char* copy = new char[std::strlen(text) + 1];
+    std::strcpy(copy, text);
+    GameState::mCurrentBossCombatType = 5;
+    BossCombatData::mLastBossMeta = new MetaExpression(copy, true);
+    GameState::mBossWaves.push_back(enemySquad->GetOwner()->GetEntityData()->id);
+    GameState::mBossWavesHP.push_back(0);
+    EndCombat();
+    SwitchState(0x11);
+}
 // @0x10ff38: the PvP arena fight on map `map` (loaded next frame): where the player came from and
 // stood, the arena's positions from the map's "bat" list, the opponent's warriors and hero.
 void BaseCombat::SwitchToPvPArenaFight(int map) {

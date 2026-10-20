@@ -201,6 +201,13 @@ int EntityData::GetAttackMagicForLevel(int lvl) const { return levelScale ? leve
 int EntityData::GetDefenseMeleeForLevel(int lvl) const { return levelScale ? levelScale->row[4][lvl] : defenseMelee; }
 int EntityData::GetDefenseRangedForLevel(int lvl) const { return levelScale ? levelScale->row[5][lvl] : defenseRanged; }
 int EntityData::GetDefenseMagicForLevel(int lvl) const { return levelScale ? levelScale->row[6][lvl] : defenseMagic; }
+int EntityData::GetWavesHpForLevel(int lvl) const { return pool ? pool->row[0][lvl] : 0; }
+int EntityData::GetWavesAttackMeleeForLevel(int lvl) const { return pool ? pool->row[1][lvl] : 0; }
+int EntityData::GetWavesAttackRangedForLevel(int lvl) const { return pool ? pool->row[2][lvl] : 0; }
+int EntityData::GetWavesDefenseMeleeForLevel(int lvl) const { return pool ? pool->row[3][lvl] : 0; }
+int EntityData::GetWavesDefenseRangedForLevel(int lvl) const { return pool ? pool->row[4][lvl] : 0; }
+int EntityData::GetWavesDefenseMagicForLevel(int lvl) const { return pool ? pool->row[5][lvl] : 0; }
+int EntityData::GetWavesCritChanceForLevel(int lvl) const { return pool ? pool->row[6][lvl] : 0; }
 
 // @0x15ecfc EntityData::GetCostGold
 // A tavern offer's own price, when it has one, replaces the unit's.
