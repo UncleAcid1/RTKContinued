@@ -3,6 +3,7 @@
 // came from the server (online, dormant); the tutorial's fake rivals are made here.
 #pragma once
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "game/PlayerEquipmentInfo.h"
@@ -12,29 +13,52 @@ namespace PvP {
 struct PlayerInfo {                    // 0x428 bytes (constructor @0x1eb9cc)
     struct WarriorInfo {               // 0x10 bytes (@0x1eb628)
         uint32_t id = 0;               // +0x00 entity id
-        bool f04 = false;              // +0x04
-        int f08 = 0;                   // +0x08
-        int hp = 1;                    // +0x0c
+        bool f04 = false;              // +0x04 (true for every warrior loaded)
+        int f08 = 0;                   // +0x08 HP (the save's)
+        int hp = 1;                    // +0x0c max HP (the save's)
     };
     int gid = 0;                       // +0x000 (-1: the tutorial's ambusher, -2..-4: its shadows)
     uint32_t lastFight = 0;            // +0x004 when last beaten (global time)
     int losses = 0;                    // +0x008 times the hero lost to him
     int wins = 0;                      // +0x00c
-    int f10 = 0;                       // +0x010
+    int f10 = 0;                       // +0x010 the level of profession 7 (chunk 0x41)
     int level = 0;                     // +0x014
     bool male = false;                 // +0x018
     int type = 0;                      // +0x01c PvPPlayerType (0xfd the ambusher, 1 shadows, 200 done)
     PlayerEquipmentInfo equipment;     // +0x020 (items[10], customs[32])
     int warriorCount = 0;              // +0x368
     WarriorInfo warriors[10];          // +0x36c
-    char32_t* name = nullptr;          // +0x40c
-    char32_t* str410 = nullptr;        // +0x410
-    char32_t* str414 = nullptr;        // +0x414
-    int f418 = 0;                      // +0x418
+    char32_t* name = nullptr;          // +0x40c the name shown
+    char32_t* str410 = nullptr;        // +0x410 the castle's name
+    char32_t* str414 = nullptr;        // +0x414 the save's own name when another one is shown
+    int f418 = 0;                      // +0x418 the save's chunk 0x43
     int defeated = 0;                  // +0x41c
     int f420 = 0;                      // +0x420 (counts the hero's defeats too)
     uint32_t valor = 0;                // +0x424 valor for beating him
     ~PlayerInfo();                     // @0x1eb94c
+};
+
+// One opponent as the server sent it: his game state block (the chunks GameState::Save writes:
+// 0x10 name, 0x41 professions, 0x43, 0x4f level / gear / belt / army / record / customisations)
+// and his record against the player. UNVERIFIED (5t-3): +0x04, +0x10, +0x14.
+struct PvPSave {
+    std::vector<uint8_t> data;         // +0x00
+    int gid = 0;                       // +0x08
+    uint32_t lastFight = 0;            // +0x0c
+    int losses = 0;                    // +0x18
+    int wins = 0;                      // +0x1c
+};
+
+// A list as it was loaded (Cache<PvP::SaveCache>, kept in memory and in the storage file "pc<type>"):
+// the server's answer and, per opponent of that type in list order, his record.
+struct SaveCache {                     // 0x20 bytes
+    std::string data;                  // +0x00 its length, +0x1c the text
+    uint32_t time = 0;                 // +0x04
+    uint32_t count = 0;                // +0x08 the arrays' length
+    std::vector<uint32_t> lastFight;   // +0x0c PlayerInfo +0x004
+    std::vector<uint32_t> losses;      // +0x10 PlayerInfo +0x008
+    std::vector<uint32_t> wins;        // +0x14 PlayerInfo +0x00c
+    std::vector<uint32_t> defeated;    // +0x18 PlayerInfo +0x41c
 };
 
 void Init();                                     // @0x1eb660
@@ -65,6 +89,22 @@ uint32_t GetRefreshTime(int type);               // @0x1eb7c8
 void SetRefreshTime(int type, uint32_t t);       // @0x1eb7e0
 void RefreshPlayers(int type);                   // @0x1ec890
 int GetTutorialDeadPlayers();                    // @0x1ec7a8
+// A new record from an opponent's save (the name, when given, is shown instead of his own).
+bool LoadPlayerInfo(const PvPSave& save, int type, const char32_t* name);   // @0x1ecc08
+int GetRandomPlayerGID(int type, bool unused);   // @0x1ed9fc a random one of `type` not beaten
+// The lists' cache ("pc<type>"): RemoveCachedData marks one stale (hard: deletes it and its file),
+// UpdateCachedData writes the records of `type` back into it.
+void ClearAllCache();                            // @0x1f249c
+void RemoveCachedData(int type, bool hard);      // @0x1f2634
+void UpdateCachedData(int type);                 // @0x1f1ac8
+namespace Cache {
+void Set(const std::string& key, const SaveCache& c, uint32_t time);   // @0x1ef788
+bool Save(const std::string& key);               // @0x1f011c
+void Free(const std::string& key);               // @0x1f0500 (memory only)
+bool Get(const std::string& key, SaveCache& out);   // @0x1f09bc (memory, else the file)
+bool IsValid(const std::string& key);            // @0x1f0fd0
+void Remove(const std::string& key);             // @0x1f1ef8 (memory and file)
+}
 // The server's side (online, dormant).
 uint32_t GetMyUID();                             // @0x1eb7b4
 void SetMyUID(uint32_t uid);                     // @0x1ebcc8

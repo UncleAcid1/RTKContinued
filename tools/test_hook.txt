@@ -219,6 +219,32 @@
                 std::printf("[t] pause event:\n"); SDL_Event ev{}; ev.type = SDL_EVENT_WILL_ENTER_BACKGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func();
             }
             if (i == envi("RTK_NOTIF", -1) + 1) { std::printf("[t] after pause: last %d\n", g_lastSystemNotificationTime); SDL_Event ev{}; ev.type = SDL_EVENT_DID_ENTER_FOREGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func(); }
+            if (i == envi("RTK_PVPSAVE", -1)) {   // 5t-2: the player's own state block read as a rival's save; the cache's file round trip
+                SaveManager::SaveBlock* b = SaveManager::GetGameStateData();
+                if (b->data.empty()) b->MergeChunks();
+                PvP::PvPSave sv; sv.data = b->data; sv.gid = 77; sv.lastFight = 1234; sv.losses = 2; sv.wins = 3;
+                bool ok = PvP::LoadPlayerInfo(sv, 2, envi("RTK_PVPNAME", 0) ? U"Rival" : nullptr);
+                for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) if (p->gid == 77) {
+                    std::u32string nm = p->name ? p->name : U"", c = p->str410 ? p->str410 : U"", own = p->str414 ? p->str414 : U"";
+                    std::printf("[t] pvp ok=%d gid=%d type=%d male=%d level=%d prof7=%d f418=%d losses=%d wins=%d warriors=%d name=%s castle=%s own=%s\n", ok, p->gid, p->type, p->male, p->level, p->f10, p->f418, p->losses, p->wins, p->warriorCount, std::string(nm.begin(), nm.end()).c_str(), std::string(c.begin(), c.end()).c_str(), std::string(own.begin(), own.end()).c_str());
+                    for (int w = 0; w < p->warriorCount; ++w) std::printf("[t]  warrior %u hp %d/%d\n", p->warriors[w].id, p->warriors[w].f08, p->warriors[w].hp);
+                    for (int w = 0; w < 10; ++w) if (p->equipment.items[w].uniqueId) std::printf("[t]  item %d uid %u id %u %u/%u\n", w, p->equipment.items[w].uniqueId, p->equipment.items[w].id, p->equipment.items[w].f08, p->equipment.items[w].f0c);
+                    for (int w = 0; w < 32; ++w) if (p->equipment.customs[w].id) std::printf("[t]  custom %d id %u\n", w, p->equipment.customs[w].id);
+                    p->defeated = 5;
+                }
+                std::printf("[t] random gid type 2: %d, type 1: %d, type 3: %d\n", PvP::GetRandomPlayerGID(2, false), PvP::GetRandomPlayerGID(1, false), PvP::GetRandomPlayerGID(3, false));
+                PvP::SaveCache c; c.data = "abc"; c.time = 99; c.count = 1; c.lastFight = c.losses = c.wins = c.defeated = {0};
+                PvP::Cache::Set("pc2", c, 99);
+                PvP::UpdateCachedData(2);
+                PvP::Cache::Free("pc2");
+                PvP::SaveCache r;
+                bool got = PvP::Cache::Get("pc2", r);
+                std::printf("[t] cache got=%d valid=%d data=%s time=%u count=%u rec=%u/%u/%u/%u\n", got, (int)PvP::Cache::IsValid("pc2"), r.data.c_str(), r.time, r.count, r.count ? r.lastFight[0] : 0, r.count ? r.losses[0] : 0, r.count ? r.wins[0] : 0, r.count ? r.defeated[0] : 0);
+                PvP::RemoveCachedData(2, false);
+                std::printf("[t] soft remove: valid=%d\n", (int)PvP::Cache::IsValid("pc2"));
+                PvP::RemoveCachedData(2, true);
+                PvP::SaveCache g; std::printf("[t] hard remove: got=%d\n", (int)PvP::Cache::Get("pc2", g));
+            }
             if (i == envi("RTK_TAGS", -1)) {   // 5r-7: the calendar on chosen local dates, then the tags now
                 const int dates[][3] = {{2026,11,22},{2026,11,23},{2026,11,26},{2026,11,29},{2026,11,30},{2026,12,1},{2027,1,6},{2027,1,7},{2024,11,24},{2024,11,25},{2024,12,1},{2024,12,2},{2025,11,24},{2025,11,30},{2026,10,19}};
                 for (auto& d : dates) { std::tm t{}; t.tm_year = d[0] - 1900; t.tm_mon = d[1] - 1; t.tm_mday = d[2]; t.tm_hour = 12; t.tm_isdst = -1; time_t w = std::mktime(&t); std::printf("[t] date %d-%02d-%02d xmas %d thanks %d\n", d[0], d[1], d[2], (int)Tags::CalendarActive("xmas_2012", w), (int)Tags::CalendarActive("thanksgiving_2012", w)); }
