@@ -7,11 +7,11 @@
 **A native, open-source C++ port of *Rule the Kingdom*, rebuilt function by function from the original Android game library so it can be played again on modern computers.**
 
 ![status](https://img.shields.io/badge/status-work%20in%20progress-orange)
-![milestone](https://img.shields.io/badge/milestone-4%20of%207%20done-blue)
+![milestone](https://img.shields.io/badge/progress-90%25-blue)
 ![platforms](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-SDL3%20%2B%20OpenGL-lightgrey)
 ![fidelity](https://img.shields.io/badge/port-100%25%20faithful-brightgreen)
 
-<sub>README last updated **2026-10-18**. Project status as of the same day.</sub>
+<sub>README last updated **2026-10-20**. Project status as of the same day.</sub>
 
 <br>
 
@@ -35,7 +35,7 @@
 6. [Gallery](#gallery)
 7. [Why a port](#why-a-port)
 8. [Scope and rules of the port](#scope-and-rules-of-the-port)
-9. [Progress](#progress)
+9. [Progress](#progress) and the [progress report](#progress-report)
 10. [Building (macOS)](#building-macos)
 11. [Layout and reverse-engineering workspace](#layout)
 12. [Sources and accuracy notes](#sources-and-accuracy-notes)
@@ -44,7 +44,7 @@
 
 ## Project snapshot
 
-*Timestamped 2026-10-18.*
+*Timestamped 2026-10-20. Roughly **90% done**, see the [progress report](#progress-report).*
 
 | | |
 |---|---|
@@ -52,11 +52,11 @@
 | **Repository** | [github.com/UncleAcid1/RTKContinued](https://github.com/UncleAcid1/RTKContinued) |
 | **Code base ported** | Android 5.11 `libkingdom.so` (ARMv7, October 2014, about 10.5k exported C++ symbols) |
 | **Language / stack** | C++17, SDL3, OpenGL, pugixml, libpng, libjpeg, zlib, FreeType (the original's own libraries, for parity) |
-| **Size of the port so far** | about 69,000 lines across 107 source files, 3,560 functions tagged with their original address (`// @0x...`) |
-| **Coverage** | 3,437 of 5,021 portable functions ported (68%) |
-| **Milestones** | 1 map rendering, 2 GUI and input, 3 city economy, 4 hero, army, quests, campaign, tutorial: **done**. 5 the rest of the game: in progress. 6 sound and effects, 7 Mac release: planned |
-| **Playable today** | New game, opening tutorial, city building, workers, farms, shop, saves, quests, campaign maps and combat, the world map and the ambush, and the city tutorial up to training your first warrior |
-| **Next up** | Milestone 5, the path-choice window, then army hiring and healing, spells, bosses, crafting, events and the offline replacements for online features |
+| **Size of the port so far** | about 94,000 lines across 209 source files, about 4,750 functions tagged with their original address (`// @0x...`) |
+| **Coverage** | about 4,513 of 5,021 portable functions ported (90%); about 508 remain |
+| **Milestones** | 1 map rendering, 2 GUI and input, 3 city economy, 4 hero, army, quests, campaign, tutorial: **done**. 5 the rest of the game: steps 5a to 5t done, 5u to 5x left. 6 sound and effects, 7 Mac release: planned |
+| **Playable today** | New game, opening tutorial, city building, workers, farms, saves, quests, campaign maps and combat, boss fights, spells, the world map, hiring and healing troops, crafting, chests, the item shop, the daily bonus, the tavern, calendar events, the arena, and PvP against generated rivals (offline) |
+| **Next up** | Step 5u (PvP player info windows), then 5v to 5x; then milestone 6 (sound and effects) and 7 (Mac release and polish) |
 
 Detailed progress lives in [STATUS.md](STATUS.md); the per-function map of the original is in
 [docs/port_inventory.md](docs/port_inventory.md).
@@ -360,9 +360,34 @@ and nothing in the game's art or content is generated; all of it is the original
 | 2 | GUI, input, dialogs | done |
 | 3 | City economy (buildings, workers, shop, farms, saves) | done |
 | 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial | **done (2026-10-18)** |
-| 5 | The rest of the game: spells, boss and siege fights, global map, hiring and healing, item shop, chests, crafting, collections, sets, tavern, daily bonus, events, arena and offline replacements of online features | in progress |
+| 5 | The rest of the game: spells, boss and siege fights, global map, hiring and healing, item shop, chests, crafting, collections, sets, tavern, daily bonus, events, arena and offline replacements of online features | **in progress: 5a to 5t done (2026-10-20), 5u to 5x left** |
 | 6 | Sound and effects | planned |
 | 7 | Mac release and polish | planned |
+
+### Progress report
+
+**As of 2026-10-20 the port is about 90% done** (about 4,513 of 5,021 portable functions; 68% on 2026-10-18).
+
+| Area | State |
+|---|---|
+| Map rendering, GUI, input, dialogs | done |
+| City economy, workers, farms, shop, saves | done |
+| Hero, army, quests, campaign maps and combat, tutorial | done |
+| Hiring and healing troops, repairs, raids, campaign complete screens | done |
+| Boss fights, spells, rage and mana | done |
+| Character info, sets, collections, professions, level info | done |
+| Crafting, chests and keys, the item shop | done |
+| Daily bonus, tavern, notifications (logic), calendar events | done |
+| The arena (events, difficulty, waves) | done |
+| PvP against generated rivals, valor, fight reports | done (offline server stand-in) |
+| PvP player info windows | next (5u) |
+| Remaining windows and systems | 5v to 5x, about 156 functions |
+| Sound and effects | planned, milestone 6 (about 115 functions) |
+| Mac release and polish, OS notifications | planned, milestone 7 (about 176 functions) |
+
+About 508 functions remain. The last 10% is the slowest: the sound and release milestones are
+mostly new platform work rather than translation, and the finished game still needs a full
+play-through to catch bugs.
 
 <div align="center">
 <img src="docs/images/readme/map0_schematic.jpg" alt="Schematic of map_0 produced by the map-format tools" width="560">
