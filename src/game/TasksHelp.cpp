@@ -174,7 +174,7 @@ void HelpWithMapSwitchTo(uint32_t map, bool arrow, bool force, uint32_t item) {
 bool TaskSubtask::OnHelp(bool arrow) {
     // The step's own map and place come first.
     if (assistMap == 0x74 && (type == kKillEnemyClass || type == kDealDamage || type == kWinInRow)) {
-        // UNVERIFIED (milestone 5): CastleTopWindow::HelpWithPvP.
+        CastleTopWindow::HelpWithPvP();
         return true;
     }
     if (assistMap != 0 && GameState::GetCurrentMapID() != NormalizeMapID(assistMap)) {
@@ -680,12 +680,14 @@ bool TaskSubtask::OnHelp(bool arrow) {
             ItemShopWindow::ShowShopItem(value, 0, true, (unsigned)-1);
         }
         return true;
+    case kDealDamage:
+    case kWinInRow:
+        CastleTopWindow::HelpWithPvP();
+        return true;
     // UNVERIFIED (milestone 5): other windows.
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
     case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item
-    case kDealDamage:          // CastleTopWindow::HelpWithPvP
-    case kWinInRow:            // CastleTopWindow::HelpWithPvP
     case kOpenWeb:             // HelpWindow::Show(value) (online: the help web view)
         std::printf("Tasks::TaskSubtask::OnHelp() step %u (type %d): its help is not ported yet\n", id, type);
         return true;

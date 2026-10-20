@@ -169,7 +169,7 @@ void OfferTalk(uint32_t spawn, uint32_t talk, bool needPvP) {
 // (the others shrink back by dt). Once a wall-clock second the contents are refreshed and the
 // events are kept: a running event whose time is up ends (its quests reset: event 1's 0x5b1 ..
 // 0x5b7, event 2's 0x5b9) and starts its cooldown; one whose last quest (0x5b7 / 0x5b9) is done
-// counts as completed; then the arena NPCs offer their talks.
+// counts as completed; then the arena NPCs offer their talks (0x695: the PvP window).
 void Update(float dt) {
     if (g_queue->shown) {
         for (unsigned i = 0; i != 2; ++i) {
@@ -244,8 +244,7 @@ void Update(float dt) {
                                      ? 0x578
                                      : 0);
     }
-    // PORT: the NPC at spawn point 0x695 would offer talk 0x695 (PlayerCompetitionWindow, online and
-    // not ported; milestones 5t / 5u decide); it is left without one so its bubble leads nowhere.
+    OfferTalk(0x695, 0x695, false);   // the PvP NPC: the opponents' window (Entity::OnTalkTo)
 }
 
 // @0x247d64 (holder i: event i + 1): a locked event shows the help to unlock it. Event 1 not yet

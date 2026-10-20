@@ -209,6 +209,8 @@ void BlinkCompass();               // @0x276c50 the compass blinks until the map
 void OnFindPlayer();               // @0x2772e8
 void OnShop();                     // @0x2778b0 the item shop (the shop's quest help first)
 void OnBuyItem(uint32_t item);     // @0x27723c the arrow at the Shop button, the shop then opens on item
+void OnPvP(unsigned help);          // @0x276d64 the PvP button (help 0xffffffff: the opponents' window)
+void HelpWithPvP();                // @0x277048 the arrow at the PvP button
 }
 
 namespace BottomCityWindow {

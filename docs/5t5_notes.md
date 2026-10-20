@@ -1,4 +1,4 @@
-# 5t-5 notes: PlayerCompetitionWindow's PvP tab (decoded 2026-10-20, not yet ported)
+# 5t-5 notes: PlayerCompetitionWindow's PvP tab (decoded 2026-10-20, not yet ported) — DONE 2026-10-20 (see STATUS.md 5t-5); kept as the decoding reference
 
 DECIDED (user 2026-10-20): port only the PvP tab (tab 4: the opponent carousel, valor bar, Refresh,
 Fight); the activity / friends / gifts / top players / invite tabs stay dormant (hidden, not loaded

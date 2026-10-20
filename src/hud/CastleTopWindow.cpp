@@ -207,6 +207,36 @@ void OnBuyItem(uint32_t item) {
     BuildingHovers::PreventArrowAutoHide();
 }
 
+// @0x276d64 the PvP button (help: a help page, HelpWindow online): only in the city while nothing is being
+// placed and no fight beyond an aggro one runs; before the PvP quest 0x74d is done its help.
+void OnPvP(unsigned help) {
+    if (!GameState::IsPlayerCity() || BuildingMovement::Activated() || BuildingPlacement::Activated() ||
+        ShopWindow::IsVisible())
+        return;
+    if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetType() > 2) return;
+    if (GameState::IsCombatActive()) {
+        PopupWindow::Show(StringTable::GetString("CAN_NOT_TRAVEL"), PopupWindow::Hide, nullptr, nullptr);
+        return;
+    }
+    if (!GameState::TaskCompleted(0x74d)) {
+        LevelInfoWindow::HelpWithPvP(false);
+        return;
+    }
+    if (help != 0xffffffffu) return;   // (HelpWindow::Show(help): the platform's help web view, online)
+    PlayerCompetitionWindow::Show();
+    PlayerCompetitionWindow::OnTab(4);
+}
+
+// @0x277048: the arrow at the PvP button (over the windows shown now); its tap is the button's.
+void HelpWithPvP() {
+    g_shownWindows = WindowManager::GetShownWindowCount();
+    BuildingHovers::SetArrowVisibleWindowLimit(g_shownWindows);
+    g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnPvP(0xffffffffu); }));
+    BuildingHovers::ArrowAt((float)(g_root->x + g_pvp->x), (float)(g_root->y + g_pvp->y + g_pvp->h / 2), false, true,
+                            true, true, true, false, false);
+    BuildingHovers::PreventArrowAutoHide();
+}
+
 // @0x276c50
 void BlinkCompass() { g_blinkMap = (int)GameState::GetCurrentMapID(); }
 
@@ -247,8 +277,7 @@ void Init() {
     g_effect = GUI::CreateMovementEffect(g_root);
     GUI::GetWindowTyped<Window>(g_root, "hud_navigation_main_bg")->noInput = true;
 
-    // UNVERIFIED (later milestones / online): OnFriends and OnPvP open windows that are not ported;
-    // those callbacks are installed as no-ops.
+    // OnFriends opens the friends' tabs of PlayerCompetitionWindow (online, dormant): a no-op.
     g_friends = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01");
     g_friends->SetOnClick([] {});
     g_friendsBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_01.button_large_blue_bg");
@@ -272,7 +301,7 @@ void Init() {
     g_compassText->SetText(StringTable::GetString("main_menu_button_shop"));   // replaced by Update
 
     g_pvp = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_03");
-    g_pvp->SetOnClick([] {});
+    g_pvp->SetOnClick([] { OnPvP(0xffffffffu); });
     g_pvpBg = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_03.button_large_red_bg");
     g_pvpIcon = GUI::GetWindowTyped<Window>(g_root, "button_hud_nav_blue_03.icon_60");
     g_pvpText = GUI::GetWindowTyped<Textfield>(g_root, "text_pvp");

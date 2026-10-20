@@ -1580,9 +1580,9 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
                 BeltBarWindow::GetAdjustedSideButtonLocation(tx, ty, (int)sprite->w, (int)sprite->h);
                 m.endX = (float)tx;
                 m.endY = (float)(int)((float)ty + m.sprite->h);
-                // Over the open character, item shop or craft item window it draws on layer 0xf.
-                // UNVERIFIED (milestone 5u): also over PlayerCompetitionWindow.
-                if (CharacterInfoWindow::IsVisible() || ItemShopWindow::IsVisible() || CraftItemWindow::IsVisible())
+                // Over the open character, item shop, craft item or PvP window it draws on layer 0xf.
+                if (CharacterInfoWindow::IsVisible() || ItemShopWindow::IsVisible() || CraftItemWindow::IsVisible() ||
+                    PlayerCompetitionWindow::IsVisible())
                     Render::ChangeLayer(m.sprite, 0xf);
             } else if (GameState::SecondTutorialStep() == 0x85 || slot == -1) {
                 m.endX = (float)tx;

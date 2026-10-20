@@ -970,8 +970,12 @@ void Entity::OnTalkTo() {
             ArenaEventWindow::SetParameters(specialTalk == 0x4b4 ? 1 : 0);
             ArenaEventWindow::Show();
             break;
+        case 0x695:   // the PvP arena's NPC: the opponents' window on its PvP tab
+            PlayerCompetitionWindow::SetCurrentView(1);
+            PlayerCompetitionWindow::OnTab(4);
+            PlayerCompetitionWindow::Show();
+            break;
         default:
-            // 0x695: PlayerCompetitionWindow (view 1, tab 4) is online, not ported.
             break;
         }
         return;

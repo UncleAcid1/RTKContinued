@@ -22,6 +22,7 @@
 #include "game/HiddenObjects.h"
 #include "game/Items.h"
 #include "game/MetaExpression.h"
+#include "game/PvP.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "hud/HUD.h"
@@ -964,9 +965,44 @@ void AIPlayer::ProcessAction() {
             }
         }
         break;
-    case 8:
-        // PORT: a PvP shadow (PlayerCompetitionWindow, online); milestone 5 decides its offline form.
+    case 8: {
+        // A rival on the map (his GUID: his PvP gid; the PvP tutorial's ambusher: -1) was tapped:
+        // he is selected for the fight, and a hero entity of his gender takes his spawn point. A
+        // rival standing on a spawn point without a death time (and no meta 0x84) is fought at once
+        // through his quest 0x75f; else the PvP window opens on him.
+        Entity* target = (Entity*)actionTarget;
+        int gid = (int)target->GetGUID();
+        if (GameState::IsPvPTutorial()) {
+            TaskHolderWindow::HideQuickTaskDescription();
+            gid = -1;
+        } else if (gid == 0) {
+            break;
+        }
+        PlayerCompetitionWindow::SetSelectedPlayerGID(gid, false);
+        PlayerCompetitionWindow::SetReturnWithoutWindow(true);
+        PvP::PlayerInfo* info = PvP::GetPlayerInfoByGID(gid);
+        if (!info) break;
+        Entity* hero = EntityManager::CreateEntity(info->male ? 0xc : 0xd, true, true);
+        if (!hero) break;
+        hero->player = false;
+        if (gid != -1) {
+            hero->SetSpawnPoint(target->GetSpawnPoint());
+            info->valor = (uint32_t)info->GetValorForVictory();
+            SpawnPoint* sp = hero->GetSpawnPoint();
+            if (sp && sp->f24 == 0 && !(hero->GetMetaExpression() && hero->GetMetaExpression()->FindByType(0x84))) {
+                hero->SetGUID(target->GetGUID());
+                TaskInfoWindow::SetFightBossCallback(hero);
+                TaskInfoWindow::SetTask(0x75f, true);
+                TaskInfoWindow::Show();
+                break;
+            }
+        }
+        Tasks::Update(true);
+        PlayerCompetitionWindow::SetViewMode(1);
+        PlayerCompetitionWindow::SetSelectedPlayerGID(gid, false);
+        PlayerCompetitionWindow::Show();
         break;
+    }
     }
     action = 0;
 }

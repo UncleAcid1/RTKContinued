@@ -290,8 +290,7 @@ void OnFindActual(unsigned i) {
     case kItem: {
         // A lying drop (everything is picked up), else the mission map with it on the world map,
         // else its building for types 6 / 9, the item shop, the crafting windows for a collection's
-        // result, a PvP item's (meta 0x30) PvP help. UNVERIFIED (milestone 5t):
-        // CastleTopWindow::HelpWithPvP.
+        // result, a PvP item's (meta 0x30) PvP help.
         Items::ItemInfo* info = Items::GetItemInfo(l.itemId);
         if (!info) return;
         float x = 0.f, y = 0.f;
@@ -343,7 +342,7 @@ void OnFindActual(unsigned i) {
             Hide();
             CharacterInfoWindow::Hide();
             ItemShopWindow::Hide();
-            // UNVERIFIED (milestone 5t): CastleTopWindow::HelpWithPvP.
+            CastleTopWindow::HelpWithPvP();
         }
         break;
     }

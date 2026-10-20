@@ -2641,8 +2641,21 @@ void UpdateSpawns() {
             if (e->GetSprite()) Render::ChangeLayer(e->GetSprite(), 6);
         }
         if (s->corpseTaken != 0) e->SetActive(false, true);
-        // UNVERIFIED (milestone 5, PvP): a player shadow that was defeated (PlayerCompetitionWindow)
-        // gets its death time, the selected one its GUID: it follows the boss part below.
+        // A PvP rival's stand-in just beaten (PlayerCompetitionWindow's defeated spawn) gets its
+        // death time (a standing one also counts for subtask 0x3f / 0x51); the one the PvP fight
+        // was started on (GameState::mBossSpawnID) gets the selected rival's gid as its GUID.
+        if (!e->IsDead() && s->corpseTaken == 0 && !e->IsBoss() && e->IsPlayerShadow()) {
+            if (PlayerCompetitionWindow::HasDefeatedPlayer(s->id)) {
+                if (SpawnPoint* sp = e->GetSpawnPoint()) sp->deathTime = (uint32_t)Timer::GetGlobalTime();
+                PlayerCompetitionWindow::SetDefeatedPlayer(0);
+                if (!e->IsWanderingPlayerShadow()) Tasks::CompleteSubtask(0x3f, 0x51, 1);
+                GameState::mBossSpawnID = 0;
+            } else if (GameState::mBossSpawnID == (int)e->GetSpawnPointID()) {
+                e->SetGUID((uint32_t)PlayerCompetitionWindow::GetSelectedPlayerGID());
+                GameState::mBossSpawnID = 0;
+            }
+            continue;
+        }
         if (!e->IsBoss()) continue;
         // A boss whose saved fight (GameState::mBossFights) has no HP left is dead, with its reward
         // and subtasks (0x1f the boss, 0x3d the spawn point, 0x3f its kind).

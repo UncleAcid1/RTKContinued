@@ -154,6 +154,11 @@ dead ^ChoosePathWindow::CenterOn$   # no call, pointer or relocation in 5.11
 4b.5  ^(FileManager::LoadFile|Map::Free|SystemFuncs::((Set|Get)Setting_(Bool|String)|getSID)|WindowManager::(WindowQueue|FunctionalWindow)::Update|Render::(Init|InitFonts|Texture::SetWrapping|RemoveTexture)|Resources::GetDirectImage|SaveManager::SaveChunk::Save(Char|Short|Unsigned)|Map::(GetMapID|GetGridWidth|GetGridHeight|GetTileset)|Entity::(SetAnimationOnce|SetAnimationP)|EntityFactory::Init|GameState::Reset|GUI::Window::SetOnClick)$
 
 # ---- online and removed first, so their constructors stay with them --------------------------
+# PlayerCompetitionWindow: only the PvP tab (DECIDED 2026-10-20); the social tabs stay online (below).
+dead  ^(WindowPvp|PvpPartEnemy|PvpValorBar|PlayerCompetitionWindow::ButtonRaidStart)::   # (checked 2026-10-20) WindowPvp::LoadFrom has no caller; the others are only loaded by it
+online  @301e08   # PlayerCompetitionWindow::SetTabMode(TabTopPlayers&, ...): the top players' tab
+5t  ^PlayerCompetitionWindow::(Init|Show|Hide|OnTab|Click|Move|Update|UpdateContents|RefreshCurrentView|SetZ|ZRange|OnBack|OnClose|OnTweenIn|OnTweenOut|IsVisible|OnLeft|OnRight|OnPerson|OnValor|OnValorShop|OnWarrior|OnInfo|OnFight|DataDownloadCallback|OnRefreshFree|OnRefresh|SetViewMode|SetCurrentView|GetCurrentView|CombatQueued|SetTabMode)$
+5t  ^PlayerCompetitionWindow::(EnemyHolder|ValorBar|StatisticHolder|TabShop|GiNotificationHolder|IconGoldQuestNew)::(LoadFrom|SetProgress)$
 online  ^(CMyServer|CConnection|CGZIP2AT|NeighboursServer|NeighboursServerNS|Neighbours|MyNeighbours|MyFacebook|SocNets|SocialConnectWindow|FacebookSyncWindow|VisitFriendWindow|FriendInfoHoverWindow|SelectFriendsWindow|Window_switch_profiles|WallPost|ViralFeatures|OG|OG2|ServerFlags|CouponEntryWindow|CouponGetWindow|CouponSetWindow|DownloadManager|AsyncImageLoader|LoadingInternetWindow|ToS|Save|PlayerCompetitionWindow)::
 removed  ^(Billing|CMyPayment_CBMoneyLog|CMyPayment_PurchaseLog|CMyPayment_PurchaseLogRecord|CBMoneyLogRecord)::
 removed  ^ExchangeWindow::(OnPayForDollarsYES|GetRealCost|GetProductDataForIndex|GetGemItemIDChange)   # the dollar packs
@@ -320,7 +325,8 @@ dead  ^PvP::(QueuePvPWindowOpen|GetMyRating|GetPlayerCount|GetPlayerInfo)$   # (
 5x  ^EntityFactory::(GetEntityForArena|GetTamedEntityForID)$
 5x  ^EntityData::(GetSmallSpellIcon|GetWaves\w+)$
 5x  ^CharacterInfoWindow::   # the window itself (its stat part was 4b.2)
-5x  ^CastleTopWindow::(HelpWithPvP|OnArena|OnPvP|HelpWithScreenshot)$
+5t  ^CastleTopWindow::(HelpWithPvP|OnPvP)$
+5x  ^CastleTopWindow::(OnArena|HelpWithScreenshot)$
 5x  ^BaseAI::|^AIPlayer::Retreat$
 5x  ^BuildingPlacement::BuildingFromPresents$
 5x  ^HUDWindow::(OnArenaEvent|SetCurrentCity)$

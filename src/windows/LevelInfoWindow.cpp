@@ -433,8 +433,7 @@ void Update(float dt) {
 
 // @0x2eb14c: the help the window asked for (OnHelp, HelpWithArena, HelpWithPvP): the windows in
 // the way close, then the player is taken to the PvP arena's, the arena event's or the arena's
-// first quests. UNVERIFIED (milestones 5t / 5u): the closes of PlayerCompetitionWindow and
-// PlayerInfoWindow; CastleTopWindow's HelpWithPvP / OnPvP.
+// first quests.
 void OnActualHelp() {
     CharacterInfoWindow::Hide();
     ItemShopWindow::Hide();
@@ -443,6 +442,8 @@ void OnActualHelp() {
     Hide();
     ArenaDifficultyWindow::Hide();
     CampaignInfoWindow::Hide();
+    PlayerCompetitionWindow::Hide();
+    // UNVERIFIED (milestone 5u): PlayerInfoWindow::Hide().
     if (GameState::GetCurrentMapID() == 0) {
         HealSquadWindow::Hide();
     } else if (Entity* player = EntityManager::GetPlayer()) {
@@ -470,7 +471,8 @@ void OnActualHelp() {
         return;
     }
     if (GameState::TaskCompleted(0x74d)) {
-        // UNVERIFIED (milestone 5t): g_pvpOpen ? CastleTopWindow::OnPvP(-1) : CastleTopWindow::HelpWithPvP().
+        if (g_pvpOpen) CastleTopWindow::OnPvP(0xffffffffu);
+        else CastleTopWindow::HelpWithPvP();
         return;
     }
     if (Tasks::IsTaskActive(0x74d, false)) {
@@ -1084,7 +1086,7 @@ void HelpWithArena(unsigned event) {
     OnActualHelp();
 }
 
-// @0x2eb368: the help for PvP; open: the PvP window rather than its help (CastleTopWindow, 5t).
+// @0x2eb368: the help for PvP; open: the PvP window rather than its help (CastleTopWindow).
 void HelpWithPvP(bool open) {
     g_pvpOpen = open;
     g_tab = 1;

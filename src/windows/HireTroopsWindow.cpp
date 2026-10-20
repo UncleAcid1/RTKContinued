@@ -2026,8 +2026,9 @@ void OnBlueButton(unsigned n) {
         OnTaskDo(n);
         return;
     }
-    // The windows over it close first (PlayerCompetitionWindow: online, not ported).
+    // The windows over it close first.
     if (ArenaDifficultyWindow::IsVisible()) ArenaDifficultyWindow::Hide();
+    if (PlayerCompetitionWindow::IsVisible()) PlayerCompetitionWindow::Hide();
     Hide();
     if (GameState::GetCurrentMapID() != 0x52) {
         if (!GlobalMapWindow::IsVisible()) GlobalMapWindow::Show();

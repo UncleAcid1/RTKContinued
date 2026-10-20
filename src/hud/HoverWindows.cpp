@@ -1774,9 +1774,10 @@ void HealthbarTinyHoverWindow::Hide() {
 }
 
 void HealthbarTinyHoverWindow::Update(float dt) {
-    // (In a PvP fight against a chosen opponent the numbers hide unless "show_hp_value" is 1:
-    // PlayerCompetitionWindow, milestone 5.)
-    text->SetVisibility(true);
+    // In a PvP fight against a chosen rival (not the tutorial's ambusher) the numbers hide unless
+    // "show_hp_value" is 1.
+    text->SetVisibility(!GameState::IsPvPCombatActive() || PlayerCompetitionWindow::GetSelectedPlayerGID() == -1 ||
+                        Setting("show_hp_value").GetInt() == 1);
     int hp = 0, max = 0;
     if (entity) {
         if (entity->IsDisappearing()) BuildingHovers::ScheduleUpdate();

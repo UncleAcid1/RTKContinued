@@ -722,6 +722,8 @@ int main_Loop_Init() {
     GameState::SetSetting("port_exchange_gold_per_bought_crystal", 400.f);
     // PORT (offline PvP, DECIDED 2026-10-18): the rivals in each list PvPServer makes.
     GameState::SetSetting("port_pvp_rival_count", 5.f);
+    // PORT (DECIDED 2026-10-20): the PvP window's early refresh is free (the data file has 5 crystals).
+    GameState::SetSetting("pvp_refresh_cost", 0.f);
     // PORT (docs/balance_plan.md): crystals from play. A quest pays its kind's base times the
     // level factor 1 + (level - 1) / div; a level-up pays level_up_cb + level / div.
     GameState::SetSetting("port_quest_crystals_main", 1.f);
@@ -834,6 +836,7 @@ int main_Loop_Init() {
     ItemShopWindow::Queue();
     NotEnoughWindow::Queue();
     PlayerBattleInOutWindow::Queue();
+    PlayerCompetitionWindow::Queue();
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();
     PopupWindow::Queue();

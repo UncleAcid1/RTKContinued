@@ -157,8 +157,8 @@ void HealHoverWindow::OnItem(unsigned i) {
         NeedItemWindow::Show();
         if (HireTroopsWindow::IsVisible()) HireTroopsWindow::Hide();
         if (ArenaDifficultyWindow::IsVisible()) ArenaDifficultyWindow::Hide();
-        // UNVERIFIED (milestone 5u / online): PlayerInfoWindow and PlayerCompetitionWindow are
-        // hidden too.
+        // UNVERIFIED (milestone 5u): PlayerInfoWindow shown is hidden instead of the PvP window.
+        if (PlayerCompetitionWindow::IsVisible()) PlayerCompetitionWindow::Hide();
         Hide();
         return;
     }

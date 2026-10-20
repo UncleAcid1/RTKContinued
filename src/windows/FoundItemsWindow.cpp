@@ -12,8 +12,7 @@
 // UNVERIFIED (later milestones):
 //  - PlayerWeakWindow (5: the warning before a rematch with a weak army or belt);
 //  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with the global map's windows (5);
-//  - RunPostAction's PvP window (5t) and OnClose's owners (raid / campaign / boss / chest
-//    windows) are named in comments only.
+//  - OnClose's owners (raid / campaign / boss / chest windows) are named in comments only.
 // PORT (online removed): the share ticks (Shared::ShareButtonsHolder, the Facebook / Twitter
 // toggles of SettingsWindow) stay hidden and no wall posts are made (OnShare); Ok only closes.
 #include <algorithm>
@@ -349,7 +348,8 @@ void RunPostAction() {
     } else if (g_postAction == 3) {
         if (!GameState::IsPvPTutorial()) {
             if (!PlayerCompetitionWindow::HasReturnWithoutWindow()) {
-                // UNVERIFIED (milestone 5): PlayerCompetitionWindow::Show and OnTab(4).
+                PlayerCompetitionWindow::Show();
+                PlayerCompetitionWindow::OnTab(4);
             }
         } else {
             GameState::SetPvPTutorial(false);

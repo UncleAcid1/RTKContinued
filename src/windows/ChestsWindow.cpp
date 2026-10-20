@@ -1469,7 +1469,10 @@ bool OnChestBought(const char* sku, uint32_t chest) {
     const bool special = chest == 0x35 || chest == 0x3f || chest == 0x51 || chest == 0x52 || chest == 0x53 ||
                          chest == 0x57 || chest == 0x58 || chest == 0x59;
     if (special) {
-        // UNVERIFIED (milestone 5t): PlayerCompetitionWindow (PvP) shown is hidden, with the world map.
+        if (PlayerCompetitionWindow::IsVisible()) {
+            PlayerCompetitionWindow::Hide();
+            if (GlobalMapWindow::IsVisible()) GlobalMapWindow::Hide();
+        }
         if (g_queue->shown) Hide();
         // (LoadingInternetWindow::Hide when shown: online.)
         if (WindowManager::GetShownWindowCount() != 0) return false;
@@ -1493,7 +1496,7 @@ bool OnChestBought(const char* sku, uint32_t chest) {
         return true;
     }
     if (!g_queue->shown) {
-        // UNVERIFIED (milestone 5t): PlayerCompetitionWindow (PvP) shown is hidden.
+        if (PlayerCompetitionWindow::IsVisible()) PlayerCompetitionWindow::Hide();
         if (WindowManager::GetShownWindowCount() != 0 || GameState::IsCombatActive() || GameState::IsCityTutorial())
             return false;
     }

@@ -756,8 +756,8 @@ void Show() {
     }
     // The tasks that open another window instead: 0x6b4 the chests, 0x75b the starter chest (0x3f
     // with the setting starter_chest_b, else 0x35), 0x77c..0x780 the item shop on its tab 1, the
-    // item 0xaf, tab 2, pack 2 (packs are not sold) and tab 3. UNVERIFIED (milestone 5t): 0x77b the
-    // PvP button (CastleTopWindow::OnPvP(0x317)).
+    // item 0xaf, tab 2, pack 2 (packs are not sold) and tab 3; 0x77b the PvP
+    // button with help page 0x317 (the page is online: only the PvP quest's help shows).
     if (g_task == 0x6b4) {
         ChestsWindow::Show();
         return;
@@ -765,6 +765,10 @@ void Show() {
     if (g_task == 0x75b) {
         ChestsWindow::Show();
         ChestsWindow::SetStarterChestMode(false, Setting("starter_chest_b").GetInt() ? 0x3f : 0x35);
+        return;
+    }
+    if (g_task == 0x77b) {
+        CastleTopWindow::OnPvP(0x317);
         return;
     }
     if (g_task - 0x77cu < 5) {

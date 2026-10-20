@@ -141,6 +141,9 @@ Building::~Building() {
     for (auto* s : sprites) Render::RemoveSprite(s);
     Render::RemoveSprite(ring);
     delete meta;
+    // Its piles, extra worker and trainee go, and its delivery orders (a goblin would walk to a
+    // freed building after the city's reload).
+    if (!isCopy) CleanUp();
 }
 
 void Building::GetBuildZone(int& w, int& h) const {

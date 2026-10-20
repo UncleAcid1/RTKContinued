@@ -253,6 +253,19 @@
                 }
                 if (done && i % 50 == 0) std::printf("[t] f=%d after: victories %u, loading %d, collected valor %d\n", i, PvP::GetVictoryCount(), (int)PvP::IsLoadingData(), GameState::GetMapItemCollectionInfo(0x91, 0x249));
             }
+            if (i == envi("RTK_PVPWIN", -1)) {   // 5t-5: the PvP button opens the opponents' window
+                if (!GameState::TaskCompleted(0x74d)) GameState::CompleteTask(0x74d, false);
+                if (envi("RTK_PVPDONE", 0)) PvP::SetCompletedPvPTutorial(true);
+                std::printf("[t] f=%d pvp button: task 0x74d %d, tutorial done %d, city %d\n", i, (int)GameState::TaskCompleted(0x74d), (int)PvP::IsCompletedPvPTutorial(), (int)GameState::IsPlayerCity());
+                CastleTopWindow::OnPvP(0xffffffffu);
+            }
+            if (envi("RTK_PVPWIN", -1) >= 0 && i > envi("RTK_PVPWIN", -1) && i % 20 == 0) {
+                int n1 = 0; std::string first; for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) if (p->type == 1) { if (!n1++ && p->name) first.assign(p->name, p->name + std::char_traits<char32_t>::length(p->name)); } std::printf("[t] f=%d first rival %s\n", i, first.c_str());
+                PvP::PlayerInfo* s = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
+                BaseCombat* c = GameState::GetActiveCombat();
+                std::printf("[t] f=%d pvp window %d queued %d list1 %d selected %d (%s def %d) map %u world %d combat %d/%d victories %u valor %u\n", i, (int)PlayerCompetitionWindow::IsVisible(), (int)PlayerCompetitionWindow::CombatQueued(), n1, PlayerCompetitionWindow::GetSelectedPlayerGID(), s && s->name ? std::string(s->name, s->name + std::char_traits<char32_t>::length(s->name)).c_str() : "-", s ? s->defeated : -1, GameState::GetCurrentMapID(), (int)GlobalMapWindow::IsVisible(), c ? c->GetType() : -1, c ? c->GetState() : -1, PvP::GetVictoryCount(), GameState::GetProfessionPoints(7));
+                if (envi("RTK_PVPAUTO", 0) && c && c->GetType() == 6) if (auto* a = dynamic_cast<ArenaCombat*>(c)) { static bool on = false; if (!on && c->GetState() > 0) { a->AutoCombat(); on = true; std::printf("[t] auto combat on\n"); } }
+            }
             if (i == envi("RTK_PVPLOAD", -1)) {   // 5t-3: the offline server's list, the cache, the tutorial's end
                 auto dump = [](int type) {
                     int n = 0;
