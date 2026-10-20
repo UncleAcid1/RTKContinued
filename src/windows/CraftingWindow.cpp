@@ -180,6 +180,8 @@ void OnTweenOut() {
 // @0x2a7804 OnBuy: PORT (crystal purchases not offered, see the top).
 void OnBuy(unsigned, bool) {}
 
+}  // namespace
+
 // @0x2a53d8: the tabs by item level, the item as it is and what it becomes, the parts it needs
 // (how many of each the player has), and the statistics before and after.
 void UpdateContents() {
@@ -395,6 +397,8 @@ void UpdateContents() {
         ++row;
     }
 }
+
+namespace {
 
 // @0x2a71d8: the improvement: the item and its parts are taken, the result given (in the item's
 // slot if it was worn); what is missing is shown instead (NotEnoughWindow, whose action crafts

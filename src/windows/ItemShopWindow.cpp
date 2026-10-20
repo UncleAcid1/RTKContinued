@@ -250,8 +250,9 @@ struct UserItemInfo {
     }
 };
 
-void OnSetHolder(unsigned which);
+void OnSetHolder(bool reputation);
 void OnBuy(bool crystals);
+void OnTweenIn();
 
 // @0x2dec4c GenericItemInfo (0x30c bytes): the selected item's card (inventory_item_info_box): its
 // name, the owned item to compare, the description and stats, type / set / pack lines, and the
@@ -273,7 +274,7 @@ struct GenericItemInfo {
     Window* typeHolder = nullptr;     // +0x1ac shop_item_type_holder
     Window* typeIcon = nullptr;       // +0x1b0 its item_type_icon (takes a depth slot)
     Textfield* typeText = nullptr;    // +0x1b4 its text_item_type
-    Window* setHolder = nullptr;      // +0x1b8 shop_item_set_holder (OnSetHolder(0))
+    Window* setHolder = nullptr;      // +0x1b8 shop_item_set_holder (OnSetHolder(false))
     Window* setIcon = nullptr;        // +0x1bc its item_set_icon (takes a depth slot)
     Textfield* setText = nullptr;     // +0x1c0 its text_item_set
     Window* typeHolderLarge = nullptr;    // +0x1c4 shop_item_type_holder_large
@@ -326,7 +327,7 @@ struct GenericItemInfo {
         typeIcon->takesZ = true;
         typeText = GUI::GetWindowTypedF<Textfield>(w, "%s.shop_item_type_holder.text_item_type", p);
         setHolder = GUI::GetWindowTypedF<Window>(w, "%s.shop_item_set_holder", p);
-        setHolder->SetOnClick([] { OnSetHolder(0); });
+        setHolder->SetOnClick([] { OnSetHolder(false); });
         setIcon = GUI::GetWindowTypedF<Window>(w, "%s.shop_item_set_holder.item_set_icon", p);
         setIcon->takesZ = true;
         setText = GUI::GetWindowTypedF<Textfield>(w, "%s.shop_item_set_holder.text_item_set", p);
@@ -496,7 +497,9 @@ Textfield* g_noSelected = nullptr;     // 0x623d0c text_no_selected_item
 int g_d10 = 0;                         // 0x623d10 the card's buttons: 1 / 2 with a count, 3 without (Show: 0)
 float g_holdTime = 0.f;                // 0x623d14 a held count button's time
 Window* g_holdButton = nullptr;        // 0x623d18 the count button held
-int g_d64 = 0;                         // 0x623d64 (Show: 0; 5q-3)
+unsigned g_tabFirst[9] = {};           // 0x623d1c each tab's first line shown (OnTab)
+int g_tabOffset[9] = {};               // 0x623d40 each tab's scroll offset (OnTab)
+uint32_t g_target = 0;                 // 0x623d64 the item ShowShopItem opened on: buying it arms the continuation
 int g_selected = -1;                   // 0x60f2b4 the selected cell (an index of the list; -1 none)
 int g_arrowItem = -1;                  // 0x60f2b8 OnTweenIn points the arrow at this cell
 bool g_tablet = true;                  // 0x60f2bc
@@ -1164,15 +1167,261 @@ void UpdateContents() {
     g_root->UpdatePosition();   // (the clip rectangles apply here)
 }
 
-namespace {
-void OnTab(unsigned) {}                // STUB (5q-4)
-void OnItem(unsigned) {}               // STUB (5q-4)
-void OnUserItem() {}                   // STUB (5q-4)
-void OnSetHolder(unsigned) {}          // STUB (5q-4)
-void OnCountChange(int) {}             // STUB (5q-4)
-void OnUseItem() {}                    // STUB (5q-4)
-void OnBuy(bool) {}                    // STUB (5q-4)
+// @0x2dd24c: the index in the list of an owned item, else of an item (-1: not there).
+int GetItemPositionInCurrentTab(GameState::PlayerItem* item, Items::ItemInfo* info) {
+    for (unsigned i = 0; i != g_items.size(); ++i)
+        if (item ? g_items[i].item == item : g_items[i].info == info) return (int)i;
+    return -1;
+}
 
+// @0x2ddd10: the grid scrolls to the list's index.
+void ScrollItemIntoView(unsigned index) {
+    g_scroller.itemCount = (unsigned)g_items.size();
+    g_scroller.ScrollIntoView(index);
+}
+
+// @0x2e67a8: another tab; each tab keeps its scroll; the
+// selection, the mode and the count are reset.
+void OnTab(unsigned tab) {
+    const unsigned old = g_tab;
+    if (old == tab) return;
+    g_tab = tab;
+    const int offset = g_scroller.offset;
+    g_tabFirst[old] = g_scroller.firstIndex;
+    g_tabOffset[old] = offset;
+    g_scroller.firstIndex = 0;
+    g_d10 = 0;
+    g_selected = -1;
+    g_count = 1;
+    g_scroller.HandleMove(-offset);
+    g_scroller.firstIndex = g_tabFirst[tab];
+    g_scroller.HandleMove(g_tabOffset[tab]);
+    UpdateContents();
+    Render::SortRenderLayer(0xe, 1);
+}
+
+// @0x2e6854 (a jump to OnTab)
+void ShowShopTab(unsigned tab) { OnTab(tab); }
+
+namespace {
+// @0x2e65c0: a tap on a cell selects it (the count back to 1); the card's buttons by the item's type
+// (equipment 3: no count; type 3: 2; else 1). An item found on a map (a mission's or a crafting
+// material's) opens its card beside the cell, unless the mission brief is up.
+void OnItem(unsigned cell) {
+    g_count = 1;
+    g_d10 = 0;
+    g_selected = (int)(cell + g_scroller.firstIndex);
+    Items::ItemInfo* const info = GetSelectedItem().info;
+    if (info) {
+        g_d10 = info->type == 8 ? 3 : info->type == 3 ? 2 : 1;
+        if ((GlobalMapWindow::GetMissionMapForItem(info->id, 0) || GlobalMapWindow::GetMapForCraftItem(info->id, 0)) &&
+            !RaidInfoWindow::IsVisible()) {
+            g_hover->Show();
+            g_hover->SetItem(StringTable::GetString("BELT_ITEM"), nullptr, info, false, true, nullptr, false, true, false,
+                             false);
+            const Window* icon = g_cells[cell].icon;
+            const int x = g_root->x + icon->x, y = g_root->y + icon->y;
+            g_hover->SetTargetRect(x, y, x + icon->w, y + icon->h, ItemHoverWindow::kSW);
+            g_hover->RecomputePosition();
+            g_hover->SetZ(0.001f);
+            Render::SortRenderLayer(0xe, 1);
+        }
+    }
+    UpdateContents();
+}
+
+// The owned item the card compares with (as UpdateContents): the one in the item's slot, or the
+// profession's tool.
+GameState::PlayerItem* GetComparedItem(Items::ItemInfo* info) {
+    GameState::PlayerItem* user = nullptr;
+    if (info->slot) user = GameState::GetItemAt(GameState::ExternalItemBindingToInternal(info->slot));
+    if (Professions::IsProfessionTool(info->id)) Professions::GetProfessionTool(info->reputationId, true, &user, false);
+    return user;
+}
+
+// @0x2ddd34: a tap on the compared item opens its card beside it.
+void OnUserItem() {
+    Items::ItemInfo* const info = GetSelectedItem().info;
+    if (!info) return;
+    GameState::PlayerItem* const user = GetComparedItem(info);
+    if (!user) return;
+    g_hover->Show();
+    g_hover->SetItem(StringTable::GetString("INVENTORY_EQUIPPED_ITEM"), user, user->info, true, true, nullptr, false,
+                     false, false, false);
+    const Window* icon = g_info.user.item.icon;
+    const int x = g_root->x + icon->x, y = g_root->y + icon->y;
+    g_hover->SetTargetRect(x, y, x + icon->w, y + icon->h, ItemHoverWindow::kSE);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
+
+// @0x2ddecc: the set line opens the set's window; the reputation line (reputation: the unlock line)
+// opens the reputation's levels (LevelInfoWindow at the item's level) or the profession's recipes.
+void OnSetHolder(bool reputation) {
+    Items::ItemInfo* const info = GetSelectedItem().info;
+    if (!info) return;
+    Sets::Set* const set = Sets::GetSetForItem(info->id);
+    Professions::Profession* const prof = Professions::GetProfession(info->reputationId);
+    if (set ? !reputation || !prof : false) {
+        SetInfoWindow::SelectSet(set->id);
+        SetInfoWindow::SelectItem(info->id);
+        SetInfoWindow::Show();
+        return;
+    }
+    if (!prof) return;
+    if (prof->type == Professions::kReputation) {
+        LevelInfoWindow::Show();
+        LevelInfoWindow::OnTab(prof->tab, true);
+        LevelInfoWindow::OnLevel(info->reputationLevel);
+        return;
+    }
+    CraftItemWindow::Show();
+    CraftItemWindow::OnTab(0);
+    CraftItemWindow::OnListItem(prof->tab - 1);
+}
+
+// @0x2e618c: - / + the count, 1..1000 and within the item's limit.
+// UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false) when it changed.
+void OnCountChange(int d) {
+    g_count += d;
+    if (g_count < 1) g_count = 1;
+    else if (g_count > 1000) g_count = 1000;
+    if (Items::ItemInfo* const info = GetSelectedItem().info) {
+        g_count = info->ApplyLimitToAmount(g_count);
+        if (g_count < 1) g_count = 1;
+    }
+    UpdateContents();
+}
+
+// @0x2e647c: the equip / use button: equipment goes to its slot (a ring to the second ring slot 9
+// when the first, 4, is taken and 9 is free); a potion or type 0xe is used through the item card.
+void OnUseItem() {
+    Items::ItemInfo* const info = GetSelectedItem().info;
+    GameState::PlayerItem* const item = info ? GameState::GetFirstItemByID(info->id, false) : nullptr;
+    if (item) {
+        g_hover->SetItem(U"", item, info, true, false, nullptr, false, false, false, false);
+        if (info->type == 8) {
+            unsigned slot = GameState::ExternalItemBindingToInternal(info->slot);
+            if (slot == 4 && GameState::GetItemAt(4)) slot = GameState::GetItemAt(9) ? 4 : 9;
+            GameState::BindItemTo(slot, item);
+        } else if (info->type == 3 || info->type == 0xe) {
+            g_hover->OnDrink();
+        }
+        CharacterInfoWindow::UpdateContents();
+        g_hover->Show();
+        g_hover->Hide();
+    }
+    UpdateContents();
+}
+
+// @0x2e6a00: buy the count of the selected item for crystals, gold or its cost item; what is
+// missing opens NotEnoughWindow (its Buy button retries). Bought: the price paid, the items added
+// (to the belt when they go there), the open windows brought up to date, the subtask 0x1a, the
+// item flying from its cell; the shop closes for items 0x6a / 0x86 before task 0x35c; the target
+// of ShowShopItem arms the continuation.
+// UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_gold" / "ui_buy_with_crystals").
+// Billing::LogCBPurchase(0xd, id, price) and FileManager::OnItemBought(name, id, 1, price,
+// "crystals") for a crystal price: online logging, not ported. PORT (user 2026-10-19): a pack's
+// branch (Billing 0x20, its items times the count) is left out; packs are not sold.
+void OnBuy(bool crystals) {
+    if (g_selected == -1) return;
+    Items::ItemInfo* const info = g_items[g_selected].info;
+    int type;
+    int cost;
+    if (crystals) {
+        cost = g_count * (int)info->GetCostCrystals(false);
+        type = GameState::kCrystal;
+    } else if (!info->GetCostItem(false)) {
+        cost = g_count * (int)info->GetCostGold(false);
+        type = GameState::kGold;
+    } else {
+        cost = g_count * (int)info->GetCostItem(false);
+        type = 0xb;
+    }
+    if (cost == 0) return;
+    NotEnoughWindow::ResetRequirements();
+    NotEnoughWindow::SetDescriptionText(ToWideString(StringTable::GetString("REQUIREMENT_ITEM"), {info->title}),
+                                        nullptr);
+    NotEnoughWindow::AddLevelRequirement(info->level);
+    if (info->IsLockedByReputation(false))
+        NotEnoughWindow::AddReputationRequirement(info->reputationId, info->reputationLevel);
+    const bool byItem = !crystals && info->GetCostItem(false);
+    if (byItem) NotEnoughWindow::AddItemRequirement(info->costItem, (unsigned)cost);
+    else NotEnoughWindow::AddRequirement(type, (unsigned)cost);
+    if (!NotEnoughWindow::CheckRequirements()) {
+        NotEnoughWindow::SetActionCallback([crystals] { OnBuy(crystals); }, StringTable::GetString("ITEM_SHOP_BUY"), true);
+        NotEnoughWindow::Show();
+        return;
+    }
+    NotEnoughWindow::Hide();
+    if (byItem) GameState::RemoveItem(info->costItem, cost);
+    else GameState::ChangeResourceAmount(type, -cost);
+    GameState::AddItem(info->id, g_count, false, false, false);
+    BeltBarWindow::AutoBind(info->id);
+    g_count = 1;
+    UpdateContents();
+    BeltBarWindow::UpdateContents();
+    if (CharacterInfoWindow::IsVisible()) CharacterInfoWindow::UpdateContents();
+    if (CraftingWindow::IsVisible()) CraftingWindow::UpdateContents();
+    if (CraftItemWindow::IsVisible()) CraftItemWindow::UpdateContents();
+    if ((info->id == 0x6a || info->id == 0x86) && !GameState::TaskCompleted(0x35c)) Hide();
+    Tasks::CompleteSubtask(0x1a, info->id, g_count);   // (as the original: the count is back to 1 here)
+    if (g_selected != -1)
+        BuildingHovers::OnCollect(info->id, g_cells[g_selected - (int)g_scroller.firstIndex].icon->sprite, true, true,
+                                  0xb, false);
+    if (info->id == g_target) g_continue = true;
+}
+}  // namespace
+
+// @0x2e7084: select the item (or pack; with both, either) in the first tab listing it (tab: only
+// that one; -1 any), scrolled into view, its buttons by its type; arrowOnBuy: OnTweenIn points at
+// its Buy button (now, when the shop is already shown). Packs are never listed (user 2026-10-19).
+void ShowShopItem(uint32_t item, uint32_t pack, bool arrowOnBuy, unsigned tab) {
+    g_target = item;
+    for (unsigned t = 0; t != 9; ++t) {
+        if (tab != t && tab != 0xffffffffu) continue;
+        GetItemsForTabAndMode(t);
+        for (unsigned i = 0; i != g_items.size(); ++i) {
+            Items::ItemInfo* const p = g_items[i].info;
+            const bool isPack = pack && p->type == 0x80 && p->packId == pack;
+            if (!(item ? p->id == item || isPack : isPack)) continue;
+            g_arrowOnBuy = arrowOnBuy;
+            g_tab = t;
+            g_d10 = 0;
+            g_count = 1;
+            ScrollItemIntoView(i);
+            g_selected = (int)i;
+            if (Items::ItemInfo* const info = GetSelectedItem().info)
+                g_d10 = info->type == 8 ? 3 : info->type == 3 ? 2 : 1;
+            UpdateContents();
+            Render::SortRenderLayer(0xe, 1);
+            if (!g_tween->active) OnTweenIn();
+            return;
+        }
+    }
+}
+
+// @0x2e72b4
+void ShowShopPack(uint32_t pack, bool) { ShowShopItem(0, pack, true, 0xffffffffu); }
+
+// @0x2e72c8: the helper arrow on the item's cell, in the tab showing it (selected).
+void ShowArrowOnItem(uint32_t item) {
+    BuildingHovers::SetArrowVisibleWindowLimit(2);
+    for (unsigned t = 0; t != 9; ++t) {
+        GetItemsForTabAndMode(t);
+        for (unsigned k = 0; k != 12; ++k) {
+            const unsigned i = k + g_scroller.firstIndex;
+            if (i < g_items.size() && g_items[i].info && g_items[i].info->id == item) {
+                OnTab(t);
+                g_arrowItem = (int)k;
+                OnItem(k);
+            }
+        }
+    }
+}
+
+namespace {
 // @0x2dd8b8: the continuation (SetContinuationAfterTargetIsPurchased) runs once the shop is closed,
 // when it was armed.
 void OnTweenOut() {
@@ -1340,7 +1589,7 @@ void Init() {
     g_info.threeCount.more->SetOnClick([] { OnCountChange(1); });
     g_info.twoCount.less->SetOnClick([] { OnCountChange(-1); });
     g_info.twoCount.more->SetOnClick([] { OnCountChange(1); });
-    g_info.unlock.root->SetOnClick([] { OnSetHolder(1); });
+    g_info.unlock.root->SetOnClick([] { OnSetHolder(true); });
     g_info.unlock.root->SetVisibility(false);
     g_info.user.root->SetOnClick(OnUserItem);
     g_noSelected = GUI::GetWindowTyped<Textfield>(g_root, "text_no_selected_item");
@@ -1432,7 +1681,7 @@ void Show() {
     PrepareSpecialEventCost();
     UpdateContents();
     g_root->PreloadTextures();   // GUI::PreloadWindow
-    g_d64 = 0;
+    g_target = 0;
     g_continue = false;
     delete g_continuation;
     g_continuation = nullptr;

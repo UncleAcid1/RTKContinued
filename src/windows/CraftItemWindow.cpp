@@ -42,7 +42,6 @@ namespace {
 using GUI::Textfield;
 using GUI::Window;
 
-void UpdateContents();
 void SelectListItem(unsigned index);
 void OnFind(unsigned part);
 void OnBuy(unsigned part, bool confirmed);
@@ -764,6 +763,8 @@ bool UpdateRecipeTab() {
     return true;
 }
 
+}  // namespace
+
 // @0x29c53c: the tabs, then the professions tab or a recipe tab.
 void UpdateContents() {
     for (unsigned i = 0; i < 6; ++i) {
@@ -781,6 +782,8 @@ void UpdateContents() {
     g_recipes.UpdateScroll();
     g_root->UpdatePosition();
 }
+
+namespace {
 
 // @0x29fabc: an item the selected recipe needs.
 void OnImage(unsigned part) {

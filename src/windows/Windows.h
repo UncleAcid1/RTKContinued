@@ -199,7 +199,7 @@ uint32_t GetBestLuckItem(unsigned& luck);   // @0x289adc the owned item with the
 void RollChest(uint32_t chest, unsigned luck);
 }
 
-// The item shop (windows/ItemShopWindow.cpp; UpdateContents is 5q-3, the actions 5q-4).
+// The item shop (windows/ItemShopWindow.cpp).
 namespace ItemShopWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ItemShopWindow"
 void Show();                                // @0x2e6858 (not in the tutorials)
@@ -213,6 +213,15 @@ void GetItemsForTabAndMode(unsigned tab);   // @0x2e0fc0 the tab's items into th
 bool ItemCanBeBought(uint32_t id, uint32_t pack);   // @0x2e13f4 (a chest key never: 5p-6)
 bool PackCanBeBought(uint32_t pack);        // @0x2e152c (packs are not sold: user 2026-10-19)
 void PrepareSpecialEventCost();             // @0x2dd75c the Halloween pumpkin prices (task 0x77b)
+int GetItemPositionInCurrentTab(GameState::PlayerItem* item, Items::ItemInfo* info);   // @0x2dd24c
+void ScrollItemIntoView(unsigned index);    // @0x2ddd10
+void OnTab(unsigned tab);                   // @0x2e67a8
+void ShowShopTab(unsigned tab);             // @0x2e6854
+// @0x2e7084: select item (or pack) in the first tab listing it (tab -1: any); arrowOnBuy: the
+// helper arrow at its Buy button. Buying it arms SetContinuationAfterTargetIsPurchased.
+void ShowShopItem(uint32_t item, uint32_t pack, bool arrowOnBuy, unsigned tab);
+void ShowShopPack(uint32_t pack, bool unused);   // @0x2e72b4 (packs are not sold)
+void ShowArrowOnItem(uint32_t item);        // @0x2e72c8 the helper arrow on the item's cell
 }
 
 // "<chest> opened": the loot of a chest (windows/ChestOpenedWindow.cpp).
@@ -620,6 +629,7 @@ namespace CraftingWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftingWindow" (FUN_002a512c)
 void Init();                                // @0x2a8408
 bool IsVisible();                           // @0x2a50ac
+void UpdateContents();                      // @0x2a53d8
 void SetParameters(Collections::Collection* collection);   // @0x2a50c0 the chain (its first step)
 void HelpImprove();                         // @0x2a5104 the next opening points at the Craft button
 void SelectTabFor(GameState::PlayerItem* data, Items::ItemInfo* info);   // @0x2a7108
@@ -634,6 +644,7 @@ WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftIte
 void Init();                                // @0x2a2398
 void Deinit();                              // @0x2a0a2c
 bool IsVisible();                           // @0x29c240
+void UpdateContents();                      // @0x29c53c
 void Show();                                // @0x2a0284
 void Hide();                                // @0x2a036c
 void OnTab(unsigned tab);                   // @0x2a2008 0: the professions, 1..5 a profession's recipes
