@@ -61,10 +61,16 @@ void OnResume() {
     // (PlayerProfileManager::ResetNoConnectionWarning: online. PlayerWeakWindow::ResetSession:
     // milestone 5.)
     // UNVERIFIED (milestone 5): CastleTopWindow::ActivateFeatureHolders (0x28a53c).
-    // UNVERIFIED (milestone 5, the daily bonus): with no bonus received yet today
-    // (GameState::GetReceivedDailyBonusCount), task 0x35c completed, the connection not being
-    // checked (temporary setting 2), no window, combat, hover, world dialog or pause:
-    // DailyBonusWindow::ForceBonus and Show.
+    // The first daily bonus ever (none received yet), once task 0x35c is done, with no window,
+    // fight, hover, world dialog or pause: forced. As the original it never happens: the check
+    // SystemFuncs::GetTemporarySetting(2, 1) gives its default 1 (nothing in 5.11 sets setting 2).
+    const int setting2 = 1;
+    if (GameState::GetReceivedDailyBonusCount() != 0 || !GameState::TaskCompleted(0x35c) || setting2 != 0) return;
+    if (DailyBonusWindow::IsVisible() || WindowManager::GetShownWindowCount() != 0 || GameState::IsCombatActive() ||
+        BuildingHovers::IsHoverVisible() || BuildingHovers::IsWorldDialogVisible() || GameState::IsPaused())
+        return;
+    DailyBonusWindow::ForceBonus();
+    DailyBonusWindow::Show();
 }
 
 // @0x187674 turnMusic

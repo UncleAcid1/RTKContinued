@@ -638,6 +638,17 @@ void Hide();                                // @0x2a7a14
 void OnTab(unsigned level);                 // @0x2a70a4
 }
 
+// The daily bonus (windows/DailyBonusWindow.cpp).
+namespace DailyBonusWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "DailyBonusWindow" (FUN_002a8d80)
+void Init();                                // @0x2a9a34
+bool IsVisible();                           // @0x2a8d1c
+void ForceBonus();                          // @0x2a8d60 the next Show moves the streak on regardless
+void UpdateContents();
+void Show();                                // @0x2ab6cc (only in the city)
+void Hide();                                // @0x2a9324
+}
+
 // The crafting window (windows/CraftItemWindow.cpp): the professions and their recipes.
 namespace CraftItemWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "CraftItemWindow" (FUN_002a11cc)

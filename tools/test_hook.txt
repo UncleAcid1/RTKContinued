@@ -144,6 +144,8 @@
                 Override::AddParameter(Override::kWarrior, 999, a, "slot", "4"); Override::AddParameter(Override::kWarrior, 998, 12345, "id", "998");
                 Override::Apply(Override::kAll); pr(a); pr(999); pr(998); pr(0);
             }
+            if (i == envi("RTK_DAILYWIN", -1)) { if (envi("RTK_DAILYFORCE", 1)) DailyBonusWindow::ForceBonus(); DailyBonusWindow::Show(); std::printf("[t] dailywin shown %d days %u\n", (int)DailyBonusWindow::IsVisible(), GameState::GetDailyBonusDays()); }   // 5r-3
+            if (i == envi("RTK_DAILYVIS", -1)) std::printf("[t] dailywin visible %d count %u days %u\n", (int)DailyBonusWindow::IsVisible(), GameState::GetReceivedDailyBonusCount(), GameState::GetDailyBonusDays());
             if (i == 31 && envi("RTK_SHOPUNLOCK", 0)) GameState::CompleteTask((unsigned)Setting("shop_unlock_task").GetInt(), false);
             if (i == envi("RTK_TASKSHOP", -1)) { TaskInfoWindow::SetTask((uint32_t)envi("RTK_TASK", 0x5b7), envi("RTK_TASKBOSS", 1) != 0); TaskInfoWindow::Show(); std::printf("[t] task boss form shown\n"); }
             if (i == envi("RTK_SETITEM", -1)) { SetInfoWindow::SelectSet((uint32_t)envi("RTK_SET", 1)); SetInfoWindow::Show(); }

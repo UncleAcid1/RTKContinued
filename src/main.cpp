@@ -758,6 +758,7 @@ int main_Loop_Init() {
     CraftItemWindow::Queue();
     CraftSuccessWindow::Queue();
     CraftingWindow::Queue();
+    DailyBonusWindow::Queue();
     ExchangeWindow::Queue();
     FoundItemsWindow::Queue();
     GlobalMapWindow::Queue();
