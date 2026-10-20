@@ -3,9 +3,9 @@
 // button. Port of ArenaDifficultyWindow (libkingdom.so 5.11, @0x242b4c..0x245ec8, Win_arn_dif.xml;
 // statics 0x616bc4).
 //
-// UNVERIFIED (milestone 5s-6): OnSelectDifficulty, OnItem, OnHelp, OnTavern, OnItemShop and
-// OnStartEvent.
+// The fight itself (BaseCombat's arena switch) is 5s-7.
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -14,16 +14,25 @@
 #include "engine/Resources.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
+#include "game/AIState.h"
+#include "game/Combat.h"
+#include "game/Entity.h"
 #include "game/EntityData.h"
+#include "game/EntityManager.h"
 #include "game/Items.h"
+#include "game/MetaExpression.h"
 #include "game/MetaData.h"
 #include "game/Setting.h"
+#include "game/SoldierSlots.h"
+#include "game/SpawnPoint.h"
 #include "game/StringTable.h"
+#include "game/Tasks.h"
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/ContentScroller.h"
+#include "hud/HUD.h"
 #include "hud/ItemHoverWindow.h"
 #include "hud/Shared.h"
 #include "windows/Windows.h"
@@ -110,11 +119,58 @@ float g_scale = 1.f;                      // 0x60f098
 bool g_tablet = false;                    // 0x60f09c
 
 // (@0x242ee0 makes the GUI callback objects of these taps: std::function here.)
-// UNVERIFIED (milestone 5s-6): OnSelectDifficulty @0x244ed8, OnItem @0x242f58, OnHelp @0x2430bc,
-// OnStartEvent @0x24500c.
-void OnSelectDifficulty(unsigned) {}
-void OnItem(unsigned) {}
-void OnHelp() {}
+
+// @0x244ed8: a flag is chosen; the reward strip goes back to its start.
+void OnSelectDifficulty(unsigned i) {
+    g_difficulty = (int)i;
+    g_scroller.firstIndex = 0;
+    g_scroller.HandleMove(-g_scroller.offset);
+    UpdateContents();
+}
+
+// @0x242f58: a reward's card, pointing at its slot.
+void OnItem(unsigned i) {
+    const unsigned n = i + g_scroller.firstIndex;
+    if (n >= g_items.size() || !g_items[n]) return;
+    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    g_hover->Show();
+    g_hover->SetItem(StringTable::GetString("BELT_ITEM"), nullptr, g_items[n], false, false, nullptr, false, false,
+                     false, false);
+    const Window* w = g_rewards[i].root;
+    const int x = g_root->x + w->x, y = g_root->y + w->y;
+    g_hover->SetTargetRect(x, y, x + w->w, y + w->h, ItemHoverWindow::kSE);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
+
+// @0x2430bc
+void OnHelp() {
+    PopupWindow::Show(StringTable::GetString("ARENA_DIFFICULTY_HELP"), PopupWindow::Hide, nullptr, nullptr);
+}
+
+// @0x242f24: the warning's "go to the tavern": the hire window's second tab.
+void OnTavern() {
+    HireTroopsWindow::Show();
+    HireTroopsWindow::OnTab(1, false);
+    PopupSelectionWindow::Hide();
+}
+
+// @0x242f40: the warning's "go to the shop": the item shop's fourth tab.
+void OnItemShop() {
+    ItemShopWindow::Show();
+    ItemShopWindow::OnTab(3);
+    PopupSelectionWindow::Hide();
+}
+
+// The waves' boss at spawn point 0x598 fights the player's squad in the arena.
+void StartFight(Entity* boss) {
+    GameState::SetCombat(new AggroCombat());
+    boss->CreateSquad();
+    boss->GetAI()->UpdateLastTarget();
+    GameState::GetActiveCombat()->BeginCombat(EntityManager::GetPlayer()->GetSquad(), boss->GetSquad());
+    GameState::GetActiveCombat()->ForceBossFight(5, 0);
+}
 // @0x244ad0: while shown, the strip scrolls, the item card keeps above the window (under a popup
 // message), the chosen flag's gold piles brighten to 1.05 and the others fade to 0.9 (in 0.75 s),
 // the flags' sparkles run at 5 frames a second; once a wall-clock second the contents refresh.
@@ -417,7 +473,80 @@ void UpdateContents() {
     g_root->UpdatePosition();
 }
 
-// UNVERIFIED (milestone 5s-6): @0x24500c.
-void OnStartEvent() {}
+// @0x24500c Fight!: without a soldier or with 4 belt items or fewer the player is sent to the
+// tavern and / or the shop first. Otherwise a new event starts (its start = the choice's opening
+// time, the chosen difficulty, quest 0x5b9 afresh) and the boss at spawn point 0x598 becomes an
+// arena-4 monster (0x225 the very first time, outside PvP) at the player's level, on map 112; the
+// fight begins (the hero's AP topped up to 100). A running event's fight goes on with its boss.
+void OnStartEvent() {
+    BeltBarWindow::UpdateBeltItems();
+    const int soldiers = (int)SoldierSlots::GetOccupiedSlotCount();
+    int orbs = 0;
+    GameState::SetBeltItemMode(true);
+    for (unsigned i = 0; i < GameState::GetBeltSlotCount(); ++i)
+        orbs += GameState::GetItemAmount(GameState::GetBeltItemAt(i), true);
+    GameState::SetBeltItemMode(false);
+    if (soldiers <= 0 || orbs <= 4) {
+        const char32_t* title = StringTable::GetString("CAN_NOT_ENTER_ARENA_TITLE");
+        const char32_t* text = StringTable::GetString("CAN_NOT_ENTER_ARENA");
+        if (soldiers > 0)
+            PopupSelectionWindow::Show(title, text, StringTable::GetString("GO_TO_SHOP"),
+                                       IconManager::GetIcon("Icon_bottom_bar_shop", false), OnItemShop, nullptr,
+                                       nullptr, nullptr);
+        else if (orbs > 4)
+            PopupSelectionWindow::Show(title, text, StringTable::GetString("GO_TO_TAVERN"),
+                                       IconManager::GetIcon("bottom_bar_army", false), OnTavern, nullptr, nullptr,
+                                       nullptr);
+        else
+            PopupSelectionWindow::Show(title, text, StringTable::GetString("GO_TO_SHOP"),
+                                       IconManager::GetIcon("Icon_bottom_bar_shop", false), OnItemShop,
+                                       StringTable::GetString("GO_TO_TAVERN"),
+                                       IconManager::GetIcon("bottom_bar_army", false), OnTavern);
+        return;
+    }
+    Entity* boss = nullptr;
+    if (GameState::GetEventStartTime(2) == 0) {
+        GameState::SetEventStartTime(2, g_openTime);
+        GameState::SetEventEndTime(2, 0);
+        GameState::SetEventDifficulty(2, (uint32_t)g_difficulty);
+        GameState::ResetTask(0x5b9);
+        if (Tasks::TaskInfo* t = Tasks::GetTask(0x5b9)) t->dnShow = t->dnShowDefault;
+        boss = EntityManager::GetEntityBySpawnPoint(0x598);
+        if (boss) {
+            EntityData* d;
+            if (GameState::GetEventCompletionCount(2) == 0 && !GameState::IsPvPCombatActive()) {
+                EntityFactory::GetEntityForArena(4, g_openTime);
+                d = EntityFactory::GetEntityByID(0x225);
+            } else {
+                d = EntityFactory::GetEntityForArena(4, g_openTime);
+            }
+            if (d) {
+                boss->SwitchEntityData(d);
+                if (SpawnPoint* sp = boss->GetSpawnPoint()) {
+                    sp->deathTime = 0;
+                    sp->entityId = d->id;
+                    sp->hp = d->GetHpForLevel(GameState::GetLevel());
+                    sp->hpMax = d->GetHpForLevel(GameState::GetLevel());
+                    if (d->bossMinionsLevels) {
+                        delete sp->meta;
+                        char* text = new char[0x80];
+                        std::memcpy(text, "MAP_ID=112", 0xb);
+                        sp->meta = new MetaExpression(text, true);
+                    }
+                }
+            }
+            Tasks::Update(true);
+            StartFight(boss);
+            Entity* player = EntityManager::GetPlayer();
+            if (player->GetAP() < 100) player->SetAP(100);
+        }
+    } else {
+        boss = EntityManager::GetEntityBySpawnPoint(0x598);
+        if (boss) StartFight(boss);
+    }
+    if (boss) BeltBarWindow::Hide();
+    UpdateContents();
+    Hide();
+}
 
 }  // namespace ArenaDifficultyWindow
