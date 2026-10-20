@@ -261,9 +261,8 @@ void UpdateFirstLook() {
     for (RageButton& r : g_rage) r.root->SetEnabled(true);
 }
 
-// The large buttons' look in a fight (any combat, the arenas' too): attack on the left, block on
-// the right, the chosen one glowing. While a spell is being placed they are its confirm and
-// cancel.
+// The large buttons' look in an arena fight: attack on the left, block on the right, the chosen
+// one glowing. While a spell is being placed they are its confirm and cancel.
 void UpdateFightLook() {
     g_left.root->SetVisibility(true);
     g_right.root->SetVisibility(true);
@@ -726,9 +725,11 @@ void Update(float dt) {
         g_netTimer -= dt;
     }
     if (g_netTimer < 0.f && !g_net) g_netTarget = 0;
+    // The stance buttons in the arenas and the boss fights (and in a siege, GameState::g_Combat: dead
+    // in 5.11); in campaign fights the centre button stays, the net's in the taming lesson.
     bool arena = GameState::IsArenaCombatActive();
-    if (arena || GameState::IsBossCombatActive() || GameState::IsCombatActive()) {
-        if (!arena && !GameState::IsCombatActive()) UpdateFirstLook();
+    if (arena || GameState::IsBossCombatActive()) {
+        if (!arena) UpdateFirstLook();
         else UpdateFightLook();
     } else {
         UpdateCentre(player);
