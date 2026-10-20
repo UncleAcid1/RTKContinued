@@ -2893,9 +2893,8 @@ Milestones:
               January 6, thanksgiving_2012 the week (Monday to Sunday) of US Thanksgiving, the fourth
               Thursday of November. PORT Tags::CalendarActive, used by Tag::IsActive when the tag has
               no server window (UpdateTagState then switches the tagged items, tasks and entities as
-              the date changes). The data has a third tag, xmas_2012_raid (task 1922, the Christmas
-              raid's first quest on map 11): left off, as the original offline, until the user
-              decides. main_Loop_Func's action switch (in AfterEvents, read from the asm's jump table
+              the date changes). The data's third tag, xmas_2012_raid (task 1922, the Christmas
+              raid's first quest on map 11), follows the xmas dates (user 2026-10-19). main_Loop_Func's action switch (in AfterEvents, read from the asm's jump table
               0x18a568; mActionToDo 0x6124a8 / mActionValue 0x6124ac, dormant: nothing sets them
               offline): the social requests 8 (the Facebook login, online; its printf kept), 9, 13 /
               14 (PlayerProfileManager::OnAFB, online) are cleared; with no window shown and outside

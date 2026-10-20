@@ -37,7 +37,8 @@ bool CalendarActive(const char* name, time_t now) {
     std::tm t{};
     localtime_r(&now, &t);
     const int date = t.tm_mon * 100 + t.tm_mday;   // month (0-11) * 100 + day
-    if (std::strcmp(name, "xmas_2012") == 0) return date >= 1101 || date <= 6;
+    if (std::strcmp(name, "xmas_2012") == 0 || std::strcmp(name, "xmas_2012_raid") == 0)
+        return date >= 1101 || date <= 6;
     if (std::strcmp(name, "thanksgiving_2012") == 0) {
         std::tm nov{};
         nov.tm_year = t.tm_year;

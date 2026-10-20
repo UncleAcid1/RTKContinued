@@ -21,8 +21,9 @@ struct Tag {                  // 0x10 bytes
 
 Tag* GetTag(const char* name);   // @0x22e4f4 nullptr for an empty name
 Tag* EnumTag(unsigned i);        // @0x22e6d0
-// PORT: "xmas_2012" from December 1 to January 6; "thanksgiving_2012" the week (Monday to Sunday)
-// of US Thanksgiving, the fourth Thursday of November; by the local date of `now`.
+// PORT: "xmas_2012" and "xmas_2012_raid" (the Christmas raid's quest) from December 1 to
+// January 6; "thanksgiving_2012" the week (Monday to Sunday) of US Thanksgiving, the fourth
+// Thursday of November; by the local date of `now`.
 bool CalendarActive(const char* name, time_t now);
 
 }  // namespace Tags
