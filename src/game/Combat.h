@@ -196,7 +196,8 @@ public:
 
 // BossCombatWaves (0x9c bytes, type 4): a boss fight whose enemies come in waves. The first wave stands
 // with the boss; when it is dead (WaitingForContinue) the next one is led in. The waves are the groups of
-// mBossWaves between its 0 entries; the boss comes last.
+// mBossWaves between its 0 entries; the boss comes last. Its Update (+0x08 @0x11a250) is one jump to
+// BossCombat::Update (Ghidra shows BossCombat's body under its name): inherited.
 class BossCombatWaves : public BossCombat {
 public:
     BossCombatWaves();                                // @0x11a474 (also @0x11a4c4)

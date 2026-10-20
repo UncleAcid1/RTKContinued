@@ -1,5 +1,5 @@
 // BossCombat: a boss fight on the boss's own map (see Combat.h).
-// Port of BossCombat (libkingdom.so 5.11), 0x11620c..0x11a250. StartNewTurn (0x117950..0x118e54)
+// Port of BossCombat (libkingdom.so 5.11), 0x11620c..0x11a250, and BossCombatWaves to 0x11c3b0. StartNewTurn (0x117950..0x118e54)
 // was range-decompiled (out/big/bc_snt.c): Ghidra split it into FUN_001182b8 / FUN_00118418 (the
 // STL helpers placed inside it).
 //
@@ -466,9 +466,11 @@ void BossCombatWaves::OnEnemyDied() {
     if (wave < (int)waves.size() && DeadFollowers(enemySquad) == waves[(size_t)wave].enemies.size()) paused = false;
 }
 
-// @0x11acec: as BossCombat's, but the followers of mBossWaves are sorted into waves: those before the
-// first 0 stand with the boss at once, each later group waits in its wave (the record keeps them all).
-// A fight that was recorded already comes back with its living followers and no waves.
+// @0x11acec (to 0x11c3b0; Ghidra split off its tail at @0x11b17c as "_INIT_3", and FUN_0011aa84 /
+// FUN_0011a924 are the inlined mBossFightsTimers insert: SetBossFightTimer): as BossCombat's, but the
+// followers of mBossWaves are sorted into waves: those before the first 0 stand with the boss at once,
+// each later group waits in its wave (the record keeps them all). A fight that was recorded already
+// comes back with its living followers and no waves.
 void BossCombatWaves::RestoreBossCombat() {
     const int key = FightKey();
     const uint32_t started = GameState::GetBossFightTimer(key);
