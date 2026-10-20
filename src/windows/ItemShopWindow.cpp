@@ -11,7 +11,7 @@
 //
 // Window_shop.xml: nine tabs, a grid of twelve cells (three a line, scrolled), the selected item's
 // card with its Buy buttons.
-// 5q-1: the item lists; 5q-2: the window opens and closes; UpdateContents is 5q-3, the actions 5q-4.
+// 5q-1: the item lists; 5q-2: the window opens and closes; 5q-3: UpdateContents; the actions 5q-4.
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -493,7 +493,7 @@ Window* g_close = nullptr;             // 0x623d00 x_button.clickArea
 Textfield* g_playerName = nullptr;     // 0x623d04 text_player_name
 Textfield* g_tabName = nullptr;        // 0x623d08 text_tab_name
 Textfield* g_noSelected = nullptr;     // 0x623d0c text_no_selected_item
-int g_d10 = 0;                         // 0x623d10 (Show: 0; 5q-3)
+int g_d10 = 0;                         // 0x623d10 the card's buttons: 1 / 2 with a count, 3 without (Show: 0)
 float g_holdTime = 0.f;                // 0x623d14 a held count button's time
 Window* g_holdButton = nullptr;        // 0x623d18 the count button held
 int g_d64 = 0;                         // 0x623d64 (Show: 0; 5q-3)
@@ -501,6 +501,7 @@ int g_selected = -1;                   // 0x60f2b4 the selected cell (an index o
 int g_arrowItem = -1;                  // 0x60f2b8 OnTweenIn points the arrow at this cell
 bool g_tablet = true;                  // 0x60f2bc
 float g_scale = 1.f;                   // 0x60f2c0 the root's scale
+int g_count = 1;                       // 0x60f2c8 how many to buy (the buttons' prices)
 }  // namespace
 
 // @0x2e0fc0 the items of a tab into the list. An item is listed when it has a price (gold,
@@ -619,7 +620,177 @@ MixedItem GetSelectedItem() {
     return MixedItem{nullptr, g_items[g_selected].info};
 }
 
-void UpdateCardButtons(Items::ItemInfo*) {}   // STUB (5q-3c): the card's buttons, compared item, equip
+// A Buy button's price (part of UpdateContents): the cost item's (OnBuy(false)), else gold
+// (OnBuy(false)), else crystals (OnBuy(true)), times the count.
+void SetCardCost(CostButton& b, Items::ItemInfo* info) {
+    bool crystals = false;
+    if (info->GetCostItem(false)) {
+        b.SetItemCost(g_count * (int)info->GetCostItem(false), Items::GetItemInfo(info->costItem));
+    } else if (info->GetCostGold(false)) {
+        b.SetGoldCost(g_count * (int)info->GetCostGold(false));
+    } else {
+        b.SetCrystalCost(g_count * (int)info->GetCostCrystals(false));
+        crystals = true;
+    }
+    b.root->SetOnClick([crystals] { OnBuy(crystals); });
+}
+
+// The owned item the card compares with (part of UpdateContents): "ITEM_SHOP_USER_HEADER", its name
+// in its quality, the broken mark or the quality frame, its icon, up to two effect lines (in the
+// broken text when broken) and "TAP_FOR_MORE_INFO" on the next line, the shading for the lines
+// used, and the durability bars: dark red, red to what repairs can reach (+0x10), green to what is
+// left (+0x0c), "%d/%d" left / the item's durability; full without durability (hidden).
+void UpdateCardUserItem(GameState::PlayerItem* user) {
+    UserItemInfo& u = g_info.user;
+    DetailedItemInfo& d = u.item;
+    Items::ItemInfo* const ui = user->info;
+    g_info.youHave->SetText(StringTable::GetString("ITEM_SHOP_USER_HEADER"));
+    g_info.notComparable->SetVisibility(false);
+    u.root->SetVisibility(true);
+    const bool broken = user->IsBroken();
+    for (int i = 0; i != 5; ++i) u.name[i]->SetVisibility((int)ui->itemLevel == i);
+    u.name[ui->itemLevel]->SetText(ui->title);
+    d.broken->SetVisibility(broken);
+    d.locked->SetVisibility(false);
+    d.repOverlay->SetVisibility(ui->reputationId != 0);
+    for (int i = 0; i != 5; ++i) d.itemClass[i]->SetVisibility(!broken && (int)ui->itemLevel == i);
+    ui->PutImageInHolder(d.icon);
+    d.recommended->SetVisibility(false);
+    d.lock->SetVisibility(false);
+    d.owned->SetVisibility(true);
+    d.discount->SetVisibility(false);
+    for (Shared::EffectDescriptionLine& l : u.lines) l.root->SetVisibility(false);
+    unsigned n = 0;
+    std::u32string desc;
+    for (MetaExpression* m = ui->meta; m && n < 2; m = m->GetNext(), ++n) {
+        m->GenerateDescription(desc, 0x80, EntityManager::GetPlayer());
+        Shared::EffectDescriptionLine& l = u.lines[n];
+        l.root->SetVisibility(true);
+        l.text->SetVisibility(!broken);
+        l.broken->SetVisibility(broken);
+        (broken ? l.broken : l.text)->SetText(desc.c_str());
+        l.icon->SetVisibility(true);
+        l.icon->SetTexture(IconManager::GetIcon(m->GetBonusIcon(ui), false), true);
+    }
+    Shared::EffectDescriptionLine& tap = u.lines[n];
+    tap.root->SetVisibility(true);
+    tap.text->SetVisibility(true);
+    tap.broken->SetVisibility(false);
+    tap.text->SetText(StringTable::GetString("TAP_FOR_MORE_INFO"));
+    tap.icon->SetVisibility(false);
+    u.shading2->SetVisibility(n <= 1);
+    u.shading3->SetVisibility(n == 2);
+    const uint32_t max = ui->durability;
+    float repairable = 1.f, left = 1.f;
+    if (max) {
+        repairable = (float)(int)user->f10 / (float)(int)max;
+        left = (float)(int)user->f0c / (float)(int)max;
+    }
+    const bool bars = max != 0;
+    const std::u32string text = SWPrintf(0x100, U"%d/%d", {user->f0c, max});
+    d.nameBar->SetVisibility(bars);
+    d.darkRed->SetVisibility(bars);
+    d.darkRedText->SetVisibility(bars);
+    d.darkRedText->SetText(text.c_str());
+    d.red->SetVisibility(bars);
+    d.redText->SetVisibility(bars);
+    d.redText->SetText(text.c_str());
+    d.redClip.right = (int)((float)d.redClip.left + repairable * (float)d.red->w);
+    d.green->SetVisibility(bars);
+    d.greenText->SetVisibility(bars);
+    d.greenText->SetText(text.c_str());
+    d.greenClip.right = (int)((float)d.greenClip.left + left * (float)d.green->w);
+}
+
+// The card's rest (UpdateContents from 0x2e3320): the Buy buttons by the mode (g_d10: 3 without a
+// count, 1 / 2 with one) and by the price (both gold and crystals, without a cost item: two
+// buttons), enabled while the item's limit allows one more; the unlock line for an item locked by
+// its reputation; then the owned item to compare: the one equipped in the item's slot, or a
+// profession's tool. Without one: "ITEM_SHOP_NO_ITEM", or the owned count and the equip / use
+// button (equipment that can be put on; a potion that is not an orb; type 0xe).
+void UpdateCardButtons(Items::ItemInfo* info) {
+    GenericItemInfo& g = g_info;
+    GameState::PlayerItem* user = nullptr;
+    if (info) {
+        const bool locked = info->IsLockedByReputation(false);
+        const bool counted = (unsigned)(g_d10 - 1) < 2;
+        const bool shown = (unsigned)(g_d10 - 1) < 3;
+        const bool both = info->GetCostGold(false) && info->GetCostCrystals(false) && !info->GetCostItem(false);
+        const bool enabled = info->ApplyLimitToAmount(1) != 0;
+        g.buySingle.root->SetVisibility(!locked && shown && g_d10 == 3 && !both);
+        g.buySingle.root->SetEnabled(enabled);
+        SetCardCost(g.buySingle, info);
+        g.three->SetVisibility(!locked && shown && counted && both);
+        g.three->SetEnabled(enabled);
+        g.threeCount.sum->SetText(ToWideString(g_count));
+        if (!both) {
+            if (info->GetCostGold(false)) {
+                g.threeBuy1.SetGoldCost(g_count * (int)info->GetCostGold(false));
+                g.threeBuy1.root->SetOnClick([] { OnBuy(false); });
+            } else {
+                g.threeBuy1.SetCrystalCost(g_count * (int)info->GetCostCrystals(false));
+                g.threeBuy1.root->SetOnClick([] { OnBuy(true); });
+            }
+        } else {
+            g.threeBuy1.SetGoldCost(g_count * (int)info->GetCostGold(false));
+            g.threeBuy1.root->SetOnClick([] { OnBuy(false); });
+            g.threeBuy2.SetCrystalCost(g_count * (int)info->GetCostCrystals(false));
+            g.threeBuy2.root->SetOnClick([] { OnBuy(true); });
+        }
+        g.two->SetVisibility(!locked && shown && counted && !both);
+        g.two->SetEnabled(enabled);
+        g.twoCount.sum->SetText(ToWideString(g_count));
+        SetCardCost(g.twoBuy, info);
+        g.two2->SetVisibility(!locked && shown && both && !counted);
+        g.two2->SetEnabled(enabled);
+        g.two2Buy2.SetGoldCost(g_count * (int)info->GetCostGold(false));
+        g.two2Buy1.SetCrystalCost(g_count * (int)info->GetCostCrystals(false));
+        g.unlock.root->SetVisibility(locked);
+        if (Professions::Profession* prof = Professions::GetProfession(info->reputationId))
+            g.unlock.icon->SetTexture(prof->icon, true);
+        g.unlock.text->SetText(StringTable::GetString("ITEM_UNLOCK"));
+        if (info->slot) user = GameState::GetItemAt(GameState::ExternalItemBindingToInternal(info->slot));
+        if (Professions::IsProfessionTool(info->id))
+            Professions::GetProfessionTool(info->reputationId, true, &user, false);
+    }
+    if (user) {
+        UpdateCardUserItem(user);
+        return;
+    }
+    g.notComparable->SetVisibility(true);
+    const int amount = info ? GameState::GetItemAmount(info->id, false) : 0;
+    if (amount == 0) {
+        g.youHave->SetText(StringTable::GetString("ITEM_SHOP_NO_ITEM"));
+        g.noSuchItem->SetText(StringTable::GetString("ITEM_SHOP_NO_USER_ITEM"));
+    } else {
+        g.youHave->SetText(info->title);
+        g.noSuchItem->SetText(
+            SWPrintf(0x80, StringTable::GetString("ITEM_SHOP_USER_ITEM_COUNT"), {ToWideString(amount)}).c_str());
+        GameState::PlayerItem* const first = GameState::GetFirstItemByID(info->id, false);
+        Entity* const player = EntityManager::GetPlayer();
+        const char* icon = nullptr;
+        const char* label = "INVENTORY_USE";
+        if (info->type == 8) {
+            g.equip->SetVisibility(first && !CharacterInfoWindow::IsItemEquipped(first) && !first->IsBroken() &&
+                                   CharacterInfoWindow::CanTakeOnItem(first));
+            icon = "gold_equip_item";
+            label = "INVENTORY_EQUIP";
+        } else if (info->type == 3 && !info->CanBeActivated()) {
+            g.equip->SetVisibility(first && !info->IsLockedByLevel() &&
+                                   (!info->meta || info->meta->CanApplyItemEffect(player)));
+            icon = "gold_potion";
+        } else if (info->type == 0xe) {
+            g.equip->SetVisibility(first && !info->IsLockedByLevel() &&
+                                   (!info->meta || info->meta->CanApplyItemEffect(player)));
+            icon = "gold_helmet";
+        }
+        if (icon) {
+            g.equipIcon->SetTexture(IconManager::GetIcon(icon, false), true);
+            g.equipText->SetText(StringTable::GetString(label));
+        }
+    }
+    g.user.root->SetVisibility(false);
+}
 
 // The card's effect lines (part of UpdateContents) when there is no large description: three or
 // more effects (or the type-0x17 one, counted twice) take the four small lines, where an effect
