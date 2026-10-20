@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <string>
 #include <vector>
@@ -43,6 +44,29 @@ TavernInfo* GetTavernInfo(uint32_t id) {
 }
 
 // @0x23d8a8
+// @0x23d978
+void ChangeWarriorAttribute(uint32_t id, uint32_t copyFrom, const char* name, const char* value) {
+    TavernInfo* t = GetTavernInfo(id);
+    if (!t) {
+        TavernInfo* from = GetTavernInfo(copyFrom);
+        // PORT: the original's new pool entry is not cleared (a copy, or what the pool held);
+        // here it starts zeroed, so without a copy its id stays 0 unless this sets "id".
+        t = Add();
+        if (from) *t = *from;
+    }
+    const int v = std::atoi(value);
+    if (!std::strcmp(name, "id")) t->id = (uint32_t)v;
+    else if (!std::strcmp(name, "soldier_id")) t->entity = (uint32_t)v;
+    else if (!std::strcmp(name, "type")) t->type = (uint32_t)v;
+    else if (!std::strcmp(name, "slot")) t->slot = (uint32_t)v;
+    else if (!std::strcmp(name, "hp_min")) t->hpMin = t->hpMax = v;   // (as the original: both)
+    else if (!std::strcmp(name, "hp_max")) t->hpMax = v;
+    else if (!std::strcmp(name, "damage")) t->attack = (uint32_t)v;
+    else if (!std::strcmp(name, "defense")) t->defense = (uint32_t)v;
+    else if (!std::strcmp(name, "cost_gold")) t->gold = (uint32_t)v;
+    else if (!std::strcmp(name, "cost_cb")) t->crystals = (uint32_t)v;
+}
+
 TavernInfo* GetForEntity(uint32_t entity) {
     for (TavernInfo* t : g_list)
         if (t->entity == entity) return t;

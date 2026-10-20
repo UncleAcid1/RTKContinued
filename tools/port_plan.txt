@@ -138,6 +138,7 @@ dead  ^Map::(Person::|PersonData::|LoadPersonList|GetPersonData|GetRandomPersonD
 online  ^GameState::LoadEntitiesFromCopy$   # only VisitFriendCity
 5w  ^CmdOpenMap$   # an EditorConsole command (the admin mode), through GlobalMapWindow::SwitchMap
 4g  ^Entity::GetClosestWPTo$   # only EasyAI::DoMeleeAttackIfReady (needs AI::GetNearestReachableWPZeroWeight)
+dead  ^ResourceHelper::   # a Windows dev tool (Init reads "c:/kingdom/" + name; AddRes / ClearMapResources keep per-map resource lists, SaveRes / DumpResourcesForCurrentMap are empty): nothing calls any of it in 5.11 (no bl, GOT or vtable entry; checked 2026-10-19)
 dead  ^PersonHoverWindow::   # BuildingHovers::Init creates it, nothing ever shows it (only UnregisterEntity and Deinit touch personWindow)
 4g  ^PlayerHintHoverWindow::   # the hero panel's own dialog: created, placed and shown by PlayerTopWindow (SetParameters / HideDialog / ShowArrowAndLock, 4g)
 4g  ^TapHoverWindow::   # the belt's tap hint, created by BeltBarWindow::Init (4g)

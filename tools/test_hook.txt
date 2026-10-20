@@ -137,6 +137,13 @@
                 for (unsigned n = 0; Tavern::TavernInfo* t = Tavern::EnumTavernInfo(n); ++n) if (GameState::GetSoldierAcquireCount(t->entity)) std::printf("[t] soldier %u count %u first %u recent %u\n", t->entity, GameState::GetSoldierAcquireCount(t->entity), GameState::GetSoldierAcquireTime(t->entity), GameState::GetSoldierRecentTime(t->entity));
                 Map::Save(0);
             }
+            if (i == envi("RTK_WARRIOR", -1)) {   // 5r-2
+                auto pr = [](uint32_t id) { Tavern::TavernInfo* t = Tavern::GetTavernInfo(id); if (!t) { std::printf("[t] warrior %u none\n", id); return; } std::printf("[t] warrior %u unit %u type %u slot %u hp %d-%d atk %u def %u gold %u crys %u\n", t->id, t->entity, t->type, t->slot, t->hpMin, t->hpMax, t->attack, t->defense, t->gold, t->crystals); };
+                Tavern::TavernInfo* f = Tavern::EnumTavernInfo(0); const uint32_t a = f->id; pr(a);
+                Override::AddParameter(Override::kWarrior, a, 0, "hp_min", "77"); Override::AddParameter(Override::kWarrior, a, 0, "cost_cb", "9"); Override::AddParameter(Override::kWarrior, a, 0, "damage", "13");
+                Override::AddParameter(Override::kWarrior, 999, a, "slot", "4"); Override::AddParameter(Override::kWarrior, 998, 12345, "id", "998");
+                Override::Apply(Override::kAll); pr(a); pr(999); pr(998); pr(0);
+            }
             if (i == 31 && envi("RTK_SHOPUNLOCK", 0)) GameState::CompleteTask((unsigned)Setting("shop_unlock_task").GetInt(), false);
             if (i == envi("RTK_TASKSHOP", -1)) { TaskInfoWindow::SetTask((uint32_t)envi("RTK_TASK", 0x5b7), envi("RTK_TASKBOSS", 1) != 0); TaskInfoWindow::Show(); std::printf("[t] task boss form shown\n"); }
             if (i == envi("RTK_SETITEM", -1)) { SetInfoWindow::SelectSet((uint32_t)envi("RTK_SET", 1)); SetInfoWindow::Show(); }

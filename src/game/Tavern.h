@@ -2,7 +2,6 @@
 // entries, plus the storage's goblins made from the "goblin_cost" setting). Port of Tavern
 // (libkingdom.so 5.11), 0x23d86c..0x23e138; the list is the vector 0x6169f0 (entries from a
 // 0x80-entry pool at 0x6169e0).
-// Not ported: ChangeWarriorAttribute (the server's changes to an entry; online only).
 #pragma once
 #include <cstdint>
 
@@ -28,5 +27,8 @@ void InitSpecial();                       // @0x23ddf0 the goblins
 TavernInfo* EnumTavernInfo(unsigned i);   // @0x23ddc8 the i-th entry, null past the end
 TavernInfo* GetTavernInfo(uint32_t id);   // @0x23d910
 TavernInfo* GetForEntity(uint32_t entity);   // @0x23d8a8 the first entry for that unit
+// @0x23d978 (Override 0xc, the server's; dormant offline): one attribute of entry id by name; a
+// missing id gets a new entry, a copy of entry `copyFrom` when that exists.
+void ChangeWarriorAttribute(uint32_t id, uint32_t copyFrom, const char* name, const char* value);
 
 }  // namespace Tavern
