@@ -354,6 +354,35 @@
                 { int k = 0; for (WindowManager::WindowQueue* w = WindowManager::Head(); w && k < 4; w = w->next, ++k) std::printf(" %s(%d,%.4f)", w->name.c_str(), (int)w->IsVisible(), w->ZRange()); }
                 std::printf("\n");
             }
+            if (i == envi("RTK_PRES", -1)) {   // 5v: the warehouse stores a building, the presents tab gets one
+                if (envi("RTK_PRESLEVEL", 0)) GameState::SetResourceAmountValidated(GameState::kLevel, (uint32_t)envi("RTK_PRESLEVEL", 0));
+                std::printf("[t] pres before: warehouse=%d presents=%d free=%d size=%d packs=%d level=%d\n", PresentsContainer::GetPresentCount(0), PresentsContainer::GetPresentCount(1), PresentsContainer::GetWareHouseFreeSize(), PresentsContainer::GetWareHouseSize(), PresentsContainer::GetPresentPacksCount(), GameState::GetLevel());
+                if (envi("RTK_PRESADD", 0)) {
+                    Map::Building* pick = nullptr;
+                    for (int x = 0; x < 120 && !pick; ++x) for (int y = 0; y < 120 && !pick; ++y) { Map::Building* b = Map::GetBuilding(x, y); if (b && !b->data->IsHQ()) pick = b; }
+                    if (pick) {
+                        std::printf("[t] pres store %s id=%u at %d,%d\n", pick->data->name.c_str(), pick->data->id, pick->x, pick->y);
+                        PresentsContainer::AddToWarehouse(pick);
+                        Map::RemoveBuilding(pick->x, pick->y, false, false);
+                    }
+                    PresentsContainer::AddPresent(1, 1, 5, nullptr)->f0d = true;
+                }
+            }
+            if (i == envi("RTK_PRES", -1) + 100) {
+                for (int tab = 0; tab < 2; ++tab) for (unsigned k = 0; PresentsContainer::Present* p = PresentsContainer::GetPresent(tab, k); ++k) { const char32_t* nm = p->GetName(); std::printf("[t] pres tab=%d type=%d id=%u b=%p f=%d%d name=%s\n", tab, p->type, p->id, (void*)p->building, (int)p->f0c, (int)p->f0d, nm ? std::string(nm, nm + std::char_traits<char32_t>::length(nm)).c_str() : "-"); }
+                std::printf("[t] pres after: warehouse=%d presents=%d free=%d packs=%d", PresentsContainer::GetPresentCount(0), PresentsContainer::GetPresentCount(1), PresentsContainer::GetWareHouseFreeSize(), PresentsContainer::GetPresentPacksCount());
+                for (int k = 0; PresentsContainer::PresentPack* pk = PresentsContainer::GetPackByNum((unsigned)k); ++k) std::printf(" pack%u(shown=%d cost=%u items=%d)", pk->id, (int)pk->shown, pk->cost, (int)pk->items.size());
+                std::printf("\n");
+                if (envi("RTK_PRESDEL", 0)) {
+                    PresentsContainer::DeletePresent(PresentsContainer::GetPresent(0, 0), true);
+                    PresentsContainer::DeletePresent(PresentsContainer::GetPresent(1, 0), true);
+                    PresentsContainer::BuyPack(PresentsContainer::GetPackByNum(0));
+                    std::printf("[t] pres deleted: warehouse=%d presents=%d", PresentsContainer::GetPresentCount(0), PresentsContainer::GetPresentCount(1));
+                    for (unsigned k = 0; PresentsContainer::Present* p = PresentsContainer::GetPresent(1, k); ++k) std::printf(" %d/%u", p->type, p->id);
+                    std::printf("\n");
+                }
+                if (envi("RTK_PRESADD", 0)) Map::Save(0);
+            }
             frame();
         }
     } else

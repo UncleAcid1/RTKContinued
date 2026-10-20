@@ -1,5 +1,6 @@
 #include "game/GameState.h"
 #include "game/PvP.h"
+#include "game/PresentsContainer.h"
 
 #include <cmath>
 #include <cstdio>
@@ -131,10 +132,6 @@ bool g_socnetConnections[2];    // 0x612d91 Facebook, 0x612d92 Twitter (chunk 0x
 // (FileManager::GetExpansionFileInfo(1 and 2) + 0x24 on the original; every pack ships with the
 // port): kept as loaded.
 uint32_t g_expansionVersions[2];
-// The state of systems not ported yet, kept as the save holds it:
-// UNVERIFIED (milestone 5, the presents): the presents container (PresentsContainer::Save/Load,
-// chunk 8) is kept as loaded; a new game writes the empty container (no presents, 0x60f024 = 2, nothing opened).
-std::vector<uint8_t> g_presents;
 // Online state (Neighbours, PvP, PlayerProfileManager), kept as loaded.
 char32_t g_neighbourSaveName[0x80];   // Neighbours::GetSaveName
 uint32_t g_questFriendCount = 0;      // Neighbours::Get/SetQuestFriendCount
@@ -206,7 +203,6 @@ void Reset() {
     g_dailyBonusStatus = 0;
     g_dailyBonusCount = 0;
     g_tutorialType = 0;
-    g_presents.clear();
     g_pause = 0;
 }
 
@@ -1187,17 +1183,7 @@ void Save(uint32_t version) {
     BeginChunk(0x2e);
     SaveMap(g_itemRecentTime);
     EndChunk();
-    // PresentsContainer::Save
-    BeginChunk(8);
-    if (g_presents.empty()) {
-        SaveUnsigned(0);
-        SaveUnsigned(0);
-        SaveUnsigned(2);
-        SaveUnsigned(0);
-    } else {
-        for (uint8_t c : g_presents) SaveChar(c);
-    }
-    EndChunk();
+    PresentsContainer::Save();   // chunk 8
     BeginChunk(0x34);
     SaveMap(g_bossFightsTimers);
     EndChunk();
@@ -1417,8 +1403,7 @@ void Load(SaveManager::SaveBlock* block) {
         uint32_t type = block->NextChunkID();
         if (type == SaveManager::kEnd || type == SaveManager::kEntityHeader) break;
         if (type == 8) {   // PresentsContainer::Load
-            block->SkipToChunk(8);
-            g_presents = block->GetChunk().data;
+            PresentsContainer::Load(block);
             continue;
         }
         if (type == 0x12 || type == 0x2a || type == 0x37) {

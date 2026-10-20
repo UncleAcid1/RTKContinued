@@ -14,6 +14,7 @@
 #include "game/GameState.h"
 #include "game/HiddenObjects.h"
 #include "game/Map.h"
+#include "game/PresentsContainer.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "hud/HUD.h"
@@ -41,8 +42,8 @@ float g_dragX = 0.f, g_dragY = 0.f;            // 0x630c0c 0x630c10 the drag in 
 int g_grabX = 0, g_grabY = 0;                  // 0x630c14 0x630c18 the grab point minus the drag
 bool g_fromPresents = false;                   // 0x630c1c a present: free and built at once
 bool g_declineOnAccept = false;                // 0x630c1d
-// 0x630c20 PresentsContainer::Present* and 0x630c24 (a sprite chain removed by Accept): the
-// presents (milestone 5, with the gifts' window); nothing sets them yet.
+PresentsContainer::Present* g_present = nullptr;   // 0x630c20 the present being built (5x: BuildingFromPresents)
+// 0x630c24 is a sprite chain removed by Accept (milestone 5, with the gifts' window); nothing sets it yet.
 
 // @0x3a1b18
 void Activate() {
@@ -572,6 +573,10 @@ void Accept() {
     BottomCityWindow::Show();
     if (crystals != 0) Map::Save(0);
     BuildingHovers::SetHoverVisiblity(true, true);
+    if (g_present) {
+        PresentsContainer::DeletePresent(g_present, true);
+        g_present = nullptr;
+    }
     ShopWindow::Hide();
     if (GameState::tutorial == 0x5c) {
         BuildingHovers::HideArrow();

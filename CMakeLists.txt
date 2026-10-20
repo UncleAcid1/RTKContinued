@@ -53,6 +53,7 @@ add_executable(rtk
   src/game/Sets.cpp
   src/game/Chests.cpp
   src/game/Collections.cpp
+  src/game/PresentsContainer.cpp
   src/game/Professions.cpp
   src/game/EntityData.cpp
   src/game/Animation.cpp

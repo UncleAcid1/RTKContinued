@@ -15,6 +15,7 @@
 #include "game/GameState.h"
 #include "game/HiddenObjects.h"
 #include "game/Map.h"
+#include "game/PresentsContainer.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "hud/HUD.h"
@@ -488,8 +489,14 @@ bool Accept() {
                 if (a.building->IsOpened()) a.building->SetClosed(true);
                 Map::RemoveBuilding(a.building->x, a.building->y, false, true);
             }
+        } else if (a.type == kActWarehouse) {
+            if (a.building) {
+                if (a.building->IsOpened()) a.building->SetClosed(false);
+                PresentsContainer::AddToWarehouse(a.building);
+                Map::RemoveBuilding(a.building->x, a.building->y, false, false);   // the warehouse keeps it
+            }
         }
-        // kActWarehouse (PresentsContainer::AddToWarehouse) and kActRoad: not ported.
+        // kActRoad: not ported.
     }
     g_actions.clear();
     UpdateRendering();
@@ -760,8 +767,8 @@ bool Click(int x, int y, bool pressed, bool moving) {
         Popup("PEOPLE_LIMIT_LOW");
         return false;
     }
-    // UNVERIFIED (milestone 5, the presents): PresentsContainer::WAREHOUSE_ID is also refused.
-    bool refuse = b->data->IsHQ() || !b->IsOpened();
+    // (The original also refuses PresentsContainer::kWarehouseId here, before the checks below.)
+    bool refuse = b->data->IsHQ() || !b->IsOpened() || b->data->id == PresentsContainer::kWarehouseId;
     if (!refuse) {
         if (!b->HasActiveContract()) {
             if (b->data->buildingClass == 4) return false;
@@ -773,7 +780,7 @@ bool Click(int x, int y, bool pressed, bool moving) {
         FlyText(b->baseX, b->minY, g_mode == kWarehouse ? "CANT_MOVE_TO_INV" : "FLY_CANTDELETE");
         return false;
     }
-    // UNVERIFIED (milestone 5, the presents): PresentsContainer::ToggleWarehouseAnim.
+    PresentsContainer::ToggleWarehouseAnim();
     g_removeBuilding = b;
     AskRemove(RemoveQuestion(b->data->name));
     return true;

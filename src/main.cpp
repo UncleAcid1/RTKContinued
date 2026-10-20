@@ -43,6 +43,7 @@
 #include "engine/TextInput.h"
 #include "game/StringTable.h"
 #include "game/Chests.h"
+#include "game/PresentsContainer.h"
 #include "game/Collections.h"
 #include "game/Contracts.h"
 #include "engine/Timer.h"
@@ -249,6 +250,7 @@ void Tick(float dt) {
     BuildingPlacement::Update(dt);
     MapMovement::Update(dt);
     TutorialSender::Update(dt);
+    if (!GameState::IsTutorial()) PresentsContainer::Update(dt);
     BuildingHovers::Update(dt, false);
     if (!GameState::IsPaused()) {
         Tasks::Update(false);
@@ -465,8 +467,9 @@ void TextInputUtf8(const char* utf8) {
 void AfterEvents(double frameDt) {
     EdgeScroll(frameDt);
     // (Render::FreeMemory when the textures pass 40 / 50 MB: the port keeps what it loads.
-    // Bonus::Enqueue / Give, FileManager::ShowOffers, PresentsContainer::UnqueueStartPresents:
-    // online gifts and offers.)
+    // Bonus::Enqueue / Give, FileManager::ShowOffers: online gifts and offers.)
+    // The gifts queued by the server become presents (the queue stays empty offline); a save follows.
+    if (PresentsContainer::UnqueueStartPresents() && !GameState::IsCityTutorial()) Map::Save(0);
     // desktop_window (the world) is kept at the bottom of the window queue, under anything moved
     // down (BuildingHovers::MoveWindowDown).
     if (WindowManager::g_desktopWindow && WindowManager::g_desktopWindow->next)
@@ -772,7 +775,9 @@ int main_Loop_Init() {
     if (!LoadSystemConfiguration(GameData::LoadBuildings, "buildings.xml", "L", "Map::LoadBuildingList",
                                  15.0 / 46.0, 0x12, 0x12))
         return 1;
-    // UNVERIFIED (its milestone): PresentsContainer::LoadPresentPacks "shop_packs.xml" (16/46).
+    if (!LoadSystemConfiguration(PresentsContainer::LoadPresentPacks, "shop_packs.xml", "L",
+                                 "PresentsContainer::LoadPresentPacks", 16.0 / 46.0, 0x7e3, 0x13))
+        return 1;
     if (!LoadSystemConfiguration(Collections::Init, "collections.xml", "L", "Collections::Init", 17.0 / 46.0, 0x7e4,
                                  0x14))
         return 1;
@@ -907,8 +912,9 @@ int main_Loop_Init() {
     // only the HUD is shown.)
     HUDWindow::Show();
     Render::SortRenderLayer(Render::kLayerGUI, 1);
-    // (LoadingInternetWindow::AllowToShow, PresentsContainer::UnqueueStartPresents: online. The
-    // sandbox mode sets tutorial 0x80 / secondTutorial 0x100 here. EditorConsole::Init: milestone
+    // (LoadingInternetWindow::AllowToShow: online.) The queued start presents (none offline):
+    PresentsContainer::UnqueueStartPresents();
+    // (The sandbox mode sets tutorial 0x80 / secondTutorial 0x100 here. EditorConsole::Init: milestone
     // 5, the admin mode. FileManager::GameLoaded: a call to Java.)
 
     // PORT test aids: entities to spawn and a view other than Map::Load's (on the player, in the
@@ -1082,6 +1088,7 @@ int main_Exit_Func() {
     // game data lists are emptied here as there:
     GameData::BuildingDeinit();
     GameData::DecorDeinit();
+    PresentsContainer::Clear(true);
     GameState::Clean();
     Render::Shutdown();
     SDL_GL_DestroyContext(gl);
