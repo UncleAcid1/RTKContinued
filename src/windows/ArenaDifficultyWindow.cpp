@@ -3,14 +3,22 @@
 // button. Port of ArenaDifficultyWindow (libkingdom.so 5.11, @0x242b4c..0x245ec8, Win_arn_dif.xml;
 // statics 0x616bc4).
 //
-// UNVERIFIED (milestone 5s-5): UpdateContents and Update are still empty. UNVERIFIED (milestone
-// 5s-6): OnSelectDifficulty, OnItem, OnHelp, OnTavern, OnItemShop and OnStartEvent.
+// UNVERIFIED (milestone 5s-6): OnSelectDifficulty, OnItem, OnHelp, OnTavern, OnItemShop and
+// OnStartEvent.
 #include <cstdio>
 #include <string>
+#include <vector>
 
+#include "engine/IconManager.h"
+#include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
+#include "game/EntityData.h"
+#include "game/Items.h"
+#include "game/MetaData.h"
+#include "game/Setting.h"
+#include "game/StringTable.h"
 #include "game/GameState.h"
 #include "game/Rand48.h"
 #include "gui/GUI.h"
@@ -92,6 +100,11 @@ Textfield* g_challengeExpl = nullptr;     // 0x617184 text_challenge_expl
 Shared::ButtonRaidStart g_start;          // 0x617188 button_collect_bonus (its button: OnStartEvent)
 uint32_t g_openTime = 0;                  // 0x6171cc when the choice was first opened (record 0x400)
 Window* g_close = nullptr;                // 0x6171d8 x_button.clickArea
+std::vector<Items::ItemInfo*> g_items;    // 0x617134 the rewards shown in the strip
+std::vector<int> g_counts;                // 0x617144 their amounts
+std::vector<int> g_chances;               // 0x617154 their chances (percent)
+float g_time = 0.f;                       // 0x6171d0 time shown
+int g_lastSecond = 0;                     // 0x6171d4 Update's last wall-clock second
 int g_difficulty = -1;                    // 0x60f094 the chosen difficulty (-1: none)
 float g_scale = 1.f;                      // 0x60f098
 bool g_tablet = false;                    // 0x60f09c
@@ -102,8 +115,57 @@ bool g_tablet = false;                    // 0x60f09c
 void OnSelectDifficulty(unsigned) {}
 void OnItem(unsigned) {}
 void OnHelp() {}
-// UNVERIFIED (milestone 5s-5): @0x244ad0.
-void Update(float) {}
+// @0x244ad0: while shown, the strip scrolls, the item card keeps above the window (under a popup
+// message), the chosen flag's gold piles brighten to 1.05 and the others fade to 0.9 (in 0.75 s),
+// the flags' sparkles run at 5 frames a second; once a wall-clock second the contents refresh.
+void Update(float dt) {
+    if (!g_queue->shown) return;
+    g_scroller.Update(dt);
+    if (g_hover->shownHover) {
+        const float z = PopupWindow::IsVisible() ? g_root->z - 0.01f : 0.001f;
+        if (g_hover->GetZ() != z) {
+            g_hover->SetZ(z);
+            Render::SortRenderLayer(0xe, 1);
+        }
+    }
+    if (g_queue->shown) {
+        g_time += dt;
+        for (int i = 0; i != 3; ++i) {
+            FlagHolder& f = g_flags[i];
+            if (i == g_difficulty) {
+                if (f.f60 < 1.05f) {
+                    f.f60 += dt / 0.75f;
+                    if (f.f60 > 1.05f) f.f60 = 1.05f;
+                }
+            } else if (f.f60 > 0.9f) {
+                f.f60 -= dt / 0.75f;
+                if (f.f60 < 0.9f) f.f60 = 0.9f;
+            }
+            f.goldSmall->SetAlpha(f.f60, true);
+            f.goldMedium->SetAlpha(f.f60, true);
+            f.goldLarge->SetAlpha(f.f60, true);
+            const unsigned count = i == 0 ? 1 : (i == 1 ? 2 : 4);
+            Window* const* sparks = i == 0 ? &f.sparksSmall : (i == 1 ? f.sparksMedium : f.sparksLarge);
+            for (unsigned k = 0; k != count; ++k) {
+                const int frames = Resources::GetFrameCount("images/Buildings/mk/bless/bless");
+                Render::Sprite* s = sparks[k]->sprite;
+                if (frames == 0 || !s) continue;
+                f.sparkTime[k] += dt;
+                while (f.sparkTime[k] > 0.2f) {
+                    f.sparkTime[k] -= 0.2f;
+                    if (++f.sparkFrame[k] >= frames) f.sparkFrame[k] = 0;
+                }
+                Render::SetFrame(s, (float)(s->tex->h / frames), (float)s->tex->w, f.sparkFrame[k]);
+                Render::SetMagnifyFilter(s->tex, true);
+                s->w *= g_scale;
+                s->h *= g_scale;
+            }
+        }
+    }
+    if (Timer::GetGlobalTime() == g_lastSecond) return;
+    g_lastSecond = Timer::GetGlobalTime();
+    UpdateContents();
+}
 
 // @0x2431a4: the arrow, the reward strip, the item card, then the window.
 bool Click(int x, int y, bool pressed) {
@@ -260,8 +322,100 @@ void Hide() {
     g_tween->AnimateOut();
 }
 
-// UNVERIFIED (milestone 5s-5): @0x243894.
-void UpdateContents() {}
+// The rewards of one drop list (each child: [item, [amount, chance]]; unknown items left out).
+void AddRewards(const MetaData* list) {
+    if (!list) return;
+    for (unsigned k = 0; k < list->GetChildrenCount(); ++k) {
+        Items::ItemInfo* info = Items::GetItemInfo((uint32_t)list->GetChild(k)->GetChild(0)->GetInt());
+        if (!info) continue;
+        g_items.push_back(info);
+        g_counts.push_back(list->GetChild(k)->GetChild(1)->GetChild(0)->GetInt());
+        g_chances.push_back(list->GetChild(k)->GetChild(1)->GetChild(1)->GetInt());
+    }
+}
+
+// @0x243894: the title and the event's text; medium and hard grey until the event was won once;
+// the chosen flag's selector; each flag's sparkles get their sheet and names; the chosen
+// difficulty's challenge ("arena_diff_desc"'s three numbers in ARENA_DIFFICULTY_EASY_DESC for every
+// difficulty, as the original), chance and start button, or "select a difficulty"; the reward strip:
+// the drops of an arena-4 monster chosen by the opening time (its items_drop, then the chosen
+// difficulty's starN_items), each with its quality frame, icon, amount and a high / medium / low
+// chance label (above 20, above 10, else).
+void UpdateContents() {
+    g_title->SetText(StringTable::GetString("ARENA_DIFFICULTY_TITLE"));
+    g_help->SetVisibility(false);
+    g_titleDesc->SetText(ArenaEventWindow::GetEventDescription(2));
+    g_flags[1].root->SetEnabled(GameState::GetEventCompletionCount(2) != 0);
+    g_flags[2].root->SetEnabled(GameState::GetEventCompletionCount(2) != 0);
+    for (int i = 0; i != 3; ++i) {
+        FlagHolder& f = g_flags[i];
+        f.selector->SetVisibility(i == g_difficulty);
+        if (i == 0) {
+            f.sparksSmall->SetTexture(Resources::GetImage("images/Buildings/mk/bless/bless"), false);
+        } else if (i == 1) {
+            for (Window* w : f.sparksMedium) w->SetTexture(Resources::GetImage("images/Buildings/mk/bless/bless"), true);
+        } else {
+            for (Window* w : f.sparksLarge) w->SetTexture(Resources::GetImage("images/Buildings/mk/bless/bless"), true);
+        }
+    }
+    static const char* const kNames[3] = {"ARENA_DIFFICULTY_EASY", "ARENA_DIFFICULTY_MEDIUM", "ARENA_DIFFICULTY_HARD"};
+    for (int i = 0; i != 3; ++i) {
+        g_flags[i].day1->SetText(StringTable::GetString(kNames[i]));
+        g_flags[i].day2->SetText(StringTable::GetString(kNames[i]));
+    }
+    const bool chosen = g_difficulty != -1;
+    g_challenge->SetVisibility(chosen);
+    g_backdrop->SetVisibility(chosen);
+    g_challengeDesc->SetVisibility(chosen);
+    g_challenge->SetText(StringTable::GetString("ARENA_DIFFICULTY_CHALLENGE"));
+    const Setting desc = Setting("arena_diff_desc").GetChild(chosen ? (unsigned)g_difficulty : 0);
+    const char32_t* format = StringTable::GetString("ARENA_DIFFICULTY_EASY_DESC");
+    const std::u32string a = ToWideString(desc.GetChild(0).GetInt());
+    const std::u32string b = ToWideString(desc.GetChild(1).GetInt());
+    const std::u32string c = ToWideString(desc.GetChild(2).GetInt());
+    g_challengeDesc->SetText(SWPrintf(0x100, format, {a.c_str(), b.c_str(), c.c_str()}).c_str());
+    g_chance->SetVisibility(chosen);
+    g_chance->SetText(StringTable::GetString("ARENA_DIFFICULTY_CHANCE"));
+    g_challengeExpl->SetVisibility(!chosen);
+    g_challengeExpl->SetText(StringTable::GetString("ARENA_DIFFICULTY_SELECT"));
+    g_start.active->SetEnabled(chosen);
+    g_start.text->SetEnabled(chosen);
+    g_start.text->SetText(StringTable::GetString("ARENA_DIFFICULTY_START"));
+    g_start.icon->SetTexture(IconManager::GetIcon("gold_attack", false), true);
+    g_scroller.itemCount = 0;
+    g_scroller.UpdateScroll();
+    g_items.clear();
+    g_counts.clear();
+    g_chances.clear();
+    if (EntityData* e = EntityFactory::GetEntityForArena(4, g_openTime)) {
+        AddRewards(e->itemsDrop);
+        if (chosen) AddRewards(e->starItems[g_difficulty]);
+    }
+    g_scroller.itemCount = (unsigned)g_items.size();
+    g_scroller.UpdateScroll();
+    for (unsigned i = 0; i != 6; ++i) {
+        Shared::ItemHolder& h = g_rewards[i];
+        h.root->SetVisibility(chosen && i + g_scroller.firstIndex < g_items.size());
+        if (!h.root->visibleSelf) continue;
+        const unsigned n = i + g_scroller.firstIndex;
+        const int count = g_counts[n];
+        const int chance = g_chances[n];
+        Items::ItemInfo* info = g_items[n];
+        h.icon.locked->SetVisibility(false);
+        for (unsigned k = 0; k != 5; ++k) h.icon.itemClass[k]->SetVisibility(info->itemLevel == k);
+        h.icon.icon->SetTexture(info->GetIcon(), true);
+        const int label = chance > 20 ? 0 : (chance > 10 ? 1 : 2);   // the green, purple or red label
+        for (int k = 0; k != 4; ++k) h.icon.discount[k].root->SetVisibility(k - 1 == label);
+        h.icon.discount[1].text->SetText(StringTable::GetString("PROBABILITY_HIGH"));
+        h.icon.discount[2].text->SetText(StringTable::GetString("PROBABILITY_MEDIUM"));
+        h.icon.discount[3].text->SetText(StringTable::GetString("PROBABILITY_LOW"));
+        h.quantity->SetVisibility(count > 1);
+        h.quantity->SetText(ToWideString(count));
+        h.icon.redX->SetVisibility(false);
+        h.icon.owned->SetVisibility(false);
+    }
+    g_root->UpdatePosition();
+}
 
 // UNVERIFIED (milestone 5s-6): @0x24500c.
 void OnStartEvent() {}
