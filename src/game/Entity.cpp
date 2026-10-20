@@ -36,10 +36,10 @@ bool g_hpConsume = false;      // 0x6119b5
 bool g_removingPlayer = false; // 0x6119cc the player is being deleted (its squad goes with it)
 bool g_squadUsesOrbs = false;  // 0x6119cd
 
-const char* const kRingImages[8] = {   // 0x6012a4
+const char* const kRingImages[9] = {   // 0x6012a4
     "", "images/Rings/under_ring_npc", "images/Rings/under_rings_boss", "images/Rings/under_rings_enemy",
     "images/Rings/under_rings_player", "images/Rings/under_rings_squad", "images/Rings/under_rings_enemy_idle",
-    "images/Rings/under_rings_boss_idle"};
+    "images/Rings/under_rings_boss_idle", "images/Rings/under_rings_pvp"};
 }  // namespace
 
 bool Entity::SquadUsesOrbs() { return g_squadUsesOrbs; }
@@ -478,8 +478,8 @@ void Entity::UpdateRing() {
         CreateUnderlay(0);
         return;
     }
-    if (f198 != 0) {
-        CreateUnderlay(f198);
+    if (customUnderlay != 0) {
+        CreateUnderlay(customUnderlay);
         return;
     }
     // A boss or arena fight with an enemy squad (types 3+): its owner counts as the boss, but

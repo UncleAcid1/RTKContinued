@@ -3,8 +3,7 @@
 // used or an event (tag) changes. Port of Entity::OnSetup @0x15a938, OnTaskStarted @0x159518,
 // OnTaskCompleted @0x15a12c, OnSubTaskCompleted @0x159a4c, OnInteract @0x152fd0, OnTagUpdate
 // @0x15b988 and AddPatrolPoint @0x15854c.
-// Not ported: Entity::ExecutePvPSpawnMeta (0x1596d0, the PvP shadows: milestone 5), marked where
-// it is called.
+// and ExecutePvPSpawnMeta @0x1596d0 (the PvP rivals' shadows).
 #include <cstring>
 
 #include "engine/Render.h"
@@ -12,10 +11,13 @@
 #include "game/AIState.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
+#include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
+#include "game/PvP.h"
+#include "game/Setting.h"
 #include "game/SpawnPoint.h"
 #include "game/Tags.h"
 
@@ -188,7 +190,7 @@ void Entity::OnSubTaskCompleted(uint32_t subtask) {
                 AddPatrolPoint("", Int(d, 2), Int(d, 3), 0, direction, "", 0, 0);
             }
         }
-        // UNVERIFIED (milestone 5): PVP_SPAWN without a GUID: ExecutePvPSpawnMeta.
+        if (e->GetDataWithType(kExpPvpSpawn) && GetGUID() == 0) ExecutePvPSpawnMeta();
     }
 }
 
@@ -221,7 +223,7 @@ void Entity::OnTaskCompleted(uint32_t task) {
         if ((d = e->GetDataWithType(kExpHideQuest)) && (uint32_t)d->GetInt() == task) SetActive(false, true);
         if ((d = e->GetDataWithType(kExpStatsReplaceAfterQuest)) && (uint32_t)Int(d, 0) == task)
             ReplaceStats(this, Int(d, 1));
-        // UNVERIFIED (milestone 5): PVP_SPAWN without a GUID: ExecutePvPSpawnMeta.
+        if (e->GetDataWithType(kExpPvpSpawn) && GetGUID() == 0) ExecutePvPSpawnMeta();
     }
 }
 
@@ -367,7 +369,7 @@ void Entity::OnSetup() {
             SetActive(on, true);
             if (sprite && IsDead()) Render::SetVisibility(sprite, false);
         }
-        // UNVERIFIED (milestone 5): PVP_SPAWN: ExecutePvPSpawnMeta.
+        if (e->GetDataWithType(kExpPvpSpawn)) ExecutePvPSpawnMeta();
         if ((d = e->GetDataWithType(kExpUnhideTag))) {
             Tags::Tag* tag = Tags::GetTag(d->GetString());
             if (tag && !tag->IsActive()) {
@@ -400,4 +402,57 @@ void Entity::OnTagUpdate(Tags::Tag* tag) {
         }
         if (!tag->IsActive() && active) OnSetup();
     }
+}
+
+// @0x1596d0: a PvP rival's shadow. A standing one (spawn point +0x24 set, or a patrol) takes a
+// shadow rival (type 1), a wandering one a type-4 rival (PvP::GetRandomPlayerGID; only an active
+// entity draws one, and only a GUID no other entity has is taken). The rival's sex picks the body
+// (0x285 male, 0x286 female; the spawn point keeps it). Before task 0x74f the shadows are hidden.
+// Then: beaten ones lie dead until "pvp_shadow_respawn" seconds have passed. A wandering one with a
+// rival gets ring 8 and the decoration on its spawn tile hidden and marked (+0x4c); one without
+// turns that decoration into 0x544, shown only when marked and the shadow lies dead.
+void Entity::ExecutePvPSpawnMeta() {
+    const int type = (spawnPoint->f24 != 0 || GetMetaExpression()->FindByType(kExpPatrol)) ? 1 : 4;
+    const uint32_t gid = active ? (uint32_t)PvP::GetRandomPlayerGID(type, true) : 0;
+    if (GetGUID() == 0 && !EntityManager::GetEntityWithGUID(gid)) SetGUID(gid);
+    if (PvP::PlayerInfo* info = PvP::GetPlayerInfoByGID((int)GetGUID(), 0xff)) {
+        if (spawnPoint) {
+            const uint32_t body = info->male ? 0x285 : 0x286;
+            if (GetEntityData()->id != body) {
+                SwitchEntityData(EntityFactory::GetEntityByID((int)body));
+                spawnPoint->entityId = body;
+            }
+        }
+    }
+    if (!GameState::TaskCompleted(0x74f)) {
+        SetActive(false, true);
+        if (Map::Decor* d = Map::GetDecoration(spawnPoint->x, spawnPoint->y)) d->visible = false;
+        return;
+    }
+    if (!spawnPoint) return;
+    if (spawnPoint->deathTime != 0 &&
+        (int)((uint32_t)Timer::GetGlobalTime() - spawnPoint->deathTime) > Setting("pvp_shadow_respawn").GetInt())
+        spawnPoint->deathTime = 0;
+    const bool rival = GetGUID() != 0 && spawnPoint->deathTime == 0;
+    SetActive(GetGUID() != 0, true);
+    if (spawnPoint->deathTime == 0) {
+        Render::ChangeLayer(GetSprite(), 8);
+        SetHP(GetHpMax());
+    } else {
+        SetAnimationOnce("death", false, false, true, true);
+        SetAnimationFrame(GetAnimationFrameCount() - 1);
+        Render::ChangeLayer(GetSprite(), 6);
+        SetHP(0);
+    }
+    if (spawnPoint->f24 != 0 || GetMetaExpression()->FindByType(kExpPatrol)) return;
+    if (rival) SetCustomUnderlay(8);
+    Map::Decor* d = Map::GetDecoration(spawnPoint->x, spawnPoint->y);
+    if (!d) return;
+    if (rival) {
+        d->f4c = 1;
+        d->visible = false;
+        return;
+    }
+    if (d->id != 0x544) d->ReplaceWith(0x544);
+    d->visible = d->f4c != 0 && spawnPoint->deathTime != 0;
 }

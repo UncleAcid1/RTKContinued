@@ -61,7 +61,8 @@ public:
     void Update(float dt);                       // @0x15ba40
     void UpdateGraphics();                       // @0x155504
     void UpdateRing();                           // @0x152380
-    void CreateUnderlay(int style);              // @0x1517c4 (Rings: 1 npc .. 7 boss idle)
+    void CreateUnderlay(int style);              // @0x1517c4 (Rings: 1 npc .. 7 boss idle, 8 pvp)
+    void SetCustomUnderlay(int style) { customUnderlay = style; }   // @0x1505b8 (RingStyle)
 
     void Appear(bool glow, bool sound);          // @0x152dc4 fade in
     void Disappear() { appearing = false; disappearing = true; }   // @0x1506cc fade out
@@ -134,6 +135,8 @@ public:
     void OnTaskStarted(uint32_t task);           // @0x159518
     void OnTaskCompleted(uint32_t task);         // @0x15a12c
     void OnSubTaskCompleted(uint32_t subtask);   // @0x159a4c
+    // @0x1596d0: a PvP rival's shadow (PVP_SPAWN) takes a rival's GUID, body and state.
+    void ExecutePvPSpawnMeta();
     void OnInteract(uint32_t object);            // @0x152fd0
     void OnTagUpdate(Tags::Tag* tag);            // @0x15b988
     // @0x15854c: one more patrol point (the walk starts over).
@@ -425,7 +428,7 @@ public:
     bool needRemove = false;         // +0x195
     bool dying = false;              // +0x196 the death animation was started
     bool actuallyDying = false;      // +0x197
-    int f198 = 0;                    // +0x198 forced ring style
+    int customUnderlay = 0;          // +0x198 forced ring style (SetCustomUnderlay)
     int ringStyle = 0;               // +0x19c
     void* hoverWindow = nullptr;     // +0x1a0 the hover window that follows it (SetHoverWindowPositionHandling)
     bool removeSpriteOnEnd = false;  // +0x1a8
