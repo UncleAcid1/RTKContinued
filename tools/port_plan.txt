@@ -299,6 +299,8 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 5r  ^(Tavern|DailyBonusWindow|ResourceHelper|Notifications)::
 dead  ^BottomArenaWindow::   # (checked 2026-10-20) Init loads it hidden and sets no show function; no code outside the class calls it (Show, IsVisible, SetSelectedButton...), its Update and Click do nothing while hidden: the arenas use BottomBattleWindow's large buttons
 5s  ^(ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow)::
+dead  ^(AsyncBaseCombat|AsyncCombat|AIPlayerBot)::   # (checked 2026-10-20) no call, pointer or vtable load outside their own constructors / destructors: nothing creates an AsyncCombat (PvP fights are PvPArenaCombat) and no entity gets AI state 11 (Entity::CreateAI never picks it)
+dead  ^PvP::(QueuePvPWindowOpen|GetMyRating|GetPlayerCount|GetPlayerInfo)$   # (checked 2026-10-20) no call, no address taken
 5t  ^(AsyncBaseCombat|AsyncCombat|PvPArenaCombat|AIPlayerBot|PvP)::
 5u  ^(AsyncCombat_v2|PlayerInfoWindow|PlayerNameHoverWindow)::
 5v  ^(PresentsContainer)::

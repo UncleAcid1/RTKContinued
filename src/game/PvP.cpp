@@ -12,8 +12,15 @@ namespace {
 std::vector<PlayerInfo*> g_players;   // 0x613fc8
 uint32_t g_victories = 0;             // 0x613f58
 uint32_t g_defeats = 0;               // 0x613f5c
+uint32_t g_lastLoaded[6] = {};        // 0x613f60 when each list type was last loaded
+uint32_t g_refreshTime[8] = {};       // 0x613f78 (the index is not checked, as the original)
+bool g_loading[2] = {};               // 0x613f98 a list / a single player is loading (online)
 uint32_t g_tutorialLastRefresh = 0;   // 0x613f9c
 bool g_tutorialCompleted = false;     // 0x613fa0
+uint32_t g_queuedPlayerID = 0;        // 0x613fa4 the friend attacked from a visit (online)
+bool g_openWindowOnUID = false;       // 0x613fa8 set by QueuePvPWindowOpen only (dead in 5.11)
+uint32_t g_myUID = 0;                 // 0x613fac the server's id for the player (online)
+int g_loadedDataType = 2;             // 0x60f030
 
 // A new record at the end of the list.
 PlayerInfo* Add() {
@@ -39,13 +46,57 @@ PlayerInfo::~PlayerInfo() {
     delete[] str414;
 }
 
-// The online state (refresh times, loading flags, the player's uid and rating, the queued
-// opponent) is left out: offline it stays at its start values.
+// UNVERIFIED (5t-3): +0x3c (0x613f94), zeroed here too, is not read yet; the uid stays.
 void Init() {
     g_victories = 0;
     g_defeats = 0;
+    for (uint32_t& t : g_lastLoaded) t = 0;
+    for (uint32_t& t : g_refreshTime) t = 0;
+    g_loading[0] = g_loading[1] = false;
     g_tutorialLastRefresh = 0;
     g_tutorialCompleted = false;
+    g_queuedPlayerID = 0;
+    g_openWindowOnUID = false;
+    g_loadedDataType = 0xfe;
+}
+
+void SetLastLoadedTime(int type, uint32_t t) { g_lastLoaded[type] = t; }   // @0x1eb6e4
+uint32_t GetLastLoadedTime(int type) { return g_lastLoaded[type]; }       // @0x1eb6fc
+
+// @0x1eb714
+void ResetLastLoadedTime(unsigned type) {
+    if (type > 5) return;
+    g_lastLoaded[type] = 0;
+}
+
+bool IsLoadingData() { return g_loading[0] || g_loading[1]; }   // @0x1eb784
+int GetLoadedDataType() { return g_loadedDataType; }           // @0x1eb7a4
+uint32_t GetMyUID() { return g_myUID; }                        // @0x1eb7b4
+uint32_t GetRefreshTime(int type) { return g_refreshTime[type]; }          // @0x1eb7c8
+void SetRefreshTime(int type, uint32_t t) { g_refreshTime[type] = t; }     // @0x1eb7e0
+void SetQueuedPlayerID(uint32_t id) { g_queuedPlayerID = id; }             // @0x1eb858
+uint32_t GetQueuedPlayerID() { return g_queuedPlayerID; }                  // @0x1eb86c
+
+// @0x1ebcc8 The original then queues PlayerCompetitionWindow::Show (online) when the flag is set;
+// only QueuePvPWindowOpen (dead in 5.11) sets it, so the branch never runs.
+void SetMyUID(uint32_t uid) {
+    g_myUID = uid;
+    if (uid == 0 || !g_openWindowOnUID) return;
+    g_openWindowOnUID = false;
+}
+
+// @0x1ec890 Refreshing the shadows' list (type 1) completes the PvP tutorial.
+void RefreshPlayers(int type) {
+    if (!g_tutorialCompleted && type == 1) SetCompletedPvPTutorial(true);
+    ResetLastLoadedTime(type);
+}
+
+// @0x1ec7a8 The shadows (type 1) beaten.
+int GetTutorialDeadPlayers() {
+    int n = 0;
+    for (unsigned i = 0; PlayerInfo* p = EnumPlayers(i); ++i)
+        if (p->type == 1 && p->defeated == 1) ++n;
+    return n;
 }
 
 // Records of `type` (0xff: every type) are deleted, except the shadows (gid -4..-2).

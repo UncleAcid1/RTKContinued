@@ -55,6 +55,21 @@ inline unsigned GetTutorialPlayerCount() { return 3; }   // @0x1eb820
 void GetTutorialPlayerStats(unsigned i, uint32_t& lastFight, char& losses, char& wins);   // @0x1ec3d0
 void SetTutorialPlayerStats(unsigned i, uint32_t lastFight, char losses, char wins);      // @0x1ec41c
 void ResetTutorial();                            // @0x1eb83c
+// The list's loading state (the lists came from the server; 5t-3 fills them locally).
+void SetLastLoadedTime(int type, uint32_t t);    // @0x1eb6e4
+uint32_t GetLastLoadedTime(int type);            // @0x1eb6fc
+void ResetLastLoadedTime(unsigned type);         // @0x1eb714
+bool IsLoadingData();                            // @0x1eb784
+int GetLoadedDataType();                         // @0x1eb7a4
+uint32_t GetRefreshTime(int type);               // @0x1eb7c8
+void SetRefreshTime(int type, uint32_t t);       // @0x1eb7e0
+void RefreshPlayers(int type);                   // @0x1ec890
+int GetTutorialDeadPlayers();                    // @0x1ec7a8
+// The server's side (online, dormant).
+uint32_t GetMyUID();                             // @0x1eb7b4
+void SetMyUID(uint32_t uid);                     // @0x1ebcc8
+void SetQueuedPlayerID(uint32_t id);             // @0x1eb858
+uint32_t GetQueuedPlayerID();                    // @0x1eb86c
 
 }  // namespace PvP
 

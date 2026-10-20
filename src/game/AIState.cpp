@@ -901,8 +901,8 @@ AIBaseState* CreateAIState(int state, Entity* e) {
     case 9: return new AIEnemy(e);
     case 10: return new AISpell(e);
     default:
-        // UNVERIFIED (milestone 5): AIPlayerBot (11) is not ported yet; those entities get the base
-        // behaviour.
+        // AIPlayerBot (11) is dead in 5.11: Entity::CreateAI never picks it and nothing else
+        // changes an entity's AI state to 11 (checked 2026-10-20).
         return new AIBaseState(e);
     }
 }
