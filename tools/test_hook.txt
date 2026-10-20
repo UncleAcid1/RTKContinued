@@ -219,6 +219,40 @@
                 std::printf("[t] pause event:\n"); SDL_Event ev{}; ev.type = SDL_EVENT_WILL_ENTER_BACKGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func();
             }
             if (i == envi("RTK_NOTIF", -1) + 1) { std::printf("[t] after pause: last %d\n", g_lastSystemNotificationTime); SDL_Event ev{}; ev.type = SDL_EVENT_DID_ENTER_FOREGROUND; SDL_PushEvent(&ev); Game::main_Loop_Func(); }
+            if (i == envi("RTK_PVPLOAD", -1)) {   // 5t-3: the offline server's list, the cache, the tutorial's end
+                auto dump = [](int type) {
+                    int n = 0;
+                    for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) {
+                        if (p->type != type) continue;
+                        ++n;
+                        std::u32string nm = p->name ? p->name : U"", c = p->str410 ? p->str410 : U"";
+                        int items = 0, looks = 0;
+                        for (auto& it : p->equipment.items) if (it.uniqueId) ++items;
+                        for (auto& it : p->equipment.customs) if (it.id) ++looks;
+                        std::printf("[t]  rival gid=%d %s (%s) male=%d level=%d prof7=%d items=%d looks=%d warriors=%d last=%u l/w=%d/%d def=%d\n", p->gid, std::string(nm.begin(), nm.end()).c_str(), std::string(c.begin(), c.end()).c_str(), p->male, p->level, p->f10, items, looks, p->warriorCount, p->lastFight, p->losses, p->wins, p->defeated);
+                        for (int b = 0; b < 10; ++b) if (p->equipment.items[b].uniqueId) { const Items::ItemInfo* in = Items::GetItemInfo(p->equipment.items[b].id); std::printf("[t]    item %d: %u %s lvl %u\n", b, p->equipment.items[b].id, in ? in->name : "?", in ? in->level : 0); }
+                        for (int w = 0; w < p->warriorCount; ++w) std::printf("[t]    warrior %u hp %d/%d\n", p->warriors[w].id, p->warriors[w].f08, p->warriors[w].hp);
+                    }
+                    return n;
+                };
+                std::printf("[t] player level %d squad %u, tutorial done %d\n", GameState::GetLevel(), SoldierSlots::GetOccupiedSlotCount(), (int)PvP::IsCompletedPvPTutorial());
+                PvP::LoadPvPData(1, [](bool ok) { std::printf("[t] list 1 loaded ok=%d\n", ok); }, 0, nullptr);
+                std::printf("[t] type 1: %d rivals, tutorial done %d, refresh in %d s, loading %d\n", dump(1), (int)PvP::IsCompletedPvPTutorial(), (int)PvP::GetRefreshTime(1) - Timer::GetGlobalTime(), (int)PvP::IsLoadingData());
+                std::printf("[t] type 200 (shadows done): %d\n", dump(200));
+                // a fight's record, saved into the cache, then the list again from the cache file
+                for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) if (p->type == 1) { p->lastFight = 4242; p->wins = 1; p->losses = 2; p->defeated = 1; break; }
+                PvP::UpdateCachedData(1);
+                PvP::Cache::Free("pc1");
+                PvP::ClearPlayerInfo(1);
+                PvP::LoadPvPData(1, [](bool ok) { std::printf("[t] list 1 from the cache ok=%d\n", ok); }, 0, nullptr);
+                std::printf("[t] type 1 again: %d rivals\n", dump(1));
+                PvP::ClearPlayerInfo(4);
+                PvP::LoadPvPData(4, nullptr, 0, nullptr);
+                std::printf("[t] type 4: %d rivals, random gid %d\n", dump(4), PvP::GetRandomPlayerGID(4, true));
+                PvP::LoadPvPData(5, nullptr, 0, nullptr);
+                int five = 0; for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) if (p->type == 5) ++five;
+                std::printf("[t] type 5: %d\n", five);
+            }
             if (i == envi("RTK_PVPSAVE", -1)) {   // 5t-2: the player's own state block read as a rival's save; the cache's file round trip
                 SaveManager::SaveBlock* b = SaveManager::GetGameStateData();
                 if (b->data.empty()) b->MergeChunks();

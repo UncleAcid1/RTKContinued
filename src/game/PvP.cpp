@@ -10,8 +10,10 @@
 #include "game/EntityData.h"
 #include "game/GameState.h"
 #include "game/Professions.h"
+#include "game/PvPServer.h"
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
+#include "game/Setting.h"
 #include "game/StringTable.h"
 
 namespace PvP {
@@ -21,8 +23,10 @@ std::vector<PlayerInfo*> g_players;   // 0x613fc8
 uint32_t g_victories = 0;             // 0x613f58
 uint32_t g_defeats = 0;               // 0x613f5c
 uint32_t g_lastLoaded[6] = {};        // 0x613f60 when each list type was last loaded
-uint32_t g_refreshTime[8] = {};       // 0x613f78 (the index is not checked, as the original)
-bool g_loading[2] = {};               // 0x613f98 a list / a single player is loading (online)
+uint32_t g_refreshTime[6] = {};       // 0x613f78 when each list may be refreshed (the index is not checked, as the original)
+void (*g_loadCallback)(bool) = nullptr;   // 0x613f90 LoadPvPData's callback
+uint32_t g_f3c = 0;                   // 0x613f94 (zeroed by Init only)
+bool g_loading[2] = {};               // 0x613f98 a list is being asked for / (+0x41, never set)
 uint32_t g_tutorialLastRefresh = 0;   // 0x613f9c
 bool g_tutorialCompleted = false;     // 0x613fa0
 uint32_t g_queuedPlayerID = 0;        // 0x613fa4 the friend attacked from a visit (online)
@@ -86,12 +90,14 @@ PlayerInfo::~PlayerInfo() {
     delete[] str414;
 }
 
-// UNVERIFIED (5t-3): +0x3c (0x613f94), zeroed here too, is not read yet; the uid stays.
+// The uid stays.
 void Init() {
     g_victories = 0;
     g_defeats = 0;
     for (uint32_t& t : g_lastLoaded) t = 0;
     for (uint32_t& t : g_refreshTime) t = 0;
+    g_loadCallback = nullptr;
+    g_f3c = 0;
     g_loading[0] = g_loading[1] = false;
     g_tutorialLastRefresh = 0;
     g_tutorialCompleted = false;
@@ -298,6 +304,138 @@ void ResetTutorial() {
 }
 
 
+void LoadPvPData(int type, void (*done)(bool), int cost, const char* uid) {
+    if (IsLoadingData()) return;
+    const std::string key = CacheKey(type);
+    // A list past its refresh time is dropped from memory (its file stays).
+    auto old = g_cache.find(key);
+    if (old != g_cache.end() && old->second.time < (uint32_t)Timer::GetGlobalTime()) Cache::Free(key);
+    SaveCache c;
+    if (Cache::Get(key, c)) {
+        if (Cache::IsValid(key) && (uint32_t)Timer::GetGlobalTime() < c.time) {
+            g_loadedDataType = type;
+            PvPDataLoadFinished(true, (const uint8_t*)c.data.data(), (int)c.data.size());
+            if (g_cache.find(key) != g_cache.end()) g_cache[key].time = c.time;
+            g_loadedDataType = 0xfe;
+            g_loading[0] = false;
+            if (done) done(true);
+            g_loadCallback = nullptr;
+            return;
+        }
+        Cache::Free(key);
+    }
+    g_loadedDataType = type;
+    g_loading[0] = true;
+    ClearPlayerInfo(type);
+    g_loadCallback = done;
+    // PORT (offline, DECIDED 2026-10-18): CMyServer::NET_PvPGetData asked pvp_saves.php (the
+    // player's gid, level, best items, army, the cost, the uid) and its callback passed the answer
+    // to PvPDataLoadFinished; the offline server answers at once.
+    const std::vector<uint8_t> answer = PvPServer::GetData(type, cost, uid);
+    PvPDataLoadFinished(true, answer.data(), (int)answer.size());
+}
+
+// The answer's opponents become records of the loaded type. A new list is cached with their
+// records (refreshed until its time); a list from the cache gets the records saved in it back.
+// While the PvP tutorial runs, a failed type-1 list keeps the shadows until pvp_refresh_time has
+// passed since the first try; any type-1 list ends the tutorial.
+void PvPDataLoadFinished(bool, const uint8_t* data, int size) {
+    const unsigned type = (unsigned)g_loadedDataType;
+    if (type > 5) {
+        std::fprintf(stderr, "ERROR: PvP::PvPDataLoadFinished() Got result for an invalid player type %d\n", (int)type);   // ErrorReporter::Printf
+        return;
+    }
+    g_lastLoaded[type] = (uint32_t)Timer::GetGlobalTime();
+    bool ok = data && size > 0;
+    if (!ok) {
+        g_refreshTime[type] = (uint32_t)Timer::GetGlobalTime() + 30;
+    } else {
+        std::vector<PvPSave> saves;
+        std::vector<char32_t*> names;
+        uint32_t delay = 0, cost = 0;
+        if (!GameState::ParsePvPData(data, (uint32_t)size, saves, delay, cost, names)) {
+            std::fprintf(stderr, "ERROR: Server returned trash response!\n");
+            ok = false;
+        } else {
+            const uint32_t now = (uint32_t)Timer::GetGlobalTime();
+            g_refreshTime[type] = now + delay;
+            for (size_t i = 0; i < saves.size(); ++i) {   // (each has its block once parsed)
+                LoadPlayerInfo(saves[i], (int)type, names[i]);
+                delete[] names[i];
+            }
+            const std::string key = CacheKey((int)type);
+            const auto own = [type](const PlayerInfo* p) { return p->type == (int)type && (unsigned)p->gid < 0xfffffffcu; };
+            if (!Cache::IsValid(key)) {
+                Cache::Free(key);
+                SaveCache c;
+                c.data.assign((const char*)data, (size_t)size);
+                c.count = (uint32_t)saves.size();
+                c.lastFight.assign(c.count, 0);
+                c.losses.assign(c.count, 0);
+                c.wins.assign(c.count, 0);
+                c.defeated.assign(c.count, 0);
+                // The server's price of this list (0 offline, DECIDED 2026-10-20: refreshing is free).
+                if (cost != 0 && GameState::GetResourceAmount(GameState::kCrystal) >= cost) {
+                    GameState::ChangeResourceAmount(GameState::kCrystal, -(int)cost);
+                    // (Billing::LogCBPurchase(0x22, 2, cost): online)
+                }
+                uint32_t n = 0;
+                for (unsigned i = 0; PlayerInfo* p = EnumPlayers(i); ++i) {
+                    if (!own(p)) continue;
+                    if (n >= c.count) break;   // PORT: the original writes past the arrays
+                    c.lastFight[n] = p->lastFight;
+                    c.losses[n] = (uint32_t)p->losses;
+                    c.wins[n] = (uint32_t)p->wins;
+                    c.defeated[n] = (uint32_t)p->defeated;
+                    ++n;
+                }
+                c.time = now + delay;
+                Cache::Set(key, c, c.time);
+                Cache::Save(key);
+            } else {
+                SaveCache c;
+                Cache::Get(key, c);
+                g_refreshTime[type] = c.time;
+                uint32_t n = 0;
+                for (unsigned i = 0; PlayerInfo* p = EnumPlayers(i); ++i) {
+                    if (!own(p)) continue;
+                    if (n >= c.count) {
+                        ++n;
+                        std::fprintf(stderr, "ERROR: PvP::PvPDataLoadFinished() Type %d, PvP::EnumPlayers returned entry %d, "
+                                     "but there is only %d entries in the array\n", (int)type, n, c.count + 1);   // ErrorReporter::Printf
+                        continue;
+                    }
+                    p->lastFight = c.lastFight[n];
+                    p->losses = (int)c.losses[n];
+                    p->wins = (int)c.wins[n];
+                    p->defeated = (int)c.defeated[n];
+                    ++n;
+                }
+            }
+            ok = true;
+        }
+    }
+    if (!g_tutorialCompleted && g_loadedDataType == 1) {
+        bool complete = ok;
+        if (!ok) {
+            if (g_tutorialLastRefresh == 0) g_tutorialLastRefresh = (uint32_t)Timer::GetGlobalTime();
+            const uint32_t until = (uint32_t)(int)GameState::GetSetting("pvp_refresh_time") + g_tutorialLastRefresh;
+            if (until <= (uint32_t)Timer::GetGlobalTime()) {
+                complete = true;
+            } else {
+                ok = true;
+                g_refreshTime[g_loadedDataType] = until;
+                g_lastLoaded[g_loadedDataType] = (uint32_t)Timer::GetGlobalTime();
+            }
+        }
+        if (complete) SetCompletedPvPTutorial(true);
+    }
+    if (g_loadCallback) g_loadCallback(ok);
+    g_loadedDataType = 0xfe;
+    g_loadCallback = nullptr;
+    g_loading[0] = false;
+}
+
 // The original reads the opponent's chunks in any order; others are skipped.
 bool LoadPlayerInfo(const PvPSave& save, int type, const char32_t* name) {
     PlayerInfo* p = Add();
@@ -496,6 +634,79 @@ void Remove(const std::string& key) {
 }  // namespace Cache
 
 }  // namespace PvP
+
+namespace GameState {
+
+// (GetData<unsigned int> / GetData<short> are big-endian; PORT: reads past the end give 0.)
+bool ParsePvPData(const uint8_t* data, uint32_t size, std::vector<PvP::PvPSave>& saves,
+                  uint32_t& refreshDelay, uint32_t& cost, std::vector<char32_t*>& names) {
+    if (size < 2 || (data[1] != '\r' && data[0] != 0x1f)) return false;
+    size_t at = 2;
+    const auto u32 = [&](size_t& i) -> uint32_t {
+        if (i + 4 > size) { i += 4; return 0; }
+        const uint32_t v = ((uint32_t)data[i] << 24) | ((uint32_t)data[i + 1] << 16) | ((uint32_t)data[i + 2] << 8) | data[i + 3];
+        i += 4;
+        return v;
+    };
+    refreshDelay = u32(at);
+    cost = u32(at);
+    const uint32_t count = u32(at);
+    uint32_t offset = 0xe;
+    if (count != 0) {
+        for (uint32_t i = 0; i < count; ++i) {
+            PvP::PvPSave s;
+            s.gid = (int)u32(at);
+            const uint32_t ago = u32(at);
+            s.lastFight = (uint32_t)Timer::GetGlobalTime() - ago;
+            s.f10 = u32(at);
+            s.f14 = u32(at);
+            s.losses = (int)u32(at);
+            s.wins = (int)u32(at);
+            s.f20 = at < size ? data[at] : 0;
+            ++at;
+            saves.push_back(std::move(s));
+            names.push_back(nullptr);
+        }
+        offset = count * 25 + 0xe;
+        for (uint32_t i = 0; i < count; ++i) {
+            size_t r = offset;
+            u32(r);
+            u32(r);
+            const uint32_t n = u32(r);
+            const uint32_t end = n + offset + 0xc;
+            if (size < end) {
+                std::fprintf(stderr, "ERROR: ParsePvPData() has attempted to read %d bytes from an offset of %d bytes "
+                             "in data that has length of %d bytes (chunk %d)\n", (int)n, (int)(offset + 8), (int)size, (int)i);
+                return false;
+            }
+            saves[i].data.assign(data + offset + 0xc, data + end);
+            offset = end;
+        }
+    }
+    if (offset == size) return true;
+    if (count != 0) {
+        for (uint32_t i = 0; i < count; ++i) {
+            int16_t n = 0;
+            if (offset + 2 <= size) n = (int16_t)((data[offset] << 8) | data[offset + 1]);
+            offset += 2;
+            std::string utf8;
+            if (n > 0) {
+                for (int k = 0; k < n; ++k) utf8 += offset + (uint32_t)k < size ? (char)data[offset + (uint32_t)k] : '\0';
+                offset += (uint32_t)n;
+            }
+            const std::u32string w = StringTable::DecodeUtf8(utf8.c_str());   // SystemFuncs::utf8ToWChar
+            char32_t* name = new char32_t[w.size() + 1];
+            std::memcpy(name, w.c_str(), (w.size() + 1) * sizeof(char32_t));
+            names[i] = name;
+        }
+        if (offset == size) return true;
+    }
+    const std::string rest(offset < size ? (const char*)data + offset : "", offset < size ? size - offset : 0);
+    std::fprintf(stderr, "ERROR: ParsePvPData() has more data than we can read!! %s\n", rest.c_str());
+    return true;
+}
+
+}  // namespace GameState
 
 namespace PlayerCompetitionWindow {
 namespace {

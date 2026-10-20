@@ -161,7 +161,7 @@ online  ^(Expansions|ExpansionDownloadWindow)::   # the port reads every pack fr
 online  ^(Cmd(Sync|GetServer|SetServer|GetMySave|SendMySave|SetConnectionDelay|SetInetrnetOnOff|OfflineAllow|ToggleSyncMode|VisitPlayer|ApplyDiff|MinifySave|DiffSaves|BatchCompareSaves|LoadSaveGid|ActionFromBlog)|ContextServerType)
 online  ^(AsyncRequestRunner|FB_Socnet\w+|PutFacebookPictureInHolder|ServerEncode|ServerDecode|ServerMessageOk|UpdateFacebookQuestion|UpdateGetSave|UpdateSendSave|CheckExpansion|UpdateExpansionRequired|OnShowInstallUpgrade|OnInstallUpgrade|OnInstallUpgradeCancel|OnOpenUpgrade|OnShowFailedUpgrade|CanShowOffers|OnToS|CommonSetAction|CommonSetFlags|CommonFullPauseEvent|SortByValor|SortByTimeAgo|SortByName|SetMonetaryThousandsDelimeter)$
 online  ^free:(SortBy|CommonSet)
-online  ^GameState::(Send|GetServer|SetServer|IsServerSettingSet|GetOnlineExtra|GetFacebookConnection|SetFacebookConnection|GetTwitterConnection|SetTwitterConnection|IsNeighboursEnabled|SetNeighboursEnabled|GoHomeFromFriend|VisitFriendCity|ParsePvPData|SavePvPSave|GetPvPRefreshTime|SetPvPRefreshTime|UpdateServerFlags|GetMainExpansion|SetMainExpansion|GetPlayerExtraExpansion|GetPlayerMainExpansionVersion|GetPlayerPatchExpansionVersion|GetVFC|IsDailyChestRequestProcessing|SendDailyChestRequest|IsPurchaseActive|SetPurchaseActive|GetGameMapVersion|GetMapVersion|SetMapVersion)
+online  ^GameState::(Send|GetServer|SetServer|IsServerSettingSet|GetOnlineExtra|GetFacebookConnection|SetFacebookConnection|GetTwitterConnection|SetTwitterConnection|IsNeighboursEnabled|SetNeighboursEnabled|GoHomeFromFriend|VisitFriendCity|SavePvPSave|GetPvPRefreshTime|SetPvPRefreshTime|UpdateServerFlags|GetMainExpansion|SetMainExpansion|GetPlayerExtraExpansion|GetPlayerMainExpansionVersion|GetPlayerPatchExpansionVersion|GetVFC|IsDailyChestRequestProcessing|SendDailyChestRequest|IsPurchaseActive|SetPurchaseActive|GetGameMapVersion|GetMapVersion|SetMapVersion)
 online  ^Map::SaveOnline
 online  ^SaveManager::(ApplyBlockDiff|ApplySaveDiff|DuplicateBlock|GetDifference|GetGameStateDataFromSave|GetMapDataFromLoadedSave|MinifyBlock|MinifySave|QueueSendSave|SaveOnlineSave|SavePvPSave|SetEnableSavePing|SetSaveDelay|SetSavePeriod|SetSendSavePeriod|SaveData::)
 online  ^SystemFuncs::(FB|GetFBToken|IsConnectedTo|LikeGame|Log|LoginTo|LogoutFromFB|OpenFAQ|OpenMarketURL|OpenSupport|RateGame|SendPaymentDataToServer|SetProcessPayments|ShowConnectionError|ShowToSPP|callExternalBrowser|geUniqFBID|getDeviceToken|getEmails|getGCID|getGID|getPushID|getReferral|getSID|getSecret|getUniqueIDs|launchApp|showGPGS|signInGPGS|signOutGPGS|IsAppInstalled|SetGUID|getPlatformForServer|getPlatformJailbreak|getDeviceExtendedInfo)
@@ -300,6 +300,7 @@ online  ^Select_HQ::   # the layout loaders of FacebookSyncWindow::Init (online)
 dead  ^BottomArenaWindow::   # (checked 2026-10-20) Init loads it hidden and sets no show function; no code outside the class calls it (Show, IsVisible, SetSelectedButton...), its Update and Click do nothing while hidden: the arenas use BottomBattleWindow's large buttons
 5s  ^(ArenaCombat|ArenaDifficultyWindow|ArenaEventWindow|ArenaTurnWindow)::
 dead  ^(AsyncBaseCombat|AsyncCombat|AIPlayerBot)::   # (checked 2026-10-20) no call, pointer or vtable load outside their own constructors / destructors: nothing creates an AsyncCombat (PvP fights are PvPArenaCombat) and no entity gets AI state 11 (Entity::CreateAI never picks it)
+online  ^PvP::(GetArmyInfo|GetBISItems)$   # only the server request (CMyServer::NET_PvPGetData, GameState::SendPlayerData / SendPlayerData2)
 dead  ^PvP::(QueuePvPWindowOpen|GetMyRating|GetPlayerCount|GetPlayerInfo)$   # (checked 2026-10-20) no call, no address taken
 5t  ^(AsyncBaseCombat|AsyncCombat|PvPArenaCombat|AIPlayerBot|PvP)::
 5u  ^(AsyncCombat_v2|PlayerInfoWindow|PlayerNameHoverWindow)::
@@ -310,7 +311,7 @@ dead  ^PvP::(QueuePvPWindowOpen|GetMyRating|GetPlayerCount|GetPlayerInfo)$   # (
 5p  ^ParseItemDrop\w+$   # chest drop lists
 5x  ^(dollar\w+|bestDollarDifference)$   # spell gestures
 5s  ^GameState::(AddArena\w+|GetStartingArenaHP|SetStartingArenaHP|IsArenaCombatActive|AddEventCompletion|AddEventFail|GetEventCompletionCount|GetEventDifficulty|SetEventDifficulty|GetEventEndTime|SetEventEndTime|GetEventStartTime|SetEventStartTime)$
-5t  ^GameState::(IsPvPCombatActive|SetPvPTutorial)$
+5t  ^GameState::(IsPvPCombatActive|SetPvPTutorial|ParsePvPData)$   # ParsePvPData: the offline PvP server answers in its format (user 2026-10-20)
 5p  ^GameState::(AddItemPayment|UpdatePaymentItems|AddDailyChestItem|FinishDailyChestItems|GetDailyChestFailure|SetDailyChestFailure|GetProcessedChest|GetChest\w+|SetChest\w+)$
 5r  ^GameState::(DailyBonusReceived|GetDailyBonusDays|GetDailyBonusTime|GetReceivedDailyBonusCount|IsDailyBonusAvailable|SetDailyBonusStatus|UpdateDailyBonusTime|HireSoldier|GetSoldierAcquireCount|GetSoldierAcquireTime|GetSoldierRecentTime|GetTavernWarriorHP|SetTavernWarriorHP|GetTavernWarriorTS|SetTavernWarriorTS|GetServerTime|SetServerTime|GetServerTimeOffset)$
 5x  ^GameState::(AddProfessionPoints|GetProfessionPoints|GetBossFightStartTime|ResetBossFightsOnMap)$

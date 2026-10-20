@@ -78,6 +78,7 @@ add_executable(rtk
   src/game/Items.cpp
   src/game/PlayerEquipmentInfo.cpp
   src/game/PvP.cpp
+  src/game/PvPServer.cpp
   src/game/Tasks.cpp
   src/game/Tavern.cpp
   src/game/TasksHelp.cpp

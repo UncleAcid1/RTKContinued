@@ -38,15 +38,20 @@ struct PlayerInfo {                    // 0x428 bytes (constructor @0x1eb9cc)
     ~PlayerInfo();                     // @0x1eb94c
 };
 
-// One opponent as the server sent it: his game state block (the chunks GameState::Save writes:
-// 0x10 name, 0x41 professions, 0x43, 0x4f level / gear / belt / army / record / customisations)
-// and his record against the player. UNVERIFIED (5t-3): +0x04, +0x10, +0x14.
+// One opponent as the server sent it (0x24 bytes): his game state block (the chunks
+// GameState::Save writes: 0x10 name, 0x41 professions, 0x43, 0x4f level / gear / belt / army /
+// record / customisations) and his record against the player. +0x10, +0x14 and +0x20 are read
+// from the answer but nothing reads them.
 struct PvPSave {
     std::vector<uint8_t> data;         // +0x00
+    uint32_t f04 = 0;                  // +0x04 (always 0)
     int gid = 0;                       // +0x08
     uint32_t lastFight = 0;            // +0x0c
+    uint32_t f10 = 0;                  // +0x10
+    uint32_t f14 = 0;                  // +0x14
     int losses = 0;                    // +0x18
     int wins = 0;                      // +0x1c
+    uint8_t f20 = 0;                   // +0x20
 };
 
 // A list as it was loaded (Cache<PvP::SaveCache>, kept in memory and in the storage file "pc<type>"):
@@ -89,6 +94,12 @@ uint32_t GetRefreshTime(int type);               // @0x1eb7c8
 void SetRefreshTime(int type, uint32_t t);       // @0x1eb7e0
 void RefreshPlayers(int type);                   // @0x1ec890
 int GetTutorialDeadPlayers();                    // @0x1ec7a8
+// The lists (type 1 the PvP tab's opponents and the tutorial's shadows, 2 / 3 the other tabs'
+// lists, 4 the rivals met on the maps, 5 one player looked up): from the cache while it is fresh,
+// else asked for. The server is replaced by PvPServer (offline, DECIDED 2026-10-18); its answer
+// goes through PvPDataLoadFinished as the server's did. The callback gets whether a list came.
+void LoadPvPData(int type, void (*done)(bool), int cost, const char* uid);   // @0x1f2a88
+void PvPDataLoadFinished(bool unused, const uint8_t* data, int size);       // @0x1f131c
 // A new record from an opponent's save (the name, when given, is shown instead of his own).
 bool LoadPlayerInfo(const PvPSave& save, int type, const char32_t* name);   // @0x1ecc08
 int GetRandomPlayerGID(int type, bool unused);   // @0x1ed9fc a random one of `type` not beaten
@@ -112,6 +123,15 @@ void SetQueuedPlayerID(uint32_t id);             // @0x1eb858
 uint32_t GetQueuedPlayerID();                    // @0x1eb86c
 
 }  // namespace PvP
+
+namespace GameState {
+// @0x19b3d0 The server's PvP answer: "\x1f" or "?\r", then big-endian: the seconds until the next
+// refresh, the crystal cost of this refresh, the count; per opponent 25 bytes (gid, seconds since
+// the last fight, two words, losses, wins, a byte); per opponent a block (two words, the size, the
+// game state block); optionally per opponent a UTF-8 name (u16 length). False for a bad answer.
+bool ParsePvPData(const uint8_t* data, uint32_t size, std::vector<PvP::PvPSave>& saves,
+                  uint32_t& refreshDelay, uint32_t& cost, std::vector<char32_t*>& names);
+}
 
 // The PvP opponents' window (online, milestone 5): only the selection the fights read.
 namespace PlayerCompetitionWindow {
