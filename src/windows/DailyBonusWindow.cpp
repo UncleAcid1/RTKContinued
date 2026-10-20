@@ -12,6 +12,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Timer.h"
 #include "game/Animation.h"
 #include "game/BuildingHovers.h"
 #include "game/Chests.h"
@@ -168,14 +169,43 @@ void OnTweenOut() {
     g_queue->MoveWindowDown(true);
 }
 
-// Milestone 5 (5r-5): the day flag's item card (OnItem @0x2a8f08).
-void OnItem(unsigned i) { (void)i; }
+// The card points at w, a window of the dialog.
+void PointHoverAt(Window* w, ItemHoverWindow::Direction dir) {
+    const int x = g_root->x + w->x, y = g_root->y + w->y;
+    g_hover->SetTargetRect(x, y, x + w->w, y + w->h, dir);
+    g_hover->RecomputePosition();
+    g_hover->SetZ(0.001f);
+    Render::SortRenderLayer(0xe, 1);
+}
 
-// Milestone 5 (5r-5): the reward's item card (OnBottomItem @0x2a90f4).
-void OnBottomItem(unsigned i) { (void)i; }
+// @0x2a8f08: the card of a day flag's reward (its item, the soldier's name, or the chest).
+void OnItem(unsigned i) {
+    const DailyBonusHolder& h = g_days[i];
+    Items::ItemInfo* info = Items::GetItemInfo(h.shownItem);
+    EntityData* data = h.shownEntity ? EntityFactory::GetEntityByID((int)h.shownEntity) : nullptr;
+    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    g_hover->Show();
+    if (info) g_hover->SetItem(U"", nullptr, info, false, false, nullptr, true, false, false, false);
+    else if (data) g_hover->SetText(data->title, nullptr);
+    else g_hover->SetText(StringTable::GetString("daily_bonus_chest"), nullptr);
+    PointHoverAt(h.item, ItemHoverWindow::kSE);
+}
 
-// Milestone 5 (5r-5): sharing (OnShare @0x2a9320, online).
-void OnShare() {}
+// @0x2a90f4: the card of one of today's rewards (an item, a soldier, the chest or a resource).
+void OnBottomItem(unsigned i) {
+    const BonusInfo& b = g_bonuses[i];
+    Items::ItemInfo* info = Items::GetItemInfo(b.item);
+    EntityData* data = b.entity ? EntityFactory::GetEntityByID((int)b.entity) : nullptr;
+    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    g_hover->Show();
+    if (info) g_hover->SetItem(U"", nullptr, info, false, false, nullptr, false, false, false, false);
+    else if (data) g_hover->SetText(data->title, nullptr);
+    else if (b.type == 0xb) g_hover->SetText(StringTable::GetString("daily_bonus_chest"), nullptr);
+    else g_hover->SetText(GameState::GetResourceGameName((int)b.type), nullptr);
+    PointHoverAt(g_items[i].icon, ItemHoverWindow::kSW);
+}
+
+void OnShare() {}   // @0x2a9320 (empty)
 
 // @0x2a9348 Collect: each reward is dropped by the hero (resources and items) or joins him (a
 // soldier, while the army has room; the troops window opens after); a daily bonus chest is rolled
@@ -213,6 +243,59 @@ void OnClose() {
     g_forced = false;
     Hide();
     if (hired) HireTroopsWindow::Show();
+}
+
+uint32_t g_lastSecond = 0;   // 0x61e78c
+uint32_t g_lastCheck = 0;    // 0x61e790 the last availability check
+
+// @0x2ab784: the card stays in front (closed when another window opens); the share ticks follow
+// the connected accounts (new contents when they change). Once a second, after the city tutorial:
+// a streak older than two days is broken; between one and two days after the last bonus day, with
+// nothing in the way and not more often than hourly, the availability is checked; a waiting bonus
+// opens the window (then its contents are refreshed every second).
+void Update(float) {
+    if (g_hover->shownHover) {
+        if (g_hover->GetZ() != 0.001f) {
+            g_hover->SetZ(0.001f);
+            Render::SortRenderLayer(0xe, 1);
+        }
+        if (WindowManager::GetShownWindowCount() > 1) g_hover->Hide();
+    }
+    if (g_root->visibleSelf) {
+        const bool fb = g_social.tick2->visibleSelf, tw = g_social.tick1->visibleSelf;
+        const bool both = GameState::GetFacebookConnection() && GameState::GetTwitterConnection();
+        g_social.tick2->SetVisibility(GameState::GetFacebookConnection());
+        g_social.tick1->SetVisibility(GameState::GetTwitterConnection());
+        g_social.connectIcon->SetVisibility(!both);
+        g_social.connectText->SetVisibility(!both);
+        g_social.connected->SetVisibility(both);
+        if (GameState::GetFacebookConnection() != fb || GameState::GetTwitterConnection() != tw) UpdateContents();
+    }
+    const uint32_t now = (uint32_t)Timer::GetGlobalTime();
+    if (now == g_lastSecond) return;
+    g_lastSecond = (uint32_t)Timer::GetGlobalTime();
+    if (GameState::secondTutorial != 0x100) return;
+    if (GameState::GetDailyBonusTime() == 0 ||
+        (uint32_t)Timer::GetGlobalTime() - GameState::GetDailyBonusTime() > 0x2a300)
+        GameState::UpdateDailyBonusTime(false);
+    const uint32_t since = (uint32_t)Timer::GetGlobalTime() - GameState::GetDailyBonusTime();
+    const bool free = WindowManager::GetShownWindowCount() == 0 && !GameState::IsCombatActive() &&
+                      !BuildingHovers::IsHoverVisible() && !BuildingHovers::IsWorldDialogVisible() &&
+                      GameState::GetCurrentMapID() != 0x70;
+    if (since - 86400 <= 86400 && free &&
+        (g_lastCheck == 0 || (uint32_t)Timer::GetGlobalTime() - g_lastCheck > 3600)) {
+        g_lastCheck = (uint32_t)Timer::GetGlobalTime();
+        // PORT (user 2026-10-19): FileManager::CheckDailyBonusAvailability asked the server
+        // (CMyServer::NET_DailyBonus_Validate, its answer "1" setting status 1 through
+        // CommonSetFlags 0x1f6); offline the bonus is simply available in this window of time.
+        GameState::SetDailyBonusStatus(1);
+    }
+    if (!g_queue->shown) {
+        if (!free) return;
+        if (!GameState::IsPaused() && GameState::IsDailyBonusAvailable()) Show();
+        if (!g_queue->shown) return;
+    }
+    UpdateContents();
 }
 
 // @0x2a95b8
@@ -275,7 +358,7 @@ void Init() {
     g_collect = GUI::GetWindowTyped<Button>(g_root, "button_collect_bonus.clickArea");
     g_collect->SetOnClick(OnClose);
     g_queue->hideOnOuterClick = true;
-    // Milestone 5 (5r-5): the queue's update (DailyBonusWindow::Update).
+    g_queue->fn.update = Update;
     g_queue->fn.zRange = ZRange;
     g_queue->fn.back = OnBack;
     g_queue->fn.show = Show;
@@ -421,6 +504,14 @@ void UpdateContents() {
     if (GameState::GetFacebookConnection()) social = Setting("connect_fb_bonus").GetInt();
     if (GameState::GetTwitterConnection()) social += Setting("connect_tw_bonus").GetInt();
     if (social != 0) g_bonuses.push_back(BonusInfo{8, 0, 0, (uint32_t)social});
+    // PORT (docs/balance_plan.md, user 2026-10-19): every bonus day also gives crystals,
+    // port_daily_crystals + level / port_daily_crystals_div (3 + level / 5), shown in the row.
+    if (days - 1 < 5) {
+        const float div = GameState::GetSetting("port_daily_crystals_div");
+        const int crystals = (int)GameState::GetSetting("port_daily_crystals") +
+                             (div > 0.f ? (int)((float)GameState::GetLevel() / div) : 0);
+        if (crystals > 0) g_bonuses.push_back(BonusInfo{GameState::kCrystal, 0, 0, (uint32_t)crystals});
+    }
     g_bonusCount = (unsigned)g_bonuses.size();
 
     for (unsigned i = 0; i != 3; ++i) {
