@@ -114,7 +114,9 @@ U32Map g_purchaseActive;        // 0x6133e4 (not cleared by Reset)
 std::vector<OfflineBuilding> g_offlineBuildings;   // 0x612d64
 uint32_t g_timeStart = 0;       // 0x612d98 GetGameStartTime
 uint32_t g_tutorialType = 0;    // 0x6129d4
-uint32_t g_dailyBonus[2];       // chunk 0x36
+uint32_t g_dailyBonusTime = 0;  // 0x612d78 (chunk 0x36) the last bonus day's time
+uint32_t g_dailyBonusDays = 0;  // 0x612d7c (chunk 0x36) the day in the streak
+uint32_t g_dailyBonusStatus = 0;   // 0x612d80 1: a bonus is waiting (not saved)
 uint32_t g_dailyBonusCount = 0; // 0x612d84
 bool g_dailyChestProcessing = false;   // 0x612d88 IsDailyChestRequestProcessing (online)
 uint32_t g_processedChest = 0;  // 0x612d8c GetProcessedChest
@@ -193,8 +195,11 @@ void Reset() {
     g_pvpTutorial = false;
     ResetVirtualHP();
     ResetTimeModifier();
-    // (Reset also clears the daily bonus's time, days and status (milestone 5) and the online
-    // PvP refresh time, Facebook / Twitter connections and expansion versions.)
+    // (Reset also clears the online PvP refresh time, Facebook / Twitter connections and
+    // expansion versions.)
+    g_dailyBonusTime = 0;
+    g_dailyBonusDays = 0;
+    g_dailyBonusStatus = 0;
     g_dailyBonusCount = 0;
     g_tutorialType = 0;
     g_presents.clear();
@@ -793,6 +798,40 @@ uint32_t GetItemAcquirementTime(uint32_t id) {
     return it == g_itemAcquireTime.end() ? 0 : it->second;
 }
 
+uint32_t GetSoldierAcquireCount(uint32_t id) {
+    auto it = g_soldierAcquireCount.find(id);
+    return it == g_soldierAcquireCount.end() ? 0 : it->second;
+}
+
+uint32_t GetSoldierRecentTime(uint32_t id) {
+    auto it = g_soldierRecentTime.find(id);
+    return it == g_soldierRecentTime.end() ? 0 : it->second;
+}
+
+uint32_t GetSoldierAcquireTime(uint32_t id) {
+    auto it = g_soldierAcquireTime.find(id);
+    return it == g_soldierAcquireTime.end() ? 0 : it->second;
+}
+
+uint32_t GetDailyBonusTime() { return g_dailyBonusTime; }
+uint32_t GetDailyBonusDays() { return g_dailyBonusDays; }
+void SetDailyBonusStatus(uint32_t status) { g_dailyBonusStatus = status; }
+bool IsDailyBonusAvailable() { return g_dailyBonusStatus == 1; }
+void DailyBonusReceived() { ++g_dailyBonusCount; }
+uint32_t GetReceivedDailyBonusCount() { return g_dailyBonusCount; }
+
+void UpdateDailyBonusTime(bool force) {
+    const uint32_t elapsed = (uint32_t)Timer::GetGlobalTime() - g_dailyBonusTime;
+    if (elapsed - 86400 < 86400 || force) {
+        ++g_dailyBonusDays;
+        g_dailyBonusTime = (uint32_t)Timer::GetGlobalTime();
+        if ((int)g_dailyBonusDays > Setting("daily_bonus_count").GetInt()) g_dailyBonusDays = 1;
+    } else if (elapsed > 0x2a2ff) {
+        g_dailyBonusDays = 0;
+        g_dailyBonusTime = (uint32_t)Timer::GetGlobalTime();
+    }
+}
+
 uint32_t GetProfessionPoints(uint32_t profession) {
     auto it = g_professionPoints.find(profession);
     return it == g_professionPoints.end() ? 0 : it->second;
@@ -1126,8 +1165,8 @@ void Save(uint32_t version) {
     SaveMap(g_taskBeginTime);
     EndChunk();
     BeginChunk(0x36);
-    SaveUnsigned(g_dailyBonus[0]);
-    SaveUnsigned(g_dailyBonus[1]);
+    SaveUnsigned(g_dailyBonusTime);
+    SaveUnsigned(g_dailyBonusDays);
     EndChunk();
     BeginChunk(0x37);
     SaveShort(0xff);
@@ -1490,8 +1529,8 @@ void Load(SaveManager::SaveBlock* block) {
         }
         case 0x35: LoadMap(r, g_taskBeginTime); break;
         case 0x36:
-            g_dailyBonus[0] = r.u32();
-            g_dailyBonus[1] = r.u32();
+            g_dailyBonusTime = r.u32();
+            g_dailyBonusDays = r.u32();
             break;
         case 0x38: LoadMap(r, g_campaignCompletion); break;
         case 0x39: LoadMap(r, g_taskEndTime); break;

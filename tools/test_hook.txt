@@ -122,6 +122,21 @@
             if (i == envi("RTK_SHOPVIS", -1)) std::printf("[t] shop visible %d shown %d\n", (int)ItemShopWindow::IsVisible(), (int)ItemShopWindow::Queue()->shown);
             if (i == envi("RTK_NEED", -1)) { NeedItemWindow::SetParameters((uint32_t)envi("RTK_NEEDITEM", 136), nullptr); NeedItemWindow::Show(); std::printf("[t] need shown %d shop %d\n", (int)NeedItemWindow::IsVisible(), (int)ItemShopWindow::IsVisible()); }   // 5q-5a
             if (i == envi("RTK_NEEDBUY", -1)) { NeedItemWindow::SetParameters((uint32_t)envi("RTK_NEEDITEM", 136), nullptr); NeedItemWindow::OnBuy(); std::printf("[t] need buy: shop %d\n", (int)ItemShopWindow::IsVisible()); if (envi("RTK_CONT", 0)) ItemShopWindow::SetContinuationAfterTargetIsPurchased(new GUI::Callback([] { std::printf("[t] continuation ran\n"); })); }
+            if (i == envi("RTK_DAILY", -1)) {   // 5r-1
+                auto pr = [](const char* w) { std::printf("[t] daily %s time %u days %u avail %d count %u (now %u, max %d)\n", w, GameState::GetDailyBonusTime(), GameState::GetDailyBonusDays(), (int)GameState::IsDailyBonusAvailable(), GameState::GetReceivedDailyBonusCount(), (uint32_t)Timer::GetGlobalTime(), Setting("daily_bonus_count").GetInt()); };
+                pr("start");
+                if (envi("RTK_DAILYRUN", 1)) {
+                    GameState::UpdateDailyBonusTime(false); pr("update");
+                    GameState::UpdateDailyBonusTime(true); pr("force");
+                    GameState::UpdateDailyBonusTime(false); pr("same day");
+                    for (int n = 0; n < 8; ++n) GameState::UpdateDailyBonusTime(true);
+                    pr("force x8");
+                    GameState::SetDailyBonusStatus(1); pr("status 1");
+                    GameState::DailyBonusReceived(); pr("received");
+                }
+                for (unsigned n = 0; Tavern::TavernInfo* t = Tavern::EnumTavernInfo(n); ++n) if (GameState::GetSoldierAcquireCount(t->entity)) std::printf("[t] soldier %u count %u first %u recent %u\n", t->entity, GameState::GetSoldierAcquireCount(t->entity), GameState::GetSoldierAcquireTime(t->entity), GameState::GetSoldierRecentTime(t->entity));
+                Map::Save(0);
+            }
             if (i == 31 && envi("RTK_SHOPUNLOCK", 0)) GameState::CompleteTask((unsigned)Setting("shop_unlock_task").GetInt(), false);
             if (i == envi("RTK_TASKSHOP", -1)) { TaskInfoWindow::SetTask((uint32_t)envi("RTK_TASK", 0x5b7), envi("RTK_TASKBOSS", 1) != 0); TaskInfoWindow::Show(); std::printf("[t] task boss form shown\n"); }
             if (i == envi("RTK_SETITEM", -1)) { SetInfoWindow::SelectSet((uint32_t)envi("RTK_SET", 1)); SetInfoWindow::Show(); }

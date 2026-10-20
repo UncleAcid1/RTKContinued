@@ -360,6 +360,22 @@ void ActivateItemBuff(uint32_t id, uint32_t seconds);   // @0x198a90
 uint32_t GetItemRecentTime(uint32_t id);       // @0x198db4
 uint32_t GetItemAcquirementTime(uint32_t id);  // @0x198e6c
 uint32_t GetProfessionPoints(uint32_t profession);   // @0x190a04
+uint32_t GetSoldierAcquireCount(uint32_t id);  // @0x19817c how many of that unit were hired
+uint32_t GetSoldierRecentTime(uint32_t id);    // @0x198234 the latest hire's time, 0 never
+uint32_t GetSoldierAcquireTime(uint32_t id);   // @0x1982ec the first hire's time, 0 never
+// The daily bonus: the time of the last bonus day and the day in the streak (saved, chunk 0x36),
+// the status (1: a bonus is waiting; CommonSetFlags 0x1f6 from the server, DailyBonusWindow::Show)
+// and the number of bonuses received (chunk 0x40).
+uint32_t GetDailyBonusTime();                  // @0x191190
+uint32_t GetDailyBonusDays();                  // @0x1911a4
+void SetDailyBonusStatus(uint32_t status);     // @0x1911b8
+bool IsDailyBonusAvailable();                  // @0x1911cc status 1
+void DailyBonusReceived();                     // @0x1911ec
+uint32_t GetReceivedDailyBonusCount();         // @0x191208
+// @0x19a060: one to two days after the last bonus day (or with `force`) the streak goes on a day
+// (back to day 1 past "daily_bonus_count") and today becomes the bonus day; two days or more
+// after it the streak breaks (day 0, today the new start); within a day nothing changes.
+void UpdateDailyBonusTime(bool force);
 void AddProfessionPoints(uint32_t profession, uint32_t points);   // @0x1994d4
 void SetupPlayerRegenerationState();           // @0x1921b8
 void UpdatePlayerRegenerationState();          // @0x191d14
