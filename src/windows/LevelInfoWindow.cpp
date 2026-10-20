@@ -434,8 +434,7 @@ void Update(float dt) {
 // @0x2eb14c: the help the window asked for (OnHelp, HelpWithArena, HelpWithPvP): the windows in
 // the way close, then the player is taken to the PvP arena's, the arena event's or the arena's
 // first quests. UNVERIFIED (milestones 5s / 5t): the closes of ArenaDifficultyWindow,
-// PlayerCompetitionWindow and PlayerInfoWindow; ArenaEventWindow's Show / SetParameters and
-// CastleTopWindow's HelpWithPvP / OnPvP.
+// PlayerCompetitionWindow and PlayerInfoWindow; CastleTopWindow's HelpWithPvP / OnPvP.
 void OnActualHelp() {
     CharacterInfoWindow::Hide();
     ItemShopWindow::Hide();
@@ -465,7 +464,8 @@ void OnActualHelp() {
             TaskInfoWindow::Show();
             return;
         }
-        // UNVERIFIED (milestone 5s): ArenaEventWindow::Show(); ArenaEventWindow::SetParameters(g_tab == 2).
+        ArenaEventWindow::Show();
+        ArenaEventWindow::SetParameters(g_tab == 2);
         return;
     }
     if (GameState::TaskCompleted(0x74d)) {

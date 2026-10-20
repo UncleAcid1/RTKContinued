@@ -651,6 +651,13 @@ void Hide();                                // @0x2a9324
 
 // An arena event's card (windows/ArenaEventWindow.cpp): event 1 the arena's boss, 2 its waves.
 namespace ArenaEventWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaEventWindow"
+void Init();                                // @0x248780
+bool IsVisible();                           // @0x245ec8
+void SetParameters(unsigned event);         // @0x245f68 the event (0 / 1) the arrow points at on Show
+void Show();                                // @0x247c5c
+void Hide();                                // @0x247cf8
+void UpdateContents();                      // @0x2466f8
 const char32_t* GetEventName(unsigned event);          // @0x246124
 const char32_t* GetEventDescription(unsigned event);   // @0x24629c
 bool IsEventActive(unsigned event);                    // @0x246154

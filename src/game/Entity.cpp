@@ -946,9 +946,13 @@ void Entity::OnTalkTo() {
             TaskInfoWindow::SetTask(0x5b7, false);
             TaskInfoWindow::Show();
             break;
+        case 0x4b6:
+        case 0x4b4:
+            ArenaEventWindow::SetParameters(specialTalk == 0x4b4 ? 1 : 0);
+            ArenaEventWindow::Show();
+            break;
         default:
-            // UNVERIFIED (milestone 5): 0x4b6 / 0x4b4 ArenaEventWindow (parameter 0 / 1), 0x695
-            // PlayerCompetitionWindow's view 1, tab 4.
+            // 0x695: PlayerCompetitionWindow (view 1, tab 4) is online, not ported.
             break;
         }
         return;

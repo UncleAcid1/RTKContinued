@@ -194,6 +194,8 @@
                 const char* dl = "1|2=3,4"; MetaData* q = ParseItemDropCommaDividedList(dl, false); std::printf("[t] droplist kids %u first kids %u\n", q->GetChildrenCount(), q->GetChild(0)->GetChildrenCount()); delete q;
                 GameState::SetChestItemReceivedCount(5, 7); std::printf("[t] received item5 %u item6 %u\n", GameState::GetChestItemReceivedCount(5), GameState::GetChestItemReceivedCount(6));
             }
+            if (i == envi("RTK_ARENAWIN", -1)) { ArenaEventWindow::SetParameters((unsigned)envi("RTK_ARENAPAR", -1)); ArenaEventWindow::Show(); std::printf("[t] arena event window shown %d\n", (int)ArenaEventWindow::IsVisible()); }   // 5s-2
+            if (envi("RTK_ARENAWIN", -1) >= 0 && i % 20 == 0) std::printf("[t] f=%d arena event window %d paused %d arrow %d\n", i, (int)ArenaEventWindow::IsVisible(), (int)GameState::IsPaused(), (int)BuildingHovers::ArrowVisible());
             if (i == envi("RTK_ARENAQ", -1)) {   // 5s-1: the arena event queries (RTK_ARENAQ_SET: event 2 ended 100 s ago, event 1 started 50 s ago and won once)
                 auto a = [](const char32_t* w) { std::string o; for (; w && *w; ++w) o += *w < 128 ? (char)*w : '?'; return o; };
                 if (envi("RTK_ARENAQ_SET", 0)) { const uint32_t now = (uint32_t)Timer::GetGlobalTime(); GameState::SetEventEndTime(2, now - 100); GameState::SetEventStartTime(1, now - 50); GameState::AddEventCompletion(1); GameState::AddArena2WinByLevel(5); }

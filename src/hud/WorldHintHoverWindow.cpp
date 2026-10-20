@@ -271,8 +271,9 @@ void WorldHintHoverWindow::OnUserClose() {
         TaskInfoWindow::SetTask(0x5b7, false);
         TaskInfoWindow::Show();
     } else if (special == 0x4b6 || special == 0x4b4) {
+        ArenaEventWindow::SetParameters(special == 0x4b4 ? 1 : 0);
         special = 0;
-        // UNVERIFIED (milestone 5): ArenaEventWindow::SetParameters(0 / 1) and Show.
+        ArenaEventWindow::Show();
     } else if (special == 0x3b1 && task == 1099) {
         // UNVERIFIED (milestone 5): CastleTopWindow::OnBuyItem(0).
     }

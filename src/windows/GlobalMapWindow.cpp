@@ -784,7 +784,8 @@ bool IsVisible() { return !g_sepiaActive && g_locations[0]->window->visibleSelf;
 // @0x2bdd54: the location index of the first arrow (0 without one).
 unsigned GetCurrentArrowTarget() { return g_arrows.empty() ? 0 : g_arrows[0].location; }
 
-// @0x2bdd78. UNVERIFIED (milestone 5): ArenaEventWindow shows it once the map is up.
+// @0x2bdd78. Nothing in 5.11 reads the queued event back (no ArenaEventWindow call in the world
+// map), so the request is only recorded, as in the original.
 void EnqueueArenaEventWindow(unsigned event) {
     g_arenaEvent = event;
     g_arenaEventPending = true;

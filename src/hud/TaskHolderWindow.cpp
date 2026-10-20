@@ -125,7 +125,7 @@ void OnTaskInfo(uint32_t id) {
     }
     // The topmost button (the first used one in place) with a campaign look opens its map's
     // campaign window; for the arena map 0x74 the world map's arrow at it, there the heal window
-    // for a dead hero. UNVERIFIED (milestone 5): there ArenaEventWindow::Show.
+    // for a dead hero, else the arena events.
     Shared::TaskWindow* top = nullptr;
     for (Shared::TaskWindow& w : g_windows)
         if (w.taskId != 0 && w.target == 0) {
@@ -146,7 +146,9 @@ void OnTaskInfo(uint32_t id) {
                 if (EntityManager::GetPlayer()->IsDead()) {
                     HealSquadWindow::Show();
                     HealSquadWindow::ResetRecentDeaths();
+                    return;
                 }
+                ArenaEventWindow::Show();
                 return;
             }
             if (GlobalMapWindow::ShowCampaignWindowForMap(t->debugMap)) return;
