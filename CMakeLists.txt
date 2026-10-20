@@ -26,6 +26,7 @@ add_executable(rtk
   src/engine/Image.cpp
   src/engine/Render.cpp
   src/engine/Resources.cpp
+  src/engine/ViralFeatures.cpp
   src/game/Rand48.cpp
   src/game/SaveManager.cpp
   src/game/GameData.cpp
@@ -154,6 +155,7 @@ add_executable(rtk
   src/hud/BattleBarWindow.cpp
   src/hud/BottomCityWindow.cpp
   src/hud/BottomFarmWindow.cpp
+  src/hud/BottomScreenshotWindow.cpp
   src/hud/TaskHolderWindow.cpp
   src/hud/HoverWindows.cpp
   src/hud/HealHoverWindow.cpp

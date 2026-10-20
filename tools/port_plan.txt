@@ -20,6 +20,10 @@ online  ^GameState::SetCurrentCity$   # only GameState::VisitFriendCity / GoHome
 online  ^MetaExpression::GetSummaryEffectsValue$   # only GameState::GetBIS's sort (BISSortFunc); GetBIS is online (PvP::GetBISItems)
 lib  ^(dollar\w+|bestDollarDifference)$   # SDL2's $1 gesture recognizer (SDL_gesture.c, from SDL_GestureProcessEvent); no SDL_RecordGesture / template load in 5.11, so it never matches; SDL3 has no gestures (DECIDED 2026-10-20)
 
+# ---- 5x-4 (2026-10-20): the screenshot mode (DECIDED: OK saves the framed picture as a local PNG) ----------
+5x  ^(Render::(SaveImage|GetScreenData|GetSurfaceFromPath)|ViralFeatures::(PostScreenshot|BlitBiliniar|ColorCorrection)|FileManager::SaveImage)$   # BottomScreenshotWindow::OnConfirm -> Render::SaveImage -> PostScreenshot -> FileManager::SaveImage (PORT: a PNG)
+5x  @1fc088   # Render::GetImageData(char const*, ...): PostScreenshot's cover (Resources::GetImageData)
+
 # ---- 4b.4: the item windows ------------------------------------------------------------------
 4b.4  ^ItemHoverWindow::
 4b.4  ^UseItemHoverWindow::

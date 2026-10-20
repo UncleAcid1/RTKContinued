@@ -312,7 +312,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
     if (!GameState::IsPlayerCity()) return;
     if (entity->IsRetreating()) return;
     if (!GUI::CanInteractWith(e)) return;
-    // (BottomScreenshotWindow, not ported, is never visible)
+    if (BottomScreenshotWindow::IsVisible()) return;
     std::puts("AIPlayer::ClickedEntity()");
     if (entity == e) return;
     if (!TryToInterruptJob()) return;
@@ -431,7 +431,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
 void AIPlayer::ClickedTile(int x, int y, int, int) {
     // (A CombatManager would take the tap, OnTileClicked: the siege system, dead in 5.11.)
     if (entity->IsRetreating()) return;
-    // (BottomScreenshotWindow, not ported, is never visible)
+    if (BottomScreenshotWindow::IsVisible()) return;
     int tut = GameState::tutorial;
     if (tut < 8) return;
     if (tut == 0x17) {
@@ -709,7 +709,7 @@ void AIPlayer::SearchDecoration(Map::Decor* d) {
 void AIPlayer::ClickedPortal(Portal* p) {
     if (entity->IsRetreating()) return;
     if (!GUI::CanInteractWith(p)) return;
-    // (BottomScreenshotWindow, the screenshot mode: not in the port.)
+    if (BottomScreenshotWindow::IsVisible()) return;
     if (!TryToInterruptJob()) return;
     if (GameState::IsCombatActive()) return;
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {
@@ -732,7 +732,7 @@ void AIPlayer::ClickedPortal(Portal* p) {
 void AIPlayer::ClickedDecoration(Map::Decor* d) {
     // (A CombatManager would take the tap, OnDecorClicked 0x12e494: the siege system, dead in 5.11.)
     if (entity->IsRetreating()) return;
-    // (BottomScreenshotWindow, the screenshot mode: not in the port.)
+    if (BottomScreenshotWindow::IsVisible()) return;
     if (!TryToInterruptJob()) return;
     if (GameState::IsCombatActive()) return;
     if (entity->IsDead() && GameState::GetCurrentMapID() != 0) {

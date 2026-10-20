@@ -21,3 +21,10 @@ CO=540,1800,2220
 #    3550..4050 every 50, 4250,4300. Then 4320:860:520 taps the mentor (the story bubble), or
 #    4320:635:580 taps Begin Campaign (map 0xe, step 0x80, Chapter 4; 5200 frames, SL plus
 #    4350..4500 every 50, 4600,4700,4800).
+# 5) The screenshot mode (5x-4) from the test save `base`: RTK_KEEPPAUSE=1 (the hook leaves the pause
+#    on, so open windows keep the arrow) RTK_SHOT=35 (quest 1180 started with its conditions met)
+#    RTK_HELP=40 RTK_HELPTYPE=49 RTK_HELPID=1329 RTK_HELPVAL=0 (its help: the arrow at the settings
+#    gear) RTK_SHOTCHK=frames (prints the windows, the arrow and the quest); taps 50:1180:210 (the
+#    arrow: settings open, the arrow at button_01), 90:345:205 (the screenshot mode), then
+#    140:595:745 Okay (the PNG in the storage dir, quest 1180 done, 300:640:646 claims it) or
+#    140:683:745 Cancel; 300 frames.

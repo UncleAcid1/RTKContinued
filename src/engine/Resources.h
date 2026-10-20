@@ -11,9 +11,15 @@
 // and an animation's exploded frames (GetExplodedAnimationImagePath @0x205bdc; @0x205a5c the table
 // growing). The port probes the pack folders on demand (GetDecoratedImageName) and reads the
 // one-file animation registry (Init). UNVERIFIED: the exploded-frame fallback (see Animation.cpp).
+#include "engine/Image.h"
+
 namespace Render { struct Texture; }
 
 namespace Resources {
+
+// Render::GetImageData(path) @0x1fc088: the image (and its "_.png" alpha mask) as premultiplied RGBA;
+// bpp 32 with alpha, else 24. Not found or not decodable: an empty image.
+ImageRGBA GetImageData(const char* path, unsigned& bpp);
 
 bool Init(const char* file);  // loads the one-file animation registry (AllAnimsFrames.xml; stands in for RegisterAnimations)
 

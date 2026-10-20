@@ -3,6 +3,7 @@
 #include <OpenGL/gl3.h>
 #include <png.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -11,6 +12,7 @@
 
 #include "engine/FileManager.h"
 #include "engine/Image.h"
+#include "engine/ViralFeatures.h"
 
 namespace Render {
 namespace {
@@ -769,6 +771,7 @@ size_t SpriteCount() {
 
 int minLayer = 0;
 bool clearColor = true;
+bool renderUI = true;
 void (*presentHook)() = nullptr;
 
 void Update() {
@@ -861,6 +864,7 @@ void Frame() {
 
     std::vector<float> verts;
     for (int li = minLayer; li < kLayerCount; ++li) {
+        if (!renderUI && li == kLayerGUI) continue;   // Render::Update @0x1f9450
         Layer& L = g_layers[li];
         if (L.sortPending && !L.sprites.empty()) {
             StlportSort(L.sprites.data(), L.sprites.data() + L.sprites.size(),
@@ -918,6 +922,30 @@ void Frame() {
         }
         flush();
     }
+}
+
+// @0x1f77ec: the screen's pixels, top row first, as 0xAARRGGBB words (glReadPixels' RGBA with red
+// and blue swapped). PORT: the screen is drawn once more first (Frame, renderUI as the caller left
+// it): after Update's buffer swap a desktop GL back buffer is undefined. The original sizes it by
+// globalScaleModifierRender; the port's screen is the framebuffer.
+std::vector<uint32_t> GetScreenData(int& w, int& h) {
+    Frame();
+    w = g_screenW;
+    h = g_screenH;
+    std::vector<uint32_t> px((size_t)w * h);
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+    for (int y = 0; y < h / 2; ++y)
+        std::swap_ranges(px.begin() + (size_t)y * w, px.begin() + (size_t)(y + 1) * w, px.begin() + (size_t)(h - 1 - y) * w);
+    for (uint32_t& c : px) c = (c & 0xff00ff00u) | ((c & 0xffffffu) >> 16) | ((c & 0xffu) << 16);
+    return px;
+}
+
+// @0x1f7970: the screen framed for sharing (ViralFeatures::PostScreenshot saves it).
+void SaveImage() {
+    int w = 0, h = 0;
+    std::vector<uint32_t> px = GetScreenData(w, h);
+    ViralFeatures::PostScreenshot(px.data(), w, h);
 }
 
 bool SaveScreenshot(const char* path) {

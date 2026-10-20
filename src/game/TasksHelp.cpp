@@ -685,8 +685,10 @@ bool TaskSubtask::OnHelp(bool arrow) {
         CastleTopWindow::HelpWithPvP();
         return true;
     // UNVERIFIED (milestone 5): other windows.
+    case kMakeScreenshot:
+        CastleTopWindow::HelpWithScreenshot();
+        return true;
     case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
-    case kMakeScreenshot:      // CastleTopWindow::HelpWithScreenshot
     case kCraftItem:           // CraftItemWindow on the item
     case kOpenWeb:             // HelpWindow::Show(value) (online: the help web view)
         std::printf("Tasks::TaskSubtask::OnHelp() step %u (type %d): its help is not ported yet\n", id, type);

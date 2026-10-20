@@ -68,17 +68,18 @@ int g_blinkMap = 0;                    // 0x619214 BlinkCompass's map
 uint32_t g_buyItem = 0;                // 0x619228 OnBuyItem's item: the shop opens on it once
 int g_arrowCallback = 0;               // 0x61921c the id of the tutorial arrow's callback
 unsigned g_shownWindows = 0;           // 0x619220 the fewest windows shown since the arrow went up
+bool g_screenshotHelp = false;         // 0x619218 HelpWithScreenshot: the settings open with the screenshot help
 int g_friendRequests = 0;              // 0x61924c (online: always 0)
 int g_lastSecond = 0;                  // 0x619250
 
 // @0x277f5c: the panel takes clicks even on disabled buttons (force), and the tutorial arrow at the
 // compass first. While a building is edited or placed, the shop is open or at tutorial step 0x17 it
-// only absorbs the clicks that land on it (while editing, only presses). (BottomScreenshotWindow is
-// milestone 5 and never open; the featured-quest holders, which take clicks after the root, too.)
+// only absorbs the clicks that land on it (while editing, only presses); so in the screenshot mode.
+// (The featured-quest holders, which take clicks after the root, are 5x-5.)
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
     const bool editing = BuildingMovement::Activated() || BuildingPlacement::Activated();
-    if (editing || ShopWindow::IsVisible() || GameState::tutorial == 0x17) {
+    if (editing || ShopWindow::IsVisible() || BottomScreenshotWindow::IsVisible() || GameState::tutorial == 0x17) {
         bool r = g_root->GetWindowAtPosition(x, y, false) != nullptr;
         if (editing && !pressed) r = false;
         return r;
@@ -88,9 +89,15 @@ bool Click(int x, int y, bool pressed) {
     return g_root->Click(x, y, pressed, true);
 }
 
-// @0x276d0c. UNVERIFIED (milestone 5, screenshot help): while the screenshot help is pending (a flag set with the
-// tutorial arrows) it first hides its arrow and calls SettingsWindow::HelpWithScreenShot.
-void OnSettings() { SettingsWindow::Show(); }
+// @0x276d0c: with the screenshot help pending its arrow goes and the settings get the help.
+void OnSettings() {
+    if (g_screenshotHelp) {
+        if (BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback) BuildingHovers::HideArrow();
+        SettingsWindow::HelpWithScreenShot();
+        g_screenshotHelp = false;
+    }
+    SettingsWindow::Show();
+}
 
 }  // namespace
 
@@ -234,6 +241,18 @@ void HelpWithPvP() {
     g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback([] { OnPvP(0xffffffffu); }));
     BuildingHovers::ArrowAt((float)(g_root->x + g_pvp->x), (float)(g_root->y + g_pvp->y + g_pvp->h / 2), false, true,
                             true, true, true, false, false);
+    BuildingHovers::PreventArrowAutoHide();
+}
+
+// @0x277188: the screenshot quest's help: the arrow at the settings button (over the windows shown
+// now); its tap opens the settings, which point at the screenshot mode.
+void HelpWithScreenshot() {
+    g_screenshotHelp = true;
+    g_shownWindows = WindowManager::GetShownWindowCount();
+    BuildingHovers::SetArrowVisibleWindowLimit(g_shownWindows);
+    g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnSettings));
+    BuildingHovers::ArrowAt((float)(g_root->x + g_settings->x), (float)(g_root->y + g_settings->y + g_settings->h / 2),
+                            false, true, true, true, true, false, false);
     BuildingHovers::PreventArrowAutoHide();
 }
 

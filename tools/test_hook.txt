@@ -8,7 +8,7 @@
         }
         Entity* foe = nullptr;
         for (int i = 0; i < opt.frames; ++i) {
-            GameState::ResetGamePauseState();
+            if (!getenv("RTK_KEEPPAUSE")) GameState::ResetGamePauseState();   // RTK_KEEPPAUSE: windows keep the game paused (5x-4)
             Entity* pl = EntityManager::GetPlayer();
             if ((i == 5 || i == 14) && !getenv("RTK_NOCLOSE")) { MouseDown(640, 60, true); frame(); MouseUp(640, 60, true); }
             for (auto& c : clicks) if (c[0] == i) { firstMove = true; MouseMove(c[1], c[2]); MouseDown(c[1], c[2], true); frame(); frame(); MouseUp(c[1], c[2], true); }
@@ -158,6 +158,8 @@
             if (i == 31 && envi("RTK_BELTEMPTY", 0)) { GameState::BindBeltItemTo(1, (uint32_t)envi("RTK_BELTEMPTY", 0)); BeltBarWindow::UpdateBeltItems(); BeltBarWindow::UpdateContents(); }
             if (i == envi("RTK_HELPSCAN", -1)) for (unsigned k = 0; Items::ItemInfo* in = Items::EnumItemInfo(k); ++k) { uint32_t m = GlobalMapWindow::GetMissionMapForItem(in->id, 0), c = GlobalMapWindow::GetMapForCraftItem(in->id, 0); if ((m || c) && ItemShopWindow::ItemCanBeBought(in->id, 0)) std::printf("[t] scan item %u mission %u craft %u type %u rep %u\n", in->id, m, c, in->type, in->reputationId); }
             if (i == envi("RTK_HELP", -1)) { Tasks::TaskSubtask st; st.id = (uint32_t)envi("RTK_HELPID", 1); st.type = envi("RTK_HELPTYPE", 0x1a); st.value = (uint32_t)envi("RTK_HELPVAL", 136); bool r = st.OnHelp(true); std::printf("[t] help type %d val %u -> %d shop %d need %d\n", st.type, st.value, (int)r, (int)ItemShopWindow::IsVisible(), (int)NeedItemWindow::IsVisible()); }   // 5q-5d
+            if (i == envi("RTK_SHOT", -1)) { GameState::CompleteTask(1237, false); GameState::AddItem(133, 1, false, false, false); GameState::AddItem(134, 1, false, false, false); GameState::StartTask(1180); std::printf("[t] shot: task 1180 started\n"); }   // 5x-4
+            if (const char* sc = getenv("RTK_SHOTCHK")) { int f = 0, n = 0; while (std::sscanf(sc, "%d%n", &f, &n) == 1) { if (f == i) std::printf("[t] shot f=%d settings=%d screenshot=%d arrow=%d task1180=%d\n", i, (int)SettingsWindow::IsVisible(), (int)BottomScreenshotWindow::IsVisible(), (int)BuildingHovers::ArrowVisible(), (int)GameState::TaskCompleted(1180)); if (f == i) std::printf("[t] shot subtask1329=%u\n", GameState::GetSubTaskDone(1329)); sc += n; if (*sc == ',') ++sc; } }   // 5x-4
             if (i == envi("RTK_SHOPVIS2", -1)) std::printf("[t] shop visible %d need %d\n", (int)ItemShopWindow::IsVisible(), (int)NeedItemWindow::IsVisible());
             if (i == envi("RTK_SHOP", -1)) { ItemShopWindow::Show(); std::printf("[t] shop shown %d\n", (int)ItemShopWindow::IsVisible()); }   // 5q-2
             if (i == envi("RTK_SHOPLIST", -1)) {   // 5q-1: the shop's lists

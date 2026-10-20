@@ -125,6 +125,7 @@ void Frame();                               // sort dirty layers, build vertices
 // (the port clears every frame).
 extern int minLayer;
 extern bool clearColor;
+extern bool renderUI;   // 0x60f055: off, Render::Update leaves out the GUI layer (the screenshot mode)
 // @0x1f92c0 Render::Update: one frame drawn and shown (blocking loops such as the world map's sepia
 // call it). PORT: Frame, then the platform's presentHook (main sets SDL_GL_SwapWindow).
 void Update();
@@ -140,6 +141,8 @@ inline bool IsLowPerformanceDevice() { return false; }
 void UpdateAnimatedSprites(float dt);
 void RegisterAnimatedSprite(Sprite* s);     // @0x1fe5d4 (CreateSprite, SetTexture)
 void UnregisterAnimatedSprite(Sprite* s);   // @0x1fe2f4 (SetTexture, Layer::RemoveSprite/Free)
+std::vector<uint32_t> GetScreenData(int& w, int& h);   // @0x1f77ec
+void SaveImage();                           // @0x1f7970
 bool SaveScreenshot(const char* pngPath);   // PORT: verification aid
 size_t SpriteCount();
 

@@ -411,8 +411,8 @@ void SetZ(float) {
 // @0x354d8c TaskHolderWindow::Click
 bool Click(int x, int y, bool pressed) {
     if (g_scroller.Click(x, y, pressed, nullptr) && !pressed) return true;
-    // (BottomScreenshotWindow::IsVisible: the screenshot mode, milestone 5)
-    if (!BuildingMovement::Activated() && !BuildingPlacement::Activated() && !ShopWindow::IsVisible()) {
+    if (!BuildingMovement::Activated() && !BuildingPlacement::Activated() && !ShopWindow::IsVisible() &&
+        !BottomScreenshotWindow::IsVisible()) {
         for (int i = 0; i < kCount; ++i) {
             if (y < GUI::ScreenHeight() - g_bottomMargin && g_windows[i].root->Click(x, y, pressed, false)) return true;
             if (g_huge[i].window->Click(x, y, pressed, false)) return true;

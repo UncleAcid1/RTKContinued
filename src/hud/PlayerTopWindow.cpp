@@ -114,8 +114,8 @@ void OnRestoreOut() { g_hpRestore->SetVisibility(false); }
 // @0x329758: over an edit mode or the shop the panel only swallows presses on it.
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
-    if (BuildingMovement::Activated() || BuildingPlacement::Activated() || ShopWindow::IsVisible()) {
-        // (BottomScreenshotWindow, not ported, is never visible)
+    if (BuildingMovement::Activated() || BuildingPlacement::Activated() || ShopWindow::IsVisible() ||
+        BottomScreenshotWindow::IsVisible()) {
         bool over = g_root->GetWindowAtPosition(x, y, false) != nullptr;
         if ((BuildingMovement::Activated() || BuildingPlacement::Activated()) && !pressed) over = false;
         return over;

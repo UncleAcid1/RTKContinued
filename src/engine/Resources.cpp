@@ -22,37 +22,47 @@ std::string Lower(std::string s) {
     return s;
 }
 
-// Render::CreateTexture: load the file; for non-alpha images the alpha mask is the same path with
-// the extension replaced by "_.png" (memcpy of "_.png" over the '.'). Premultiplied (GetImageData).
-// With pixelMask a 32-bit image (own alpha or an alpha mask) also gets its hit mask.
+// Render::CreateTexture: the file's image data (GetImageData). With pixelMask a 32-bit image (own
+// alpha or an alpha mask) also gets its hit mask.
 Render::Texture* LoadTexture(const std::string& path, bool pixelMask = false, int frames = 0) {
+    unsigned bpp = 0;
+    ImageRGBA img = GetImageData(path.c_str(), bpp);
+    if (!img.ok()) return nullptr;
+    Render::Texture* t = Render::CreateTexture(img, path, frames);
+    if (pixelMask && bpp == 32) t->pixelMask = Render::GeneratePixelMask(img.px.data(), img.w, img.h);
+    return t;
+}
+
+}  // namespace
+
+// Render::GetImageData(path) @0x1fc088: load the file; for non-alpha images the alpha mask is the
+// same path with the extension replaced by "_.png" (memcpy of "_.png" over the '.'). Premultiplied.
+ImageRGBA GetImageData(const char* path, unsigned& bpp) {
+    bpp = 0;
     uint32_t n = 0;
-    uint8_t* data = FileManager::LoadFile(path.c_str(), n);
-    if (!data) return nullptr;
+    uint8_t* data = FileManager::LoadFile(path, n);
+    if (!data) return {};
     DecodedImage color;
     bool ok = DecodeImage(data, n, color);
     FileManager::FreeFile(data);
     if (!ok) {
-        std::fprintf(stderr, "Resources: cannot decode %s\n", path.c_str());
-        return nullptr;
+        std::fprintf(stderr, "Resources: cannot decode %s\n", path);
+        return {};
     }
     DecodedImage alpha;
     bool hasMask = false;
     if (color.channels != 4) {
-        std::string mask = path.substr(0, path.rfind('.')) + "_.png";
+        std::string p = path;
+        std::string mask = p.substr(0, p.rfind('.')) + "_.png";
         uint8_t* m = FileManager::LoadFile(mask.c_str(), n);
         if (m) {
             hasMask = DecodeImage(m, n, alpha);
             FileManager::FreeFile(m);
         }
     }
-    ImageRGBA img = MakePremultiplied(color, hasMask ? &alpha : nullptr);
-    Render::Texture* t = Render::CreateTexture(img, path, frames);
-    if (pixelMask && (color.channels == 4 || hasMask)) t->pixelMask = Render::GeneratePixelMask(img.px.data(), img.w, img.h);
-    return t;
+    bpp = (color.channels == 4 || hasMask) ? 32 : 24;
+    return MakePremultiplied(color, hasMask ? &alpha : nullptr);
 }
-
-}  // namespace
 
 bool Init(const char* file) {
     uint32_t n = 0;

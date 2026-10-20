@@ -4,6 +4,8 @@
 
 #include "engine/Render.h"
 #include "game/BuildingHovers.h"
+#include "game/BuildingMovement.h"
+#include "game/BuildingPlacement.h"
 #include "game/GameState.h"
 #include "game/Map.h"
 #include "game/StringTable.h"
@@ -68,14 +70,19 @@ void OnCB() {
 
 }  // namespace
 
-// @0x365908. The leftmost 30 pixels of the bar never take clicks; while a dialog is open over the
-// bar (bar at depth 0.01) its lowest 40 pixels do not either. UNVERIFIED (later milestones): with
-// the shop or screenshot window open or BuildingMovement/BuildingPlacement active the bar only
-// absorbs clicks over it, and a visible tutorial arrow takes the click first.
+// @0x365908. With the shop or the screenshot mode open, or a building being moved or placed, the bar
+// only absorbs the clicks over it (while editing, only presses). Otherwise a visible tutorial arrow
+// takes the click first; the leftmost 30 pixels of the bar never take clicks, and while a dialog is
+// open over the bar (bar at depth 0.01) its lowest 40 pixels do not either.
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
+    const bool editing = BuildingMovement::Activated() || BuildingPlacement::Activated();
+    if (ShopWindow::IsVisible() || BottomScreenshotWindow::IsVisible() || editing) {
+        const bool over = g_root->GetWindowAtPosition(x, y, false) != nullptr;
+        return (!editing || pressed) && over;
+    }
     if (g_root->visibleSelf) {
-        // UNVERIFIED: a visible tutorial arrow (BuildingHovers::ArrowVisible) takes the click first.
+        if (BuildingHovers::ArrowVisible()) return BuildingHovers::ClickOnArrow(x, y, pressed);
         if (g_res.scroller.Click(x, y, pressed, g_root)) return true;
     }
     bool shrunk = false;

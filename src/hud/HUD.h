@@ -187,6 +187,18 @@ void ShowPatchSpeedUp(unsigned patch);   // @0x26018c the patch's progress box i
 void OnFarmBack();            // @0x260cc0
 }
 
+// The screenshot mode (hud/BottomScreenshotWindow.cpp): libkingdom.so 0x262540..0x262f14; statics at
+// 0x618844.
+namespace BottomScreenshotWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "BottomScreenshotWindow" (@0x262598)
+void Init();                  // @0x262c34
+void Deinit();                // @0x262bf4
+void Show();                  // @0x26296c
+void Hide();                  // @0x26283c
+bool IsVisible();             // @0x262584
+void UpdateContents();        // @0x2627c0
+}
+
 namespace TopCityWindow {
 bool Click(int x, int y, bool pressed);   // @0x365908 (NotEnoughWindow passes its clicks here first)
 }
@@ -211,6 +223,7 @@ void OnShop();                     // @0x2778b0 the item shop (the shop's quest 
 void OnBuyItem(uint32_t item);     // @0x27723c the arrow at the Shop button, the shop then opens on item
 void OnPvP(unsigned help);          // @0x276d64 the PvP button (help 0xffffffff: the opponents' window)
 void HelpWithPvP();                // @0x277048 the arrow at the PvP button
+void HelpWithScreenshot();         // @0x277188 the arrow at the settings button (the screenshot quest)
 }
 
 namespace BottomCityWindow {

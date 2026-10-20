@@ -78,8 +78,8 @@ void OnArmy() {
 // @0x24bbb8: over an edit mode or the shop the bar only swallows what lands on it.
 bool Click(int x, int y, bool pressed) {
     if (!g_root) return false;
-    if (BuildingMovement::Activated() || BuildingPlacement::Activated() || ShopWindow::IsVisible()) {
-        // (BottomScreenshotWindow, not ported, is never visible)
+    if (BuildingMovement::Activated() || BuildingPlacement::Activated() || ShopWindow::IsVisible() ||
+        BottomScreenshotWindow::IsVisible()) {
         return (g_slider && g_slider->GetWindowAtPosition(x, y, false)) || g_root->GetWindowAtPosition(x, y, false);
     }
     if (g_heal->Click(x, y, pressed) || g_hover->Click(x, y, pressed)) return true;

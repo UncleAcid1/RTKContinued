@@ -1,6 +1,7 @@
 #include "engine/FileManager.h"
 
 #include <SDL3/SDL.h>
+#include <png.h>
 #include <zlib.h>
 
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <map>
 
 #include "engine/SystemFuncs.h"
@@ -291,6 +293,31 @@ void SaveSave(const char* name, const uint8_t* data, uint32_t size, bool online)
         std::puts("Failed to create save file");
     }
     delete[] gz;
+}
+
+// @0x16c50c: the shared picture (0xAARRGGBB words, top row first). On Android it went to Java's
+// savePicture (the gallery). PORT: written as a PNG in the storage folder; the folder and name are
+// milestone 7's choice.
+void SaveImage(const uint32_t* pixels, int w, int h) {
+    std::vector<uint8_t> rgba((size_t)w * h * 4);
+    for (size_t i = 0; i < (size_t)w * h; ++i) {
+        const uint32_t c = pixels[i];
+        rgba[i * 4] = (uint8_t)(c >> 16);
+        rgba[i * 4 + 1] = (uint8_t)(c >> 8);
+        rgba[i * 4 + 2] = (uint8_t)c;
+        rgba[i * 4 + 3] = (uint8_t)(c >> 24);
+    }
+    char name[64];
+    std::snprintf(name, sizeof name, "screenshot_%lld.png", (long long)std::time(nullptr));
+    const std::string path = g_storagePath + name;
+    png_image img;
+    std::memset(&img, 0, sizeof img);
+    img.version = PNG_IMAGE_VERSION;
+    img.width = (png_uint_32)w;
+    img.height = (png_uint_32)h;
+    img.format = PNG_FORMAT_RGBA;
+    const bool ok = png_image_write_to_file(&img, path.c_str(), 0, rgba.data(), w * 4, nullptr) != 0;
+    std::printf("FileManager::SaveImage() %s: %s\n", path.c_str(), ok ? "saved" : "FAILED");
 }
 
 // ---------------------------------------------------------------------------------------------

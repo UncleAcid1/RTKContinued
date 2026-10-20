@@ -812,6 +812,7 @@ int main_Loop_Init() {
     BottomBattleWindow::Queue();
     BottomCityWindow::Queue();
     BottomFarmWindow::Queue();
+    BottomScreenshotWindow::Queue();
     BuildingHovers::Queue();
     CampaignCompleteWindow::Queue();
     CampaignInfoWindow::Queue();

@@ -7,10 +7,12 @@
 
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
+#include "game/BuildingHovers.h"
 #include "game/GameState.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
+#include "hud/HUD.h"
 #include "windows/Windows.h"
 
 namespace SettingsWindow {
@@ -77,6 +79,7 @@ void ButtonInfo::LoadFrom(Window* root, const char* name) {
 WindowManager::FunctionalWindow* g_queue = nullptr;
 int g_soundMuted = 0;              // 0x62d088
 int g_musicMuted = 0;              // 0x62d08c
+bool g_screenShotHelp = false;     // 0x62d090 HelpWithScreenShot: the next opening shows the arrow
 ButtonInfo g_buttons[10];          // 0x62d094
 Window* g_root = nullptr;          // 0x62d430
 GUI::TweenEffect* g_tween = nullptr;   // 0x62d434
@@ -86,6 +89,7 @@ Window* g_terms1 = nullptr;        // 0x62d448 button_settings_terms_01 (privacy
 Textfield* g_terms1Text = nullptr;
 Window* g_terms2 = nullptr;        // 0x62d450 button_settings_terms_02 (terms of service)
 Textfield* g_terms2Text = nullptr;
+int g_arrowCallback = 0;           // 0x62d42c the id of the tutorial arrow's callback
 Button* g_close = nullptr;         // 0x62d458 x_button.clickArea
 int g_lastUpdate = 0;              // the global time of the last UpdateContents from Update
 int g_notifications = 1;           // 0x60f390
@@ -108,13 +112,30 @@ void OnTweenOut() {
     g_queue->MoveWindowDown(true);
 }
 
-// @0x33e000: only points the tutorial arrow at the screenshot button after HelpWithScreenShot.
-// UNVERIFIED (milestone 5, with BottomScreenshotWindow): the help flag is never set yet.
-void OnTweenIn() {}
+// @0x33e370: the dialog closes and the screenshot mode opens.
+void OnScreenShot() {
+    if (BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback) BuildingHovers::HideArrow();
+    Hide();
+    BottomScreenshotWindow::Show();
+}
 
-// @0x33e424. UNVERIFIED (milestone 5, screenshot help): a click first goes to the tutorial arrow when it belongs to
-// this window (BuildingHovers::ClickOnArrow).
+// @0x33e000: after HelpWithScreenShot the tutorial arrow points at the first button (5.11 hides its
+// screenshot icon, so it shows Google Play); a tap on the arrow opens the screenshot mode.
+void OnTweenIn() {
+    if (!g_screenShotHelp) return;
+    g_arrowCallback = BuildingHovers::SetArrowClickCallback(new GUI::Callback(OnScreenShot));
+    BuildingHovers::ArrowAt((float)(Btn(1).holder->x + g_root->x + Btn(1).holder->w / 2),
+                            (float)(Btn(1).holder->y + g_root->y), false, false, false, false, true, false, false);
+    BuildingHovers::PreventArrowAutoHide();
+    g_screenShotHelp = false;
+}
+
+// @0x33e424: the tutorial arrow first while it is this window's (a tap beside it hides it).
 bool Click(int x, int y, bool pressed) {
+    if (BuildingHovers::GetArrowClickCallbackID() == g_arrowCallback) {
+        if (BuildingHovers::ClickOnArrow(x, y, pressed)) return true;
+        BuildingHovers::HideArrow();
+    }
     bool visible = g_root->visibleSelf;
     g_root->Click(x, y, pressed, false);
     return visible;
@@ -279,6 +300,8 @@ void Hide() {
     if (!g_root->visibleSelf) return;
     g_tween->AnimateOut();
 }
+
+void HelpWithScreenShot() { g_screenShotHelp = true; }   // @0x33ded8
 
 void EnableSync(bool on) {   // @0x33f944
     g_syncEnabled = on;

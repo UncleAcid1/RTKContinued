@@ -80,6 +80,7 @@ void Hide();                                // @0x33e1dc
 bool IsVisible();                           // @0x33de04
 void UpdateContents();                      // @0x33ea94
 void EnableSync(bool on);                   // @0x33f944
+void HelpWithScreenShot();                  // @0x33ded8 the next opening points the arrow at the screenshot
 int GetSoundMutedState();                   // @0x33de18
 void SetSoundMutedState(int muted);         // @0x33de28
 int GetMusicMutedState();                   // @0x33de3c

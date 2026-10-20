@@ -50,6 +50,8 @@ uint8_t* LoadSave(const char* name, uint32_t& size, bool quiet);
 // <name>_onlinetemp), read back to check its size, then the old save becomes <name>prev and the
 // temp file the save.
 void SaveSave(const char* name, const uint8_t* data, uint32_t size, bool online);
+// @0x16c50c: the shared screenshot (0xAARRGGBB, top row first). PORT: a PNG in the storage folder.
+void SaveImage(const uint32_t* pixels, int w, int h);
 
 // Text input for the edited Textfield. The callback gets the whole text after every change, with
 // final = true when editing ends.
