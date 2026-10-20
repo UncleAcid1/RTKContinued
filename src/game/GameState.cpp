@@ -122,7 +122,7 @@ bool g_dailyChestProcessing = false;   // 0x612d88 IsDailyChestRequestProcessing
 uint32_t g_processedChest = 0;  // 0x612d8c GetProcessedChest
 bool g_dailyChestFailure = false;      // 0x612d90 Get/SetDailyChestFailure
 uint32_t g_mainExpansionBackgroundLoad = 0;   // 0x612f44
-bool g_socnetConnections[2];    // chunk 0x3c
+bool g_socnetConnections[2];    // 0x612d91 Facebook, 0x612d92 Twitter (chunk 0x3c)
 // UNVERIFIED (offline port): the expansion pack versions the save keeps
 // (FileManager::GetExpansionFileInfo(1 and 2) + 0x24 on the original; every pack ships with the
 // port): kept as loaded.
@@ -812,6 +812,9 @@ uint32_t GetSoldierAcquireTime(uint32_t id) {
     auto it = g_soldierAcquireTime.find(id);
     return it == g_soldierAcquireTime.end() ? 0 : it->second;
 }
+
+bool GetFacebookConnection() { return g_socnetConnections[0]; }
+bool GetTwitterConnection() { return g_socnetConnections[1]; }
 
 uint32_t GetDailyBonusTime() { return g_dailyBonusTime; }
 uint32_t GetDailyBonusDays() { return g_dailyBonusDays; }

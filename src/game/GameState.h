@@ -366,6 +366,8 @@ uint32_t GetSoldierAcquireTime(uint32_t id);   // @0x1982ec the first hire's tim
 // The daily bonus: the time of the last bonus day and the day in the streak (saved, chunk 0x36),
 // the status (1: a bonus is waiting; CommonSetFlags 0x1f6 from the server, DailyBonusWindow::Show)
 // and the number of bonuses received (chunk 0x40).
+bool GetFacebookConnection();                  // @0x19129c (from an old phone save; set online)
+bool GetTwitterConnection();                   // @0x1912c8
 uint32_t GetDailyBonusTime();                  // @0x191190
 uint32_t GetDailyBonusDays();                  // @0x1911a4
 void SetDailyBonusStatus(uint32_t status);     // @0x1911b8

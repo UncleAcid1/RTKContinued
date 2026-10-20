@@ -6,15 +6,21 @@
 // The social part (share on Twitter / Facebook, connect accounts) is online: PlayerProfileManager::
 // FBEnabled is false offline, so Init hides it as the original does without Facebook.
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <vector>
 
 #include "engine/IconManager.h"
+#include "engine/Render.h"
+#include "game/Animation.h"
 #include "game/BuildingHovers.h"
 #include "game/Chests.h"
 #include "game/Entity.h"
+#include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
 #include "game/Items.h"
+#include "game/Setting.h"
 #include "game/SoldierSlots.h"
 #include "game/StringTable.h"
 #include "gui/GUI.h"
@@ -43,6 +49,8 @@ struct DailyBonusHolder {
     Window* chestClosed = nullptr;    // +0x24
     Window* chestIcon = nullptr;      // +0x28 the chest's "?"
     Window* done = nullptr;           // +0x2c the tick
+    uint32_t shownItem = 0;           // +0x30 the item on the flag (OnItem's card)
+    uint32_t shownEntity = 0;         // +0x34 or the soldier
 
     // @0x2a97cc
     void LoadFrom(Window* w, const char* p) {
@@ -123,6 +131,7 @@ DailyBonusHolder g_days[5];               // 0x61e5f0
 ItemIconHolder g_items[3];                // 0x61e708
 std::vector<BonusInfo> g_bonuses;         // 0x61e72c the rewards UpdateContents chose
 unsigned g_bonusCount = 0;                // 0x61e744 how many of them Collect gives
+int g_bottomShift = 0;                    // 0x61e788 the bottom row's shift (centred when under 3)
 Window* g_close = nullptr;                // 0x61e748 x_button (always hidden)
 Textfield* g_title = nullptr;             // 0x61e74c
 Textfield* g_titleDesc = nullptr;         // 0x61e750
@@ -301,7 +310,143 @@ void Hide() {
     g_tween->AnimateOut();
 }
 
-// Milestone 5 (5r-4): the flags, the rewards (g_bonuses) and the texts (UpdateContents @0x2aa050).
-void UpdateContents() {}
+// @0x2aa050: the five day flags (each day's first "new_daily_bonus_<n>" reward: an item, or an
+// "ENTITY" soldier shown by its idle figure; day 5 the chest), today's rewards at the bottom and the
+// Collect text. Days 1-4 give the day's "new_daily_bonus_<day>" list (an item id or a resource name
+// and an amount, or "ENTITY" and a soldier); day 5 a daily bonus chest; a connected Facebook /
+// Twitter account adds "connect_fb_bonus" / "connect_tw_bonus" of resource 8.
+void UpdateContents() {
+    const uint32_t days = GameState::GetDailyBonusDays();
+    g_title->SetText(StringTable::GetString("DAILY_BONUS_HEADER"));
+    g_titleDesc->SetText(StringTable::GetString("DAILY_BONUS_DESCRIPTION"));
+    for (uint32_t day = 1; day <= 5; ++day) {
+        DailyBonusHolder& h = g_days[day - 1];
+        char key[64];
+        std::snprintf(key, sizeof key, "new_daily_bonus_%d", (int)day);
+        int amount = 1;
+        uint32_t item = 0;
+        int entity = 0;
+        bool several = false;
+        if (GameState::SettingExists(key)) {
+            Setting s(key);
+            // A list of rewards shows its first; a single one is the setting itself.
+            Setting e = s.GetChild(0).GetChildrenCount() == 0 ? s : s.GetChild(0);
+            if (!e.GetChild(0).IsNumber()) {
+                if (std::strcmp(e.GetChild(0).GetString(), "ENTITY") != 0)
+                    std::fprintf(stderr, "ERROR: DailyBonusWindow::UpdateContents() Daily bonus '%s' is invalid\n", key);   // ErrorReporter::Printf
+                entity = e.GetChild(1).GetInt();
+            } else {
+                item = (uint32_t)e.GetChild(0).GetInt();
+                amount = e.GetChild(1).GetInt();
+                several = amount > 1;
+            }
+        }
+        const bool reached = day <= days;
+        h.flag->SetVisibility(reached);
+        h.flagDisabled->SetVisibility(days < day);
+        h.shownEntity = 0;
+        h.shownItem = 0;
+        EntityData* data = entity != 0 ? EntityFactory::GetEntityByID(entity) : nullptr;
+        if (data) {
+            Animation* anim = data->GetAnimation("idle_1");
+            if (anim) {
+                if (!anim->loaded) anim->Load();
+                if (Render::Texture* t = anim->GetTexByDir(0)) {
+                    h.item->SetTexture(t, true);
+                    if (Render::Sprite* sp = h.item->sprite) {
+                        Render::SetFrame(sp, (float)Render::GetFrameHeight(sp->tex),
+                                         (float)Render::GetFrameWidth(sp->tex), 0);
+                        Render::SetMagnifyFilter(sp->tex, true);
+                        sp->h *= g_scale;
+                        sp->w *= g_scale;
+                        h.root->UpdatePosition();
+                    }
+                }
+            }
+            h.done->SetVisibility(reached);
+            h.shownEntity = (uint32_t)entity;
+        } else if (Items::ItemInfo* info = Items::GetItemInfo(item)) {
+            h.item->SetTexture(info->GetIcon(), true);
+            if (h.item->sprite) h.item->sprite->vBottom = 1.f;
+            h.done->SetVisibility(reached);
+            h.shownItem = item;
+        } else {
+            h.done->SetVisibility(false);
+        }
+        const bool today = days == day;
+        h.glow->SetVisibility(today);
+        if (!today) {
+            std::u32string text = SWPrintf(0x100, StringTable::GetString("DAILY_BONUS_DAY"), {ToWideString((int)day)});
+            h.day1->SetText(text.c_str());
+            h.day2->SetText(text.c_str());
+        } else {
+            h.day1->SetText(StringTable::GetString("DAILY_BONUS_TODAY"));
+            h.day2->SetText(StringTable::GetString("DAILY_BONUS_TODAY"));
+        }
+        h.quantity->SetVisibility(several);
+        h.quantity->SetText(ToWideString(amount));
+        h.chestOpened->SetVisibility(day == 5 && days == 5);
+        h.chestClosed->SetVisibility(day == 5 && days != 5);
+        h.chestIcon->SetVisibility(day == 5 && days != 5);
+    }
+    g_connectText->SetText(StringTable::GetString("DAILY_BONUS_CONNECT"));
+    g_social.connectText->SetText(StringTable::GetString("SOCIAL_CONNECT"));
+    g_social.connected->SetText(StringTable::GetString("SOCIAL_CONNECTED"));
+    g_received->SetText(StringTable::GetString("DAILY_BONUS_TOTAL"));
+
+    // Today's rewards.
+    g_bonuses.clear();
+    auto add = [](const Setting& e) {
+        g_bonuses.push_back(BonusInfo{0xb, 0, 0, 1});
+        BonusInfo& b = g_bonuses.back();
+        if (e.GetChild(0).IsString() && std::strcmp(e.GetChild(0).GetString(), "ENTITY") == 0) {
+            b.entity = (uint32_t)e.GetChild(1).GetInt();
+            return;
+        }
+        b.item = e.GetChild(0).IsNumber() ? (uint32_t)e.GetChild(0).GetInt() : 0;
+        b.type = e.GetChild(0).IsString() ? (uint32_t)GameState::StringToResourceType(e.GetChild(0).GetString()) : 0xb;
+        b.amount = (uint32_t)e.GetChild(1).GetInt();
+    };
+    if (days - 1 < 4) {
+        char key[64];
+        std::snprintf(key, sizeof key, "new_daily_bonus_%d", (int)days);
+        Setting s(key);
+        if (s.GetChild(0).GetChildrenCount() == 0) add(s);
+        else
+            for (unsigned i = 0; i < s.GetChildrenCount(); ++i) add(s.GetChild(i));
+    } else if (days == 5) {
+        g_bonuses.push_back(BonusInfo{0xb, 0x2000, 0, 1});
+    }
+    int social = 0;
+    if (GameState::GetFacebookConnection()) social = Setting("connect_fb_bonus").GetInt();
+    if (GameState::GetTwitterConnection()) social += Setting("connect_tw_bonus").GetInt();
+    if (social != 0) g_bonuses.push_back(BonusInfo{8, 0, 0, (uint32_t)social});
+    g_bonusCount = (unsigned)g_bonuses.size();
+
+    for (unsigned i = 0; i != 3; ++i) {
+        ItemIconHolder& h = g_items[i];
+        h.root->MoveWindow(-g_bottomShift, 0);
+        if (i >= g_bonusCount) {
+            h.root->SetVisibility(false);
+            continue;
+        }
+        h.root->SetVisibility(true);
+        const BonusInfo& b = g_bonuses[i];
+        if (b.type != 0xb) {
+            h.icon->SetTexture(IconManager::GetIcon(GameState::GetResourceMapIconName((int)b.type), false), true);
+        } else if (b.item >= 0x2000) {
+            h.icon->SetTexture(IconManager::GetIcon("chest_small", false), true);
+        } else if (Items::ItemInfo* info = Items::GetItemInfo(b.item)) {
+            h.icon->SetTexture(info->GetIcon(), true);
+        } else if (EntityData* data = EntityFactory::GetEntityByID((int)b.entity)) {
+            h.icon->SetTexture(data->side0, true);
+        }
+        h.quantity->SetVisibility(b.amount > 1);
+        h.quantity->SetText(ToWideString((int)b.amount));
+    }
+    g_bottomShift = g_bonusCount < 3 ? (int)(g_items[0].root->w * (3 - g_bonusCount)) >> 1 : 0;
+    for (unsigned i = 0; i != 3; ++i) g_items[i].root->MoveWindow(g_bottomShift, 0);
+    g_collectText->SetText(StringTable::GetString(days == 5 ? "DAILY_BONUS_CLAIM_CHEST" : "DAILY_BONUS_CLAIM_BONUS"));
+}
 
 }  // namespace DailyBonusWindow
