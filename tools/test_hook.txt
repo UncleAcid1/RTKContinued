@@ -120,6 +120,11 @@
                 for (int id : {55,58,93,97,100,121,122,123,124,125,127,137,138,151,172,176,177,178,179,180,185,186,189,252,253,254,348,384,385,386,387,388,513,538,539}) { Items::ItemInfo* it = Items::GetItemInfo((uint32_t)id); std::printf("[t] item %d %s type %u shop %u cost %u/%u premium %d\n", id, it ? it->name : "?", it ? it->type : 0, it ? it->shopTab : 0, it ? it->cost : 0, it ? it->cost2 : 0, it ? (int)it->premium : -1); }
             }
             if (i == envi("RTK_SHOPVIS", -1)) std::printf("[t] shop visible %d shown %d\n", (int)ItemShopWindow::IsVisible(), (int)ItemShopWindow::Queue()->shown);
+            if (i == envi("RTK_NEED", -1)) { NeedItemWindow::SetParameters((uint32_t)envi("RTK_NEEDITEM", 136), nullptr); NeedItemWindow::Show(); std::printf("[t] need shown %d shop %d\n", (int)NeedItemWindow::IsVisible(), (int)ItemShopWindow::IsVisible()); }   // 5q-5a
+            if (i == envi("RTK_NEEDBUY", -1)) { NeedItemWindow::SetParameters((uint32_t)envi("RTK_NEEDITEM", 136), nullptr); NeedItemWindow::OnBuy(); std::printf("[t] need buy: shop %d\n", (int)ItemShopWindow::IsVisible()); if (envi("RTK_CONT", 0)) ItemShopWindow::SetContinuationAfterTargetIsPurchased(new GUI::Callback([] { std::printf("[t] continuation ran\n"); })); }
+            if (i == 31 && envi("RTK_SHOPUNLOCK", 0)) GameState::CompleteTask((unsigned)Setting("shop_unlock_task").GetInt(), false);
+            if (i == envi("RTK_TASKSHOP", -1)) { TaskInfoWindow::SetTask((uint32_t)envi("RTK_TASK", 0x5b7), true); TaskInfoWindow::Show(); std::printf("[t] task boss form shown\n"); }
+            if (i == envi("RTK_SHOPVIS2", -1)) std::printf("[t] shop visible %d need %d\n", (int)ItemShopWindow::IsVisible(), (int)NeedItemWindow::IsVisible());
             if (i == envi("RTK_SHOP", -1)) { ItemShopWindow::Show(); std::printf("[t] shop shown %d\n", (int)ItemShopWindow::IsVisible()); }   // 5q-2
             if (i == envi("RTK_SHOPLIST", -1)) {   // 5q-1: the shop's lists
                 for (int id : {122, 513, 348, 349, 0x88, 56, 771, 1, 0x2d2}) std::printf("[t] canBuy %d: %d\n", id, (int)ItemShopWindow::ItemCanBeBought((uint32_t)id, 0));

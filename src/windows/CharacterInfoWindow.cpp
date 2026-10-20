@@ -568,8 +568,11 @@ void OnPreviewBuy(bool confirmed) {
 }
 
 
-// @0x27dc88. UNVERIFIED (milestone 5, 5q): ItemShopWindow::Show.
-void OnShop() { Hide(); }
+// @0x27dc88
+void OnShop() {
+    Hide();
+    ItemShopWindow::Show();
+}
 
 // @0x27ba44: the set window on the set panel's set (else the first set).
 void OnSetInfo() {
@@ -1207,10 +1210,10 @@ void CompleteEquipTaskFor(uint32_t id) {
     for (; c; c = Collections::GetCollectionWithSource(c->to)) Tasks::CompleteSubtask(0x26, c->to, 1);
 }
 
-// @0x27ba6c: the screen point of the worn belt's slot, when a belt is worn and the window is open.
-// UNVERIFIED (milestone 5, 5q): not while the item shop is open (ItemShopWindow::IsVisible).
+// @0x27ba6c: the screen point of the worn belt's slot, when a belt is worn and the window is open
+// (not over the item shop).
 bool CanMoveIntoEquippedBelt(int& x, int& y) {
-    if (!g_root->visibleSelf || !g_equipped[8]) return false;
+    if (!g_root->visibleSelf || !g_equipped[8] || ItemShopWindow::IsVisible()) return false;
     x = g_root->x + g_equip[8].bg->x;
     y = g_root->y + g_equip[8].bg->y;
     return true;
@@ -1559,11 +1562,11 @@ void OnRepair() {
     UpdateContents();
 }
 
-// @0x283e14: one of the selected piece thrown away. UNVERIFIED (milestone 5, 5q):
-// ItemShopWindow::UpdateContents.
+// @0x283e14: one of the selected piece thrown away.
 void OnRemove() {
     const SelectedItem sel = GetSelectedItem();
     if (sel.data) GameState::RemoveItem(sel.data->id, 1);
+    ItemShopWindow::UpdateContents();
     UpdateContents();
 }
 
@@ -1873,7 +1876,7 @@ void Show() {
     g_scroller.firstIndex = 0;
     g_keepHp = true;
     g_scroller.HandleMove(-g_scroller.offset);
-    // UNVERIFIED (milestone 5, 5q): ItemShopWindow::PrepareSpecialEventCost.
+    ItemShopWindow::PrepareSpecialEventCost();
     UpdateContents();
     g_root->PreloadTextures();   // GUI::PreloadWindow
 }

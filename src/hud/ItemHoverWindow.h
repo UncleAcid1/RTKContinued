@@ -7,7 +7,7 @@
 // shop, crafting, chest, task, army windows ...); in 5.11 only BeltBarWindow and BattleBarWindow
 // of them are ported so far.
 //
-// UNVERIFIED (later milestones): the actions that open unported windows (item shop, crafting,
+// UNVERIFIED (later milestones): the actions that open unported windows (crafting,
 // repair, tavern / army, global map, raids, valor, the friends hub) are stand-ins that only
 // hide the popup; see each handler.
 #pragma once

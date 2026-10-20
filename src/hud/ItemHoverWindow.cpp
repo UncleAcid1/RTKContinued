@@ -55,7 +55,6 @@ void SetLine(ItemHoverWindow::EffectLine& l, const char32_t* text, const char* i
 bool LevelInfoWindowIsVisible() { return LevelInfoWindow::IsVisible(); }
 bool RaidInfoWindowIsVisible() { return RaidInfoWindow::IsVisible(); }
 bool ChestsWindowIsVisible() { return ChestsWindow::IsVisible(); }
-bool ItemCanBeBought(uint32_t) { return false; }           // ItemShopWindow::ItemCanBeBought (5)
 uint32_t GetMissionMapForItem(uint32_t id) { return GlobalMapWindow::GetMissionMapForItem(id, 0); }
 uint32_t GetMapForCraftItem(uint32_t id) { return GlobalMapWindow::GetMapForCraftItem(id, 0); }
 
@@ -733,7 +732,7 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
             ItemButton& shop = buttons[kShop];
             unsigned t = inf->type;
             bool kind = t == 3 || t == 7 || (Professions::IsProfessionTool(inf->id) && broken) || !inv;
-            shop.root->SetVisibility(kind && (ItemCanBeBought(inf->id) || Items::GetItemPackWithItem(inf->id)));
+            shop.root->SetVisibility(kind && (ItemShopWindow::ItemCanBeBought(inf->id, 0) || Items::GetItemPackWithItem(inf->id)));
             shop.root->SetEnabled(!GameState::IsArenaCombatActive() &&
                                   GameState::TaskCompleted(Setting("shop_unlock_task").GetInt()));
             shop.blue->SetVisibility(false);
@@ -987,7 +986,7 @@ void ItemHoverWindow::OnUnequip() {
     BuildingHovers::HideArrow();
     CharacterInfoWindow::ShowInventoryItem(item->id, 5, item);
     CharacterInfoWindow::OnEquip(false);
-    // UNVERIFIED (milestone 5, 5q): ItemShopWindow::UpdateContents.
+    ItemShopWindow::UpdateContents();
     Hide();
 }
 
@@ -1020,7 +1019,7 @@ void ItemHoverWindow::OnRemove() {
 // @0x385314
 void ItemHoverWindow::OnRemoveActual() {
     GameState::RemoveUniqueItem(item->uniqueId);
-    // UNVERIFIED (milestone 5): ItemShopWindow::UpdateContents.
+    ItemShopWindow::UpdateContents();
     if (PopupSelectionWindow::IsVisible()) PopupSelectionWindow::Hide();
     CharacterInfoWindow::UpdateContents();
 }
@@ -1049,12 +1048,12 @@ void ItemHoverWindow::OnFind() {
     }
     if (!info && resource == 0xb) return;
     BuildingHovers::HideArrow();
-    // The windows the popup may sit over are hidden first. UNVERIFIED (milestone 5): also
-    // ItemShopWindow, ArenaDifficultyWindow, PlayerInfoWindow, PlayerCompetitionWindow (not
-    // ported yet).
-    CraftItemWindow::Hide();
+    // The windows the popup may sit over are hidden first. UNVERIFIED (milestones 5s / 5u):
+    // ArenaDifficultyWindow, PlayerInfoWindow and PlayerCompetitionWindow (not ported yet).
     CharacterInfoWindow::Hide();
+    ItemShopWindow::Hide();
     HireTroopsWindow::Hide();
+    CraftItemWindow::Hide();
     LevelInfoWindow::Hide();
     CampaignInfoWindow::Hide();
     if (!info) {
@@ -1101,10 +1100,17 @@ void ItemHoverWindow::OnFind() {
 // @0x384f6c
 void ItemHoverWindow::OnShop() {
     if (!info) return;
-    // UNVERIFIED (milestone 5): PlayerCompetitionWindow / PlayerInfoWindow hidden when both show;
-    // the item shop on the item (ItemShopWindow::ShowShopItem, mode 3 for 0x250) or on a pack with it
-    // (ShowShopPack). The item shop is not ported.
+    // UNVERIFIED (milestone 5u): PlayerCompetitionWindow / PlayerInfoWindow hidden when both show.
     BuildingHovers::HideArrow();
+    if (ItemShopWindow::ItemCanBeBought(info->id, 0)) {
+        ItemShopWindow::Show();
+        ItemShopWindow::ShowShopItem(info->id, 0, true, info->id == 0x250 ? 3 : (unsigned)-1);
+    } else if (Items::ItemInfo* pack = Items::GetItemPackWithItem(info->id)) {
+        if (ItemShopWindow::PackCanBeBought(pack->packId)) {
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopPack(pack->packId, true);
+        }
+    }
     Hide();
 }
 

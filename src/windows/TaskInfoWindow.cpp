@@ -6,7 +6,7 @@
 // Not ported, marked where they happen: the boss form of the window (a boss's portrait, fight /
 // shop buttons, OnFight: milestone 5), the task locator icon (4d part 4), ExecuteFirstHelp
 // (0x35d3dc, the autoplay bot: 4d part 4), the windows Show opens for a few special tasks (chests,
-// PvP, item shop: milestone 5), sounds (6).
+// PvP, the item shop's tabs: milestone 5), sounds (6).
 #include <cstdio>
 #include <vector>
 
@@ -350,6 +350,15 @@ void OnFight() {
     }
     Hide();
 }
+// @0x35a4f8: the boss form's Shop: the player retreats (not for quest 0x5b7) and the item shop
+// opens on its tab 3.
+void OnShop() {
+    if (g_task != 0x5b7) EntityManager::GetPlayer()->GetAI()->Retreat();
+    ItemShopWindow::Show();
+    ItemShopWindow::ShowShopTab(3);
+    Hide();
+}
+
 void SetOnContinue(void (*cb)()) { g_onContinue = cb; }         // @0x359e9c
 void Hide() { HideWindow(); }                                   // @0x35a490
 
@@ -443,7 +452,7 @@ void Init() {
     g_shopIcon->takesZ = true;
     g_shopText = GUI::GetWindowTypedF<Textfield>(g_root, "button_boss_boss_%02d.button_boss_task_button.text_upgrade", 2);
     g_fight->SetOnClick(OnFight);
-    g_shop->SetOnClick([] {});    // UNVERIFIED (milestone 5): OnShop (0x35a4f8) (the item shop's tab 3)
+    g_shop->SetOnClick(OnShop);
     g_fight->MoveWindow(0, (int)(g_scale * 20.f));
     g_shop->MoveWindow(0, (int)(g_scale * 20.f));
     g_rewardHolder = GUI::GetWindowTyped<Window>(g_root, "task_reward_holder");

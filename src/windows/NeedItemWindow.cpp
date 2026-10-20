@@ -3,16 +3,16 @@
 // quest's items to hand over (SetItemsToBeRemoved), an item to find (SetFindParameters) or what a
 // map object needs (SetSearchParameters), with OK / Cancel callbacks.
 // Port of NeedItemWindow (libkingdom.so 5.11), 0x2f4660..0x2f6b80. Statics at 0x6257e0.
-//
-// The item shop is milestone 5 (ItemShopWindow::ItemCanBeBought is false until then), so Show for
-// an item goes straight to OnProduce, as the original does for an item the shop does not sell.
 #include <functional>
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
+#include "game/AIState.h"
 #include "game/Contracts.h"
+#include "game/Entity.h"
+#include "game/EntityManager.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
@@ -57,9 +57,6 @@ Window* g_goblin = nullptr;               // 0x62587c char_goblin_hint
 Window* g_empty = nullptr;                // 0x625880 char_empty_hint
 Shared::ButtonTripleInfo g_button3;       // 0x625884 button_3 (hidden)
 int g_rootScale = 0;                      // 0x60f2ec (the root's scale field, unused)
-
-bool ItemCanBeBought(uint32_t) { return false; }   // ItemShopWindow::ItemCanBeBought: UNVERIFIED (5)
-bool PackCanBeBought(uint32_t) { return false; }   // ItemShopWindow::PackCanBeBought: UNVERIFIED (5)
 
 void DropCallbacks() {
     delete g_onOk;
@@ -304,15 +301,30 @@ void OnBuy() {
         return;
     }
     Items::ItemInfo* pack = Items::GetItemPackWithItem(g_item);
-    if (ItemCanBeBought(g_item) || (pack && PackCanBeBought(pack->packId))) {
-        // UNVERIFIED (milestone 5): ItemShopWindow::Show, ShowShopItem(item, 0, true, -1) or
-        // ShowShopPack(pack id, true); with a decoration that asked, the shop's continuation after the
-        // purchase (SetContinuationAfterTargetIsPurchased: the player's AI vfunc +0x144 on it).
+    if (ItemShopWindow::ItemCanBeBought(g_item, 0) || (pack && ItemShopWindow::PackCanBeBought(pack->packId))) {
+        ItemShopWindow::Show();
+        if (ItemShopWindow::ItemCanBeBought(g_item, 0))
+            ItemShopWindow::ShowShopItem(g_item, 0, true, (unsigned)-1);
+        else if (pack)
+            ItemShopWindow::ShowShopPack(pack->packId, true);
+        // With a map object that asked: once the item is bought and the shop closed, the hero walks
+        // to it again (AutoInteraction, then BuildingHovers::OnDecorClick(decor, 0, 0, false)).
+        if (g_decor) {
+            if (Entity* player = EntityManager::GetPlayer()) {
+                AIBaseState* ai = player->GetAI();
+                Map::Decor* decor = g_decor;
+                ItemShopWindow::SetContinuationAfterTargetIsPurchased(new GUI::Callback([ai, decor] {
+                    ai->AutoInteraction();
+                    BuildingHovers::OnDecorClick(decor, 0, 0);
+                }));
+            }
+        }
         Hide();
         return;
     }
-    if (!ItemCanBeBought(g_findItem)) return;
-    // UNVERIFIED (milestone 5): ItemShopWindow::Show, ShowShopItem(find item, 0, true, -1).
+    if (!ItemShopWindow::ItemCanBeBought(g_findItem, 0)) return;
+    ItemShopWindow::Show();
+    ItemShopWindow::ShowShopItem(g_findItem, 0, true, (unsigned)-1);
     Hide();
 }
 
@@ -404,13 +416,14 @@ void RunLastHelpItem() {
 void Show() {
     if (g_item != 0) {
         Items::ItemInfo* pack = Items::GetItemPackWithItem(g_item);
-        if (!ItemCanBeBought(g_item) && !(pack && PackCanBeBought(pack->packId))) {
+        if (!ItemShopWindow::ItemCanBeBought(g_item, 0) && !(pack && ItemShopWindow::PackCanBeBought(pack->packId))) {
             OnProduce(g_item);
             return;
         }
         unsigned slot = 0;
         if (g_item != 0 && GetBuildingThatProducesItem(g_item, slot) == 0) {
-            // UNVERIFIED (milestone 5): ItemShopWindow::Show, ShowShopItem(item, 0, true, -1).
+            ItemShopWindow::Show();
+            ItemShopWindow::ShowShopItem(g_item, 0, true, (unsigned)-1);
             return;
         }
     }
