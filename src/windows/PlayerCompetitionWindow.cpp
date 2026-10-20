@@ -8,7 +8,7 @@
 // the one in front the shown opponent; arrows, taps on the side figures and a horizontal drag turn
 // it. Under it his squad, his record, the valor bar, Refresh (free, DECIDED 2026-10-20) and Fight:
 // the window closes, the world map travels to the arena (GlobalMapWindow::ShowPvPAnimation) and the
-// fight starts there. UNVERIFIED (milestone 5u): the info button's PlayerInfoWindow.
+// fight starts there. The info button opens a fought opponent's PlayerInfoWindow.
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -386,12 +386,13 @@ void OnWarrior(unsigned i) {
     Render::SortRenderLayer(0xe, 1);
 }
 
-// @0x308d28 the shown opponent's profile, once fought.
+// @0x308d28 the shown opponent's profile, once fought (beaten or won against).
 void OnInfo() {
     PvP::PlayerInfo* p = ShownPlayer();
     if (!p) return;
-    if (p->f420 != 0) {
-        // UNVERIFIED (milestone 5u): PlayerInfoWindow::SetParameters(p->gid, true); PlayerInfoWindow::Show().
+    if (p->defeated != 0) {
+        PlayerInfoWindow::SetParameters(p->gid, true);
+        PlayerInfoWindow::Show();
         return;
     }
     PopupWindow::Show(StringTable::GetString("PVP_BATTLE_TO_SHOW_INFO"), PopupWindow::Hide, nullptr, nullptr);
@@ -437,9 +438,12 @@ void DataDownloadCallback(bool ok) {
     g_loadFailed[g_mode] = false;
     if (g_tab != 0 && g_tab != 3 && g_tab != 2 && PvP::GetLoadedDataType() != 5) return;
     if (PvP::GetRandomPlayerGID(5, true) == 0) return;
-    if (g_fightGID != 0) OnFight();
-    // else UNVERIFIED (milestone 5u): PlayerInfoWindow::SetParameters(PvP::GetRandomPlayerGID(5, true), true);
-    // PlayerInfoWindow::Show().
+    if (g_fightGID != 0) {
+        OnFight();
+    } else {
+        PlayerInfoWindow::SetParameters(PvP::GetRandomPlayerGID(5, true), true);
+        PlayerInfoWindow::Show();
+    }
     // (LoadingInternetWindow::Hide: online)
 }
 

@@ -44,6 +44,7 @@ int StringToResourceType(const char* name);
 int ExternalResourceTypeToInternal(unsigned type);   // @0x190d44 data files: 0 gold, 1 crystal, 2.. lumber..    // @0x192580 (case-insensitive; unknown -> GOLD)
 
 bool IsPlayerCity();                           // @0x1905b8: city state 0 or 1
+int GetCurrentCity();                          // @0x190590 the city state (0x6129d0)
 int GetCurrentLocation();                      // @0x190530: 0 city, 1 farm, 2 campaign, 3 arena
 void SetCurrentLocation(int location);         // @0x190544
 uint32_t GetCurrentMapID();                    // @0x190558

@@ -264,7 +264,16 @@
                 PvP::PlayerInfo* s = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
                 BaseCombat* c = GameState::GetActiveCombat();
                 std::printf("[t] f=%d pvp window %d queued %d list1 %d selected %d (%s def %d) map %u world %d combat %d/%d victories %u valor %u\n", i, (int)PlayerCompetitionWindow::IsVisible(), (int)PlayerCompetitionWindow::CombatQueued(), n1, PlayerCompetitionWindow::GetSelectedPlayerGID(), s && s->name ? std::string(s->name, s->name + std::char_traits<char32_t>::length(s->name)).c_str() : "-", s ? s->defeated : -1, GameState::GetCurrentMapID(), (int)GlobalMapWindow::IsVisible(), c ? c->GetType() : -1, c ? c->GetState() : -1, PvP::GetVictoryCount(), GameState::GetProfessionPoints(7));
+                if (s) { std::printf("[t] f=%d rival slots", i); for (int k = 0; k != 10; ++k) if (s->equipment.items[k].id) std::printf(" %d", k); std::printf(" (info window %d)\n", (int)PlayerInfoWindow::IsVisible()); }   // 5u
                 if (envi("RTK_PVPAUTO", 0) && c && c->GetType() == 6) if (auto* a = dynamic_cast<ArenaCombat*>(c)) { static bool on = false; if (!on && c->GetState() > 0) { a->AutoCombat(); on = true; std::printf("[t] auto combat on\n"); } }
+            }
+            if (i == envi("RTK_NAMETAG", -1) - 1) for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k) std::printf("[t] ent %u at %d,%d player %d enemy %d active %d appeared %d talk %u\n", e->GetEntityData()->id, e->tileX, e->tileY, (int)e->IsPlayer(), (int)e->IsEnemy(), (int)e->IsActive(), (int)e->IsAppeared(), e->GetTalkTask());
+            if (i == envi("RTK_NAMETAG", -1)) {   // 5u: a worker given the first rival's GUID shows his name tag
+                PvP::LoadPvPData(1, nullptr, 0, nullptr);
+                PvP::PlayerInfo* r = nullptr;
+                for (unsigned k = 0; PvP::PlayerInfo* p = PvP::EnumPlayers(k); ++k) if (p->type == 1 && p->gid > 0) { r = p; break; }
+                for (unsigned k = 0; Entity* e = EntityManager::EnumEntities(k); ++k)
+                    if (r && !e->IsPlayer() && !e->IsEnemy() && e->IsActive() && !e->IsDead() && !e->GetTalkTask() && e->GetEntityData()->id == (uint32_t)envi("RTK_NAMEID", 0)) { e->SetGUID((uint32_t)r->gid); std::printf("[t] f=%d name tag on entity %u at %d,%d gid %d\n", i, e->GetEntityData()->id, e->tileX, e->tileY, r->gid); float wx = 0, wy = 0; e->GetWorldPos(wx, wy); Render::CenterOn(wx, wy); break; }
             }
             if (i == envi("RTK_PVPLOAD", -1)) {   // 5t-3: the offline server's list, the cache, the tutorial's end
                 auto dump = [](int type) {

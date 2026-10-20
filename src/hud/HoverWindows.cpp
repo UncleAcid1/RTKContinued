@@ -16,6 +16,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Map.h"
+#include "game/PvP.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "game/AIState.h"
@@ -1549,6 +1550,59 @@ void BossTimeHoverWindow::Show() {
     if (shownHover) return;
     BuildingHoverWindow::Show();
     root->SetVisibility(true);
+}
+
+// ---- PlayerNameHoverWindow ---------------------------------------------------------------------
+
+// @0x391c40
+PlayerNameHoverWindow::~PlayerNameHoverWindow() { delete root; }
+
+// @0x391b7c
+void PlayerNameHoverWindow::Init() {
+    root = GUI::RegisterUI("../resource/kingdom_ui/1Original/Pvp_player_name.xml", "Pvp_player_name.png", 1.f, 0, 0,
+                           0, 0, false, 1.f);
+    root->SetVisibility(false);
+    root->SetScreenSpace(false);
+    if (root->texture) Render::SetMagnifyFilter(root->texture, true);
+    text = GUI::GetWindowTypedF<GUI::Textfield>(root, "text_pvp_player_name");
+    text->SetWorldOverscale(true);
+}
+
+// @0x391844
+void PlayerNameHoverWindow::SetZ(float z) { root->SetZ(z); }
+
+// @0x391860
+bool PlayerNameHoverWindow::Click(int x, int y, bool pressed) {
+    if (!shownHover) return false;
+    return root->Click(x, y, pressed, false);
+}
+
+// @0x391810
+void PlayerNameHoverWindow::Show() {
+    if (shownHover) return;
+    shownHover = true;
+    root->SetVisibility(true);
+}
+
+// @0x391b44
+void PlayerNameHoverWindow::Hide() {
+    if (!shownHover) return;
+    root->SetVisibility(false);
+    BuildingHoverWindow::Hide();
+}
+
+// @0x391ae4: centred, lowered by the entity's "icon_y".
+void PlayerNameHoverWindow::SetPosition(int x, int y) {
+    if (entity) y += entity->GetEntityData()->iconY;
+    BuildingHoverWindow::SetPosition(x, y);
+    root->SetPosition(x - root->w / 2, y);
+}
+
+// @0x39189c: the rival with the entity's GUID.
+void PlayerNameHoverWindow::SetEntity(Entity* e) {
+    BuildingHoverWindow::SetEntity(e);
+    if (PvP::PlayerInfo* info = PvP::GetPlayerInfoByGID(e->GetGUID(), 0xff))
+        text->SetText(SWPrintf(0x80, U"%s [%d]", {info->name, info->level}).c_str());
 }
 
 // ---- TalkHoverWindow ---------------------------------------------------------------------------

@@ -162,6 +162,24 @@ public:
     GUI::Textfield* text = nullptr;    // +0x38 button_work_here.text_red
 };
 
+// A PvP rival's "name [level]" over his head on a map (Pvp_player_name.xml). Port of
+// PlayerNameHoverWindow (@0x391810..0x391d50, 0x3c bytes).
+class PlayerNameHoverWindow : public BuildingHoverWindow {
+public:
+    PlayerNameHoverWindow() { name = "PlayerNameHoverWindow"; }   // @0x391d04 (also @0x391d50)
+    ~PlayerNameHoverWindow() override;           // @0x391c40 (deleting @0x391c94, @0x391cb0)
+    void Init() override;                        // +0x08 @0x391b7c
+    void SetZ(float z) override;                 // +0x10 @0x391844
+    bool Click(int x, int y, bool pressed) override;   // +0x14 @0x391860
+    void Show() override;                        // +0x1c @0x391810
+    void Hide() override;                        // +0x20 @0x391b44
+    void SetPosition(int x, int y) override;     // +0x3c @0x391ae4
+    void SetEntity(Entity* e) override;          // +0x44 @0x39189c
+
+    GUI::Window* root = nullptr;       // +0x34
+    GUI::Textfield* text = nullptr;    // +0x38 text_pvp_player_name
+};
+
 // The hero's own speech bubble, next to his portrait (PlayerTopWindow::SetParameters): a quest's
 // text without a giver, tutorial hints. Port of PlayerHintHoverWindow (@0x390ee4..0x3917b0,
 // Dialog_hint_hd.xml, 0x68 bytes).

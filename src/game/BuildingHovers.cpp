@@ -212,14 +212,16 @@ void HoverInfo::SetHoverType(int t) {
         w = new TalkHoverWindow();
     else if (t == kHealthbarTiny)
         w = new HealthbarTinyHoverWindow();
-    // (HealthbarHoverWindow, 0xd, is never asked for in 5.11.) UNVERIFIED (milestone 5):
-    // PlayerNameHoverWindow (0x11), FriendInfoHoverWindow (0x13) come after the sleeping window.
+    // (HealthbarHoverWindow, 0xd, is never asked for in 5.11; FriendInfoHoverWindow, 0x13, is
+    // online.)
     else if (t == kUseItem)
         w = new UseItemHoverWindow();
     else if (t == kBossTime)
         w = new BossTimeHoverWindow();
     else if (t == kFarmSleeping || t == kDelivery)
         w = new SleepingHoverWindow();
+    else if (t == kPlayerName)
+        w = new PlayerNameHoverWindow();
     else
         return;
     window = w;
@@ -1101,11 +1103,18 @@ void UpdateHovers() {
                         h->SetHoverType(kBossTime);
                     goto checked;
                 }
-                // UNVERIFIED (milestone 5): for an entity with a GUID in view, the player's name
-                // (0x11) comes before the farm's.
                 // A ripe soil patch on the farm view shows its crop.
                 if (e->GetAI() && e->GetAI()->GetState() == 0x19 && Map::GetCurrentFarm()) {
                     h->SetHoverType(kFarmReady);
+                    goto checked;
+                }
+                // A PvP rival on the map (an entity with a GUID) shows his name while the fog
+                // does not hide him.
+                if (e->GetGUID() != 0 && e->IsActive() && !e->IsDead()) {
+                    if (Render::Sprite* sp = e->GetSprite())
+                        h->SetHoverType(Fog::IsVisible((int)sp->x, (int)(sp->y - sp->h), (int)(sp->x + sp->w), (int)sp->y)
+                                            ? kPlayerName
+                                            : kNone);
                     goto checked;
                 }
             }

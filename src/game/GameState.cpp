@@ -301,6 +301,7 @@ int StringToResourceType(const char* name) {
 }
 
 bool IsPlayerCity() { return (unsigned)g_cityState <= 1; }
+int GetCurrentCity() { return g_cityState; }   // @0x190590
 int GetCurrentLocation() { return g_location; }
 void SetCurrentLocation(int location) { g_location = location; }
 uint32_t GetCurrentMapID() { return g_mapId; }

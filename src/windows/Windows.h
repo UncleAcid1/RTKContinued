@@ -684,6 +684,18 @@ void SetDefeatedPlayer(uint32_t spawn);     // @0x301f68
 bool HasDefeatedPlayer(uint32_t spawn);     // @0x301f7c
 }
 
+// A player's profile card (windows/PlayerInfoWindow.cpp): his figure, gear and stats; with compare
+// the player's own card beside it.
+namespace PlayerInfoWindow {
+WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "PlayerInfoWindow" (0x62a610)
+void Init();                                // @0x3273f0
+bool IsVisible();                           // @0x325250
+void SetParameters(int gid, bool compare);  // @0x325294 (0: the player himself)
+void Show();                                // @0x32696c
+void Hide();                                // @0x326a9c
+void UpdateContents();                      // @0x3263c8
+}
+
 namespace ArenaEventWindow {
 WindowManager::FunctionalWindow* Queue();   // static FunctionalWindow "ArenaEventWindow"
 void Init();                                // @0x248780

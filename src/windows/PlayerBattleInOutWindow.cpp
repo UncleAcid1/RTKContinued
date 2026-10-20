@@ -5,7 +5,6 @@
 // winner's / loser's medal over each, the valor bar, and FoundItemsWindow's loot strip with its
 // buttons. A tap (intro) or the strip's buttons (outro) fade it out.
 // Port of PlayerBattleInOutWindow (libkingdom.so 5.11), 0x2fe2c8..0x301ad8. Statics at 0x625e34.
-// UNVERIFIED (milestone 5): PlayerInfoWindow (the opponent's profile, OnInfo).
 // (milestone 6: SoundsManager "arena_win".) Online (dormant): PvP::ReportStateToServer.
 #include <algorithm>
 #include <cmath>
@@ -206,8 +205,11 @@ float ZRange() { return g_queue->shown ? 0.03f : 0.001f; }
 
 void Move(int, int) {}   // @0x2fe510
 
-// @0x2ff298 UNVERIFIED (milestone 5): PlayerInfoWindow::SetParameters(g_gid, false) and Show.
-void OnInfo() {}
+// @0x2ff298 the opponent's profile.
+void OnInfo() {
+    PlayerInfoWindow::SetParameters((int)g_gid, false);
+    PlayerInfoWindow::Show();
+}
 
 // @0x2fe610
 bool OnBack() {

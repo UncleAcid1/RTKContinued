@@ -443,7 +443,7 @@ void OnActualHelp() {
     ArenaDifficultyWindow::Hide();
     CampaignInfoWindow::Hide();
     PlayerCompetitionWindow::Hide();
-    // UNVERIFIED (milestone 5u): PlayerInfoWindow::Hide().
+    PlayerInfoWindow::Hide();
     if (GameState::GetCurrentMapID() == 0) {
         HealSquadWindow::Hide();
     } else if (Entity* player = EntityManager::GetPlayer()) {

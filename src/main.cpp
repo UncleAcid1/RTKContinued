@@ -837,6 +837,7 @@ int main_Loop_Init() {
     NotEnoughWindow::Queue();
     PlayerBattleInOutWindow::Queue();
     PlayerCompetitionWindow::Queue();
+    PlayerInfoWindow::Queue();
     PlayerTopWindow::Queue();
     PopupSelectionWindow::Queue();
     PopupWindow::Queue();

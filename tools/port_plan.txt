@@ -308,7 +308,8 @@ dead  ^(AsyncBaseCombat|AsyncCombat|AIPlayerBot)::   # (checked 2026-10-20) no c
 online  ^PvP::(GetArmyInfo|GetBISItems)$   # only the server request (CMyServer::NET_PvPGetData, GameState::SendPlayerData / SendPlayerData2)
 dead  ^PvP::(QueuePvPWindowOpen|GetMyRating|GetPlayerCount|GetPlayerInfo)$   # (checked 2026-10-20) no call, no address taken
 5t  ^(AsyncBaseCombat|AsyncCombat|PvPArenaCombat|AIPlayerBot|PvP)::
-5u  ^(AsyncCombat_v2|PlayerInfoWindow|PlayerNameHoverWindow)::
+dead  ^AsyncCombat_v2::   # (checked 2026-10-20) no call to its constructors (@0x104340 / @0x104390) and no vtable load outside them and its destructors
+5u  ^(PlayerInfoWindow|PlayerNameHoverWindow)::
 5v  ^(PresentsContainer)::
 5w  ^(EditorConsole|Editor|DebugViewer|CombatTestBot)::
 5x  ^(HireTroopsWindow|RepairWindow|Spells|SpellMovement|AISpell|PlaceMagicHoverWindow|BossCombat|BossCombatWaves|BossIntroWindow|BossOutroWindow|BossTimeHoverWindow|BossIntroEffect|FastBossIntroEffect|SiegeCombat|AISiegeAttacker|StartRaidingWindow|RaidInfoWindow|RaidCompleteWindow|GlobalMapWindow|Professions|Collections|Sets|SetInfoWindow|SultanArrivingWindow|BottomScreenshotWindow)::
