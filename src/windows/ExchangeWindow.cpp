@@ -383,7 +383,7 @@ void SetZ(float z) {
     g_root->SetPosition(g_tween->GetCenteredX(), g_tween->GetCenteredY());
 }
 
-void OnTweenIn() {}   // @0x2ac3b4 UNVERIFIED (milestone 5): PlaySound("ui_money_win_opened")
+void OnTweenIn() { SoundsManager::PlaySound("ui_money_win_opened", 1, false); }   // @0x2ac3b4
 
 // @0x2ac380
 void OnTweenOut() {

@@ -5,11 +5,12 @@
 // winner's / loser's medal over each, the valor bar, and FoundItemsWindow's loot strip with its
 // buttons. A tap (intro) or the strip's buttons (outro) fade it out.
 // Port of PlayerBattleInOutWindow (libkingdom.so 5.11), 0x2fe2c8..0x301ad8. Statics at 0x625e34.
-// (milestone 6: SoundsManager "arena_win".) Online (dormant): PvP::ReportStateToServer.
+// Online (dormant): PvP::ReportStateToServer.
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -668,7 +669,7 @@ void Show() {
             FoundItemsWindow::SetZ(GetZ());
             g_profession = Professions::GetProfession(7);
             g_points = GameState::GetProfessionPoints(g_profession->id);
-            // (milestone 6: SoundsManager "arena_win" on a win.)
+            if (g_won) SoundsManager::PlaySound("arena_win", 1, false);
             g_target = (uint32_t)GameState::GetMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), 0x249) +
                        g_points;
             g_barTimer = -0.5f;

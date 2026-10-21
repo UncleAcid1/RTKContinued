@@ -1575,7 +1575,8 @@ void OnHire(unsigned n, bool confirmed) {
         return;
     }
     // (FileManager::OnItemBought("warrior_%d", ...) and Billing::LogCBPurchase(0x19, ...): purchase
-    // statistics, removed.) UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+    // statistics, removed.)
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(9, -price);
     if (g_tab == 5) {
         if (Map::Building* b = Map::GetBuildingWithID(0x12)) b->HireGolbin();
@@ -1650,7 +1651,7 @@ void Update(float dt) {
 // button, in step 0x61 the first card's; with ShowForBuilding's flag at the first card's build
 // button.
 void OnTweenIn() {
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound(g_tab == 0 ? "ui_tavern_opened" : "ui_barracks_opened").
+    SoundsManager::PlaySound(g_tab == 0 ? "ui_tavern_opened" : "ui_barracks_opened", 1, false);
     if (GameState::tutorial == 0x61) g_arrowSlot = 0;
     if (g_arrowSlot != -1) {
         TaskInfoWindow::BlockArrowLimitChangeOnce();
@@ -1772,7 +1773,8 @@ void OnRefresh(unsigned n, bool confirmed) {
         return;
     }
     // (FileManager::OnItemBought and Billing::LogCBPurchase(0x1a, ...): purchase statistics,
-    // removed.) UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+    // removed.)
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(9, -price);
     Tavern::TavernInfo* offer = g_offers[g_scroller.firstIndex + n];
     GameState::SetTavernWarriorTS(offer->entity, (uint32_t)(Timer::GetGlobalTime() - g_respawn[g_tab]));
@@ -1800,7 +1802,8 @@ void OnHintGold(bool confirmed) {
         return;
     }
     // (FileManager::OnItemBought("reserve_slot", ...) and Billing::LogCBPurchase(0x1b, ...): purchase
-    // statistics, removed.) UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+    // statistics, removed.)
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(9, -price);
     GameState::SetSoldierReserveSlots(GameState::GetSoldierReserveSlots() + 1);
     UpdateContents();

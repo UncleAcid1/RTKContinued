@@ -249,8 +249,7 @@ void OnHealPlayer(bool confirmed) {
             ConfirmPurchaseWindow::Show();
             return;
         }
-        // SoundsManager::PlaySound("ui_buy_with_crystals"): milestone 6. (Billing::LogCBPurchase:
-        // purchase statistics, removed.)
+        SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);   // (Billing::LogCBPurchase: removed)
         GameState::ChangeResourceAmount(9, -cost);
         if (player->IsDead()) player->SetAnimationP("idle_1", true, false, false);
         player->SetHP(player->GetHpMax());

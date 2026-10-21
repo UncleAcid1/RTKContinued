@@ -1,4 +1,5 @@
 // HUDWindow: the driver of the city HUD. Port of HUDWindow (libkingdom.so 5.11), 0x2c6498..0x2c9e00.
+#include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 
 #include <algorithm>
@@ -410,7 +411,8 @@ void ShowMapName(const char32_t* name) {
         g_mapNameW = (float)t->w;
         g_mapNameH = (float)-t->h;
     }
-    // UNVERIFIED (milestone 5): "emperor_map_enter" on map 0xb, "farm_map_enter" on mission maps.
+    if (GameState::GetCurrentMapID() == 0xb) SoundsManager::PlaySound("emperor_map_enter", 1, false);
+    else if (Locations::IsMissionMap((uint32_t)GameState::GetCurrentMapID())) SoundsManager::PlaySound("farm_map_enter", 1, false);
 }
 
 // @0x2c7ba8 HUDWindow::UpdateTasks

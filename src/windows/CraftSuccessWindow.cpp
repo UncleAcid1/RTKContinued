@@ -7,6 +7,7 @@
 // the share ticks icon_social_03 and their toggles OnTwitterToggle (0x2a4634) / OnFacebookToggle
 // (0x2a4644)) is not offered; the share button is the plain "Ok" and the ticks stay hidden.
 // UNVERIFIED (milestone 6): the sound.
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Text.h"
 #include "engine/Timer.h"
@@ -234,7 +235,7 @@ void Show() {
         WindowManager::WindowShow(false);
         g_tween->AnimateIn();
         if (GameState::GetCurrentLocation() == 2) GameState::RaiseGamePauseState();
-        // UNVERIFIED (milestone 6): with a profession, SoundsManager::PlaySound("ui_level_up", 1, false).
+        if (g_profession) SoundsManager::PlaySound("ui_level_up", 1, false);
     }
     g_root->SetVisibility(true);
     UpdateContents();

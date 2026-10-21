@@ -4,6 +4,7 @@
 //
 // PORT (online removed): the Facebook/Twitter share (WallPost from level 3, the
 // ShareButtonsHolder ticks) is not offered; Ok only closes the window.
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "game/GameState.h"
 #include "game/Setting.h"
@@ -50,7 +51,7 @@ void SetZ(float z) {
     g_root->SetPosition((GUI::ScreenWidth() - g_root->w) / 2, GUI::GetVerticalCenter(g_root->h));
 }
 
-void OnTweenIn() {}   // @0x2e74e0 UNVERIFIED (milestone 5): PlaySound("ui_task_complete")
+void OnTweenIn() { SoundsManager::PlaySound("ui_task_complete", 1, false); }   // @0x2e74e0
 
 // @0x2e74ac
 void OnTweenOut() {

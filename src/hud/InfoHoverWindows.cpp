@@ -1713,7 +1713,9 @@ void ResourceHoverWindow::Show() {
         BuildingHovers::ArrowAt((float)(holder->w + holder->x), (float)(holder->y + holder->h / 2), false, true, false,
                                 false, true, false, false);
     }
-    // SoundsManager::PlaySound("work_lumber_started" / "work_stone_started", 1, true): milestone 5.
+    if (!building) return;
+    if (building->data->produceResource == 0) SoundsManager::PlaySound("work_lumber_started", 1, true);
+    else if (building->data->produceResource == 1) SoundsManager::PlaySound("work_stone_started", 1, true);
 }
 
 void ResourceHoverWindow::SetPosition(int x, int y) {

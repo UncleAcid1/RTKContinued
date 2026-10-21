@@ -12,6 +12,7 @@
 // Not ported: TutorialSender's report to the server (FileManager::NotifyTutorialStep, online);
 // SkipTutorialStep @0x366498 and the game bot (StartTutorialSkip, StartGameBot have no caller in
 // 5.11, so their flags 0x630925 / 0x630924 are never set); the sounds (milestone 6).
+#include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 
 #include <cstdio>
@@ -624,7 +625,7 @@ void Update(float dt) {
         soldier->GetAI()->UpdateLastTarget();
         player->SetDirection(7);
         EntityManager::Update(0.f);
-        // SoundsManager::PlayMusic("music_battle_map", true) unless it plays: milestone 6.
+        if (!SoundsManager::IsMusicPlaying("music_battle_map")) SoundsManager::PlayMusic("music_battle_map", true);
         GameState::ChangeResourceAmount(GameState::kLumber, Setting("pretut_resources_lumber").GetInt());
         GameState::ChangeResourceAmount(GameState::kFood, Setting("pretut_resources_food").GetInt());
         GameState::ChangeResourceAmount(GameState::kRocks, Setting("pretut_resources_rocks").GetInt());

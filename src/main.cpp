@@ -260,11 +260,25 @@ void Tick(float dt) {
     if (!GameState::IsPaused()) {
         Entity::SetCurrentTime((uint32_t)Timer::GetGlobalTime());
         EntityManager::Update(dt);
-        // The running fight; a finished one is deleted here. (The battle-map music returns a few
-        // seconds later: milestone 6.)
+        // The running fight; a finished one is deleted here, and 10 s later the map's music returns
+        // if the fight music still plays (0x612924, a double).
+        static double musicReturn = 0.0;
         if (GameState::IsCombatActive()) {
-            if (!GameState::GetActiveCombat()->IsCompleted()) GameState::GetActiveCombat()->Update(dt);
-            else GameState::EndActiveCombat(false);
+            if (!GameState::GetActiveCombat()->IsCompleted()) {
+                GameState::GetActiveCombat()->Update(dt);
+            } else {
+                GameState::EndActiveCombat(false);
+                musicReturn = 10.0;
+            }
+        }
+        if (musicReturn > 0.0) musicReturn -= dt;
+        if (musicReturn < 0.0) {
+            musicReturn = 0.0;
+            if (SoundsManager::IsMusicPlaying("music_fight") && !GameState::IsCombatActive()) {
+                if (Map::GetTileset() == 0) SoundsManager::PlayMusic("music_battle_map", true);
+                else if (Map::GetTileset() == 1) SoundsManager::PlayMusic("music_winter", true);
+                else if (Map::GetTileset() == 2) SoundsManager::PlayMusic("desert/sand_theme", true);
+            }
         }
         Map::Update(dt);
     }
@@ -418,7 +432,8 @@ void Wheel(int amount) {
 }
 
 // Key presses (SDL_KEYDOWN in main_Loop_Func, by scancode). While a text field is edited they go
-// to TextInput; otherwise volume up/down (milestone 6: SoundsManager::SetVolume_Master), the
+// to TextInput; otherwise volume up/down (SoundsManager::SetVolume_Master(+-1): Android's media
+// volume through Java; PORT: the Mac's volume keys work on the system volume, so not handled), the
 // menu key (and V) opens the settings and the back key (and Y) goes to the windows' Back.
 void KeyDown(int scancode) {
     if (TextInput::enabled) {

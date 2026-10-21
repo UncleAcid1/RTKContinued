@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/SpellMovement.h"
 
 #include <cmath>
@@ -196,7 +197,7 @@ void Decline() {
     g_active = false;
     RemovePlacementInfo();
     if (BaseCombat* combat = GameState::GetActiveCombat()) combat->SpellAreaSelectionEnded();
-    // (milestone 6: SoundsManager::PlaySound("ui_swing_out", 1, false))
+    SoundsManager::PlaySound("ui_swing_out", 1, false);
 }
 
 void Accept() {

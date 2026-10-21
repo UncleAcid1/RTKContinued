@@ -1102,7 +1102,7 @@ void Building::OnBuilded() {
     } else if (cls == 7) {
         UpdateStorageMax();
     }
-    // UNVERIFIED (milestone 5): SoundsManager "building_build_end".
+    SoundsManager::PlaySound("building_build_end", 1, false);
 }
 
 void Building::OnUpgraded() {
@@ -1125,7 +1125,7 @@ void Building::OnUpgraded() {
         if (farmEntity && farmEntity->GetSprite()) Render::SetVisibility(farmEntity->GetSprite(), true);
     }
     Tasks::CompleteSubtask(Tasks::kUpgradeHouse, id, 1);
-    // UNVERIFIED (milestone 5): SoundsManager "building_upgrade_end".
+    SoundsManager::PlaySound("building_upgrade_end", 1, false);
 }
 
 void Building::HireGolbin() {

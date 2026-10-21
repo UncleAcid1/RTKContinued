@@ -145,8 +145,7 @@ void OnRepair() {
             NotEnoughWindow::Show();
             return;
         }
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals", 1, false) for
-        // the crystal repair.
+        if (c.option == 2) SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);   // the crystal repair
     }
     // The gold repairs restore part of the missing durability (up to the current maximum, which
     // becomes the new durability); the crystal repair restores all of it.

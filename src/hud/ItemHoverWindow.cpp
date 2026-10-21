@@ -1,4 +1,5 @@
 // ItemHoverWindow (see ItemHoverWindow.h). Offsets are the original's.
+#include "engine/SoundsManager.h"
 #include "hud/ItemHoverWindow.h"
 
 #include <cstdio>
@@ -927,8 +928,7 @@ void ItemHoverWindow::OnDrink() {
     Entity* player = EntityManager::GetPlayer();
     Items::ItemInfo* inf = item->info;
     if (inf->meta && !inf->meta->CanApplyItemEffect(player)) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("rope_use" for type 5, "ui_task_complete"
-    // for 0xe, else "drink_potion", 1, false).
+    SoundsManager::PlaySound(inf->type == 5 ? "rope_use" : inf->type == 0xe ? "ui_task_complete" : "drink_potion", 1, false);
     if (inf->type == 0xe) {
         if (inf->meta && inf->meta->FindChildData(kExpBuffTime))
             GameState::ActivateItemBuff(item->id, inf->meta->FindChildData(kExpBuffTime)->GetInt());

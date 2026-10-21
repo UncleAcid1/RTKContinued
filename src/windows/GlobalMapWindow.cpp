@@ -5,11 +5,11 @@
 // UNVERIFIED (milestone 5): the windows its nodes open (PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
 // quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
-// Sounds and music: milestone 6 (each call site is noted).
 #include <cmath>
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -865,7 +865,7 @@ void AnimateSepiaIn() {
 // @0x2be6b8: the tutorial's walk from the start node to the castle (2 s; ambush: the banner
 // halfway). The first argument is not used.
 void ShowTutorialAnimation(float, bool ambush, float t) {
-    // (SoundsManager "ui_map_mark_move": milestone 6)
+    SoundsManager::PlaySound("ui_map_mark_move", 1, false);
     g_t = t;
     g_ambush = ambush;
     g_traveling = true;
@@ -1048,7 +1048,7 @@ void OnTaskCompleted(uint32_t task) {
             if (4 < crystals) crystals = 5;
             std::printf("Adding %d crystals for 100%% completion of campaign %d\n", crystals, (int)i->id);
             GameState::AddCrystals(crystals);
-            // (SoundsManager "ui_100_percents": milestone 6)
+            SoundsManager::PlaySound("ui_100_percents", 1, false);
             CampaignPerfectedWindow::SetParameters(i->id, t);
             CampaignPerfectedWindow::Show();
         }
@@ -1103,7 +1103,8 @@ void Hide() {
     g_velY = 0.f;
     g_velX = 0.f;
     if (!g_locations[0]->window->visibleSelf) return;
-    // (SoundsManager: back in the city "music_city" plays unless it is playing: milestone 6)
+    if (GameState::GetCurrentMapID() == 0 && !SoundsManager::IsMusicPlaying("music_city"))   // back in the city
+        SoundsManager::PlayMusic("music_city", true);
     if (g_world->sprite) Render::SetVisibility(g_world->sprite, false);
     for (Location* loc : g_locations) loc->Hide();
     for (Render::Sprite* s : g_pattern) Render::SetVisibility(s, false);
@@ -1208,7 +1209,7 @@ void SwitchMapAnimated(uint32_t map, bool keep, float pixelsPerSecond, bool ambu
         TaskHolderWindow::UpdateTasks();
         return;
     }
-    // (SoundsManager "ui_map_mark_move": milestone 6)
+    SoundsManager::PlaySound("ui_map_mark_move", 1, false);
     g_keep = keep;
     g_traveling = true;
     g_ambush = ambush;
@@ -1391,7 +1392,7 @@ void Update(float dt) {
             BossIntroWindow::SetAmbush();
             BossIntroWindow::SetBossName(StringTable::GetString("TUT_AMBUSH"));
             BossIntroWindow::Show();
-            // (SoundsManager "battle_boss_intro": milestone 6)
+            SoundsManager::PlaySound("battle_boss_intro", 1, false);
             arrived = true;
         }
         if (arrived) {
@@ -1616,7 +1617,7 @@ void CenterOnMap(uint32_t map) {
 
 // @0x2c4038: the marker travels to the arena (map 0x74) for a PvP fight (map 0x70).
 void ShowPvPAnimation() {
-    // (SoundsManager "ui_map_mark_move": milestone 6)
+    SoundsManager::PlaySound("ui_map_mark_move", 1, false);
     g_ambush = false;
     g_keep = false;
     g_tutorialAnim = false;
@@ -1658,7 +1659,8 @@ void ArrowAtMap(uint32_t map, bool keep, bool center) {
 // 0x67 of the tutorial the arrow points at map 0xe's node and only it takes taps.
 void Show() {
     if (GameState::GetCurrentMapID() == 0 && Map::GetCurrentFarm()) HUDWindow::ExitFarm();
-    // (SoundsManager: "music_battle_map" unless playing, "ui_map_opened": milestone 6)
+    if (!SoundsManager::IsMusicPlaying("music_battle_map")) SoundsManager::PlayMusic("music_battle_map", true);
+    SoundsManager::PlaySound("ui_map_opened", 1, false);
     const bool wasShown = g_queue->shown;
     g_queue->shown = true;
     g_queue->MoveWindowOnTop(true);

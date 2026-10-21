@@ -1014,8 +1014,13 @@ void BuildProgressHoverWindow::SetDecoration(Map::Decor* d) {
     int& step = GameState::tutorial;
     if (step < 0x5f && GetSpeedUpCost() > 0) {
         left = 1.f;
-        if (step == 0x1e) step = 0x1f;        // (SoundsManager: milestone 6)
-        else if (step == 0x3a) step = 0x3b;
+        if (step == 0x1e) {
+            step = 0x1f;
+            SoundsManager::PlaySound("building_build_start", 1, false);
+        } else if (step == 0x3a) {
+            step = 0x3b;
+            SoundsManager::PlaySound("building_build_start", 1, false);
+        }
         OnSpeedUp(true);
     }
     // The box is kept on screen (unless the camera is already moving).
@@ -1096,7 +1101,7 @@ void BuildProgressHoverWindow::OnSpeedUp(bool confirmed) {
         }
     }
     int step = GameState::TutorialStep();
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_on_speedup") unless at steps 0x3b, 0x1f.
+    if (step != 0x3b && step != 0x1f) SoundsManager::PlaySound("ui_on_speedup", 1, false);
     speedT = 1.f - left;
     speedingUp = true;
     fake = false;

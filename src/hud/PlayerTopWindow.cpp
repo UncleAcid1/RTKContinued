@@ -267,7 +267,7 @@ void SetParameters(const char32_t* text, uint32_t task, bool, bool noNext) {
     if (task != 0 && g_dialog->task == task) return;
     if (g_dialog->shownHover) g_dialog->OnClose();
     BuildingHovers::HideWorldDialog(nullptr);
-    // SoundsManager::PlaySound("interact_entity_MN3talks" / "..FN3talks"): milestone 6.
+    SoundsManager::PlaySound(EntityManager::GetPlayer()->IsMale() ? "interact_entity_MN3talks" : "interact_entity_FN3talks", 1, false);
     g_dialog->Show();
     g_dialog->SetParameters(StringTable::GetUndecoratedString(text, 0x200).c_str(), task);
     if (noNext) g_dialog->HideNextButton();

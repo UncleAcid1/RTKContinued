@@ -4,6 +4,7 @@
 // Port of ChapterWindow (libkingdom.so 5.11), 0x27a054..0x27ae4c. Statics at 0x6192c8.
 #include <cmath>
 
+#include "engine/SoundsManager.h"
 #include "game/GameState.h"
 #include "game/Locations.h"
 #include "game/StringTable.h"
@@ -52,7 +53,7 @@ void SetZ(float z) {
 // @0x27a208
 void OnTweenIn() {
     if (WindowManager::GetShownWindowCount() == 1 && WindowManager::Head() != g_queue) g_queue->MoveWindowOnTop(true);
-    // UNVERIFIED (milestone 6): "ui_chapter_opened".
+    SoundsManager::PlaySound("ui_chapter_opened", 1, false);
 }
 
 // @0x27a128: the chapter's task is completed, the tutorials move on, the HUD returns.

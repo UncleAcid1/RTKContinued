@@ -693,7 +693,7 @@ void OnTweenOut() {
 
 // @0x294208: the starter chest opens with a sound.
 void OnTweenIn() {
-    // UNVERIFIED (milestone 6): with g_starterMode SoundsManager::PlaySound("chest_opened", 1, false).
+    if (g_starterMode) SoundsManager::PlaySound("chest_opened", 1, false);
     UpdateContents();
 }
 

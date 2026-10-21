@@ -5,7 +5,6 @@
 //
 // The reputation screens (SetReputation, from ArenaCombat: an arena event lost) show the event's
 // loot (FoundItemsWindow) and the reputation bar over a black band, and end the event.
-// UNVERIFIED (milestone 6): their sound "arena_lose" and SoundsManager::StopMusic.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -13,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
@@ -323,7 +323,8 @@ void Show() {
         }
         FoundItemsWindow::Show();
         FoundItemsWindow::SetHeader(StringTable::GetString("ARENA_WAVE_DEFEAT_HEADER"));
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("arena_lose", 1, false), StopMusic.
+        SoundsManager::PlaySound("arena_lose", 1, false);
+        SoundsManager::StopMusic();
         if (Entity* player = EntityManager::GetPlayer())
             Render::CenterOn(player->worldX, player->worldY - player->GetIdleHeight(), true, 0.4f, 0, false);
     }

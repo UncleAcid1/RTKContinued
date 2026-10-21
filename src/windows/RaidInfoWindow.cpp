@@ -1051,7 +1051,7 @@ void Show() {
     UpdateContents();
     g_root->PreloadTextures();   // GUI::PreloadWindow
     GameState::RaiseGamePauseState();
-    // UNVERIFIED (milestone 6): when completed, SoundsManager::PlaySound("ui_task_complete", 1, false).
+    if (g_completed) SoundsManager::PlaySound("ui_task_complete", 1, false);
     g_animateOnce = false;
 }
 

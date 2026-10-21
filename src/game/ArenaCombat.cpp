@@ -2,6 +2,7 @@
 // @0x1f31dc..0x1f4da4.
 //
 // UNVERIFIED (milestone 6): the sounds.
+#include "engine/SoundsManager.h"
 #include "game/Combat.h"
 
 #include <cmath>
@@ -333,7 +334,7 @@ void ArenaCombat::WaveCleared() {
     timeMult = 1.f;
     SwitchState(2);
     if (wave != waveCount) {
-        // (SoundsManager "ui_campaign_completed": milestone 6)
+        SoundsManager::PlaySound("ui_campaign_completed", 1, false);
         GameState::GetActiveCombat()->Continue(7);
         return;
     }
@@ -460,7 +461,7 @@ void ArenaCombat::BeginCombat(BaseSquad* player, BaseSquad* enemy) {
         hero->SetHP(playerSquad->GetOwner()->GetHpMax());
         GameState::UpdatePlayerRegenerationState();
     }
-    // (SoundsManager "arena_win": milestone 6)
+    SoundsManager::PlaySound("arena_win", 1, false);
     SetupWave();
     Map::Decor* d = Map::GetDecoration(0xf, 0x17);
     if (!d) return;
@@ -1157,7 +1158,7 @@ void PvPArenaCombat::BeginCombat(BaseSquad* player, BaseSquad* enemy) {
         hero->SetHP(playerSquad->GetOwner()->GetHpMax());
         GameState::UpdatePlayerRegenerationState();
     }
-    // (SoundsManager "arena_win": milestone 6)
+    SoundsManager::PlaySound("arena_win", 1, false);
     SetupWave();
 }
 
@@ -1360,7 +1361,7 @@ step:
 void PvPArenaCombat::OnValorReceived(unsigned valor) {
     waitingForServer = false;
     GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), 0x249, (int)valor);
-    // (SoundsManager "ui_campaign_completed": milestone 6)
+    SoundsManager::PlaySound("ui_campaign_completed", 1, false);
     PvP::SetVictoryCount(PvP::GetVictoryCount() + 1);
     PlayerBattleInOutWindow::SetModeOutro();
     PlayerBattleInOutWindow::SetParameters(PlayerCompetitionWindow::GetSelectedPlayerGID(), true);

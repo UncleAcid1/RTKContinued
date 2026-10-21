@@ -4,11 +4,11 @@
 // and the map the fight started from is loaded again (OnTweenOut).
 // Port of BossOutroWindow (libkingdom.so 5.11), 0x253a54..0x255080. Statics at 0x617f9c.
 //
-// UNVERIFIED (milestone 6): the arena's sound "arena_win" and SoundsManager::StopMusic in Show.
 #include <algorithm>
 #include <cstdio>
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Text.h"
@@ -154,7 +154,8 @@ void Show() {
         const int found = GameState::GetMapItemCollectionInfo(GameState::GetCurrentMapID(), 0x1ba);
         g_time = -0.5f;
         g_endPoints = (uint32_t)found + g_startPoints;
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("arena_win", 1, false), StopMusic.
+        SoundsManager::PlaySound("arena_win", 1, false);
+        SoundsManager::StopMusic();
     }
     FoundItemsWindow::SetParameters((uint32_t)GameState::GetCurrentMapID(), g_boss,
                                     StringTable::GetString(GameState::IsArenaCombatActive() ? "ARENA_WAVE_FOUND" : "BOSS_OUTRO_FOUND"));

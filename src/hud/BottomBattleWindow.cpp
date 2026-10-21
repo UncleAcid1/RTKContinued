@@ -15,6 +15,7 @@
 // potion hints' actions (5k, 5l), the round mask on the centre button's icon, showing the bar
 // on every campaign map (Map::Load).
 // (milestone 6: the "ui_click" sound and the spells' sounds and particles.)
+#include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 
 #include <cmath>
@@ -352,6 +353,7 @@ void OnRight() {
         if (!SpellMovement::Activated()) OnBlock();
         else SpellMovement::Decline();
     }
+    SoundsManager::PlaySound("ui_click", 1, false);
 }
 
 // @0x259208: attack (the arenas) or the boss fight's attack stance. At second-tutorial step 0x9e
@@ -378,6 +380,7 @@ void OnLeft() {
         BuildingHovers::HideArrow();
         SpellMovement::Accept();
     }
+    SoundsManager::PlaySound("ui_click", 1, false);
 }
 
 // The tutorial's arrow at a button: its callback, the interaction lock on `lock`.
@@ -855,7 +858,8 @@ bool CastSlot(unsigned i) {
         Entity* target = enemy->GetRandomAliveSolider();
         enemy->SetActiveSoldier(target);
         SpellMovement::Activate(spell, target->tileX, target->tileY);
-        // (milestone 6: SoundsManager "ui_swing_in", ParticlePresets::SpellPreload(spell id, 0))
+        SoundsManager::PlaySound("ui_swing_in", 1, false);
+        // (milestone 6: ParticlePresets::SpellPreload(spell id, 0))
         return true;
     }
     Entity* target = enemy->GetActiveSoldier();
@@ -882,8 +886,9 @@ bool CastSlot(unsigned i) {
     g_flyToX = (int)target->worldX;
     g_flyToY = (int)(target->worldY - 20.f);
     player->OnSpellCast(target);
-    // (milestone 6: SoundsManager "spell_fly"; ParticlePresets::SpellPreload(spell id, 0). Online,
-    // dormant: OG::MakeRequest(0x14, 0x10, spell id, -1, 0).)
+    SoundsManager::PlaySound("spell_fly", 1, false);
+    // (milestone 6: ParticlePresets::SpellPreload(spell id, 0). Online, dormant: OG::MakeRequest(0x14,
+    // 0x10, spell id, -1, 0).)
     return true;
 }
 
@@ -1253,9 +1258,13 @@ void OnCenter() {
              StringTable::GetString(player->IsSpeedRunning() ? "BOTTOM_BAR_DEACTIVATED" : "BOTTOM_BAR_ACTIVATED")});
         BuildingHovers::ShowTextHoverWithStyle((float)x, (float)y, text.c_str(), 0xe, 2.f, 50.f, true, false);
         if (!player->IsSpeedRunning()) {
-            if (player->GetAP() != 0) player->GetSquad()->EnableSpeedRun();   // (milestone 6: "ui_activate_slot")
+            if (player->GetAP() != 0) {
+                player->GetSquad()->EnableSpeedRun();
+                SoundsManager::PlaySound("ui_activate_slot", 1, false);
+            }
         } else {
-            player->GetSquad()->DisableSpeedRun();   // (milestone 6: "ui_deactivate_slot")
+            player->GetSquad()->DisableSpeedRun();
+            SoundsManager::PlaySound("ui_deactivate_slot", 1, false);
         }
         return;
     }
