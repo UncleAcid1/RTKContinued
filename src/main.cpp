@@ -282,6 +282,8 @@ void Tick(float dt) {
         }
         Map::Update(dt);
     }
+    for (float& t : GameState::dialogueTimer)
+        if (t < 20.f) t += dt;
     Render::UpdateCamera(dt);
     Render::ApplyViewportLimit();
     Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)

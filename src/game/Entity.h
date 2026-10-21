@@ -241,6 +241,9 @@ public:
     // @0x1577c0: the hero has reached it. Its talk task's step is done; without one its special talk
     // opens a window (0x1d7 the travel choice, 0x578 task 0x5b7's window, the arena's: milestone 5).
     void OnTalkTo();
+    // OnTalkTo / BuildingHovers::ShowWorldDialog: "interact_entity_" + ("emperor_" or M / F and N (fat) /
+    // S) + "1talks" / "2talks" / "3talks" by the level and the voice's GameState::dialogueTimer.
+    std::string GetTalkSoundName() const;
     AI::Waypoint* GetCurentWP() const { return waypoint; }       // @0x150a08
     bool HasFixedLocation() const;               // @0x1518c8
     bool HasRandomLocation() const;              // @0x151914
@@ -307,6 +310,7 @@ public:
     // @0x15e7ac: takes the attacker's blow (never the last HP: Death does that); returns the damage
     // and what it absorbed.
     int OnHit(Entity* attacker, int* absorbed);
+    void PlayHitSound(Entity* attacker);         // @0x15e3b0 (PlayHitSound(bool) @0x15de7c: dead)
     void Hit();                                  // @0x157ce8 the HUD and the spilled gold / experience
     void OnDying(Entity* attacker);              // @0x15d28c the death animation starts
     void OnDeath(Entity* attacker);              // @0x153388 the death animation ended

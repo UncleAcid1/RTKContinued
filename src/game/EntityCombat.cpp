@@ -3,6 +3,7 @@
 // Port of the combat functions of Entity (libkingdom.so 5.11, @0x14ffb4..0x15e7ac).
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -223,8 +224,9 @@ int Entity::GetCritChance() { return critChance + f8c + GetItemCriticalChanceBon
 
 void Entity::OnBlock(Entity* attacker) {
     attacker->GetItemDamageBoost(true);
-    // SoundsManager::PlaySound: "battle_block_player" (entities 0xc, 0xd), "battle_block_soldier"
-    // (final class 10), else "battle_block_monster": milestone 6.
+    if (data->id == 0xc || data->id == 0xd) SoundsManager::PlaySound("battle_block_player", 1, false);
+    else if (data->finalClass == 10) SoundsManager::PlaySound("battle_block_soldier", 1, false);
+    else SoundsManager::PlaySound("battle_block_monster", 1, false);
 }
 
 namespace {
@@ -261,8 +263,9 @@ bool Entity::WillDieMagic(Entity*, Spells::SpellInfo* spell, float mult, bool) {
 
 int Entity::OnHitMagic(Entity*, Spells::SpellInfo* spell, int& resisted, float mult, bool) {
     int damage = (int)((float)spell->damage * mult);
-    // SoundsManager::PlaySound by the spell's slot: 1 "spell_cast_fire", 2 "spell_cast_lightning",
-    // 3 "spell_cast_ice": milestone 6.
+    if (spell->slot == 1) SoundsManager::PlaySound("spell_cast_fire", 1, false);
+    else if (spell->slot == 2) SoundsManager::PlaySound("spell_cast_lightning", 1, false);
+    else if (spell->slot == 3) SoundsManager::PlaySound("spell_cast_ice", 1, false);
     int dealt = SpellDamageAfterResist(damage, spell->slot);
     resisted = damage - dealt;
     hp -= dealt;
@@ -319,12 +322,45 @@ void Entity::Hit() {
         BuildingHovers::DropResource(worldX, worldY, 10, (unsigned)xp, false, false);
         spawnPoint->f44 += xp;
     }
-    // SoundsManager::PlaySound("item_dropped_light") when either amount was above 0: milestone 6.
+    if (gold > 0 || xp > 0) SoundsManager::PlaySound("item_dropped_light", 1, false);
+}
+
+namespace {
+bool NameHas(const EntityData* d, const char* s) { return d->name.find(s) != std::string::npos; }   // FUN_00155abc
+}  // namespace
+
+// The attacker's blow: the hero's (male / female, critical: this entity's CriticalHit), a monster's
+// own sound_attack (else "battle_attack_monster"; also without an attacker), a soldier's by its name:
+// "fat" or "superbeard" a morning star at random, "skinny" + "melee" a sword at random, else the
+// first morning star. (PlayHitSound(bool) @0x15de7c, the same with the flag as critical, is only
+// called by the OnHitByEnemy functions: dead in 5.11.)
+void Entity::PlayHitSound(Entity* attacker) {
+    if (!attacker) {
+        SoundsManager::PlaySound("battle_attack_monster", 1, false);
+        return;
+    }
+    const EntityData* d = attacker->GetEntityData();
+    const char* name;
+    if (d->id == 0xc || d->id == 0xd) {
+        if (CriticalHit()) name = attacker->IsMale() ? "battle_attack_male_player_crit" : "battle_attack_female_player_crit";
+        else name = attacker->IsMale() ? "battle_attack_male_player" : "battle_attack_female_player";
+    } else if (d->finalClass != 10 || d->type == 0x11) {
+        SoundsManager::PlaySound(d->soundAttack.empty() ? "battle_attack_monster" : d->soundAttack.c_str(), 1, false);
+        return;
+    } else if (NameHas(d, "fat") || NameHas(d, "superbeard")) {
+        name = (Rand48::lrand48() & 1) == 0 ? "battle_attack_soldier_morningstar1" : "battle_attack_soldier_morningstar2";
+    } else if (NameHas(d, "skinny") && NameHas(d, "melee")) {
+        name = (Rand48::lrand48() & 1) == 0 ? "battle_attack_soldier_sword1" : "battle_attack_soldier_sword2";
+    } else {
+        name = "battle_attack_soldier_morningstar1";
+    }
+    SoundsManager::PlaySound(name, 1, false);
 }
 
 int Entity::OnHit(Entity* attacker, int* absorbed) {
-    // (Entity::PlayHitSound(attacker): milestone 6. The arena bot and the combat test keep a
-    // non-enemy at 50 HP: CombatTestBot and the console's debug combat, dead in 5.11.)
+    PlayHitSound(attacker);
+    // (The arena bot and the combat test keep a non-enemy at 50 HP: CombatTestBot and the console's
+    // debug combat, dead in 5.11.)
     int damage = attacker ? BaseDamage(attacker) : 0;
     if (f15c) damage <<= 1;
     if (!attacker) {
@@ -357,8 +393,18 @@ int Entity::OnHit(Entity* attacker, int* absorbed) {
 }
 
 void Entity::OnDying(Entity* attacker) {
-    // SoundsManager::PlaySound: the hero's, the soldier's (fat / skinny, male / female) or the
-    // monster's death sound (EntityData::GetSoundDeath, else "battle_death_monster"): milestone 6.
+    // The death sound: the hero's, a soldier's (final class 10: fat / skinny, male / female) or the
+    // monster's sound_death, else "battle_death_monster". (PlayDeathSound @0x15d664 is the same with
+    // type 0x11 counted as a monster; only Entity::Die calls it: dead in 5.11.)
+    if (data->id == 0xc || data->id == 0xd) {
+        SoundsManager::PlaySound(IsMale() ? "battle_death_male_player" : "battle_death_female_player", 1, false);
+    } else if (data->finalClass == 10) {
+        SoundsManager::PlaySound(IsFat() ? (IsMale() ? "battle_death_male_soldier_fat" : "battle_death_female_soldier_fat")
+                                         : (IsMale() ? "battle_death_male_soldier_skinny" : "battle_death_female_soldier_skinny"),
+                                 1, false);
+    } else {
+        SoundsManager::PlaySound(data->soundDeath.empty() ? "battle_death_monster" : data->soundDeath.c_str(), 1, false);
+    }
     if ((data->clas == 10 || player) && GameState::IsCombatActive()) GameState::GetActiveCombat()->Pause(this);
     if (IsBoss()) {
         Render::CenterOn(worldX, worldY, true);
@@ -482,7 +528,7 @@ void Entity::OnDeath(Entity* attacker) {
             if (gold > 0) BuildingHovers::DropResource(worldX, worldY, 8, (unsigned)gold, false, false);
             int xp = (int)(xpMult * (float)data->xp) - spawnPoint->f44;
             if (xp > 0) BuildingHovers::DropResource(worldX, worldY, 10, (unsigned)xp, false, false);
-            // SoundsManager::PlaySound("item_dropped_light") when anything dropped: milestone 6.
+            if (gold > 0 || xp > 0) SoundsManager::PlaySound("item_dropped_light", 1, false);
         }
     }
 
@@ -506,9 +552,10 @@ void Entity::OnDeath(Entity* attacker) {
         // of 60% of the hero's HP (at most the HP he came with) as the loot; the combat pauses and,
         // for the hero, hears of it. UNVERIFIED (milestone 5): map 0x70's BossIntroWindow
         // (reputation 1 in the arena, 2 outside) does the same with the reputation screen.
-        // A real opponent hears of it (PvP::ReportStateToServer, state 3). (milestone 6: the defeat sound.)
+        // A real opponent hears of it (PvP::ReportStateToServer, state 3).
         if (GameState::IsPvPCombatActive()) {
             if (PvP::PlayerInfo* p = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff)) {
+                SoundsManager::PlaySound("arena_lose", 1, false);
                 ++p->losses;
                 ++p->f420;
                 p->defeated = 2;
@@ -596,13 +643,15 @@ void Entity::OnDeath(Entity* attacker) {
 void Entity::OnProjectileFired(Entity* target, int kind) {
     delete projectile;
     projectile = nullptr;
-    if (GetAttackRanged() <= 0) return;
-    projectile = new Projectile(0, kind);
-    projectile->SetOwner(this);
-    projectile->MoveTo(target);
-    ai->ChangeState(0x23);
-    // SoundsManager::PlaySound("battle_attack_soldier_bow1" / "..2") for a "skinny" "archer":
-    // milestone 6.
+    if (GetAttackRanged() > 0) {
+        projectile = new Projectile(0, kind);
+        projectile->SetOwner(this);
+        projectile->MoveTo(target);
+    }
+    ai->ChangeState(0x23);   // (also without a ranged attack: the asm's ble skips only the arrow)
+    // A "skinny" "archer" twangs one of two bows.
+    if (NameHas(data, "skinny") && NameHas(data, "archer"))
+        SoundsManager::PlaySound((Rand48::lrand48() & 1) == 0 ? "battle_attack_soldier_bow1" : "battle_attack_soldier_bow2", 1, false);
 }
 
 // @0x150c70: its own arrow has landed. (An AISiegeAttacker is told too: dead in 5.11.)

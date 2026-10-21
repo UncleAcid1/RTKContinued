@@ -733,8 +733,7 @@ int Building::GetFarmState(int p) {
 }
 
 void Building::OnContractCompleted(bool silent) {
-    // UNVERIFIED (milestone 5): SoundsManager "ui_contract_complete" for class 2 when not silent and
-    // the map is not loading.
+    if (data->buildingClass == 2 && !silent && !Map::IsMapLoading()) SoundsManager::PlaySound("ui_contract_complete", 1, false);
     if (trainee) {   // the smoke (or the barracks' trainee)
         EntityManager::RemoveEntity(trainee, true);
         trainee = nullptr;

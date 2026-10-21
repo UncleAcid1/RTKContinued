@@ -36,6 +36,7 @@ bool updated = true;             // 0x60efcc (a change to save)
 int resourceAmountMax = 0;       // 0x6134a4 storage limit (CheckStorageFull)
 int lastResourceAmountMax = 0;   // 0x6134a8 GameState::lastResourceAmountMax
 int maxLevel = 0x1d;             // 0x60efc8
+float dialogueTimer[4] = {20.f, 20.f, 20.f, 20.f};
 int totalGoldSpent = 0;          // 0x613418
 int totalGoldEarned = 0;         // 0x61341c
 int totalCrystalsSpent = 0;      // 0x613420

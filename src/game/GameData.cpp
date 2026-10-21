@@ -66,6 +66,7 @@ bool LoadDecorations(const char* file) {
         d.visid = n.attribute("visid").as_int();
         d.buy = n.attribute("buy").as_bool();
         d.needLevel = n.attribute("need_level").as_int();
+        d.interactionSound = n.attribute("interaction_sound").value();
         d.isRoad = n.attribute("isroad").as_bool();
         d.iconY = n.attribute("icon_y").as_int();
         d.giveable = n.attribute("giveable").as_bool();

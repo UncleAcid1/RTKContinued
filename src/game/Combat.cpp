@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/Combat.h"
 
 #include <algorithm>
@@ -52,10 +53,17 @@ void SeedFight(BaseCombat* c) {
                            (int)GameState::playerSeed));
 }
 
+// BeginCombat's music (Base / Aggro / RangeAggro): the boss's for a boss, else the fight's once the
+// tutorial is at 0x17; not restarted while it plays.
 void FightMusic(BaseCombat* c) {
-    // SoundsManager::PlayMusic("music_boss") for a boss, else "music_fight" once tutorial >= 0x17,
-    // unless it already plays: milestone 6.
-    (void)c;
+    const char* music;
+    if (c->enemySquad->GetOwner()->IsBoss()) {
+        music = "music_boss";
+    } else {
+        if (GameState::tutorial < 0x17) return;
+        music = "music_fight";
+    }
+    if (!SoundsManager::IsMusicPlaying(music)) SoundsManager::PlayMusic(music, false);
 }
 
 void DeletePairs(std::vector<BaseCombat::Pair*>& pairs) {

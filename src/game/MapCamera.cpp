@@ -2,6 +2,7 @@
 // fog there, pointing an arrow, completing a task), the camera shake and the cinematic bars.
 // Port of Map::AddCameraPoint / AddCameraShake / AddCameraCinematic / ClearCameraPoints and their
 // part of Map::Update (@0x1c4dd8).
+#include "engine/SoundsManager.h"
 #include "game/Map.h"
 
 #include <cmath>
@@ -151,7 +152,7 @@ void UpdateCamera(float dt) {
                     BuildingHovers::ArrowAt((float)p.arrowX, (float)p.arrowY, false, false, false, false, false, false,
                                             false);
                 }
-                // UNVERIFIED (milestone 6): "camera_reveal" when this is the only point.
+                if (g_points.size() == 1) SoundsManager::PlaySound("camera_reveal", 1, false);   // the last point
                 g_state = 2;
                 Render::zoom = Render::GetDefaultZoom();
             } else {

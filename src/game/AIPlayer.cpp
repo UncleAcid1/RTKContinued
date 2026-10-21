@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "game/AI.h"
@@ -123,7 +124,7 @@ void AIWarrior::Update(float dt) {
         if (deathTimer < 0.f && land(1)) Death(0.f);
     }
     if (ran(lastHpTimer)) {
-        // (Entity::PlayHitSound unless IsTameTutorial: milestone 6.)
+        if (!GameState::IsTameTutorial()) entity->PlayHitSound(linked);
         entity->SetHP(1);
         lastHpTimer = 0.f;
     }
@@ -222,29 +223,41 @@ void AIWarrior::AnimEnded() {
         st = state;
     }
     if (st != 0x1e) return;
-    // Training: a random swing, block or rest. Sounds: milestone 6 (the random draws are kept).
+    // Training: a random swing (its sound 0.4 s late), block or rest.
     switch (Rand48::lrand48() % 3) {
     case 0: {
         entity->SetAnimationOnce("attack1", false, false, false, true);
         const std::string& n = entity->GetEntityData()->name;
+        const char* sound = "battle_attack_soldier_morningstar1";
         if (n.find("fat") != std::string::npos) {
-            Rand48::lrand48();   // "battle_attack_soldier_morningstar1"/"2"
+            sound = (Rand48::lrand48() & 1) == 0 ? "battle_attack_soldier_morningstar1" : "battle_attack_soldier_morningstar2";
         } else if (n.find("skinny") != std::string::npos && n.find("melee") != std::string::npos) {
-            Rand48::lrand48();   // "battle_attack_soldier_sword1"/"2"
+            sound = (Rand48::lrand48() & 1) == 0 ? "battle_attack_soldier_sword1" : "battle_attack_soldier_sword2";
         } else if (n.find("skinny") != std::string::npos && n.find("archer") != std::string::npos) {
-            Rand48::lrand48();   // "battle_attack_soldier_bow1"/"2"
+            sound = (Rand48::lrand48() & 1) == 0 ? "battle_attack_soldier_bow1" : "battle_attack_soldier_bow2";
         }
-        // (otherwise "battle_attack_soldier_morningstar1"; every attack sound plays 0.4 s late)
+        SoundsManager::PlaySoundDelayed(sound, 1, 0.4f);
         break;
     }
     case 1:
-        entity->SetAnimationOnce("block", false, false, false, true);   // ("battle_block_soldier")
+        entity->SetAnimationOnce("block", false, false, false, true);
+        SoundsManager::PlaySound("battle_block_soldier", 1, false);
         break;
     case 2:
         entity->SetAnimationOnce("idle_1", false, false, false, true);
         break;
     }
 }
+
+namespace {
+// The hero's shout as he sets off: "interact_(fe)male_player_move", "_run" while speed running.
+void MoveShout(Entity* e) {
+    if (e->IsSpeedRunning())
+        SoundsManager::PlaySound(e->IsMale() ? "interact_male_player_move_run" : "interact_female_player_move_run", 1, false);
+    else
+        SoundsManager::PlaySound(e->IsMale() ? "interact_male_player_move" : "interact_female_player_move", 1, false);
+}
+}  // namespace
 
 // ---------------------------------------------------------------------------------------- AIPlayer
 
@@ -346,7 +359,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
         actionTarget = e;
         actionArg = 0;
         action = 8;
-        // "interact_(fe)male_player_move(_run)": milestone 6.
+        MoveShout(entity);
         entity->GetSquad()->MoveTo(wp);
         BuildingHovers::HideWorldDialog(nullptr);
         return;
@@ -380,7 +393,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
             // (OG2::MakeRequest for its spawn point: online statistics.)
             if (GameState::tutorial == 0x51) near = AI::GetWaypoint(0x1b, 0x15, false);
             GotoMarkerAt(e->tileX, e->tileY);
-            // "interact_(fe)male_player_move(_run)": milestone 6.
+            MoveShout(entity);
             BuildingHovers::HideWorldDialog(nullptr);
             entity->GetSquad()->MoveTo(near);
             return;
@@ -404,7 +417,7 @@ void AIPlayer::ClickedEntity(Entity* e) {
         e->OnClick();
         if (e->GetEntityData()->clas == 9 && (!e->GetSpawnPoint() || !e->GetSpawnPoint()->npc)) {
             // A monster: the attack marker on its tile, and the fight begins.
-            // "interact_(fe)male_player_attack": milestone 6.
+            SoundsManager::PlaySound(entity->IsMale() ? "interact_male_player_attack" : "interact_female_player_attack", 1, false);
             AttackMarkerAt(e->tileX, e->tileY);
             GameState::SetCombat(new BaseCombat());
             if (e->IsOnPatrol()) {
@@ -507,8 +520,7 @@ void AIPlayer::ClickedTile(int x, int y, int, int) {
         g_tapTime = (float)Timer::GetTime();
         WindowManager::GetMousePosition(g_tapX, g_tapY);
     }
-    // UNVERIFIED (milestone 6): when the hero walks, "interact_male/female_player_move" (or "..._run"
-    // while speed running).
+    if (!path.empty()) MoveShout(entity);   // (+0x40: the path's step count)
 }
 
 void AIPlayer::Retreat() {
@@ -723,7 +735,7 @@ void AIPlayer::ClickedPortal(Portal* p) {
     if (!wp) return;
     actionTarget = p;
     action = 1;
-    // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+    MoveShout(entity);
     GotoMarkerAt(p->walkX, p->walkY);
     entity->GetSquad()->MoveTo(wp);
     BuildingHovers::HideWorldDialog(nullptr);
@@ -756,7 +768,7 @@ void AIPlayer::ClickedDecoration(Map::Decor* d) {
     bool useful = d->f4c != 0 ? !d->IsLocked() : d->meta && d->meta->FindChildData(kExpPortal);
     if (useful) GotoMarker();
     else BlockedMarker();
-    // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+    MoveShout(entity);
     entity->GetSquad()->MoveTo(wp);
     BuildingHovers::HideWorldDialog(nullptr);
 }
@@ -776,7 +788,7 @@ bool AIPlayer::AssignToJob(Map::Decor* d) {
     ChangeState(0x20);
     action = 3;
     GotoMarkerAt(d->x, d->y);
-    // UNVERIFIED (milestone 6): "interact_(fe)male_player_move(_run)".
+    MoveShout(entity);
     entity->GetSquad()->MoveTo(wp);
     return d->f50 != 0;
 }
@@ -798,7 +810,7 @@ void AIPlayer::ProcessAction() {
     case 1: {   // through the portal
         Portal* p = static_cast<Portal*>(actionTarget);
         if (Map::Decor* d = Map::GetPortalToMap((uint32_t)p->map)) {
-            // UNVERIFIED (milestone 6): Decor::PlayTeleportSound.
+            d->PlayTeleportSound();
             // The travel steps name the decoration ("<map><id>") or its tile; the city also counts
             // as map 0x2f.
             int map = (int)GameState::GetCurrentMapID();

@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/AIState.h"
 
 #include <cmath>
@@ -462,7 +463,7 @@ void AIBaseState::UpdateWalking(float dt, int depth) {
     // UNVERIFIED (milestone 5, running on the rage bar's centre button): the hero's sprint
     // (Entity::IsSpeedRunning) doubles his speed in the city and on map 0xb from level 5, and
     // elsewhere costs AP every "player_sprint_cost" tiles (out of AP: the squad stops running,
-    // BottomBattleWindow::EnableFuryGlow).
+    // "ui_deactivate_slot", BottomBattleWindow::EnableFuryGlow).
     current = nxt;
     if (repathing) repathing = false;
     entity->SetPos(nxt->x, nxt->y);
@@ -523,7 +524,8 @@ void AIWorker::StartWorking() {
             entity->SetDirection(5);
             if (b->GetGatheredResCount() < (int)GameState::GetSetting("stack_size"))
                 entity->SetAnimationP(job == 2 ? "cut" : "miner", true, false, false);
-            // UNVERIFIED (milestone 5): "work_lumber_started" / "work_stone_started" unless offline.
+            if (!entity->GetOfflineMode())
+                SoundsManager::PlaySound(job == 2 ? "work_lumber_started" : "work_stone_started", 1, false);
         } else if (job == 1) {
             b->GetBuildingSpot(px, py);
             entity->SetWorldPos(px, py);
@@ -654,7 +656,7 @@ void AIWorker::AssignToJob(Map::Building* b) {
     if (entity->tileX == wp->x && entity->tileY == wp->y) {
         StartWorking();
     } else {
-        // UNVERIFIED (milestone 5): "worker_assigned" sound.
+        SoundsManager::PlaySound("worker_assigned", 1, false);
         WalkTo(wp->x, wp->y);
         ChangeState(5);
     }
@@ -796,7 +798,7 @@ void AIGoblin::WalkCompleted() {
         if (!anim) {
             entity->SetAnimationP("search_low", true, false, false);
         } else {
-            // UNVERIFIED (milestone 6): "building_build_start" when anim is "build".
+            if (std::strcmp(anim, "build") == 0) SoundsManager::PlaySound("building_build_start", 1, false);
             entity->SetAnimationP(anim, true, false, false);
         }
         ChangeState(8);

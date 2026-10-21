@@ -1,5 +1,6 @@
 // Map::Decor: the job on a decoration (its worker, price and action points) and what its
 // expression answers. Port of the Map::Decor functions @0x130b58..0x13b99c that are not in Map.cpp.
+#include "engine/SoundsManager.h"
 #include "game/Map.h"
 #include <algorithm>
 #include <cstdio>
@@ -668,6 +669,19 @@ bool Decor::ShowUseItemHover() const {
     return false;
 }
 
+namespace {
+// A decoration's meta sound (SOUND, SOUND_PORTAL, TRAP_SOUND): its name and the variant (0 without one).
+void PlayMetaSound(const MetaData* m) {
+    SoundsManager::PlaySound(m->GetChild(0)->GetString(), m->GetChildrenCount() < 2 ? 0 : m->GetChild(1)->GetInt(), false);
+}
+}  // namespace
+
+// @0x131dc0: SOUND_PORTAL (0x5f), when the decoration has one.
+void Decor::PlayTeleportSound() {
+    if (!meta) return;
+    if (const MetaData* m = meta->FindChildData(0x5f)) PlayMetaSound(m);
+}
+
 // @0x132bcc Map::Decor::WorkStarted
 void Decor::WorkStarted() {
     uint32_t now = Timer::GetGlobalTime();
@@ -676,9 +690,21 @@ void Decor::WorkStarted() {
         worker->SetEndWorkTS((int)(now + f50));
         GameState::RefreshOfflineGoblins();
     }
-    // UNVERIFIED (milestone 6): the hero's start sound: SOUND, else the type's sound (DecorData
-    // +0x60), else "gather_grass" / "gather_ore" for a herb / ore node and
-    // "interact_(fe)male_player_interact".
+    // The hero's start sound: SOUND, else the type's interaction_sound, else "gather_grass" /
+    // "gather_ore" for a herb / ore node and "interact_(fe)male_player_interact".
+    if (worker && worker->IsPlayer()) {
+        if (const MetaData* m = meta ? meta->FindChildData(0x5e) : nullptr) {
+            PlayMetaSound(m);
+        } else if (!GetData()->interactionSound.empty()) {
+            SoundsManager::PlaySound(GetData()->interactionSound.c_str(), 1, false);
+        } else {
+            if (Professions::Profession* p = Professions::GetProfessionForObject(id)) {
+                if (p->id == 3) SoundsManager::PlaySound("gather_grass", 1, false);
+                else if (p->id == 4) SoundsManager::PlaySound("gather_ore", 1, false);
+            }
+            SoundsManager::PlaySound(worker->IsMale() ? "interact_male_player_interact" : "interact_female_player_interact", 1, false);
+        }
+    }
     for (int i = 0; i < 11; ++i) {
         if (cost[i] == 0) continue;
         GameState::ChangeResourceAmount(i, -cost[i]);
@@ -719,7 +745,7 @@ void Decor::Update(double dt) {
         }
         if (Timer::GetGlobalTime() > f50 + collectStart) {
             RemoveWorker();
-            // UNVERIFIED (milestone 6): "chest_opened" for a type whose name contains "chest".
+            if (GetData() && GetData()->name.find("chest") != std::string::npos) SoundsManager::PlaySound("chest_opened", 1, false);
             bool usedUp = true;
             if ((int)f4c < 1) f4c = 0;
             else usedUp = --f4c == 0;
@@ -791,7 +817,7 @@ void Decor::TrapDamage(const MetaData* d) {
             }
         }
     }
-    // UNVERIFIED (milestone 6): TRAP_SOUND (0x70: the sound's name and a number).
+    if (const MetaData* m = meta->FindChildData(0x70)) PlayMetaSound(m);   // TRAP_SOUND
     // One of the player's own, hurt near the screen's edge or off it, is shown.
     if (e->GetHP() > 0 && (e == player || e->GetSquad() == player->GetSquad())) {
         int sx = (int)e->worldX, sy = (int)e->worldY;
@@ -939,7 +965,7 @@ void Decor::Finish() {
             RemoveBlockedTiles();
         }
         if (meta->FindChildData(kExpPortal)) TeleportAction(0);
-        // UNVERIFIED (milestone 6): SOUND.
+        if (const MetaData* m = meta->FindChildData(0x5e)) PlayMetaSound(m);   // SOUND
         bool shown = false;
         auto textAndTask = [](const MetaData* m) {
             return m->type == MetaData::kList && m->GetChildrenCount() > 1 &&

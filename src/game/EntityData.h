@@ -26,8 +26,8 @@ struct EntityData {              // 0x160 bytes
     std::string name;            // +0x0c "name"
     const char32_t* title = nullptr;  // +0x24 StringTable name
     int enemyClass = 0;          // +0x28 "enemy_class"
-    std::string soundAttack;     // +0x2c "sound_attack"
-    std::string soundDeath;      // +0x44 "sound_death"
+    std::string soundAttack;     // +0x2c "sound_attack" (GetSoundAttack @0x15ed9c)
+    std::string soundDeath;      // +0x44 "sound_death" (GetSoundDeath @0x15ed84)
     unsigned spawnTime = 0;      // +0x5c "char_spawntime"
     int trainTime = 1;           // +0x60 "char_traintime"
     int speedupCost = 0;         // +0x64 "char_speedupcost"

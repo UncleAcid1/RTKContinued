@@ -341,10 +341,13 @@ void AIFarmerBig::StartHarvesting() {
     entity->OnStartedToWork();
     entity->GetWorkplace()->WorkStarted();
     loops = 1;
-    // SoundsManager::PlaySound("farm_harvest_animal" / "farm_harvest_vegetable"): sounds are not
-    // ported yet.
-    if (entity->GetWorkplace()->id == 0x3ee) entity->SetAnimationOnce("seed", false, false, false, true);
-    else entity->SetAnimationOnce("mow", false, false, false, true);
+    if (entity->GetWorkplace()->id == 0x3ee) {
+        entity->SetAnimationOnce("seed", false, false, false, true);
+        SoundsManager::PlaySound("farm_harvest_animal", 1, false);
+    } else {
+        entity->SetAnimationOnce("mow", false, false, false, true);
+        SoundsManager::PlaySound("farm_harvest_vegetable", 1, false);
+    }
     water = false;
     actionTime = actionLeft = WorkTime(entity);
 }
@@ -388,10 +391,19 @@ void AIFarmerBig::AnimEnded() {
     }
     bool animal = entity->GetWorkplace() && entity->GetWorkplace()->id == 0x3ee;
     switch (state) {
-    case 0xb: entity->SetAnimationOnce("seed", false, false, false, true); break;     // + "farm_start_seeding"
+    case 0xb:
+        entity->SetAnimationOnce("seed", false, false, false, true);
+        SoundsManager::PlaySound("farm_start_seeding", 1, false);
+        break;
     case 0xc: entity->SetAnimationOnce(animal ? "seed" : "watering", false, false, false, true); break;
-    case 0xe: entity->SetAnimationOnce("showel", false, false, false, true); break;   // + "farm_start_cleaning"
-    case 0xd: entity->SetAnimationOnce(animal ? "seed" : "mow", false, false, false, true); break;   // + the harvest sound
+    case 0xe:
+        entity->SetAnimationOnce("showel", false, false, false, true);
+        SoundsManager::PlaySound("farm_start_cleaning", 1, false);
+        break;
+    case 0xd:
+        entity->SetAnimationOnce(animal ? "seed" : "mow", false, false, false, true);
+        SoundsManager::PlaySound(animal ? "farm_harvest_animal" : "farm_harvest_vegetable", 1, false);
+        break;
     default: break;
     }
     --loops;

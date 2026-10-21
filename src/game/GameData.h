@@ -31,6 +31,7 @@ struct DecorData {               // DecorData
     int visid = 0;               // +0x2c "visid" (0: numbered from 500 by ShopWindow::Init)
     bool buy = false;            // +0x30 "buy" (sold in the shop)
     int needLevel = 0;           // +0x54 "need_level"
+    std::string interactionSound;   // +0x60 "interaction_sound" (Decor::WorkStarted's sound)
     bool isRoad = false;         // +0x6e "isroad" (waypoint weight 0.1)
     bool giveable = false;       // +0x31 "giveable"
     uint32_t collectTime = 0;    // +0x34 "collecttime" seconds between a decoration's taxes

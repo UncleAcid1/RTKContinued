@@ -2326,9 +2326,23 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
             PvP::LoadPvPData(4, nullptr, 0, nullptr);
         }
     }
-    // (ProcessOfflineContracts @0x1b7434 is empty.) Music: milestone 6.
+    // (ProcessOfflineContracts @0x1b7434 is empty.)
     GameState::RefreshOfflineGoblins();
     AssignEntities();
+    // The music: the city's; on a map (outside a fight in state 0x11, the boss's) its tileset's, the
+    // battle map's only once the tutorial is past 0x16; none restarted while it plays.
+    if (GameState::GetCurrentMapID() == 0) {
+        if (!SoundsManager::IsMusicPlaying("music_city")) SoundsManager::PlayMusic("music_city", true);
+    } else if (GameState::IsCombatActive() && GameState::GetActiveCombat()->GetState() == 0x11) {
+        if (!SoundsManager::IsMusicPlaying("music_boss")) SoundsManager::PlayMusic("music_boss", false);
+    } else if (GetTileset() == 0) {
+        if (!SoundsManager::IsMusicPlaying("music_battle_map") && GameState::tutorial > 0x16)
+            SoundsManager::PlayMusic("music_battle_map", true);
+    } else if (GetTileset() == 1) {
+        if (!SoundsManager::IsMusicPlaying("music_winter")) SoundsManager::PlayMusic("music_winter", true);
+    } else if (GetTileset() == 2) {
+        if (!SoundsManager::IsMusicPlaying("desert/sand_theme")) SoundsManager::PlayMusic("desert/sand_theme", true);
+    }
     LinkPortals();
     UpdateSpawns();
     LoadScreenFrame();

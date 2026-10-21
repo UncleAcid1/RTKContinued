@@ -607,7 +607,7 @@ bool Click(int x, int y, bool pressed, bool moving) {
                     }
                 }
             } else {
-                // UNVERIFIED (milestone 5): SoundsManager::PlaySound("Build", 0x14, pressed).
+                SoundsManager::PlaySound("Build", 0x14, pressed);   // (no such event in Sounds.xml: says so)
                 Action& r = Root((size_t)hit);
                 const bool smallDrag = std::fabs(g_dragX) < 2.f && std::fabs(g_dragY) < 2.f;
                 if (g_mode == kRotate && smallDrag && r.type == kActMove) {

@@ -300,7 +300,11 @@ void BossCombat::OnEnemyDied() {
 // own. On the arena map (0x70) the arena's statistics are kept instead of the outro, and the hero
 // taps the arena's gate (the decoration at 0xf, 0x17) to leave.
 void BossCombat::EndCombat() {
-    // UNVERIFIED (milestone 6): the map's music (tileset 0, 1, 2), unless it plays already.
+    // The map's music (tileset 0, 1, 2), unless it plays already.
+    const char* music = Map::GetTileset() == 0 ? "music_battle_map"
+                      : Map::GetTileset() == 1 ? "music_winter"
+                      : Map::GetTileset() == 2 ? "desert/sand_theme" : nullptr;
+    if (music && !SoundsManager::IsMusicPlaying(music)) SoundsManager::PlayMusic(music, true);
     bool arenaWon = false;
     if (enemySquad && enemySquad->GetAliveSoldierCount() == 0) {
         killedBoss = true;

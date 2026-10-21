@@ -191,6 +191,7 @@ struct Decor {
     bool TeleportAction(unsigned i);                 // @0x13391c PORTAL's i-th tile (after the tutorials)
     bool PortalAction();                             // @0x131fd8 the hero walks to its portal
     void TeleportPlayerMap(int map);                 // @0x1339cc
+    void PlayTeleportSound();                        // @0x131dc0
     // @0x1339f8: the hero stands on one of TELEPORT_TILE's tiles and the decoration is unlocked:
     // to its map, or to its tile.
     void HandleTeleportTile(const MetaData* d);

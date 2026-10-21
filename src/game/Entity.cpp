@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/Entity.h"
 
 #include <cmath>
@@ -267,7 +268,12 @@ void Entity::Update(float dt) {
     if (appearing && sprite) {
         if (alpha == 0.f && spawnSound) {
             spawnSound = false;
-            // (milestone 6: class 10 soldiers play their spawn sound here.)
+            // A soldier (class 10, not type 0x11, its AI not in state 0x1e) calls out as it appears.
+            if (data->clas == 10 && ai->GetState() != 0x1e && data->type != 0x11) {
+                const char* name = IsFat() ? (IsMale() ? "battle_spawn_male_soldier_fat" : "battle_spawn_female_soldier_fat")
+                                           : (IsMale() ? "battle_spawn_male_soldier_skinny" : "battle_spawn_female_soldier_skinny");
+                SoundsManager::PlaySound(name, 1, false);
+            }
         }
         if (alpha < 1.f) {
             alpha = alpha + dt * speedScale;
@@ -559,8 +565,17 @@ void Entity::Appear(bool glow, bool sound) {
     (void)glow;
     // UNVERIFIED: Map::IsMapLoading (true only during Map::Load) gates this.
     spawnSound = sound;
-    // UNVERIFIED (milestone 5): class 0x10 plays "goblin_spawned"; class 0 workers play
-    // "interact_entity_" + M/F + N/S + "1talks".
+    // UNVERIFIED (milestone 5): the rest above. A goblin (class 0x10) announces itself (not at tutorial
+    // 0x1a), a person (class 0) says hello unless the same line plays.
+    if (data->clas == 0x10) {
+        if (GameState::tutorial == 0x1a) return;
+        SoundsManager::PlaySound("goblin_spawned", 1, false);
+    }
+    if (data->clas != 0) return;
+    std::string name = "interact_entity_";
+    name += IsMale() ? "M" : "F";
+    name += IsFat() ? "N" : "S";
+    SoundsManager::PlaySound((name + "1talks").c_str(), 1, true);
 }
 
 void Entity::OnDisappeared() {
@@ -994,9 +1009,31 @@ void Entity::OnTalkTo() {
     else if (GameState::secondTutorial == 0x219 || GameState::secondTutorial == 0x217) GameState::secondTutorial = 0x21a;
     Tasks::Update(true);
     BuildingHovers::Update(0.0, true);
-    // UNVERIFIED (milestone 6): unless a world dialog shows, its voice: "troll_attack" for a troll
-    // ("type" 2), else "interact_entity_" + (the emperor: "emperor_", else M/F and N (fat) / S) +
-    // "1talks" / "2talks" / "3talks" by the level and GameState::dialogueTimer.
+    // Unless a world dialog shows, its voice: "troll_attack" for a troll (sound_char_type 2), else its talk.
+    if (BuildingHovers::IsWorldDialogVisible()) return;
+    if (data->soundCharType == 2) SoundsManager::PlaySound("troll_attack", 1, true);
+    else SoundsManager::PlaySound(GetTalkSoundName().c_str(), 1, true);
+}
+
+// (Inlined in OnTalkTo @0x157774 and BuildingHovers::ShowWorldDialog @0x268ec8.) Below level 6 a voice
+// rested 20 s says its "3talks" line (rest 10 s); one rested 10 s its "2talks", else "1talks" or
+// "2talks" at random (rest 0).
+std::string Entity::GetTalkSoundName() const {
+    std::string name = "interact_entity_";
+    if (IsEmperor()) name += "emperor_";
+    else name += std::string(IsMale() ? "M" : "F") + (IsFat() ? "N" : "S");
+    const int voice = IsMale() ? (IsFat() ? 2 : 3) : (IsFat() ? 0 : 1);
+    float& rest = GameState::dialogueTimer[voice];
+    if (GameState::GetLevel() < 6 && rest >= 20.f) {
+        rest = 10.f;
+        return name + "3talks";
+    }
+    if (rest >= 10.f) {
+        rest = 0.f;
+        return name + "2talks";
+    }
+    rest = 0.f;
+    return name + ((Rand48::lrand48() & 1) == 0 ? "1talks" : "2talks");
 }
 
 // @0x14ffa4

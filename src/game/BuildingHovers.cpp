@@ -1222,8 +1222,7 @@ void ItemDrop::Collect(bool automatic, bool showWindow) {
         int style = type == GameState::kGold ? TextStyleManager::kGold
                   : type == GameState::kExpAfter ? TextStyleManager::kXp : TextStyleManager::kIce;
         ShowTextHoverWithStyle(x, y, text.c_str(), style, 2.f, 50.f, false, false);
-        // SoundsManager::PlaySound(type == GOLD ? "collect_gold" : "collect_resource", 1, false):
-        // sounds are not ported yet.
+        SoundsManager::PlaySound(type == GameState::kGold ? "collect_gold" : "collect_resource", 1, false);
         // Off the city the map's loot list counts it (FoundItemsWindow shows it at the end).
         if (GameState::GetCurrentMapID() != 0)
             GameState::AddMapResourceCollectionInfo((uint32_t)GameState::GetCurrentMapID(), type, (int)amount);
@@ -1484,8 +1483,8 @@ void DropItem(float x, float y, Items::ItemInfo* info, unsigned subtask, unsigne
             Render::SetShaderType(d.glow, 8);
             Render::SetVisibility(d.glow, false);
             CheckForSpecialDrops(x, y);
-            // SoundsManager::PlaySound("chest_opened" for
-            // type 8, else item_level 0 "item_dropped_light" / "item_dropped_special"): no sounds yet.
+            if (info->type == 8) SoundsManager::PlaySound("chest_opened", 1, false);
+            else SoundsManager::PlaySound(info->itemLevel != 0 ? "item_dropped_special" : "item_dropped_light", 1, false);
             if (GameState::tutorial == 0x56) GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
             // The emperor's map: the arrow's tap picks the item up (see UpdateTutorialDrops).
             if (GameState::GetCurrentMapID() == 0xb) {
@@ -1730,7 +1729,9 @@ void ShowWorldDialog(Entity* e, const char32_t* text, uint32_t task, bool arrow,
         g_worldDialog->Hide();
     }
     if (task == 0x775 || task == 0x777) arrow = true;
-    // UNVERIFIED (milestone 6): the speaker's voice, as Entity::OnTalkTo's.
+    // The speaker's voice, as Entity::OnTalkTo's (here also while a world dialog shows).
+    if (e->GetEntityData()->soundCharType == 2) SoundsManager::PlaySound("troll_attack", 1, true);
+    else SoundsManager::PlaySound(e->GetTalkSoundName().c_str(), 1, true);
     g_worldDialog->Show();
     g_worldDialog->SetEntity(e);
     // (PORT: a task without a pre-quest text says nothing)
@@ -1894,7 +1895,7 @@ void Update(double dtIn, bool force) {
             Render::SetAlpha(s, (m.duration - m.t) * 4.f);
         }
         if (m.t > m.duration) {
-            // if (m.sound) SoundsManager::PlaySound("building_position", 1, false): not ported yet.
+            if (m.sound) SoundsManager::PlaySound("building_position", 1, false);
             m.sprite = Render::RemoveSprite(m.sprite);
             Render::SortRenderLayer(Render::kLayer15, 1);
             g_itemMoves[i] = g_itemMoves.back();
@@ -2100,7 +2101,7 @@ bool OnDecorClick(Map::Decor* d, int x, int y) {
                 return true;
             }
             if (EntityManager::GetFirstBusyWorker()) {
-                // UNVERIFIED (milestone 6): "ui_show_busyworkers".
+                SoundsManager::PlaySound("ui_show_busyworkers", 1, false);
                 PopupSelectionWindow::Show(StringTable::GetString("FREE_UP_WORKER"),
                                            StringTable::GetString("NO_FREE_WORKER_DESC"),
                                            StringTable::GetString("FIRE_PERSON"),
@@ -2287,7 +2288,7 @@ bool OnBuildingClick(Map::Building* b, int, int) {
     w->Show();
     w->MoveWindowOnTop(true);
     if (w == g_progressWindow) w->Activate(true);
-    // SoundsManager::PlaySound("ui_click_building", 1, true) (not for class 4): milestone 5.
+    if (b->data->buildingClass != 4) SoundsManager::PlaySound("ui_click_building", 1, true);
     if (wasShown) return true;
     WindowManager::WindowShow(false);
     return true;

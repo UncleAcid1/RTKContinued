@@ -26,6 +26,9 @@ extern bool updated;             // a change waiting to be saved
 extern int resourceAmountMax;    // storage limit
 extern int lastResourceAmountMax; // the last non-zero storage limit
 extern int maxLevel;
+// 0x60efd4: per talking voice (0 female fat, 1 female skinny, 2 male fat, 3 male skinny) the seconds since
+// it last said its longer lines; the main loop counts each up to 20 (Entity::GetTalkSoundName).
+extern float dialogueTimer[4];
 extern int totalGoldSpent, totalGoldEarned, totalCrystalsSpent, totalXPEarned;
 extern double totalTimeSpent;    // 0x613410 (Timer::AdvanceGlobalTime)
 
