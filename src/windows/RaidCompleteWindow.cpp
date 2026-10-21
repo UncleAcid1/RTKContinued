@@ -190,6 +190,7 @@ void ResetRaid(bool silent) {
     if (info->mission && count == 0) {
         int crystals = Setting("farm_complete_cb").GetInt();
         if (crystals >= 5) crystals = 5;
+        crystals = GameState::CrystalReward(crystals);   // PORT (balance, user 2026-10-20)
         std::printf("Adding %d crystals for completing the farm map for the first time\n", crystals);
         GameState::AddCrystals(crystals);
     }
@@ -247,7 +248,7 @@ void Show() {
     unsigned crystals = 0;
     if (Locations::LocationInfo* info = Locations::GetLocationInfo(g_location)) {
         const int count = GameState::GetMapCompletionCount(info->maps[0].id);
-        if (info->mission && count == 0) crystals = (unsigned)Setting("farm_complete_cb").GetInt();
+        if (info->mission && count == 0) crystals = (unsigned)GameState::CrystalReward(Setting("farm_complete_cb").GetInt());
     }
     FoundItemsWindow::SetParameters(Locations::GetLocationInfo(g_location), StringTable::GetString("RAID_YOU_FOUND"),
                                     crystals);

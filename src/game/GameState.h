@@ -42,6 +42,7 @@ bool CheckStorageFull(int type);               // @0x196dd8
 void ChangeResourceAmount(int type, int amount);
 void AddCrystals(int amount);                  // @0x196f68
 int AdjustCrystalCost(int cost);               // @0x19a758 cost * Setting "crystal_mult"
+int CrystalReward(int amount);                 // PORT: amount * Setting "port_crystal_reward_mult" (rounded)
 const char* GetResourceName(int type);         // @0x190ce4
 int StringToResourceType(const char* name);
 int ExternalResourceTypeToInternal(unsigned type);   // @0x190d44 data files: 0 gold, 1 crystal, 2.. lumber..    // @0x192580 (case-insensitive; unknown -> GOLD)

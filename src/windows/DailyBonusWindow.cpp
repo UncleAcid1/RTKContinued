@@ -509,8 +509,8 @@ void UpdateContents() {
     // port_daily_crystals + level / port_daily_crystals_div (3 + level / 5), shown in the row.
     if (days - 1 < 5) {
         const float div = GameState::GetSetting("port_daily_crystals_div");
-        const int crystals = (int)GameState::GetSetting("port_daily_crystals") +
-                             (div > 0.f ? (int)((float)GameState::GetLevel() / div) : 0);
+        const int crystals = GameState::CrystalReward((int)GameState::GetSetting("port_daily_crystals") +
+                                                      (div > 0.f ? (int)((float)GameState::GetLevel() / div) : 0));
         if (crystals > 0) g_bonuses.push_back(BonusInfo{GameState::kCrystal, 0, 0, (uint32_t)crystals});
     }
     g_bonusCount = (unsigned)g_bonuses.size();

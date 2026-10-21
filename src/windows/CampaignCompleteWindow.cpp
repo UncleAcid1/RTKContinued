@@ -162,7 +162,7 @@ void Show() {
     }
     FoundItemsWindow::SetParameters(Locations::GetLocationInfo(g_location),
                                     StringTable::GetString("CAMPAIGN_YOU_FOUND"),
-                                    (unsigned)Setting("campaign_complete_cb").GetInt());
+                                    (unsigned)GameState::CrystalReward(Setting("campaign_complete_cb").GetInt()));
     FoundItemsWindow::Show();
     g_queue->shown = true;
     g_queue->MoveWindowOnTop(true);

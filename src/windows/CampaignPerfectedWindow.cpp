@@ -180,7 +180,7 @@ void Show() {
     if (g_queue->shown) return;
     BuildingHovers::CollectAll();
     FoundItemsWindow::SetParameters(g_task, StringTable::GetString("TASK_COMPLETE_DESC"),
-                                    (unsigned)Setting("campaign_complete_full_cb").GetInt());
+                                    (unsigned)GameState::CrystalReward(Setting("campaign_complete_full_cb").GetInt()));
     FoundItemsWindow::Show();
     g_queue->shown = true;
     g_queue->MoveWindowOnTop(true);

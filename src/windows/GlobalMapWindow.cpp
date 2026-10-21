@@ -247,6 +247,7 @@ void Location::ShowCompletionWindow() {
     if (!info || info->campaign != 0x3ea) return;
     int crystals = Setting("campaign_complete_cb").GetInt();
     if (4 < crystals) crystals = 5;
+    crystals = GameState::CrystalReward(crystals);   // PORT (balance, user 2026-10-20)
     std::printf("Adding %d crystals for completing the campaign\n", crystals);
     GameState::AddCrystals(crystals);
     CampaignCompleteWindow::SetParameters(info->id);
@@ -646,6 +647,7 @@ void CoreLocation::ShowCompletionWindow() {
     if (!info->mission) {
         int crystals = Setting("campaign_complete_cb").GetInt();
         if (4 < crystals) crystals = 5;
+        crystals = GameState::CrystalReward(crystals);   // PORT (balance, user 2026-10-20)
         std::printf("Adding %d crystals for completing the campaign\n", crystals);
         GameState::AddCrystals(crystals);
         CampaignCompleteWindow::SetParameters(info->id);
@@ -1046,6 +1048,7 @@ void OnTaskCompleted(uint32_t task) {
         if (t && !GameState::TaskCompleted(t->id) && !GameState::IsCombatActive() && GameState::GetCurrentMapID() != 0x70) {
             int crystals = Setting("campaign_complete_full_cb").GetInt();
             if (4 < crystals) crystals = 5;
+            crystals = GameState::CrystalReward(crystals);   // PORT (balance, user 2026-10-20)
             std::printf("Adding %d crystals for 100%% completion of campaign %d\n", crystals, (int)i->id);
             GameState::AddCrystals(crystals);
             SoundsManager::PlaySound("ui_100_percents", 1, false);

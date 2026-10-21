@@ -38,7 +38,7 @@ static int LevelUpCrystals() {
     else if (cb > 4) cb = 5;
     float div = GameState::GetSetting("port_levelup_crystals_div");
     if (div > 0.f) cb += (int)((float)GameState::GetLevel() / div);
-    return cb;
+    return GameState::CrystalReward(cb);   // PORT (balance, user 2026-10-20)
 }
 namespace {
 

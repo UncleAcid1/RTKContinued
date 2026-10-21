@@ -613,6 +613,11 @@ int GetGoblinCount() {
 
 int AdjustCrystalCost(int cost) { return (int)((float)cost * GetSetting("crystal_mult")); }
 
+// PORT (balance, user 2026-10-20): every crystal the player is given as a reward (quests, level-ups,
+// the daily bonus, campaign / farm map completion, chests) is multiplied by "port_crystal_reward_mult"
+// (3), where the amount is worked out, so the windows show what is paid. Prices are not touched.
+int CrystalReward(int amount) { return (int)((float)amount * GetSetting("port_crystal_reward_mult") + 0.5f); }
+
 const char* GetResourceIconName(int type) {
     static const char* const kIcons[] = {
         "Icon_16_wood", "Icon_16_rock", "Icon_16_food", "Icon_16_plank", "Icon_16_cut_stone", "Icon_16_meat",

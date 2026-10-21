@@ -1040,6 +1040,8 @@ void ShowStarterChest() {
             g_rewards.push_back(RewardItemInfo());
             g_rewards.back().type = (uint32_t)type;
             g_rewards.back().amount = r->GetChild(1)->GetInt();
+            if (type == GameState::kCrystal)   // PORT (balance, user 2026-10-20), as Chests::GenerateContents
+                g_rewards.back().amount = GameState::CrystalReward(g_rewards.back().amount);
         } else if (r->GetChild(0)->type == MetaData::kNumber) {
             int amount = r->GetChild(1)->GetInt();
             Items::ItemInfo* it = Items::GetItemInfo((uint32_t)r->GetChild(0)->GetInt());
@@ -1294,7 +1296,7 @@ void ShowFiveObjects(const Setting& set) {
     g_items.contain->SetText(SWPrintf(0x100, U"%s:", {StringTable::GetString(deco->name.c_str())}).c_str());
     g_items.statIcon[0]->SetTexture(IconManager::GetIcon("16_crystal", false), true);
     g_items.statText[0]->SetText(SWPrintf(0x100, StringTable::GetString("CHESTS_STATUE_STAT_01"),
-                                          {ToWideString(Setting("ult_statue_crystals").GetInt())})
+                                          {ToWideString(GameState::CrystalReward(Setting("ult_statue_crystals").GetInt()))})
                                      .c_str());
     g_items.statIcon[1]->SetVisibility(false);
     g_items.statText[1]->SetVisibility(false);

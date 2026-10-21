@@ -462,7 +462,9 @@ void GiveCollectedToPlayer(bool drop, Entity* at, bool noCrystalCap) {
                 }
             }
         } else if (c.type == GameState::kCrystal) {
-            GameState::AddCrystals(noCrystalCap || (unsigned)c.amount < 0xf ? c.amount : 0xf);
+            // PORT (balance, user 2026-10-20): the cap x the crystal reward multiplier.
+            const int cap = GameState::CrystalReward(0xf);
+            GameState::AddCrystals(noCrystalCap || c.amount < cap ? c.amount : cap);
         } else if (drop) {
             BuildingHovers::DropResource(at->worldX, at->worldY, c.type, (unsigned)c.amount, false, false);
         } else {

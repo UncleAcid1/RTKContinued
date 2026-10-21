@@ -88,7 +88,9 @@ unsigned ChestInfo::GenerateContents(DropItem* out, unsigned max, bool all) {
             if (n >= max) continue;
             if (r->GetChild(0)->type == MetaData::kString) {
                 int amount = r->GetChild(1)->GetInt();
-                out[n++] = {(uint32_t)GameState::StringToResourceType(r->GetChild(0)->GetString()), 0, 0, amount,
+                const int type = GameState::StringToResourceType(r->GetChild(0)->GetString());
+                if (type == GameState::kCrystal) amount = GameState::CrystalReward(amount);   // PORT (balance, 2026-10-20)
+                out[n++] = {(uint32_t)type, 0, 0, amount,
                             (uint32_t)amount, (uint32_t)amount, 10000};
             } else if (r->GetChild(0)->type == MetaData::kNumber) {
                 uint32_t id = (uint32_t)r->GetChild(0)->GetInt();

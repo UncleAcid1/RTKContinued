@@ -234,6 +234,8 @@ bool Init(const char* file) {
             t->award[i] = award.attribute(kAward[i]).as_uint();
             if (t->award[i]) t->hasReward = true;
         }
+        // PORT (balance, user 2026-10-20): the crystal reward x port_crystal_reward_mult (shown and paid).
+        t->award[GameState::kCrystal] = (uint32_t)GameState::CrystalReward((int)t->award[GameState::kCrystal]);
         const char* pre = x.attribute("pre_quest").value();
         t->preQuest = *pre ? StringTable::GetString(pre) : nullptr;
         t->postQuest = x.attribute("post_quest").as_uint();
@@ -867,7 +869,8 @@ int PortQuestCrystals(const TaskInfo* t) {
     float div = GameState::GetSetting("port_level_factor_div");
     float factor = div > 0.f ? 1.f + (float)(GameState::GetLevel() - 1) / div : 1.f;
     int n = (int)(base * factor + 0.5f);
-    return base > 0.f && n < 1 ? 1 : n;
+    if (base > 0.f && n < 1) n = 1;
+    return GameState::CrystalReward(n);   // PORT (balance, user 2026-10-20)
 }
 
 // @0x236350 Tasks::CompleteTask. Not ported (online): the OG / OG2 requests and the "invite
@@ -931,8 +934,8 @@ void CompleteTask(uint32_t id, bool drop, bool takeItems, bool setBegin) {
         if (type != GameState::kCrystal) {
             if (at) BuildingHovers::DropResource(at->worldX, at->worldY, type, amount, false, false);
             else GameState::ChangeResourceAmount(type, (int)amount);
-        } else if ((int)amount <= 5) {
-            // (the original never pays more than 5 crystals for a task)
+        } else if ((int)amount <= GameState::CrystalReward(5)) {
+            // (the original never pays more than 5 crystals for a task; PORT: x the reward multiplier)
             GameState::AddCrystals((int)amount);
         }
     }

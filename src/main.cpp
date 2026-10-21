@@ -762,6 +762,8 @@ int main_Loop_Init() {
     GameState::SetSetting("port_skip_price_mult", 5.f);   // skipping a quest step: 5x the original price
     GameState::SetSetting("port_daily_crystals", 3.f);    // the daily bonus: 3 + level / 5 crystals
     GameState::SetSetting("port_daily_crystals_div", 5.f);
+    // PORT (balance, user 2026-10-20): every crystal reward x3 (GameState::CrystalReward).
+    GameState::SetSetting("port_crystal_reward_mult", 3.f);
     SystemFuncs::SetSetting_Int("show_starting_win", 0, "MyCountry_flags");
     // (Building 99's first upgrade gets an exchange limit of 75 once the frame loop applies it.)
     Override::AddParameter(Override::kBuilding, 99, 1, "r_cb_limit", "75");
