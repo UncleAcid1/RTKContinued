@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/BuildingPlacement.h"
 
 #include <cstdio>
@@ -405,7 +406,7 @@ void FlyTo(Render::Sprite* from, const Render::Sprite* to) {
 }
 
 void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents) {
-    // SoundsManager::PlaySound("spell_fly", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("spell_fly", 1, false);
     Activate();
     g_fromPresents = fromPresents;
     g_declineOnAccept = false;
@@ -437,7 +438,7 @@ void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents)
 }
 
 void DecorBought(Map::Decor* d, Render::Sprite* sprite, bool fromPresents) {
-    // SoundsManager::PlaySound("spell_fly", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("spell_fly", 1, false);
     Activate();
     g_fromPresents = fromPresents;
     g_decor = d;
@@ -492,7 +493,7 @@ void Accept() {
         if (g_building) GameState::RemoveItem(g_building->id + 0x4000, 1);
         if (g_decor) GameState::RemoveItem(g_decor->id + 0x8000, 1);
     }
-    // SoundsManager::PlaySound("building_build_start", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("building_build_start", 1, false);
     NotEnoughWindow::ResetRequirements();
     if (g_building)
         for (int i = 0; i < 8; ++i) NotEnoughWindow::AddRequirement(i, (unsigned)g_building->data->cost[i]);

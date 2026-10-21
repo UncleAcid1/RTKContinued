@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -277,7 +278,7 @@ void OnSlot(unsigned i) {
         Tasks::GetTask((uint32_t)Setting(i == 1 ? "squad_slot_02_quest_unlock" : "squad_slot_03_quest_unlock").GetInt());
     std::u32string lock = t ? SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name})
                             : SWPrintf(0x100, StringTable::GetString("SHOP_UNLOCK_TASK"));
-    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     if (!e) g_hover->SetText(StringTable::GetString("WAR_SLOT_LOCKED"), lock.c_str());
     else g_hover->SetEntity(e, e->GetEntityData(), true, false);

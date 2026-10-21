@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "hud/HoverWindows.h"
 
 #include <cmath>
@@ -759,7 +760,7 @@ void ResourceRestoreHoverWindow::OnSpeedUp(bool confirmed) {
             return;
         }
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_on_speedup").
+    SoundsManager::PlaySound("ui_on_speedup", 1, false);
     speedT = barValue;
     speedingUp = true;
     hurry->SetVisibility(false);
@@ -1465,7 +1466,7 @@ void PlaceBuildingHoverWindow::OnDecline() {
 }
 
 void PlaceBuildingHoverWindow::OnRotate() {
-    // SoundsManager::PlaySound("building_flip", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("building_flip", 1, false);
     if (BuildingPlacement::Activated()) BuildingPlacement::ToggleRotation();
     if (BuildingMovement::Activated()) BuildingMovement::ToggleRotation();
 }

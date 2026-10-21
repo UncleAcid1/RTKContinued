@@ -7,6 +7,7 @@
 // request of OnCraft (OG::MakeRequest) is dropped and the sound is milestone 6.
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "game/BuildingHovers.h"
 #include "game/Collections.h"
@@ -422,7 +423,7 @@ void OnCraft() {
     }
     UpdateContents();
     NotEnoughWindow::Hide();
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_improve", 1, false).
+    SoundsManager::PlaySound("ui_improve", 1, false);
     if (!g_item || from != g_item->info) {
         g_item = GameState::GetFirstItemByID(from->id, false);
         if (!g_item) return;

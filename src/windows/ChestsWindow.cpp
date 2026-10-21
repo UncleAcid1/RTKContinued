@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -447,7 +448,7 @@ void PointHoverAt(const Window* w) {
 
 // @0x289b7c: the luck circle's card: the best luck item owned, or the hint how luck is won.
 void OnLuckHolder() {
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     unsigned luck = 0;
     if (const uint32_t best = GetBestLuckItem(luck)) {
@@ -463,7 +464,7 @@ void OnLuckHolder() {
 // description with the time between its taxes) or a resource, with a drop chance (probability).
 void ShowHoverWindow(const Window* w, Items::ItemInfo* item, EntityData* entity, GameData::BuildingData* building,
                      const GameData::DecorData* deco, uint32_t type, int probability) {
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetProbability(probability);
     if (item)

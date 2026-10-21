@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/BuildingHovers.h"
 
 #include <cmath>
@@ -382,7 +383,7 @@ bool ClickOnArrow(int x, int y, bool pressed) {
         if ((float)px < s->x || !((float)px < s->x + s->w)) continue;
         if ((float)py < s->y - s->h || !((float)py < s->y)) continue;
         if (pressed) return true;
-        // SoundsManager::PlaySound("ui_arrow_click", 1, false): sounds are milestone 5.
+        SoundsManager::PlaySound("ui_arrow_click", 1, false);
         for (HelperArrow* o : g_arrows)
             if (o && o->sprite) Render::SetVisibility(o->sprite, false);
         a->decor = nullptr;
@@ -1272,7 +1273,7 @@ void ItemDrop::Collect(bool automatic, bool showWindow) {
             std::u32string text = SWPrintf(0x100, U"+%d %s", {amount, item->title});
             ShowTextHoverWithStyle(x, y, text.c_str(), (int)item->itemLevel + 0xe, 2.f, 50.f, false, false);
         }
-        // SoundsManager::PlaySound("collect_item", 1, false): sounds are not ported yet.
+        SoundsManager::PlaySound("collect_item", 1, false);
         // UNVERIFIED (milestone 5, with the windows that list a map's loot): on other maps GameState::AddMapItemCollectionInfo (not item 0x88
         // in the city tutorial).
         if (item->id == 0x6b && GameState::secondTutorial == 0xa0) {
@@ -1295,7 +1296,7 @@ void ItemDrop::Collect(bool automatic, bool showWindow) {
     if (const char32_t* name = GameState::GetResourceGameName(type)) text += name;
     ShowTextHover(x, y - (float)sprite->tex->h, text.c_str(), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true,
                   2.f, 50.f);
-    // SoundsManager::PlaySound("collect_farm_item", 1, false): sounds are not ported yet.
+    SoundsManager::PlaySound("collect_farm_item", 1, false);
     if (GameState::tutorial == 0x49) GameState::tutorial = 0x4c;
 }
 
@@ -1337,7 +1338,7 @@ void DropFarmFood(float x, float y, int type, unsigned amount, Render::Texture* 
     Render::SetVisibility(d.sprite, false);
     for (int& s : d.subtasks)
         if (s == 0) s = (int)dropId;
-    // SoundsManager::PlaySound("farm_item_dropped", 1, false): sounds are not ported yet.
+    SoundsManager::PlaySound("farm_item_dropped", 1, false);
     if (GameState::tutorial == 0x48) GUI::SetInteractionObjectLock(g_itemDrops.back().sprite, nullptr);
 }
 
@@ -1421,7 +1422,7 @@ void DropResource(float x, float y, int type, unsigned amount, bool collectNow, 
             g_itemDrops.pop_back();
         }
     } while (amount != 0);
-    // SoundsManager::PlaySound("item_dropped_light", 1, false): sounds are not ported yet.
+    SoundsManager::PlaySound("item_dropped_light", 1, false);
     CheckForSpecialDrops(x, y);
     if (GameState::tutorial == 0x14) GUI::SetInteractionLock(false);
     if (GameState::tutorial == 0x21 && type == GameState::kGold)
@@ -2027,7 +2028,7 @@ bool Click(int x, int y, bool pressed) {
                         return true;
                     }
                     if (t == kBuildProgress && b->BuilderAssigned()) {
-                        // SoundsManager::PlaySound("building_build_start", 1, true): not ported yet.
+                        SoundsManager::PlaySound("building_build_start", 1, true);
                         return true;
                     }
                 }
@@ -2331,7 +2332,7 @@ void OnFreeWorkerAssignDecoration(Map::Decor* d) {
 namespace {
 // "No free worker": move a busy one (OnFreeWorkerAssign) or build a house (OnFreeWorkerBuild).
 void AskToFreeWorker(Map::Building* b, Render::Texture* icon) {
-    // SoundsManager::PlaySound("ui_show_busyworkers", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("ui_show_busyworkers", 1, false);
     PopupSelectionWindow::Show(StringTable::GetString("FREE_UP_WORKER"), StringTable::GetString("NO_FREE_WORKER_DESC"),
                                StringTable::GetString("FIRE_PERSON"), icon, [b] { OnFreeWorkerAssign(b); },
                                StringTable::GetString("PERFORM_BUILD"), IconManager::GetIcon("gold_build"),

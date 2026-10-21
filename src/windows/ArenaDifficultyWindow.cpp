@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -132,7 +133,7 @@ void OnSelectDifficulty(unsigned i) {
 void OnItem(unsigned i) {
     const unsigned n = i + g_scroller.firstIndex;
     if (n >= g_items.size() || !g_items[n]) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(StringTable::GetString("BELT_ITEM"), nullptr, g_items[n], false, false, nullptr, false, false,
                      false, false);

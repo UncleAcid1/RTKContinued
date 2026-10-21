@@ -9,6 +9,7 @@
 //
 // PORT (online removed): Hide's SaveManager::QueueSendSave and, for a chest not sold for crystals,
 // FileManager::BillingReceived (no real money).
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "game/AIState.h"
@@ -54,7 +55,7 @@ void OnTweenIn() {
     const float y = g_effect->hideAtEnd ? 0.f : g_black->h;
     Render::SetPosition(g_black, 0.f, y, 0.02f);
     Render::SetPosition(g_goldline, 0.f, g_black->y + 5.f, 0.0199f);
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_campaign_completed", 1, false).
+    SoundsManager::PlaySound("ui_campaign_completed", 1, false);
 }
 
 // @0x288a14: the band follows the banner.

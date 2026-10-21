@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "game/GameState.h"
 #include "game/Items.h"
@@ -168,7 +169,7 @@ void OnRepair() {
     }
     it->f10 = max;
     it->f0c = cur;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_repair", 1, false).
+    SoundsManager::PlaySound("ui_repair", 1, false);
     if (GameState::IsTaskStarted(0x597)) Tasks::CompleteSubtask(0x3c, 0, 1);
     if (g_option == 2 && it->f0c != it->info->durability) SetParameters(it);
     else Hide();

@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "game/BuildingHovers.h"
@@ -1281,9 +1282,9 @@ void OnSetHolder(bool reputation) {
     CraftItemWindow::OnListItem(prof->tab - 1);
 }
 
-// @0x2e618c: - / + the count, 1..1000 and within the item's limit.
-// UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false) when it changed.
+// @0x2e618c: - / + the count, 1..1000 and within the item's limit; a click when it changed.
 void OnCountChange(int d) {
+    const int before = g_count;
     g_count += d;
     if (g_count < 1) g_count = 1;
     else if (g_count > 1000) g_count = 1000;
@@ -1291,6 +1292,7 @@ void OnCountChange(int d) {
         g_count = info->ApplyLimitToAmount(g_count);
         if (g_count < 1) g_count = 1;
     }
+    if (before != g_count) SoundsManager::PlaySound("ui_click", 1, false);
     UpdateContents();
 }
 
@@ -1320,8 +1322,7 @@ void OnUseItem() {
 // (to the belt when they go there), the open windows brought up to date, the subtask 0x1a, the
 // item flying from its cell; the shop closes for items 0x6a / 0x86 before task 0x35c; the target
 // of ShowShopItem arms the continuation.
-// UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_gold" / "ui_buy_with_crystals").
-// Billing::LogCBPurchase(0xd, id, price) and FileManager::OnItemBought(name, id, 1, price,
+// The sound: gold when the item has a gold price, else crystals. Billing::LogCBPurchase(0xd, id, price) and FileManager::OnItemBought(name, id, 1, price,
 // "crystals") for a crystal price: online logging, not ported. PORT (user 2026-10-19): a pack's
 // branch (Billing 0x20, its items times the count) is left out; packs are not sold.
 void OnBuy(bool crystals) {
@@ -1355,6 +1356,7 @@ void OnBuy(bool crystals) {
         return;
     }
     NotEnoughWindow::Hide();
+    SoundsManager::PlaySound(info->GetCostGold(false) ? "ui_buy_with_gold" : "ui_buy_with_crystals", 1, false);
     if (byItem) GameState::RemoveItem(info->costItem, cost);
     else GameState::ChangeResourceAmount(type, -cost);
     GameState::AddItem(info->id, g_count, false, false, false);
@@ -1434,8 +1436,8 @@ void OnTweenOut() {
 
 // @0x2dd96c: the helper arrow on the cell g_arrowItem (tapping it selects the cell), or with
 // g_arrowOnBuy on the first Buy button shown (tapping it buys).
-// UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_shop_opened", 1, false).
 void OnTweenIn() {
+    SoundsManager::PlaySound("ui_shop_opened", 1, false);
     if (g_arrowItem != -1) {
         Window* cell = g_cells[g_arrowItem].root;
         TaskInfoWindow::BlockArrowLimitChangeOnce();

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
@@ -122,7 +123,7 @@ void OnAccept() {
     ShowMainButton();
     HideInstruments();
     BuildingMovement::SetLegacyMode(true);
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_swing_out").
+    SoundsManager::PlaySound("ui_swing_out", 1, false);
 }
 
 // @0x25ead0
@@ -131,7 +132,7 @@ void OnDecline() {
     HideInstruments();
     BuildingMovement::Decline();
     BuildingMovement::SetLegacyMode(true);
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_swing_out").
+    SoundsManager::PlaySound("ui_swing_out", 1, false);
 }
 
 // @0x25eb04: Back cancels an edit in progress.
@@ -224,7 +225,7 @@ void ShowInstruments() {
         g_instrumentEffects[i]->Animate(b.x, H, b.x, ShownY(b), true);
         b.root->SetVisibility(true);
     }
-    // SoundsManager::PlaySound("ui_swing_in", 1, false): sounds are not ported yet.
+    SoundsManager::PlaySound("ui_swing_in", 1, false);
 }
 
 // @0x25e564

@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "game/Entity.h"
@@ -92,7 +93,7 @@ void OnItem(unsigned i) {
     if (index >= g_rewards.size()) return;
     Items::ItemInfo* info = Items::GetItemInfo(g_rewards[index].item);
     if (!info) return;
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_click", 1).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(StringTable::GetString("BELT_ITEM"), nullptr, info, false, false, nullptr, true, false, false,
                      false);
@@ -401,7 +402,7 @@ void Show() {
     g_header->SetText(StringTable::GetString("TASK_COMPLETE_TEXT"));
     g_bonus->SetText(StringTable::GetString("TASK_COMPLETE_DESC"));
     if (GameState::GetCurrentLocation() == 2) GameState::RaiseGamePauseState();
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_task_complete", 1).
+    SoundsManager::PlaySound("ui_task_complete", 1, false);
     g_root->PreloadTextures();   // GUI::PreloadWindow
 }
 

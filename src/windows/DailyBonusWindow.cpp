@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -183,7 +184,7 @@ void OnItem(unsigned i) {
     const DailyBonusHolder& h = g_days[i];
     Items::ItemInfo* info = Items::GetItemInfo(h.shownItem);
     EntityData* data = h.shownEntity ? EntityFactory::GetEntityByID((int)h.shownEntity) : nullptr;
-    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     if (info) g_hover->SetItem(U"", nullptr, info, false, false, nullptr, true, false, false, false);
     else if (data) g_hover->SetText(data->title, nullptr);
@@ -196,7 +197,7 @@ void OnBottomItem(unsigned i) {
     const BonusInfo& b = g_bonuses[i];
     Items::ItemInfo* info = Items::GetItemInfo(b.item);
     EntityData* data = b.entity ? EntityFactory::GetEntityByID((int)b.entity) : nullptr;
-    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     if (info) g_hover->SetItem(U"", nullptr, info, false, false, nullptr, false, false, false, false);
     else if (data) g_hover->SetText(data->title, nullptr);
@@ -380,7 +381,7 @@ void Show() {
         g_tween->AnimateIn();
     }
     g_root->SetVisibility(true);
-    // SoundsManager::PlaySound("ui_level_up"): milestone 6.
+    SoundsManager::PlaySound("ui_level_up", 1, false);
     GameState::SetDailyBonusStatus(0);
     GameState::UpdateDailyBonusTime(g_forced);
     UpdateContents();

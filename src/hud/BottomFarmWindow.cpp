@@ -5,6 +5,7 @@
 // 0x6186b0. OnFarmWater (0x260b10) is not ported: nothing calls it in 5.11.
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -160,7 +161,7 @@ void OnFarmSpeedUpActual() {
         NotEnoughWindow::Show();
         return;
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_on_speedup").
+    SoundsManager::PlaySound("ui_on_speedup", 1, false);
     GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
     // PORT (online removed): Billing::LogCBPurchase(0x16, farm id, cost).
     for (unsigned i = 0; i < n; ++i) {
@@ -203,7 +204,7 @@ void OnFarmSpeedUp(bool confirmed) {
     }
     GameState::ChangeResourceAmount(GameState::kCrystal, -(int)price);
     // PORT (online removed): Billing::LogCBPurchase(0x15, farm id, price).
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_on_speedup").
+    SoundsManager::PlaySound("ui_on_speedup", 1, false);
     for (unsigned i = 0; i < n; ++i)
         if (farm->IsSoilPatchRotten(i)) farm->RestoreFarm(i);
 }

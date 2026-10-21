@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
 #include "engine/IconManager.h"
@@ -337,7 +338,7 @@ void OnPayForGold(unsigned line) {
     }
     ConfirmPurchaseWindow::SetParameters(
         [line, price] {
-            // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_gold").
+            SoundsManager::PlaySound("ui_buy_with_gold", 1, false);
             int gold = g_goldAmounts[line][0] + g_goldAmounts[line][1];
             GameState::ChangeResourceAmount(GameState::kCrystal, -price);
             GameState::ChangeResourceAmount(GameState::kGold, gold);
@@ -355,7 +356,7 @@ void OnPayForCrystals(unsigned line) {
         OnTab(g_tab, SWPrintf(0x80, StringTable::GetString("NO_GOLD"), {ToWideString(price - have)}).c_str());
         return;
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     int crystals = g_crystalAmounts[line][0] + g_crystalAmounts[line][1];
     GameState::ChangeResourceAmount(GameState::kGold, -price);
     GameState::AddCrystals(crystals);

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "game/BuildingHovers.h"
@@ -408,7 +409,7 @@ void Update(float dt) {
         in.time += dt;
         if (in.time >= 1.f && in.time < 2.f) {
             if (Items::ItemInfo* info = Items::GetItemInfo(in.item)) {
-                // SoundsManager::PlaySound("drink_potion"): milestone 6.
+                SoundsManager::PlaySound("drink_potion", 1, false);
                 Entity::SetupPlayerHPOverlimit(true, true);
                 if (info->meta) info->meta->OnApplyItemEffect(EntityManager::GetPlayer());
                 Entity::SetupPlayerHPOverlimit(false, true);

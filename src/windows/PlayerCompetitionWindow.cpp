@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -375,7 +376,7 @@ void OnWarrior(unsigned i) {
     Shared::WarriorSlotInfo& s = g_enemy.slots[i];
     EntityData* d = EntityFactory::GetEntityByID(s.soldier);
     if (!d) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetEntity(nullptr, d, false, false);
     const int x = g_root->x + s.root->x;

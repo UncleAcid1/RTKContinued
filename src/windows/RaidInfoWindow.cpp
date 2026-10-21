@@ -15,6 +15,7 @@
 #include <strings.h>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -324,7 +325,7 @@ void OnTweenOut() {
 void OnItem(unsigned flag, unsigned cell) {
     ItemInfo& c = g_flags[flag].cells[cell];
     if (c.id == 0 || !IsVisible()) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     const char32_t* chance = nullptr;
     if (c.probability == 0) chance = StringTable::GetString("PROBABILITY_HIGH");
     else if (c.probability == 1) chance = StringTable::GetString("PROBABILITY_MEDIUM");
@@ -446,7 +447,7 @@ void OnGold(bool confirmed) {
         ConfirmPurchaseWindow::Show();
         return;
     }
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals", 1, false).
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(9, -cost);
     const uint32_t end = GameState::GetMapEndTime(g_map);
     // (Billing::LogCBPurchase(0x1d or 0x1e, location, cost): purchase statistics, online.)

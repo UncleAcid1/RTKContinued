@@ -16,6 +16,7 @@
 #include <set>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -550,10 +551,10 @@ void OnPreviewBuy(bool confirmed) {
             ConfirmPurchaseWindow::Show();
             return;
         }
-        // SoundsManager::PlaySound("ui_buy_with_crystals"): milestone 6.
+        SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
         GameState::ChangeResourceAmount(GameState::kCrystal, -cost);
     } else {
-        // SoundsManager::PlaySound("ui_buy_with_crystals"): milestone 6.
+        SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
         GameState::RemoveItem(costItem, cost);
     }
     auto buy = [](Items::ItemInfo* p) {
@@ -595,7 +596,7 @@ void OnTab(unsigned tab) {
 
 // @0x28547c
 void OnTweenIn() {
-    // SoundsManager::PlaySound("ui_inventory_opened"): milestone 6.
+    SoundsManager::PlaySound("ui_inventory_opened", 1, false);
     if ((unsigned)(GameState::tutorial - 0x14) < 2) {
         BuildingHovers::CollectAll();
         g_queue->MoveWindowOnTop(true);
@@ -873,7 +874,7 @@ bool Click(int x, int y, bool pressed) {
             unsigned b = (unsigned)g_dragSlot;
             GameState::PlayerItem* item = GameState::GetItemAt(b);
             Items::ItemInfo* info = Items::GetItemInfo(g_figure.layers[b].item);
-            // SoundsManager::PlaySound("ui_unequip"): milestone 6.
+            SoundsManager::PlaySound("ui_unequip", 1, false);
             if (b == 10) {
                 if (info) g_toolOverrides[info->reputationId] = info->id;
             } else {
@@ -926,7 +927,7 @@ bool Click(int x, int y, bool pressed) {
                         // (FileManager::SendTutorialFinished2: online.)
                     }
                     unsigned b;
-                    // SoundsManager::PlaySound("ui_equip"): milestone 6.
+                    SoundsManager::PlaySound("ui_equip", 1, false);
                     if (info->IsProfessionTool()) {
                         b = 10;
                         g_toolOverrides[info->reputationId] = info->id;
@@ -1396,7 +1397,7 @@ void OnEquip(bool equip) {
     if (!IsItemEquipped(item)) {
         if (!equip) return;
         if (item->info->slot != 0) {
-            // SoundsManager::PlaySound("ui_equip"): milestone 6.
+            SoundsManager::PlaySound("ui_equip", 1, false);
             unsigned b = GameState::ExternalItemBindingToInternal(item->info->slot);
             if (b == 4 && GameState::GetItemAt(4)) b = GameState::GetItemAt(9) ? 4 : 9;
             GameState::BindItemTo(b, item);
@@ -1460,7 +1461,7 @@ void OnEquip(bool equip) {
                     g_dragCell = (int)cell;
                 } else if (g_dragCell == -1) {
                     // Not in view: straight onto the belt.
-                    // SoundsManager::PlaySound("ui_equip_belt"): milestone 6.
+                    SoundsManager::PlaySound("ui_equip_belt", 1, false);
                     GameState::BindBeltItemTo(k, item->id);
                     if (item->info->CanBeActivated()) {
                         GameState::SetBeltItemActivationTimeAt(k, (uint32_t)Timer::GetGlobalTime());
@@ -1489,7 +1490,7 @@ void OnEquip(bool equip) {
     }
     if (equip) return;
     if (item->info->slot != 0) {
-        // SoundsManager::PlaySound("ui_unequip"): milestone 6.
+        SoundsManager::PlaySound("ui_unequip", 1, false);
         unsigned b = GameState::ExternalItemBindingToInternal(item->info->slot);
         if (b == 4 && item != GameState::GetItemAt(4)) b = item == GameState::GetItemAt(9) ? 9 : 4;
         GameState::BindItemTo(b, nullptr);
@@ -1533,7 +1534,7 @@ void OnEquip(bool equip) {
     for (unsigned k = 0; k < GameState::GetBeltSlotCount(); ++k) {
         if (GameState::GetBeltItemAt(k) != item->id) continue;
         Items::ItemInfo* info = item->info;
-        // SoundsManager::PlaySound("ui_unequip_belt"): milestone 6.
+        SoundsManager::PlaySound("ui_unequip_belt", 1, false);
         GameState::BindBeltItemTo(k, 0);
         BeltBarWindow::UpdateContents();
         if (IsVisible()) {

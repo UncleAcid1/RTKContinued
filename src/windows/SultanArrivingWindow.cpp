@@ -7,6 +7,7 @@
 //
 // PORT (online removed): Show's Expansions check (a missing required content pack saved the game and
 // started the download); OnSpeedUp's purchase log (Billing::LogCBPurchase(0x21, 0x400, price)).
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Text.h"
 #include "engine/Timer.h"
@@ -156,7 +157,7 @@ void OnSpeedUp() {
     }
     GameState::ChangeResourceAmount(GameState::kCrystal, -price);
     Tasks::CompleteTask(0x5c9, true, false, false);
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals", 1, false).
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GlobalMapWindow::CenterOnMap(0x53);
     if (GameState::GetCurrentMapID() != 0xb) GlobalMapWindow::ShowSultanMovement();
     GlobalMapWindow::SwitchMapAnimated(0xb, false, 500.f, false);

@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/Building.h"
 
 #include <cmath>
@@ -524,7 +525,7 @@ void Building::CollectResources(bool& full, int& amount) {
                 GameState::ChangeResourceAmount(type, pile);
                 resources[type] -= pile;
                 amount = pile;
-                // SoundsManager::PlaySound("collect_resource", 1, false): sounds are not ported yet.
+                SoundsManager::PlaySound("collect_resource", 1, false);
                 GameState::RemoveAllOrders(this, pile);
                 EntityManager::RemoveEntity(workers[1], true);
                 workers[1] = nullptr;
@@ -534,7 +535,7 @@ void Building::CollectResources(bool& full, int& amount) {
             GameState::ChangeResourceAmount(type, take);
             resources[type] -= take;
             amount = take;
-            // SoundsManager::PlaySound("collect_resource", 1, false)
+            SoundsManager::PlaySound("collect_resource", 1, false);
             GameState::RemoveAllOrders(this, take);
         }
         OnStorageFull(type);
@@ -877,7 +878,7 @@ void Building::Upgrade(unsigned level) {
     }
     // PORT (online removed): OG::MakeRequest(1, 1, id, level, 0), the Facebook action log.
     if (Entity* w = EntityManager::GetFreeWorker()) AssignWorker(w, 0);
-    // SoundsManager::PlaySound("building_upgrade_start", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("building_upgrade_start", 1, false);
 }
 
 void Building::SpeedupBuilding() {
@@ -987,7 +988,7 @@ void Building::OnMoved() {
 
 void Building::OnDestroy() {
     if (isCopy) return;
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("building_demolitioned").
+    SoundsManager::PlaySound("building_demolitioned", 1, false);
     EntityManager::ResetOrders(this);
     GameState::RemoveAllOrders(this, 9999);
     GameState::RemoveAllTargetOrders(this, 9999);
@@ -1261,7 +1262,7 @@ void Building::SpawnFarm() {
         farmer = EntityManager::SpawnEntityAt(farmerId, 0, 1, false, false);
     }
     farmer->SetWorkplace(this);
-    // SoundsManager::PlaySound("farm_enter", 1, false): sounds are not ported yet.
+    SoundsManager::PlaySound("farm_enter", 1, false);
 }
 
 void Building::DespawnFarm() {

@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -251,7 +252,7 @@ void OnTweenOut() {
 // @0x274400: an item cell's popup (the story flag's cells, type 1, do nothing).
 void OnItem(unsigned type, unsigned i) {
     if (type != 0) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(StringTable::GetString("CAMPAIGN_INFO_CHANCE_TO_FIND"), nullptr,
                      Items::GetItemInfo(g_items.items[i].id), false, true, nullptr, false, false, false, false);
@@ -268,14 +269,14 @@ void OnDialogShow() {
     g_hint->Show();
     g_hint->SetPosition((GUI::ScreenWidth() - g_hint->f2c) / 2, (GUI::ScreenHeight() - g_hint->f30) / 2);
     g_hint->MoveWindowOnTop(true);
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_swing_in", 1, false).
+    SoundsManager::PlaySound("ui_swing_in", 1, false);
 }
 
 // @0x27430c
 void OnDialogHide() {
     g_hint->Hide();
     g_wnd->MoveWindowOnTop(true);
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_swing_out", 1, false).
+    SoundsManager::PlaySound("ui_swing_out", 1, false);
 }
 
 // @0x272fa0: the arrow ShowItem asked for, or, before the desert campaign (map 0xf) was ever

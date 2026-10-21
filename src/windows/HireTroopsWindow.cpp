@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/StlSort.h"
 #include "engine/Render.h"
@@ -1683,7 +1684,7 @@ void OnTweenIn() {
 // @0x2d8788: the soldier of the tapped squad slot goes to the reserve, else the tapped reserve
 // soldier joins the squad.
 void OnHintMove() {
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    SoundsManager::PlaySound("ui_click", 1, false);
     if (g_squadSlot != 0xffffffff) {
         SoldierMove(SoldierSlots::GetSoldierBySlot(g_squadSlot)->GetEntityData()->id);
         return;
@@ -1742,7 +1743,7 @@ void ShowHoverAt(const Window* w) {
 void OnItem(unsigned n, unsigned k) {
     const EntityData* d = EntityFactory::GetEntityByID((int)g_offers[g_scroller.firstIndex + n]->entity);
     if (!d) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     if (k == 0) {
         if (Items::ItemInfo* info = Items::GetItemInfo((uint32_t)d->itemCostId))
@@ -1823,7 +1824,7 @@ void OnReserve(unsigned n) {
     if (!e) {
         const unsigned open = GameState::GetSoldierReserveSlots();
         if (n >= open && open == n && n < 5) {
-            // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+            SoundsManager::PlaySound("ui_click", 1, false);
             g_speedup->SetVisibility(true);
             const Window* s = g_reserve[n].root;
             g_speedup->SetPosition(s->x + g_root->x + s->w / 2 - g_speedup->w / 2, g_root->y + s->y + 0xf - g_speedup->h);
@@ -1836,7 +1837,7 @@ void OnReserve(unsigned n) {
         UpdateContents();
         return;
     }
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    SoundsManager::PlaySound("ui_click", 1, false);
     const bool city = GameState::GetCurrentMapID() == 0;
     if (e->workType == 1 && (!city || e->GetAI()->GetState() != 0x1d)) {
         UpdateContents();
@@ -1846,7 +1847,7 @@ void OnReserve(unsigned n) {
         UpdateContents();
         return;
     }
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetEntity(e, e->GetEntityData(), false, true);
     ShowHoverAt(g_reserve[n].root);
@@ -1869,12 +1870,12 @@ void OnSquad(unsigned n) {
     const std::u32string lock = task ? SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {task->name})
                                      : SWPrintf(0x100, StringTable::GetString("SHOP_UNLOCK_TASK"));
     if (!e) {
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+        SoundsManager::PlaySound("ui_click", 1, false);
         g_hover->Show();
         g_hover->SetText(StringTable::GetString("WAR_SLOT_LOCKED"), lock.c_str());
     } else {
         g_tappedUnit = (int)e->GetEntityData()->id;
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+        SoundsManager::PlaySound("ui_click", 1, false);
         g_hover->Show();
         g_hover->SetEntity(e, e->GetEntityData(), false, true);
     }

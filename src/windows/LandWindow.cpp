@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "game/Tasks.h"
 #include "game/Building.h"
@@ -99,14 +100,14 @@ void OnBuyArea(unsigned withCrystals) {
     }
     // FileManager::OnItemBought("land_expansion", ...): online statistics, not ported.
     if (withCrystals == 0) {
-        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_gold").
+        SoundsManager::PlaySound("ui_buy_with_gold", 1, false);
         GameState::ChangeResourceAmount(GameState::kGold, -g_gold);
         Map::BuyArea(g_area.id);
         Tasks::CompleteSubtask(Tasks::kIncreaseLand, g_area.id, 1);
         Tasks::CompleteSubtask(Tasks::kIncreaseLandAny, 0, 1);
         Hide();
     } else {
-        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+        SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
         GameState::ChangeResourceAmount(GameState::kCrystal, -crystals);
         // Billing::LogCBPurchase(8, area, price): online logging, not ported.
         Map::BuyArea(g_area.id);
@@ -136,13 +137,13 @@ void OnBuyPatch(unsigned withCrystals) {
     }
     // FileManager::OnItemBought("farm_patch", ...) and Billing::LogCBPurchase: online, not ported.
     if (withCrystals == 0) {
-        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_gold").
+        SoundsManager::PlaySound("ui_buy_with_gold", 1, false);
         GameState::ChangeResourceAmount(GameState::kGold, -g_gold);
         farm->OnSoilPatchBuy();
         Tasks::CompleteSubtask(Tasks::kBuyFarmPatch, farm->id, 1);
         Hide();
     } else {
-        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+        SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
         GameState::ChangeResourceAmount(GameState::kCrystal, -g_crystals);
         farm->OnSoilPatchBuy();
         Tasks::CompleteSubtask(Tasks::kBuyFarmPatch, farm->id, 1);

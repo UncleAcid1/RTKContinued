@@ -3,6 +3,7 @@
 // 0x24c63c..0x251694.
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Text.h"
@@ -211,7 +212,7 @@ void OnSlot(unsigned i) {
         OnAddMoreSlot(i);
         return;
     }
-    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    SoundsManager::PlaySound("ui_click", 1, false);
     int& st = GameState::secondTutorial;
     if (st == 0x96) {
         OnUseSlot(i);
@@ -286,7 +287,7 @@ void MoveIntoBelt(Render::Sprite* sprite, uint32_t id, unsigned slot) {
         g_flySprite = nullptr;   // PORT: the original keeps the freed sprite
         return;
     }
-    // SoundsManager::PlaySound("ui_equip_belt"): milestone 6.
+    SoundsManager::PlaySound("ui_equip_belt", 1, false);
     GameState::BindBeltItemTo(slot, id);
     Items::ItemInfo* info = Items::GetItemInfo(id);
     if (info && info->CanBeActivated()) GameState::SetBeltItemActivationTimeAt(slot, (uint32_t)Timer::GetGlobalTime());
@@ -375,7 +376,7 @@ bool Click(int x, int y, bool pressed) {
                     return true;
                 }
                 const uint32_t id = GameState::GetBeltItemAt((unsigned)g_flySlot);
-                // SoundsManager::PlaySound("ui_unequip_belt"): milestone 6.
+                SoundsManager::PlaySound("ui_unequip_belt", 1, false);
                 GameState::BindBeltItemTo((unsigned)g_flySlot, 0);
                 UpdateContents();
                 CharacterInfoWindow::MoveIntoInventory(g_flySprite, id);
@@ -623,7 +624,7 @@ void OnUseSlot(unsigned i) {
         }
         GameState::RemoveItem(info->id, 1);
     }
-    // SoundsManager::PlaySound("drink_potion"): milestone 6.
+    SoundsManager::PlaySound("drink_potion", 1, false);
     UpdateContents();
 }
 
@@ -656,11 +657,11 @@ void OnActivateSlot(unsigned i) {
         const char32_t* title = item->info->title ? item->info->title : U"";
         std::u32string text;
         if (GameState::GetBeltItemActivationTimeAt(i) == 0) {
-            // SoundsManager::PlaySound("ui_activate_slot"): milestone 6.
+            SoundsManager::PlaySound("ui_activate_slot", 1, false);
             text = SWPrintf(0x100, U"%s\n%s", {title, StringTable::GetString("BOTTOM_BAR_ACTIVATED")});
             GameState::SetBeltItemActivationTimeAt(i, (uint32_t)Timer::GetGlobalTime());
         } else {
-            // SoundsManager::PlaySound("ui_deactivate_slot"): milestone 6.
+            SoundsManager::PlaySound("ui_deactivate_slot", 1, false);
             text = SWPrintf(0x100, U"%s\n%s", {title, StringTable::GetString("BOTTOM_BAR_DEACTIVATED")});
             GameState::SetBeltItemActivationTimeAt(i, 0);
         }

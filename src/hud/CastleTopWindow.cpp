@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -244,7 +245,7 @@ void OnReturn() {
         if (location != 2 && location != 0) {
             // The arena (location 3, after tutorial step 0x7f): saved, straight back to the city.
             if (location != 3 || GameState::tutorial <= 0x7f) return;
-            // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_map_opened", 1, false).
+            SoundsManager::PlaySound("ui_map_opened", 1, false);
             if (GameState::GetCurrentMapID() != 0) {
                 Map::Save(0);
                 const bool cached = SaveManager::GetMainSave()->HasMapInCache(0);

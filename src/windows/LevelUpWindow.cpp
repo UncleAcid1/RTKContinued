@@ -7,6 +7,7 @@
 // from level 3) is not offered; the button is the plain "Ok" the original shows below level 3.
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "hud/HUD.h"
@@ -357,7 +358,7 @@ void Show() {
         player->SetHP(player->GetHpMax());
         GameState::UpdatePlayerRegenerationState();
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_level_up").
+    SoundsManager::PlaySound("ui_level_up", 1, false);
     bool wasShown = g_queue->shown;
     g_queue->shown = true;
     if (!g_root->visibleSelf) WindowManager::WindowShow(false);

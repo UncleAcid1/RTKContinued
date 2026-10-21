@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -246,7 +247,7 @@ void OnSubtaskSkip(unsigned box) {
                 Tasks::CompleteSubtaskDirect(s.id, 0x2000 - done);
             else
                 Tasks::CompleteSubtaskDirect(s.id, s.amount - done);
-            // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals").
+            SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
             GameState::ChangeResourceAmount(GameState::kCrystal, -price);
             // (Billing::LogCBPurchase(10, step, price): online logging, not ported.)
             Map::Save(0);
@@ -273,7 +274,7 @@ void OnItem(unsigned cell) {
     if (i >= g_awards.size()) return;
     Items::ItemInfo* info = Items::GetItemInfo(g_awards[i].item);
     if (!info) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click").
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(StringTable::GetString("BELT_ITEM"), nullptr, info, false, false, nullptr, true, false, false, false);
     Window* r = g_rewards[cell].root;

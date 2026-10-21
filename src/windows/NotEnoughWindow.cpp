@@ -3,6 +3,7 @@
 // that leads to where it is earned, and "Buy all" pays the shortfall in crystals. With a single
 // missing level, gold, crystals or people a popup or the exchange opens instead.
 // Port of NotEnoughWindow (libkingdom.so 5.11), 0x2f6c5c..0x2fd9a4. Statics at 0x62591c.
+#include "engine/SoundsManager.h"
 #include "windows/Windows.h"
 
 #include <cmath>
@@ -429,7 +430,7 @@ void OnBuyAll() {
         if (!Items::GetItemInfo(id) || count <= (unsigned)GameState::GetItemAmount(id, false)) continue;
         GameState::AddItem(id, (int)(count - (unsigned)GameState::GetItemAmount(id, false)), false, false, false);
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(GameState::kCrystal, -g_buyAllPrice);
     // Billing::LogCBPurchase(0x1c, 0, price): online logging, not ported.
     if (!CheckRequirements()) {
@@ -451,7 +452,7 @@ void OnBuyItem() {
                                      .c_str());
         return;
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(GameState::kCrystal, -(int)info->cost2);
     // Billing::LogCBPurchase(0xd, id, price): online logging, not ported.
     BuildingHovers::DropItem(g_produceX, g_produceY, info, g_produceSubtask, 1);

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Resources.h"
 #include "game/BuildingHovers.h"
@@ -499,7 +500,7 @@ void OnTweenOut() {
 
 // The item card over a slot (the slot's item, viewed only).
 void ShowItemCard(const ItemInfo& slot, Items::ItemInfo* info) {
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(nullptr, nullptr, info, false, true, nullptr, false, false, false, false);
     const Window* w = slot.root;
@@ -530,7 +531,7 @@ void OnBuilding(unsigned holder, unsigned slot) {
     LevelHolder& l = g_general.level[holder];
     const unsigned at = slot + l.scrollIdle.firstIndex;
     if (at >= l.opens.size()) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     const LevelHolder::Opens& o = l.opens[at];
     if (o.building || o.decor) {

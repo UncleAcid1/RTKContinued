@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/StlSort.h"
@@ -439,7 +440,7 @@ void ScrollProfessionLevelIntoView(unsigned level) {
 void ShowItemHover(unsigned id, Window* w) {
     Items::ItemInfo* info = Items::GetItemInfo(id);
     if (!info) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_click", 1, false).
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(nullptr, nullptr, info, false, true, nullptr, false, false, false, false);
     const int x = g_root->x + w->x, y = g_root->y + w->y;
@@ -826,7 +827,7 @@ void OnCraft() {
     GameState::AddItem(c->to, 1, false, false, false);
     Tasks::CompleteSubtask(0x3a, c->to, 1);
     CharacterInfoWindow::UpdateContents();
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_improve", 1, false).
+    SoundsManager::PlaySound("ui_improve", 1, false);
     GUI::SetInteractionLock(true);
     g_crafting = true;
     g_craftTime = 0.f;

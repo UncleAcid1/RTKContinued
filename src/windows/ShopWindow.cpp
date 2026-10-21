@@ -3,6 +3,7 @@
 // (Building_info_panel) on the right describes the selected item. Tapping a cell buys it and hands
 // it to BuildingPlacement. Port of ShopWindow (libkingdom.so 5.11), 0x346d14..0x34d99c. Statics at
 // 0x62d4cc and 0x60f3a4.
+#include "engine/SoundsManager.h"
 #include "windows/Windows.h"
 
 #include <pugixml.hpp>
@@ -902,7 +903,7 @@ void Show() {
     Update(0.f);
     OnItemInfo(g_selected, false);
     g_root->PreloadTextures();   // GUI::PreloadWindow
-    // SoundsManager::PlaySound("ui_swing_in", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("ui_swing_in", 1, false);
 }
 
 // @0x3479b8

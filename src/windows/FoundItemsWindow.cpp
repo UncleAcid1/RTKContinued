@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -180,7 +181,7 @@ void Update(float dt) {
 
 // @0x2b95bc: the cell's popup, pointing at it from below.
 void OnItem(unsigned i) {
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_click", 1).
+    SoundsManager::PlaySound("ui_click", 1, false);
     const ItemInfo& c = g_items[i];
     g_hover->Show();
     if (c.item == 0) {

@@ -11,6 +11,7 @@
 #include <functional>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -186,7 +187,7 @@ void OnUseItem(uint32_t id) {
     if (!info || GameState::GetItemAmount(info->id, false) == 0) return;
     if (player->GetHP() == player->GetHpMax()) return;
     if (player->IsDead()) StandUp(player);
-    // SoundsManager::PlaySound("drink_potion"): milestone 6.
+    SoundsManager::PlaySound("drink_potion", 1, false);
     info->meta->OnApplyItemEffect(player);
     GameState::RemoveItem(info->id, 1);
     UpdateContents();
@@ -267,7 +268,7 @@ void OnItem(unsigned i) {
     Items::ItemInfo* info = g_items[i];
     int n = Available(info, false);
     GameState::PlayerItem* item = n < 1 ? nullptr : GameState::GetFirstItemByID(info->id, false);
-    // SoundsManager::PlaySound("ui_click"): milestone 6.
+    SoundsManager::PlaySound("ui_click", 1, false);
     g_hover->Show();
     g_hover->SetItem(StringTable::GetString("BELT_ITEM"), item, info, n > 0, false, nullptr, false, false, true, false);
     Window* h = g_holders[i].root;
@@ -332,7 +333,7 @@ float ZRange() { return g_queue->shown ? 0.02f : 0.0001f; }
 // @0x2ca358. UNVERIFIED (milestone 5, PlayerWeakWindow): the "too weak" advice on maps 0x71, 0x73,
 // 0x75 below level 12, or after the third death within 5 minutes (the death times are kept).
 void OnTweenIn() {
-    // SoundsManager::PlaySound("ui_heal_opened"): milestone 6.
+    SoundsManager::PlaySound("ui_heal_opened", 1, false);
 }
 
 // @0x2ca174

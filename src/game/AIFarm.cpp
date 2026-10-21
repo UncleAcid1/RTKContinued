@@ -7,6 +7,7 @@
 // frame and writes the current stage's progress to the farm's patchProgress.
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
@@ -349,7 +350,7 @@ void AIFarmerBig::StartHarvesting() {
 }
 
 void AIFarmerBig::StartCleaning() {
-    // SoundsManager::PlaySound("farm_start_cleaning")
+    SoundsManager::PlaySound("farm_start_cleaning", 1, false);
     ChangeState(0xe);
     entity->OnStartedToWork();
     entity->GetWorkplace()->WorkStarted();
@@ -370,7 +371,7 @@ void AIFarmerBig::StartWatering() {
 }
 
 void AIFarmerBig::StartSeeding() {
-    // SoundsManager::PlaySound("farm_start_seeding")
+    SoundsManager::PlaySound("farm_start_seeding", 1, false);
     ChangeState(0xb);
     entity->OnStartedToWork();
     entity->GetWorkplace()->WorkStarted();

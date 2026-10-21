@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Timer.h"
@@ -354,7 +355,7 @@ void OnUnlockEvent(unsigned i, bool pay) {
     // (Billing::LogCBPurchase(0x21, event, price): online logging, not ported.)
     GameState::SetEventStartTime(event, 0);
     GameState::SetEventEndTime(event, 0);
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_buy_with_crystals", 1, false).
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     if (i == 1) GameState::SetEventStartTime(0x400, 0);
     UpdateContents();
     HUDWindow::UpdateTasks();

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -327,7 +328,7 @@ void FactoryHoverWindow::OnSpeedUp(bool confirmed) {
             return;
         }
     }
-    // SoundsManager::PlaySound("ui_on_speedup", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("ui_on_speedup", 1, false);
     if (building->data->buildingClass == 0xd) {
         BuildingHovers::Hide();
         OnSpeedUpFinished();
@@ -601,7 +602,7 @@ void FactoryHoverWindow::OnLaunchContract() {
         NotEnoughWindow::Show();
         return;
     }
-    // SoundsManager::PlaySound("ui_make_order", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("ui_make_order", 1, false);
     GameState::ChangeResourceAmount(GameState::kGold, -(int)(m.price * multiCount));
     GameState::ChangeResourceAmount(m.priceResource, -(int)(m.priceResourceCount * multiCount));
     if (b == Map::GetCurrentFarm()) {
@@ -1152,7 +1153,7 @@ void StorageHoverWindow::OnHireGoblinCrystals(bool confirmed) {
         ConfirmPurchaseWindow::Show();
         return;
     }
-    // SoundsManager::PlaySound("ui_buy_with_crystals", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
     GameState::ChangeResourceAmount(GameState::kCrystal, -(int)cost);
     // PORT (online removed): Billing::LogCBPurchase(0x14, id, cost).
     building->HireGolbin();
@@ -1161,7 +1162,7 @@ void StorageHoverWindow::OnHireGoblinCrystals(bool confirmed) {
 
 void StorageHoverWindow::OnHireGoblinGold() {
     if (GameState::tutorial == 0x2e) {
-        // SoundsManager::PlaySound("ui_buy_with_gold", 1, false): sounds are milestone 5.
+        SoundsManager::PlaySound("ui_buy_with_gold", 1, false);
         GameState::ChangeResourceAmount(GameState::kGold, -100);
         building->HireGolbin();
         BuildingHovers::HideWorldDialog(nullptr);
@@ -1176,7 +1177,7 @@ void StorageHoverWindow::OnHireGoblinGold() {
     NotEnoughWindow::AddRequirement(GameState::kGold, (unsigned)c.gold);
     NotEnoughWindow::AddLevelRequirement((unsigned)c.level);
     if (NotEnoughWindow::CheckRequirements()) {
-        // SoundsManager::PlaySound("ui_buy_with_gold", 1, false): sounds are milestone 5.
+        SoundsManager::PlaySound("ui_buy_with_gold", 1, false);
         GameState::ChangeResourceAmount(GameState::kGold, -c.gold);
         building->HireGolbin();
         BuildingHovers::Hide();
@@ -1600,7 +1601,7 @@ void ResourceHoverWindow::OnBoost() {
         NotEnoughWindow::Show();
         return;
     }
-    // SoundsManager::PlaySound("ui_on_speedup", 1, false): sounds are milestone 5.
+    SoundsManager::PlaySound("ui_on_speedup", 1, false);
     boosting = true;
     boostT = 0.f;
     if (GameState::tutorial == 0x29) BuildingHovers::HideWorldDialog(nullptr);
@@ -1612,7 +1613,7 @@ void ResourceHoverWindow::OnCollect() {
     building->CollectResources(full, amount);
     std::u32string text;
     if (!full) {
-        // SoundsManager::PlaySound("collect_resource", 1, false): sounds are milestone 5.
+        SoundsManager::PlaySound("collect_resource", 1, false);
         text = SWPrintf(0x100, U"+%d %s", {amount, GameState::GetResourceGameName(building->data->produceResource)});
     } else {
         text = StringTable::GetString("WORK_RES_NO_SPACE");
@@ -2001,7 +2002,7 @@ void FarmRestoreWindow::OnRestore() {
     NotEnoughWindow::ResetRequirements();
     NotEnoughWindow::AddRequirement(GameState::kCrystal, (unsigned)GameState::AdjustCrystalCost(4));
     if (NotEnoughWindow::CheckRequirements()) {
-        // UNVERIFIED (milestone 5): SoundsManager::PlaySound("ui_buy_with_crystals").
+        SoundsManager::PlaySound("ui_buy_with_crystals", 1, false);
         building->RestoreFarm(p);
         BuildingHovers::Hide();
         return;

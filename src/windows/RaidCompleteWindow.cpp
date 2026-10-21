@@ -10,6 +10,7 @@
 // OnTweenIn's SaveManager::QueueSendSave.
 #include <cstdio>
 
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
@@ -55,7 +56,7 @@ void OnTweenIn() {
     const float y = g_effect->hideAtEnd ? 0.f : g_black->h;
     Render::SetPosition(g_black, 0.f, y, 0.02f);
     Render::SetPosition(g_goldline, 0.f, g_black->y + 5.f, 0.0199f);
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_campaign_completed", 1, false).
+    SoundsManager::PlaySound("ui_campaign_completed", 1, false);
     if (!g_root->visibleSelf) return;
     if (GameState::IsCityTutorial()) return;
     Map::Save(0);

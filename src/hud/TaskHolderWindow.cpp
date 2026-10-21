@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "engine/SoundsManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Timer.h"
@@ -856,7 +857,7 @@ void Update(float dt) {
         }
     }
     if (newTaskSound) {
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("ui_new_quest").
+        SoundsManager::PlaySound("ui_new_quest", 1, false);
     }
     if (Timer::GetGlobalTime() == g_lastSecond) return;
     g_lastSecond = Timer::GetGlobalTime();

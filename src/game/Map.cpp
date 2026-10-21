@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Professions.h"
@@ -2053,7 +2054,7 @@ void Update(double dt) {
     if (0.f < t) left = t - fdt;
     if (0.f < t) g_mapTimer = left;
     if (left < 0.f) {
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("map_timer_ding").
+        SoundsManager::PlaySound("map_timer_ding", 1, false);
         g_mapTimer = 360.f;
     }
     UpdateBirds(dt);

@@ -1,4 +1,5 @@
 // HealHoverWindow: see the header.
+#include "engine/SoundsManager.h"
 #include "hud/HealHoverWindow.h"
 
 #include <cstdio>
@@ -165,7 +166,7 @@ void HealHoverWindow::OnItem(unsigned i) {
     if (!info->meta || !info->meta->FindChildData(0x19)) return;
     GameState::PlayerItem* item = GameState::GetFirstItemByID(info->id, false);
     if (!item) return;
-    // UNVERIFIED (milestone 6): SoundsManager::PlaySound("drink_potion", 1, false).
+    SoundsManager::PlaySound("drink_potion", 1, false);
     const bool wasDead = entity->IsDead();
     info->meta->OnApplyItemEffect(entity);
     GameState::RemoveUniqueItem(item->uniqueId);

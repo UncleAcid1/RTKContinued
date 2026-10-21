@@ -6,6 +6,7 @@
 // UNVERIFIED (milestone 6): the music (EndCombat: "music_*" by the map's tileset, unless playing)
 // and the sounds ("battle_boss_outro" when the boss's own side loses its leader,
 // "battle_boss_intro" when the boss reaches its place).
+#include "engine/SoundsManager.h"
 #include "game/Combat.h"
 
 #include <algorithm>
@@ -183,7 +184,7 @@ void BossCombat::UpdateAttackPosition() {
     if (active->IsBoss()) {
         const int* pos = GameState::mBossMapPositions;
         if (enemySquad->GetActiveSoldier()->tileX == pos[6] && enemySquad->GetActiveSoldier()->tileY == pos[7]) {
-            // UNVERIFIED (milestone 6): SoundsManager::PlaySound("battle_boss_intro", 1, false).
+            SoundsManager::PlaySound("battle_boss_intro", 1, false);
         }
     }
     if (!wp10) {
@@ -288,7 +289,7 @@ void BossCombat::EndTurn() {
 // @0x116800: an enemy died: the player's squad hears of it and the fight goes on.
 void BossCombat::OnEnemyDied() {
     if (enemySquad->GetActiveSoldier() == enemySquad->GetOwner()) {
-        // UNVERIFIED (milestone 6): SoundsManager::PlaySound("battle_boss_outro", 1, false).
+        SoundsManager::PlaySound("battle_boss_outro", 1, false);
     }
     wp10 = nullptr;
     playerSquad->OnEnemyDied();

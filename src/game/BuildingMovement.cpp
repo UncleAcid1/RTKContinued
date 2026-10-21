@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "game/BuildingMovement.h"
 
 #include <cmath>
@@ -453,7 +454,7 @@ bool Accept() {
         NotEnoughWindow::Show();
         return false;
     }
-    // UNVERIFIED (milestone 5): SoundsManager::PlaySound("building_position").
+    SoundsManager::PlaySound("building_position", 1, false);
     GameState::ChangeResourceAmount(GameState::kGold, -g_roadCost);
     GameState::updated = true;
     for (Action& a : g_actions) {
