@@ -454,7 +454,6 @@ void OnBuy() {
     Hide();
     BuildingPlacement::BuildingBought(b, icon, false);
     delete b;   // (vfunc +4, the deleting destructor: BuildingBought keeps a duplicate)
-    delete b;
 }
 
 // @0x34a31c: a tap on a cell buys it straight away.
