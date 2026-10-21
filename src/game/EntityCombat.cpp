@@ -19,6 +19,7 @@
 #include "game/Items.h"
 #include "game/Locations.h"
 #include "game/Map.h"
+#include "game/Particles.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
 #include "game/Projectile.h"
@@ -418,9 +419,18 @@ void Entity::OnDying(Entity* attacker) {
         speedScale = 1.f;
     }
     actuallyDying = true;
-    // An enemy killed by magic of an attacker with "spell_fx" dissolves
-    // (Particles::DesintegrateImageParticleSystem, its sprite goes transparent): milestones 5-6.
-    (void)attacker;
+    // An enemy killed by an attacker with magic attack and a "spell_fx" dissolves: its picture
+    // (frame 0 of its sheet) breaks into dots, its sprite all but vanishes.
+    if (IsEnemy() && attacker && attacker->GetEntityData()->spellFx != 0 && attacker->GetAttackMagic() > 0 &&
+        sprite && sprite->tex) {
+        const unsigned fx = attacker->GetEntityData()->spellFx;
+        Particles::Particle* p = new Particles::DesintegrateImageParticleSystem(
+            vec3(sprite->x, sprite->y, 0.f), sprite->tex->name.c_str(), sprite->z, sprite->tex->frames, 0,
+            sprite->mirrorFrames, fx);
+        Particles::AddParticle(p, false);
+        Render::SetShaderType(sprite, 1);
+        Render::SetAlpha(sprite, 0.01f);
+    }
 }
 
 void Entity::OnDeath(Entity* attacker) {

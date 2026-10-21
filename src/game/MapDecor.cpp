@@ -457,8 +457,7 @@ void Decor::CreateParticles(const char* name, unsigned count, bool randomStart) 
         e->SetCustomZ(sprite->z - 1e-05f);
         if (!e->GetEntityData()->anims.empty())
             e->SetAnimationP(e->GetEntityData()->anims[0]->name.c_str(), randomStart, false, false);
-        // UNVERIFIED (milestone 6): Entity::SetParticlePlayCount(count) (0x15124c) when count != 0.
-        (void)count;
+        if (count != 0) e->SetParticlePlayCount(count);
         if (particles) e->nextParticle = particles;
         particles = e;
     }

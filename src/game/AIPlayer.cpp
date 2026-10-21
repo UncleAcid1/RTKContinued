@@ -28,6 +28,7 @@
 #include "game/StringTable.h"
 #include "hud/HUD.h"
 #include "game/Map.h"
+#include "game/Particles.h"
 #include "game/Rand48.h"
 #include "game/SpawnPoint.h"
 #include "game/Squad.h"
@@ -280,8 +281,12 @@ AIPlayer::~AIPlayer() {
 void AIPlayer::PlayBuffAnimation(unsigned, float, float, float) {
     Animation* current = entity->GetCurrentAnimation();
     if (!current || current->name.find("idle") == std::string::npos) return;
-    // The potion's glow (Particles::BuffParticleSystem on his chest, Entity::SetParticleEmitter):
-    // milestone 6.
+    // The potion's glow on his chest: off_x across, 21 up less off_y.
+    const EntityData* d = entity->GetEntityData();
+    const float chest = (entity->worldY - 21.f) + (float)d->offY;
+    const vec3 at = vec3::to3D(entity->worldX + (float)d->offX, entity->worldY, entity->worldY - chest);
+    Particles::Particle* glow = new Particles::BuffParticleSystem(at, vec3(1.f, 1.f, 1.f));
+    entity->SetParticleEmitter(Particles::AddParticle(glow, true), glow);
     entity->SetDirection(0);
     entity->SetAnimationOnce("cast", false, false, false, false);
 }

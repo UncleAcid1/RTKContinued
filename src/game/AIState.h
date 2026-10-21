@@ -427,7 +427,7 @@ public:
     void OnMapUnload() override;                      // +0x150 @0xee644
     void ProcessAction();                             // @0xef6e0 the action of the tap, on arrival
     // +0x158 @0xee650: an idle hero drinks a buff potion's brew (his "cast" animation); the
-    // arguments are unused. PORT: the buff particles (Particles::BuffParticleSystem) are milestone 6.
+    // arguments are unused; the glow is a Particles::BuffParticleSystem.
     virtual void PlayBuffAnimation(unsigned, float, float, float);
     // @0xee7a0: which of d's action points the hero uses.
     unsigned GetBestDecorationActionPoint(Map::Decor* d);

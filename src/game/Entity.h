@@ -24,6 +24,7 @@ class MetaData;
 class Projectile;
 namespace Tags { struct Tag; }
 namespace Spells { struct SpellInfo; }
+namespace Particles { class Particle; }
 
 class Entity {
 public:
@@ -61,6 +62,12 @@ public:
     void Update(float dt);                       // @0x15ba40
     void UpdateGraphics();                       // @0x155504
     void UpdateRing();                           // @0x152380
+    // @0x155fa8: a mage's orb (Particles::MageParticle) follows the "particle_points" of its
+    // "attack1" frames and flies to the target on the last one; a finished emitter is let go.
+    void UpdateParticles();
+    void SetParticleEmitter(uint32_t handle, Particles::Particle* p) { particleEmitter = p; particleHandle = handle; }   // @0x1505c0
+    bool ParticleHasPlayCount() const { return removeSpriteOnEnd; }   // @0x1508a0 (no caller in 5.11)
+    void SetParticlePlayCount(unsigned count);   // @0x15124c
     void CreateUnderlay(int style);              // @0x1517c4 (Rings: 1 npc .. 7 boss idle, 8 pvp)
     void SetCustomUnderlay(int style) { customUnderlay = style; }   // @0x1505b8 (RingStyle)
 
@@ -435,10 +442,12 @@ public:
     int customUnderlay = 0;          // +0x198 forced ring style (SetCustomUnderlay)
     int ringStyle = 0;               // +0x19c
     void* hoverWindow = nullptr;     // +0x1a0 the hover window that follows it (SetHoverWindowPositionHandling)
-    bool removeSpriteOnEnd = false;  // +0x1a8
+    bool removeSpriteOnEnd = false;  // +0x1a8 a decoration particle with a play count (SetParticlePlayCount)
     bool walkAwayOnEnd = false;      // +0x1a9
     bool wanders = true;             // +0x1aa it wanders round its spawn point (RemovePatrol stops it)
     Projectile* projectile = nullptr;   // +0x1ac its arrow in flight
+    Particles::Particle* particleEmitter = nullptr;   // +0x1b0 (SetParticleEmitter, UpdateParticles)
+    uint32_t particleHandle = 0;     // +0x1b4 its AddParticle id
     int overrideAttack = 0, overrideDefense = 0;   // +0x1bc +0x1c0
     uint32_t uniqueId = 0;           // +0x1c4
 };

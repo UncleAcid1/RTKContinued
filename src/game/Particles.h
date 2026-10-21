@@ -23,6 +23,8 @@ struct vec3 {
 vec3 operator+(const vec3& a, const vec3& b);   // @0x1dd010
 vec3 operator-(const vec3& a, const vec3& b);   // @0x1dd054
 vec3 operator*(const vec3& a, float f);         // @0x1dd098
+float lerp(float t, float a, float b);          // @0x1dcee4 a + (b - a) * t
+float randf();                                  // @0x1e004c lrand48() % 1000 / 1000
 
 namespace Particles {
 
@@ -106,6 +108,67 @@ public:
     float duration = 0.f;     // +0x68
     float shake = 0.f;        // +0x6c camera shake strength when it appears (above 1)
     float spriteScale = 1.f;  // +0x70
+};
+
+// A picture broken into soft dots (every second pixel of every second row with alpha >= 128),
+// each drawn tinted with its pixel's colour (shader 11) and flying on its own. Only
+// DesintegrateImageParticleSystem makes one (its own Update runs).
+class ImageParticleSystem : public Particle {   // 0x58 bytes
+public:
+    struct Dot {                    // 0x2c bytes
+        Render::Sprite* sprite;     // +0x00
+        vec3 pos;                   // +0x04
+        vec3 vel;                   // +0x10
+        vec3 color;                 // +0x1c the pixel's colour (alpha taken out)
+        float start;                // +0x28 when it starts to move (Desintegrate)
+    };
+    // @0x1e0478: pos is the picture's bottom-left screen point; frame of a one-file sheet of
+    // `frames` frames, mirrored if asked.
+    ImageParticleSystem(const vec3& pos, const char* path, int frames, int frame, bool mirror, unsigned mode);
+    ~ImageParticleSystem() override;   // @0x1de9bc
+    void Update(float dt) override;    // @0x1ddf10
+    unsigned count = 0;     // +0x4c
+    Dot* dots = nullptr;    // +0x50
+    unsigned mode = 0;      // +0x54
+};
+
+// A dead monster's picture dissolving (Entity::OnDying, killed by a "spell_fx" attacker; mode is
+// that spell_fx: 3 swirls up and away, 2 bursts, others rise).
+class DesintegrateImageParticleSystem : public ImageParticleSystem {   // 0x5c bytes
+public:
+    DesintegrateImageParticleSystem(const vec3& pos, const char* path, float z, int frames, int frame, bool mirror,
+                                    unsigned mode);   // @0x1e0e58
+    ~DesintegrateImageParticleSystem() override;      // @0x1dead8
+    void Update(float dt) override;                   // @0x1dd7f0
+    float z = 0.f;          // +0x58 the sprites' depth
+};
+
+// A buff potion's glow on the hero's chest (AIPlayer::PlayBuffAnimation): it pulses for a second
+// while clouds puff out of it.
+class BuffParticleSystem : public Particle {   // 0x5c bytes
+public:
+    BuffParticleSystem(const vec3& pos, const vec3& color);   // @0x1dec0c
+    void Update(float dt) override;                           // @0x1e1400
+    float spawnTime = 0.f;  // +0x4c
+    vec3 color;             // +0x50 (unused)
+};
+
+// A mage's spell orb (Entity::UpdateParticles): it follows the hand through "attack1" leaving
+// sparkles, then flies to the target and bursts.
+class MageParticle : public Particle {   // 0x8c bytes
+public:
+    MageParticle(const vec3& pos, const vec3& color, const vec3& trailColor);   // @0x1dedbc
+    void Update(float dt) override;                                 // @0x1e1a00
+    virtual void SetPosition(const vec3& pos, int frame, int frames);   // +0x10 @0x1e1778
+    virtual void FlyTo(const vec3& target, float duration);         // +0x14 @0x1dd24c
+    bool flying = false;    // +0x4c
+    float duration = 0.f;   // +0x50
+    float flyTime = 0.f;    // +0x54
+    float trailTime = 0.f;  // +0x58
+    vec3 from;              // +0x5c
+    vec3 to;                // +0x68
+    vec3 color;             // +0x74
+    vec3 trailColor;        // +0x80
 };
 
 void Init();                                   // @0x1dd2c8 (empty)

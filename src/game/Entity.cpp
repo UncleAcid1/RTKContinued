@@ -22,6 +22,7 @@
 #include "game/MetaExpression.h"
 #include "game/Projectile.h"
 #include "game/Map.h"
+#include "game/Particles.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
 #include "game/SpawnPoint.h"
@@ -316,7 +317,7 @@ void Entity::Update(float dt) {
         if (anim && anim->anim) UpdateGraphics();
     }
     UpdateRing();
-    // UNVERIFIED (milestone 5): UpdateParticles.
+    UpdateParticles();
     if (!animQueue.empty() && !IsDead()) {
         animQueue.front().time -= dt;
         if (animQueue.front().time < 0.f) {
@@ -477,6 +478,73 @@ void Entity::UpdateGraphics() {
         Render::SetPosition(ring, dataOffX + worldX + ring->w * -0.5f, (baseY - dataOffY) + ring->h * 0.5f, 0.5f);
     if (underlay) Render::SetPosition(underlay, x, y, Map::GetSpriteZ(baseY - dataOffY, 0.f, 0));
     // (Map::debugEntity's id/position overlay (+0x80) is off)
+}
+
+// @0x15124c: it plays its animation `count` times, then its sprite goes (AnimationEnded).
+void Entity::SetParticlePlayCount(unsigned count) {
+    removeSpriteOnEnd = true;
+    anim->SetPlayCount((int)count, true);
+}
+
+void Entity::UpdateParticles() {
+    if (!anim) return;
+    Animation* a = anim->anim;
+    if (!a) return;
+    if (data->spellFx == 0 || !data->particlePoints || !HasMagicDamage() || a->name != "attack1") {
+        // The buff glow (AIPlayer::PlayBuffAnimation) or the orb ended. (With GameState::g_Combat,
+        // the siege, ProjectileLanded follows: dead in 5.11.)
+        if (particleEmitter && Particles::IsCompleted(particleHandle, true)) particleEmitter = nullptr;
+        return;
+    }
+    // The points: one list per animation and direction (the facing ones 0, 7, 1, 2 the odd lists),
+    // one (x, y) per frame, y counted down the one-file sheet.
+    unsigned idx = 0;
+    for (unsigned i = 0; i < data->anims.size(); ++i) {
+        if (data->anims[i] == a) {
+            idx = i * 2;
+            break;
+        }
+    }
+    if (direction == 0 || direction == 7 || direction == 1 || direction == 2) ++idx;
+    const bool mirror = sprite->mirrorFrames;
+    if (idx >= data->particlePoints->GetChildrenCount()) return;
+    const MetaData* list = data->particlePoints->GetChild(idx);
+    if (!list) return;
+    if ((unsigned)anim->frame >= list->GetChildrenCount()) return;
+    const MetaData* pt = list->GetChild((unsigned)anim->frame);
+    if (!pt || pt->GetChildrenCount() != 2) return;
+    float px = (float)pt->GetChild(0)->GetInt();
+    const int py = pt->GetChild(1)->GetInt();
+    const int frame = anim->frame;
+    const float sheetY = (float)py - (float)(frame * Render::GetFrameHeight(sprite->tex));
+    if (mirror) px = sprite->w - px;
+    const float baseY = (worldY - 21.f) + (float)data->offY;
+    const vec3 at = vec3::to3D(px + sprite->x, baseY, baseY - ((sprite->y - sprite->h) + sheetY));
+    if (!particleEmitter) {
+        static const vec3 kColor[4] = {vec3(1.f, 1.f, 1.f), vec3(1.5f, 0.75f, 0.3f), vec3(1.f, 1.f, 1.f),
+                                       vec3(0.2f, 0.6f, 1.f)};
+        static const vec3 kTrail[4] = {vec3(1.f, 1.f, 1.f), vec3(1.5f, 1.2f, 0.3f), vec3(1.f, 1.f, 1.f),
+                                       vec3(0.3f, 1.2f, 1.5f)};
+        Particles::MageParticle* orb = new Particles::MageParticle(at, kColor[data->spellFx], kTrail[data->spellFx]);
+        particleEmitter = orb;
+        particleHandle = Particles::AddParticle(orb, true);
+        return;
+    }
+    if (Particles::IsCompleted(particleHandle, true)) {
+        particleEmitter = nullptr;
+        return;
+    }
+    Particles::MageParticle* orb = dynamic_cast<Particles::MageParticle*>(particleEmitter);
+    if (!orb) return;
+    if (anim->frame != a->frameCount - 1) {
+        orb->SetPosition(at, anim->frame, a->frameCount);
+        return;
+    }
+    // The last frame: to the fighter it attacks (a third up its sprite). (Without one, with
+    // GameState::g_Combat, the siege: to its tile; dead in 5.11.)
+    Entity* target = ai->linked;
+    if (target && target->GetSprite())
+        orb->FlyTo(vec3(target->worldX, target->worldY, target->GetSprite()->h / 3.f), 0.25f);
 }
 
 void Entity::UpdateRing() {
