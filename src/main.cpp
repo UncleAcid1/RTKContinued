@@ -276,7 +276,7 @@ void Tick(float dt) {
     WindowManager::DestroyPendingWindows();
 }
 
-// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED): the touch/pinch path (Game::touchDown). Left out:
+// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED, milestone 7: trackpad pinch): the touch/pinch path (Game::touchDown). Left out:
 // EditorConsole::IsVisible / Click / Move / OnScroll* and Editor::OnMouseOver (the admin mode, dead in 5.11: never shown).
 void MouseDown(int x, int y, bool left) {
     longTapTime = 0.f;
@@ -1034,8 +1034,8 @@ bool main_Loop_Func() {
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 // SDL_WINDOWEVENT_RESIZED: new screen size, aspect, default zoom, Render::Resize.
-                // UNVERIFIED: the windows are then laid out again (the queue's head
-                // MoveWindowOnTop(true)).
+                // UNVERIFIED (milestone 7, window resizing): the windows are then laid out again (the
+                // queue's head MoveWindowOnTop(true)).
                 SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
                 Render::Init(fbw, fbh);
                 Render::aspect = (float)fbw / (float)fbh;
@@ -1085,7 +1085,8 @@ int main_Exit_Func() {
     delete WindowManager::g_desktopWindow;
     WindowManager::g_desktopWindow = nullptr;
     WindowManager::DestroyPendingWindows();
-    // The Deinit of every system follows on the original (text styles, GUI, the data lists, the
+    GUI::Deinit();
+    // The Deinit of every other system follows on the original (text styles, the data lists, the
     // online services, AI::FreeWaypoints, icons, resources, sounds, the renderer, files, timer,
     // strings, saves): the port's objects release what they hold when the program ends. The
     // game data lists are emptied here as there:

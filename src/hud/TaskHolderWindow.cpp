@@ -108,10 +108,10 @@ void SetTaskCharacter(Shared::TaskWindow& w, Render::Texture* image) {
     w.iconBattle->SetTexture(image, true, size, 0, true, 0);
     w.iconBattleSide->SetTexture(image, true, size, 0, true, 0);
     w.iconQuick->SetTexture(image, true, size, 0, true, 0);
-    w.icon->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false));
-    w.iconBattle->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false));
-    w.iconBattleSide->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false));
-    w.iconQuick->ApplyMask(Resources::GetUIImage("quick_task_quest_holder_mask.png", false, false));
+    w.icon->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false), w.bg);
+    w.iconBattle->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false), w.bgBattle);
+    w.iconBattleSide->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false), w.bgBattleSide);
+    w.iconQuick->ApplyMask(Resources::GetUIImage("quick_task_quest_holder_mask.png", false, false), w.quickBlue);
 }
 
 // @0x3591e8 TaskHolderWindow::OnTaskInfo: a quest button (or its banner) was tapped.

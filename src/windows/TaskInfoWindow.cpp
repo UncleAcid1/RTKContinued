@@ -582,7 +582,7 @@ void SetTask(uint32_t id, bool boss) {
         }
         b.root->SetVisibility(true);
         b.icon->SetTexture(s.GetIcon(), true, 0, 0, false, 0);
-        b.icon->ApplyMask(Resources::GetUIImage("mask_task_icon_holder.png", false, false));
+        b.icon->ApplyMask(Resources::GetUIImage("mask_task_icon_holder.png", false, false), b.iconHolder);
         int done = GameState::GetSubTaskDone(s.id);
         bool hasSkip = s.skipPrice != 0;
         bool complete = s.amount <= done;

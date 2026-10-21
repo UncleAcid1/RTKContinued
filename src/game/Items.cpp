@@ -194,8 +194,8 @@ Render::Texture* ItemInfo::GetBuffIcon(int size) const {
     return IconManager::GetIcon(buf, false);
 }
 
-// UNVERIFIED: the original also sets +0x48 of the texture to 1 (see Background.cpp), here and in
-// GetIcon / GetDropIcon.
+// PORT: the original also sets +0x48 of the texture to 1 (resident, see Background.cpp), here and in
+// GetIcon / GetDropIcon; the port's textures always stay loaded.
 void ItemInfo::PrepareItemImage() {
     if (icon) return;
     Render::Texture* t = nullptr;

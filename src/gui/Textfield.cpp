@@ -192,13 +192,15 @@ void Textfield::SetAlpha(float a, bool) {   // @0x177144
     Render::SetShaderType(sprite, ShaderFor(this));
 }
 
-// @0x179e5c UNVERIFIED: rotation shader (8) not loaded yet.
+// @0x179e5c: as Window::SetRotation, and the text image is filtered smoothly (linear).
 void Textfield::SetRotation(float angle) {
     if (!sprite) return;
     sprite->color[2] = angle;
     sprite->color[0] = sprite->x + sprite->w * 0.5f;
     sprite->color[1] = sprite->h * 0.5f - sprite->y;
     Render::SetShaderType(sprite, 8);
+    Render::SetMinifyFilter(sprite->tex, false);
+    Render::SetMagnifyFilter(sprite->tex, false);
 }
 
 void Textfield::SetScreenSpace(bool ss) {   // @0x179bfc

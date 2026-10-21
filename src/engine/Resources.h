@@ -10,7 +10,7 @@
 // and file (@0x203f58 add, @0x20404c find, @0x20412c the pack list's push_back, GetPack @0x204270),
 // and an animation's exploded frames (GetExplodedAnimationImagePath @0x205bdc; @0x205a5c the table
 // growing). The port probes the pack folders on demand (GetDecoratedImageName) and reads the
-// one-file animation registry (Init). UNVERIFIED: the exploded-frame fallback (see Animation.cpp).
+// one-file animation registry (Init). PORT: the exploded-frame fallback (see Animation.cpp).
 #include "engine/Image.h"
 
 namespace Render { struct Texture; }
@@ -38,7 +38,7 @@ Render::Texture* GetDirectImage(const char* path);   // @0x205c94 (its atlas loo
 // @0x205e3c GetUIImage(name, quiet, async): the name as given, then
 // "../resource/kingdom_ui/1Original/<name>", then "../resource/kingdom_ui/2Optimized/<file name>"
 // with ".png" replaced by ".jpg". Cached by name (case-insensitive).
-// UNVERIFIED: the original first consults an atlas table (FUN_002040b8 @0x20452c) under the same two
+// PORT: the original first consults an atlas table (FUN_002040b8 @0x20452c) under the same two
 // prefixes; nothing in the Android 5.11 data registers UI atlases, so the lookup is not ported.
 // async (deferred loading) is not ported: textures load immediately.
 Render::Texture* GetUIImage(const char* name, bool quiet, bool async);

@@ -79,10 +79,12 @@ Render::Texture* GetSandClockIcon() {
     return GetAnimatedIcon(frames, 1, "images/icon_60_timer (%d).png", 1.f / 30.f);
 }
 
+// @0x2dc37c: the last frame stays 1 s (a pause before the mark plays again).
 Render::Texture* GetExclamaitionIcon() {
     static Render::Texture* frames[15];
-    // UNVERIFIED: the original also checks a field of the cached first frame before returning it.
-    return GetAnimatedIcon(frames, 15, "images/exc_mark_%04d.png", 1.f / 15.f);
+    Render::Texture* t = GetAnimatedIcon(frames, 15, "images/exc_mark_%04d.png", 1.f / 15.f);
+    if (frames[14]) frames[14]->frameTime = 1.f;
+    return t;
 }
 
 // @0x2dc350

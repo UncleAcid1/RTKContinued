@@ -57,7 +57,7 @@ public:
     virtual void SetFrame(unsigned frame, bool keepSize);           // +0x5c @0x178c44
     virtual void ReloadTextures();                                  // +0x60 @0x175db8
     virtual void PreloadTextures();                                 // +0x64 @0x17aed4
-    virtual void ApplyMask(Render::Texture* mask);                  // +0x68 @0x17ae08
+    virtual void ApplyMask(Render::Texture* mask, Window* frame);   // +0x68 @0x17ae08
     virtual void SetBorders(unsigned left, unsigned top, unsigned right, unsigned bottom);  // +0x6c @0x178478
     virtual void SetSize(unsigned w, unsigned h);                   // +0x70 @0x178418
     virtual void MoveWindow(int dx, int dy);                        // +0x74 @0x175dbc
@@ -66,6 +66,7 @@ public:
     virtual void RescaleWindow(float scale);                        // +0x80 @0x17a320
 
     void Update9Slices();                                           // @0x17745c
+    bool HitsPixel(int px, int py) const;                           // part of @0x17af34 / @0x17cc30
 
     float RootScale() const { return root ? root->scale : scale; }
 

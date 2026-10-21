@@ -220,10 +220,10 @@ void SetSlotTask(Slot& s, Tasks::TaskInfo* t) {
         s.iconBattle->SetTexture(image, true, size, 0, false, 0);
         s.iconSide->SetTexture(image, true, size, 0, false, 0);
         s.iconQuick->SetTexture(image, true, size, 0, false, 0);
-        s.icon->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false));
-        s.iconBattle->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false));
-        s.iconSide->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false));
-        s.iconQuick->ApplyMask(Resources::GetUIImage("quick_task_quest_holder_mask.png", false, false));
+        s.icon->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false), s.bg);
+        s.iconBattle->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false), s.bgBattle);
+        s.iconSide->ApplyMask(Resources::GetUIImage("quest_icon_left_mask.png", false, false), s.bgSide);
+        s.iconQuick->ApplyMask(Resources::GetUIImage("quick_task_quest_holder_mask.png", false, false), s.quickBlue);
     }
     s.time->SetVisibility(false);
     // A quick task is named by its step's text "STASK<step>" when there is one.

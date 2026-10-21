@@ -114,6 +114,7 @@ bool CenteringInProgress();
 void UpdateCamera(float dt);
 void SetForceLinear(bool on);   // @0x201514
 void SetMagnifyFilter(Texture* t, bool nearest);   // @0x2017f0 Texture::SetMagnifyFilter
+void SetMinifyFilter(Texture* t, bool nearest);    // @0x2017a4 Texture::SetMinifyFilter
 bool GetForceLinear();          // @0x201528
 void SetBaseZoomFactor(float z);   // @0x1f61c0 (world zoom chosen from the screen size)
 float GetBaseZoomFactor();         // @0x1f61d4

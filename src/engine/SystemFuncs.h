@@ -23,19 +23,19 @@ std::string GetSetting_String(const char* key, const char* def, const char* file
 void SetSetting_String(const char* key, const char* value, const char* file = nullptr);
 
 // @0x3da2f0: the language the app runs in, as a language id (0 EN, 1 RU, 2 DE, 3 LV, 4 ES, 5 IT,
-// 6 FR, 7 KO, 8 JA), from Java's jni_getCurrentLocale. PORT (UNVERIFIED: the Java side is not
-// decompiled): the language chosen earlier ("selected_language" in "MyCountry_flags", which
+// 6 FR, 7 KO, 8 JA), from Java's jni_getCurrentLocale. PORT (UNVERIFIED (milestone 7): the system
+// language on the Mac; the Java side is not decompiled): the language chosen earlier ("selected_language" in "MyCountry_flags", which
 // FileManager::SetPreferredLanguade writes), English when none was chosen yet.
 int getCurrentLanguage();
-// PORT: what Java reports through SDLMain.mcSetLanguage / mcSetAvailableLanguage (UNVERIFIED, as
-// above): whether a language was chosen, and the system's language as a language id (English when
+// PORT: what Java reports through SDLMain.mcSetLanguage / mcSetAvailableLanguage (UNVERIFIED
+// (milestone 7), as above): whether a language was chosen, and the system's language as a language id (English when
 // the game does not have it).
 bool HasSelectedLanguage();
 int GetSystemLanguage();
 
-// @0x3d7664: the device id shown in the settings window. UNVERIFIED (offline port): empty.
+// @0x3d7664: the device id shown in the settings window. UNVERIFIED (milestone 7, the Mac's id): empty.
 std::string getGUID();
-// @0x3da2d0: the Android id the online state chunk keeps. UNVERIFIED (offline port): empty.
+// @0x3da2d0: the Android id the online state chunk keeps. PORT (online, dormant): empty.
 std::string getSID();
 
 // @0x3d7954: Google Play Games sign-in. Offline port: never signed in.

@@ -107,7 +107,8 @@ Render::Texture* GetImage(const char* name, bool pixelMask) {
         if (std::strstr(name, "fir5_stump") || std::strstr(name, "tree5_stump")) frames = 1;
         if (!path.empty()) t = LoadTexture(path, pixelMask, frames);
     }
-    // UNVERIFIED: multi-file animations ("%s_00", "%s_%02d" frames) are not wired up yet.
+    // PORT: a name found in neither pack is tried as "%s_00" .. "%s_%02d" frames in A3MergedAnims; 5.11
+    // has "_00" files only in A2Static (roads, footpaths, orbs), so that path never finds one.
     g_cache[key] = t;
     return t;
 }

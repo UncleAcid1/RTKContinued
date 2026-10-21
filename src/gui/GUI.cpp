@@ -30,10 +30,11 @@ const char* g_fontFile = "fonts/ARICYRB.ttf";
 Window* g_desktop = nullptr;             // GUI::Init's template objects: SetTexture/SetFrame ignore them
 Textfield* g_defaultText = nullptr;
 Button* g_defaultButton = nullptr;
+// 0x611fe4: the window a press landed on (Click; its onClick fires on release), which is also the
+// capture (GetCapture / SetCapture / ReleaseCapture, the long tap).
 Window* g_capture = nullptr;
 
 // Input state
-Window* g_pressed = nullptr;          // the window a press landed on; its onClick fires on release
 // Interaction locks (tutorial): SetInteractionLock / SetInteractionObjectLock / SetOutOfBandInteractions
 bool g_interactionLock = false;
 void* g_lockObject1 = nullptr;
@@ -76,6 +77,10 @@ void Unregister(Window* w) {
 }
 
 int ShaderFor(const Window* w) { return !w->enabled ? 3 : (w->alpha == 1.f ? 0 : 1); }
+
+void DropHighlight(Window* w);
+void ClearTapRings();
+std::vector<ActionSound*> g_actionSounds;   // 0x612228 (SetActionSound)
 
 }  // namespace
 
@@ -178,18 +183,24 @@ void OnLongTapAbort() {
 
 Window::Window() = default;   // field initialisers = Window::Window @0x175b00
 
-// @0x17d980 (partial): callback, sprite chain and registry entries are released.
-// UNVERIFIED: the rest of the destructor (highlight/blocker lists, children) is not read yet;
-// children are not deleted here.
+// @0x17d980: the click callback, the sprite chain, the name table entry (only if it is this window), the
+// window list (swap-remove), the window's press highlight, the children; it stops text input into
+// it and drops it as the capture. (It also clears 0x6122a0 if it points here; nothing else in 5.11
+// reads or writes that global.)
 Window::~Window() {
     while (sprite) sprite = Render::RemoveSprite(sprite);
     Unregister(this);
-    delete sound;
-    for (Window* c = firstChild; c;) {   // the children go with their parent
+    DropHighlight(this);
+    for (Window* c = firstChild; c;) {
         Window* n = c->next;
         delete c;
         c = n;
     }
+    if (g_inputField == this) {
+        FileManager::AbortTextInput();
+        g_inputField = nullptr;
+    }
+    if (g_capture == this) g_capture = nullptr;
 }
 
 // @0x175cc0: children (whose positions are root-relative) move with their parent.
@@ -300,9 +311,7 @@ void Window::SetZ(float nz) {
         float cy = centerSprite ? ((float)h - sprite->h) * 0.5f : 0.f;
         float px = (float)(int)((float)(rx + x) + cx);
         float py = (float)((int)((float)(ry + y) - cy) + h);
-        // UNVERIFIED: the decompile of SetZ shows no -0.25 here (unlike UpdatePosition); the
-        // asm of 0x178868 still has to be checked.
-        Render::SetPosition(sprite, px, py, z);
+        Render::SetPosition(sprite, px - 0.25f, py - 0.25f, z);   // the asm (0x1789dc) has the -0.25
     } else {
         if (parent) { root->zNext -= 0.0001f; z = root->zNext; }
         Update9Slices();
@@ -322,7 +331,12 @@ void Window::SetVisibility(bool v) {
         else Update9Slices();
     }
     for (Window* c = firstChild; c; c = c->next) c->SetVisibility(c->visibleSelf);
-    if (!visible && g_capture == this) g_capture = nullptr;
+    if (visible) return;
+    if (g_inputField == this) {
+        FileManager::AbortTextInput();
+        g_inputField = nullptr;
+    }
+    if (g_capture == this) g_capture = nullptr;
 }
 
 void Window::SetEnabled(bool e) {   // @0x1770bc
@@ -343,7 +357,6 @@ void Window::SetAlpha(float a, bool recursive) {   // @0x1771ac
 }
 
 // @0x179c2c: rotation shader 8 takes the centre in colour r/g and the angle in b.
-// UNVERIFIED: shader type 8 (rotatedVS) is not loaded by the port yet.
 void Window::SetRotation(float angle) {
     if (!sprite) return;
     sprite->color[2] = angle;
@@ -450,14 +463,36 @@ void Window::SetFrame(unsigned f, bool keep) {
 void Window::ReloadTextures() {}   // @0x175db8 (empty)
 void Window::PreloadTextures() {}  // @0x17aed4: textures load synchronously in the port
 
-// @0x17ae08 UNVERIFIED: mask shader (type 4) not used by the HUD; not ported.
-void Window::ApplyMask(Render::Texture*) {}
+// @0x17ae08: the sprite is drawn with the mask shader (4), the mask stretched over `frame` (a window
+// of a layout): colour r/g = the sprite's size in frame sizes, b/alpha = its top-left corner's offset
+// from the frame's, in frame sizes.
+void Window::ApplyMask(Render::Texture* mask, Window* frame) {
+    if (!sprite || !frame->root) return;
+    Render::SetShaderType(sprite, 4);
+    Render::SetColorMask(sprite, mask);
+    float fx = (float)(frame->root->x + frame->x), fy = (float)(frame->root->y + frame->y);
+    float fw = (float)frame->w, fh = (float)frame->h;
+    sprite->color[2] = (sprite->x - fx) / fw;
+    sprite->color[0] = sprite->w / fw;
+    sprite->color[1] = sprite->h / fh;
+    Render::SetAlpha(sprite, (sprite->y - sprite->h - fy) / fh);
+}
 
-// @0x17e260 UNVERIFIED: sounds are not ported yet; the sound name is kept.
+// @0x17e260: no sound for an empty name or a "ui_close" one; otherwise the shared entry for (name, param)
+// from the list of action sounds (0x612228), made on first use. UNVERIFIED (milestone 6): Click plays it.
 void Window::SetActionSound(const char* n, int param) {
-    if (!sound) sound = new ActionSound;
-    sound->name = n ? n : "";
-    sound->param = param;
+    if (!*n || std::strstr(n, "ui_close")) {
+        sound = nullptr;
+        return;
+    }
+    for (ActionSound* s : g_actionSounds) {
+        if (s->param == param && s->name == n) {
+            sound = s;
+            return;
+        }
+    }
+    sound = new ActionSound{n, param};
+    g_actionSounds.push_back(sound);
 }
 
 void Window::RestoreSize() {   // @0x179978
@@ -609,11 +644,19 @@ void Window::ClipWithRect(int l, int t, int r, int b) {
     }
 }
 
-// @0x17af34 (hit test). pixelHitTest needs the texture's hit mask (Render::Sprite::HasPixelAt).
-// UNVERIFIED: hit masks are not built by the port's texture loader; such windows hit by rectangle.
+// GetWindowAtPosition / Click: (px, py) on an opaque pixel of the sprite, for a pixelHitTest window.
+bool Window::HitsPixel(int px, int py) const {
+    if (!pixelHitTest || !sprite) return true;
+    int rx = root ? root->x : 0, ry = root ? root->y : 0;
+    return Render::HasPixelAt(sprite, (float)(px + rx), (float)(py + ry));
+}
+
+// @0x17af34 (hit test). A pixelHitTest window is hit only on its sprite's opaque pixels (its texture's
+// pixel mask; HitsPixel). Window's constructors clear pixelHitTest and no 5.11 code was found that sets
+// it (no layout field, no byte store to a window's +0x2d), so that branch looks dormant.
 Window* Window::GetWindowAtPosition(int px, int py, bool clickable) {
     bool inside = !(px < x || w + x < px || py < y) && py <= h + y;
-    if (noInput || !inside) return nullptr;
+    if (noInput || !inside || !HitsPixel(px, py)) return nullptr;
     for (Window* c = lastChild; c; c = c->prev) {
         int cx = px, cy = py;
         if (!parent) { cx = px - x; cy = py - y; }
@@ -628,8 +671,7 @@ Window* Window::GetWindowAtPosition(int px, int py, bool clickable) {
 // window that has an onClick and highlights it (brightness 1.2); the release fires onClick if it
 // lands on the same window. Children are tried first (last child first); a child that handles the
 // click sets the root's clickHandled, so its ancestors (other than the root) do not fire as well.
-// UNVERIFIED: pixelHitTest windows hit by rectangle (the port's textures carry no hit mask for
-// Render::Sprite::HasPixelAt).
+// A pixelHitTest window is hit as in GetWindowAtPosition.
 bool Window::Click(int px, int py, bool pressed, bool force) {
     if (!parent) {
         clickHandled = false;
@@ -642,7 +684,7 @@ bool Window::Click(int px, int py, bool pressed, bool force) {
             }
         }
     }
-    if (!pressed && g_pressed) SetTargetHighlight(g_pressed, 1.f, pressed);
+    if (!pressed && g_capture) SetTargetHighlight(g_capture, 1.f, pressed);
     if (clip && !ignoreClip) {
         int cx = px, cy = py;
         if (!parent) { cx = px + x; cy = py + y; }
@@ -650,7 +692,7 @@ bool Window::Click(int px, int py, bool pressed, bool force) {
     }
     if (noInput || !visible || !(enabled || force)) return false;
     bool inside = !(px < x || w + x < px || py < y) && py <= h + y;
-    if (!inside) return false;
+    if (!inside || !HitsPixel(px, py)) return false;
     bool handled = false;
     for (Window* c = lastChild; c; c = c->prev) {
         int cx = px, cy = py;
@@ -661,20 +703,20 @@ bool Window::Click(int px, int py, bool pressed, bool force) {
     if (onClick) {
         if (root) root->clickHandled = true;
         if (pressed) {
-            if (g_pressed != this) SetTargetHighlight(g_pressed, 1.f, false);
-            g_pressed = this;
+            if (g_capture != this) SetTargetHighlight(g_capture, 1.f, false);
+            g_capture = this;
             SetTargetHighlight(this, 1.2f, true);
-        } else if (this == g_pressed) {
+        } else if (this == g_capture) {
             if (enabled && CanInteractWith(this)) {
                 // SoundsManager::PlaySound(sound->name, sound->param, false): sounds are not ported yet.
                 onClick();
             }
-            g_pressed = nullptr;
+            g_capture = nullptr;
         }
     }
     if (!parent && !onClick) {
         // A release on a root without onClick drops a pressed button of this layout (0x611fe4).
-        if (!pressed && g_pressed && g_pressed->root == this) g_pressed = nullptr;
+        if (!pressed && g_capture && g_capture->root == this) g_capture = nullptr;
         return handled;
     }
     return true;
@@ -762,8 +804,22 @@ void Init(const char* fontFile, bool highDPI) {   // @0x178b64
     // PORT: the TextCache (0x1a0c bytes) only caches rendered strings; not ported.
 }
 
+// @0x17d60c: the template windows, the name and string tables, the font scale back to 1, the action
+// sounds, the tap rings' sprites (and the text cache, not ported). The layouts' windows are not
+// destroyed here.
 void Deinit() {
-    // UNVERIFIED: @0x17d60c also destroys every registered window; the port leaves them to exit.
+    delete g_defaultButton;
+    delete g_defaultText;
+    delete g_desktop;
+    g_byName.clear();
+    g_all.clear();
+    g_defaultButton = nullptr;
+    g_defaultText = nullptr;
+    g_desktop = nullptr;
+    g_fontScale = 1.f;
+    for (ActionSound* s : g_actionSounds) delete s;
+    g_actionSounds.clear();
+    ClearTapRings();
 }
 
 const char* GetFontFile() { return g_fontFile; }
@@ -865,8 +921,8 @@ void TweenEffect::Update(float dt) {
     if (onUpdate) onUpdate();
 }
 
-// @0x17877c: from above the screen (y = -h) down to the centre. UNVERIFIED: the swing-in sound
-// (SoundsManager::PlaySound) is not played yet.
+// @0x17877c: from above the screen (y = -h) down to the centre. UNVERIFIED (milestone 6): the swing-in
+// sound (SoundsManager::PlaySound) is not played yet.
 void TweenEffect::AnimateIn() {
     t = 0.f;
     int cx = GetCenteredX();
@@ -882,7 +938,7 @@ void TweenEffect::AnimateIn() {
 }
 
 // @0x1786c4: from the centre down past the bottom of the screen; ignored while a tween runs.
-// UNVERIFIED: the swing-out sound is not played yet.
+// UNVERIFIED (milestone 6): the swing-out sound is not played yet.
 void TweenEffect::AnimateOut() {
     if (active) return;
     t = 0.f;
@@ -978,8 +1034,23 @@ struct Highlight {
     int x, y;            // +0x10 +0x14 the window's position when highlighted
 };
 std::vector<Highlight> g_highlights;
+
+// ~Window: the window's first highlight is swap-removed.
+void DropHighlight(Window* w) {
+    for (size_t i = 0; i < g_highlights.size(); ++i) {
+        if (g_highlights[i].window != w) continue;
+        g_highlights[i] = g_highlights.back();
+        g_highlights.pop_back();
+        return;
+    }
+}
 struct TapRing { int x, y; float t; Render::Sprite* sprite; };   // OnMouseClick, 0x10 bytes
 std::vector<TapRing> g_tapRings;
+
+void ClearTapRings() {   // GUI::Deinit
+    for (TapRing& r : g_tapRings) Render::RemoveSprite(r.sprite);
+    g_tapRings.clear();
+}
 struct MouseSample { int x, y; double time; };   // OnMouseMove history (32 entries, 0x10 bytes)
 MouseSample g_mouseHistory[32];
 unsigned g_mouseSamples = 0;
@@ -1380,10 +1451,12 @@ Window* DuplicateWindow(Window* src, bool detached, bool deep, Window* newRoot) 
 // text: <children><child name= class= type= x= y= w= h= .../>...). In 5.11 only
 // kingdom_icons/1Original/*.xml use the XML path (item holders; Items::GetItemOffsetInHolder reads
 // their origin). Files under 0x1000 bytes stay cached by path (0x612240, FUN_00182814).
-// UNVERIFIED (step 4b.5): of the XML branch only the root window is ported (its origin, size and
-// scale, and the root image); the child windows (shapes, buttons, text fields with their glow
-// filters) are skipped. The windows that show these layouts (the character / item shop / chest
-// windows) are milestone 5.
+// PORT: of the XML branch only the root window is ported (its origin, size and scale, and the root
+// image); the child windows (shapes, buttons, text fields with their glow filters) are not built.
+// Checked in 5.11: the 190 kingdom_icons XML files have only movie clip and shape children, none has
+// a picture ("%s/%s___%s.png", @0x3fa808), and no code looks up any of their names, so they would
+// be empty, invisible windows; the callers read only the root's origin (Items::GetItemOffsetInHolder,
+// PlayerHolder::PlaceObjectInHolder).
 Window* RegisterUI(const char* layout, const char* rootImage, float scale, int offsetX, int offsetY,
                    int fitExtraW, int fitExtraH, bool async, float fontScale) {
     Window* w = RegisterBinaryUI(layout, rootImage, scale, offsetX, offsetY, fitExtraW, fitExtraH, async,
@@ -1425,7 +1498,7 @@ Window* RegisterUI(const char* layout, const char* rootImage, float scale, int o
     for (pugi::xml_node c = doc.child("children").child("child"); c; c = c.next_sibling("child")) {
         const char* name = c.attribute("name").value();
         if (std::strcmp("__STAGE__", name) == 0) continue;
-        if (std::strcmp("__ROOT__", name) != 0) continue;   // UNVERIFIED (4b.5): the child windows
+        if (std::strcmp("__ROOT__", name) != 0) continue;   // PORT: the child windows (see above)
         if (scale < 0.f) {
             scale = GetScaleFactor(c.attribute("w").as_int() + fitExtraW, c.attribute("h").as_int() + fitExtraH,
                                    !IsTabletVersion(), -scale);

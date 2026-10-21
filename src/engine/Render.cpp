@@ -276,13 +276,12 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 //   Sprites: @0x1fded0 Sprite::SetShader and @0x1fdef0 GetShaderType (Sprite::shaderType),
 //     @0x1fdee0 MarkDirty (nothing to mark), @0x1fe4d8 AllocateSprite / @0x1fe29c DeallocateSprite
 //     (the pool), @0x1fe5a0 SetColorMask (Sprite::colorMask, bound on texture unit 1 by Frame; the buffs'
-//     clock, shader 5). UNVERIFIED (milestone 5): GUI::Window::ApplyMask waits for its callers.
+//     clock, shader 5; GUI::Window::ApplyMask, shader 4).
 //   Textures: @0x201450 IsLoaded / @0x2027e0 ForceLoad (always loaded), @0x20149c AddRef /
 //     @0x2014d8 ReleaseRef, @0x201550 EnumTexture, @0x201654 AllocateTexture / @0x201998
 //     DeallocateTexture, @0x201894 Texture::Remove, @0x2018e8 Texture::Set, @0x201be4 (the texture
-//     list's push_back), @0x2017a4 SetMinifyFilter / @0x2017f0 SetMagnifyFilter (a texture's filters
-//     are chosen when it is made: CreateTextureRGBA's nearest; Textfield::SetRotation's switch to a
-//     smooth minify filter is not followed).
+//     list's push_back), @0x2017a4 SetMinifyFilter / @0x2017f0 SetMagnifyFilter (below; otherwise a
+//     texture's filters are chosen when it is made, CreateTextureRGBA's nearest).
 //   Text: @0x1ff184 CreateForText (Text.cpp's CreateText makes the texture and its sprite).
 
 // Shader table from Render::InitMain @0x1f7bd4 (types 0..15). Only types used so far are loaded;
@@ -290,8 +289,8 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 //   0 main/main  1 text/text  2 main/main  3 text/grayscale  4 mask/mask  5 ring/ring
 //   6 boss_intro  7 ?/ghostly  8 rotated/text  9 ?/sepia  10 ?/grayscaleTransition  11 color/color
 //   12 overlay/overlay  13 rotatedYVS/?  14 scaledVS/?  15 buildingAnimate/buildingAnimate
-//   Types 9 and 10 take textVS (the buffer kept from type 2's sprintf). UNVERIFIED: the VS/PS that
-//   stay in the sprintf buffers for types 7, 13, 14.
+//   Types 9 and 10 take textVS (the buffer kept from type 2's sprintf). PORT: types 7, 13, 14 (their VS/PS
+//   stay in the sprintf buffers) are not loaded: no SetShaderType call in 5.11 passes 7, 13 or 14.
 // @0x1f8654 (InitMain @0x1f7bd4 loads the shaders): the GL state, the vertex buffer, the shaders.
 bool Init(int screenW, int screenH) {
     g_screenW = screenW;
@@ -303,6 +302,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(2, "mainVS.txt", "mainPS.txt") && ok;
     ok = LoadShader(1, "textVS.txt", "textPS.txt") && ok;       // GUI with alpha, text
     ok = LoadShader(3, "textVS.txt", "grayscalePS.txt") && ok;  // disabled GUI
+    ok = LoadShader(4, "maskVS.txt", "maskPS.txt") && ok;       // GUI::Window::ApplyMask: times the mask's red
     ok = LoadShader(5, "ringVS.txt", "ringPS.txt") && ok;       // the buff clock: shown where `extra` > the colour mask
     ok = LoadShader(6, "boss_introVS.txt", "boss_introPS.txt") && ok;   // BossIntroEffect: 4 taps, color = (scale, spread, add)
     ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
@@ -642,6 +642,12 @@ void SetMagnifyFilter(Texture* t, bool nearest) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, f);
         x = x->next;
     } while (x && x != t);
+}
+// @0x2017a4 Texture::SetMinifyFilter: this texture only (no mipmaps in the port, so GetMinifyFilter's
+// mipmap variants do not arise).
+void SetMinifyFilter(Texture* t, bool nearest) {
+    glBindTexture(GL_TEXTURE_2D, t->glId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, nearest ? GL_NEAREST : GL_LINEAR);   // @0x1facc4
 }
 void SetBaseZoomFactor(float z) { g_baseZoom = z; }
 float GetBaseZoomFactor() { return g_baseZoom; }

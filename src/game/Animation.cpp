@@ -42,9 +42,9 @@ void Animation::Load() {
     char path[256];
     std::snprintf(path, sizeof path, "images/%s", this->path.c_str());
     Render::Texture* t = Resources::GetImage(path);
-    // UNVERIFIED: animations named "l", "b", "m" or "i" whose image is missing fall back to exploded
-    // frames ("%s_%d.jpg" under GetExplodedAnimationImagePath, 1/15 s each, chained through
-    // Texture+0x14); the chain is not ported.
+    // PORT: animations named "l", "b", "m" or "i" whose image is missing first try exploded frames
+    // ("%s_%d.jpg" under GetExplodedAnimationImagePath, chained through Texture+0x14); 5.11's data
+    // has no such frame file (all 9525 entries checked), so the original goes on as below.
     if (!t) {
         for (int d = 0; d < 8; ++d) {
             std::snprintf(path, sizeof path, "images/%s%s", this->path.c_str(), kDirSuffix[d]);

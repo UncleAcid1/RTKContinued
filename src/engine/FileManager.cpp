@@ -207,8 +207,8 @@ uint8_t* LoadFile(const char* name, uint32_t& size) {
     std::fclose(f);
     if (got != e.size) return nullptr;
     // Gzip flag (bit0) as in LoadFile; also accept a gzip magic, since some Android entries are gzipped
-    // without the flag being set in the data the Java side used.  UNVERIFIED: which of the two the
-    // Android Java loader keyed on; the payload bytes are identical either way.
+    // without the flag being set in the data the Java side used.  PORT: which of the two the Android
+    // Java loader keyed on is not known; the payload bytes are identical either way.
     if ((e.flags & 1) || (raw.size() > 2 && raw[0] == 0x1f && raw[1] == 0x8b)) {
         std::vector<uint8_t> out;
         if (!Inflate(raw.data(), (uint32_t)raw.size(), out)) return nullptr;

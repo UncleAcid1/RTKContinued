@@ -21,7 +21,7 @@ struct Animation {               // 0x54 bytes
     int frameCount = 0;          // +0x28
     bool single = false;         // +0x2c one texture for every direction
     bool loaded = false;         // +0x2d
-    // +0x30 GlowFilter set (ids 0x285/0x286 only)  UNVERIFIED: glow filters are not ported.
+    // +0x30 GlowFilter set (ids 0x285/0x286 only)  UNVERIFIED (milestone 6): glow filters are not ported.
     Render::Texture* tex[8] = {};  // +0x34 per direction
 
     void Load();                                 // @0xf9550

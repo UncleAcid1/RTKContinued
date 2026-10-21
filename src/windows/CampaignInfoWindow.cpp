@@ -503,8 +503,8 @@ void UpdateContents() {
     else g_progress.mainIcon->SetTexture(IconManager::GetIcon(noQuest, false), true);
     if (sideTask) g_progress.sideIcon->SetTexture(sideTask->GetIcon(), true);
     else g_progress.sideIcon->SetTexture(IconManager::GetIcon(noQuest, false), true);
-    g_progress.mainIcon->ApplyMask(Resources::GetUIImage("mask_icon_holder_60_round.png", false, false));
-    g_progress.sideIcon->ApplyMask(Resources::GetUIImage("mask_icon_holder_60_round.png", false, false));
+    g_progress.mainIcon->ApplyMask(Resources::GetUIImage("mask_icon_holder_60_round.png", false, false), g_progress.mainIcon);
+    g_progress.sideIcon->ApplyMask(Resources::GetUIImage("mask_icon_holder_60_round.png", false, false), g_progress.sideIcon);
 
     // The items flag: "chance to find" and the grid, or the tick once every quest is done (its tap
     // shows the grid again).

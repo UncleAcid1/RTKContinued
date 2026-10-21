@@ -27,7 +27,7 @@ void CreateLand(unsigned tileset) {
     // Background::Init: ground textures per tileset (direct images)
     static const char* ground[] = {"images/grass_01.png", "images/snow_01.png", "images/sand_01.jpg",
                                    "images/snow_01.png", "images/swamp_01.png"};
-    // UNVERIFIED: index 3 (Init stores five textures at +0x44..+0x54; the 4th path is not resolved yet)
+    // (Init @0x10c308 loads snow_01.png once and stores it for tilesets 1 and 3)
     if (tileset < 5) {
         if (Render::Texture* t = Resources::GetDirectImage(ground[tileset])) {
             g_land = Render::CreateSprite(t, Render::kLayerGround, false, false);
@@ -70,8 +70,8 @@ void CreateLand(unsigned tileset) {
 // building in its corner, and four tiled paper margins framing the ground. (The farm argument is
 // unused.)
 void CreateFarm(int) {
-    // UNVERIFIED: the original sets a flag at +0x48 on these textures before creating the sprites
-    // (keeping them resident); the port's textures have no such flag.
+    // PORT: the original sets a flag at +0x48 on these textures before creating the sprites (keeping
+    // them resident); the port's textures always stay loaded.
     Map::Patch* patch = Map::GetFarmPatch();
     float row = (float)patch->y * 42.f * 0.5f;
     if (Render::Texture* t = Resources::GetImage("images/Farm/farm_bg")) {
@@ -120,7 +120,7 @@ void CreateFarm(int) {
         Render::SetPosition(g_farmPaper[2], left, y, 1.f);
         Render::SetPosition(g_farmPaper[3], x + w, y, 1.f);
     }
-    // UNVERIFIED: Render::EnableTerrainShadowing(false) (the terrain shadow pass is not ported).
+    // UNVERIFIED (milestone 6): Render::EnableTerrainShadowing(false) (the terrain shadow pass).
 }
 
 // @0x10b238: with all three strips (mission maps) they follow the camera at different rates: the

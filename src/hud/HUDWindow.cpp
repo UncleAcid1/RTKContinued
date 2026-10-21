@@ -511,7 +511,7 @@ void UpdateScreenDarkening(float dt) {
     if (!g_black) {
         g_black = Render::CreateSprite(g_blackTex, Render::kLayerGUI, false, false);
         g_black->screenSpace = true;
-        Render::SetShaderType(g_black, 1);   // UNVERIFIED: the type (the argument is lost in the decompile)
+        Render::SetShaderType(g_black, 1);   // (the asm: mov r1,#0x1 at 0x2c6d10)
         g_black->w = (float)GUI::ScreenWidth();
         g_black->h = (float)GUI::ScreenHeight();
         Render::SetPosition(g_black, 0.f, g_black->h, WindowManager::GetTopWindowRange() + 0.0001f);
@@ -739,7 +739,7 @@ void SetQuickLocatorForce(bool force) { g_quickLocatorForce = force; }
 // kind's ring (orange: battle, green: battle side quest, blue: the rest).
 void SetTaskLocaterIcon(Render::Texture* icon, bool battle, bool side, bool quick) {
     g_taskLocator.icon->SetTexture(icon, true, 0, 0, false, 0);
-    g_taskLocator.icon->ApplyMask(Resources::GetUIImage("mask_icon_holder_60_round.png", false, false));
+    g_taskLocator.icon->ApplyMask(Resources::GetUIImage("mask_icon_holder_60_round.png", false, false), g_taskLocator.icon);
     g_taskLocator.finderOrange->SetVisibility(battle && !side);
     g_taskLocator.finderGreen->SetVisibility(battle && side);
     g_taskLocator.finderBlue->SetVisibility(!battle);
