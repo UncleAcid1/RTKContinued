@@ -38,6 +38,7 @@
 #include "game/Tavern.h"
 #include "game/Notifications.h"
 #include "game/Tags.h"
+#include "game/Particles.h"
 #include "game/AI.h"
 #include "engine/Text.h"
 #include "engine/TextInput.h"
@@ -287,6 +288,7 @@ void Tick(float dt) {
     Render::UpdateCamera(dt);
     Render::ApplyViewportLimit();
     Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
+    if (!GameState::IsPaused()) Particles::Update(dt);   // @0x186c68 (after Render::Update)
     // (EditorConsole::Update and, in its debug mode, Editor::Update: the admin mode, dead in 5.11.)
     UpdateTagState();
     GameState::UpdatePaymentItems(dt);

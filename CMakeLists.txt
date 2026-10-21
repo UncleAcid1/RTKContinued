@@ -47,6 +47,7 @@ add_executable(rtk
     src/game/Spells.cpp
     src/game/SpellMovement.cpp
     src/game/ParticlePresets.cpp
+    src/game/Particles.cpp
     src/game/MapCamera.cpp
     src/game/MapDecor.cpp
     src/game/MapSpawn.cpp

@@ -308,6 +308,7 @@ bool Init(int screenW, int screenH) {
     ok = LoadShader(8, "rotatedVS.txt", "textPS.txt") && ok;    // turned about color.xy by color.z
     ok = LoadShader(9, "textVS.txt", "sepiaPS.txt") && ok;      // GlobalMapWindow's screen capture
     ok = LoadShader(10, "textVS.txt", "grayscaleTransitionPS.txt") && ok;   // alpha fades to grey
+    ok = LoadShader(11, "colorVS.txt", "colorPS.txt") && ok;   // tinted by color.rgb (SparkleParticle)
     // Render::Update: no depth test, premultiplied alpha blending (ONE, ONE_MINUS_SRC_ALPHA).
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);

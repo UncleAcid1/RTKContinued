@@ -202,8 +202,11 @@ void AIWarrior::Hit(float delay) {
         }
     } else {
         ShowDamage(entity, damage);
-        // ParticlePresets::OnCriticalHit(critical_fx, from the attacker to it) for an enemy with
-        // "critical_fx", on a critical hit or outside second-tutorial step 0x100: milestone 6.
+        // An enemy with "critical_fx" throws its debris away from the hitter: on a critical hit, or
+        // always outside second-tutorial step 0x100.
+        const unsigned fx = entity->GetEntityData()->criticalFx;
+        if (fx != 0 && (entity->CriticalHit() || GameState::secondTutorial != 0x100) && entity->IsEnemy())
+            ParticlePresets::OnCriticalHit((int)fx, linked->worldX, linked->worldY, entity->worldX, entity->worldY);
     }
     // The hero's blow may bring a spell with it: each running buff potion (type 0xe) with a
     // RANDOM_SPELL (0x2f: spell, percent chance) strikes the one he hit.
@@ -241,7 +244,13 @@ void AIWarrior::Block(float delay) {
     entity->OnBlock(linked);
     BuildingHovers::ShowTextHoverWithStyle(entity->worldX, HeadY(entity), StringTable::GetString("HIT_BLOCKED"), 1,
                                            1.5f, 50.f, false, false);
-    // ParticlePresets::OnCriticalHit(100, ...) when the hero blocks: milestone 6.
+    // The hero's block sparks between him and a melee attacker (at him against a ranged one).
+    if (entity->IsPlayer()) {
+        if (linked->GetAttackRanged() < 1)
+            ParticlePresets::OnCriticalHit(ParticlePresets::kBlock, linked->worldX, linked->worldY, entity->worldX, entity->worldY);
+        else
+            ParticlePresets::OnCriticalHit(ParticlePresets::kBlock, entity->worldX, entity->worldY, entity->worldX, entity->worldY);
+    }
 }
 
 void AIWarrior::Death(float delay) {
@@ -254,8 +263,9 @@ void AIWarrior::Death(float delay) {
     }
     if (!entity->IsDisappearing() && entity->IsAppeared()) {
         ShowDamage(entity, deathDamage);
-        // ParticlePresets::OnCriticalHit(critical_fx, ...) for an enemy with "critical_fx":
-        // milestone 6.
+        const unsigned fx = entity->GetEntityData()->criticalFx;
+        if (fx != 0 && entity->IsEnemy())
+            ParticlePresets::OnCriticalHit((int)fx, linked->worldX, linked->worldY, entity->worldX, entity->worldY);
     }
     ChangeState(4);
     entity->SetAnimationOnce("death", false, false, true, true);

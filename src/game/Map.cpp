@@ -1,3 +1,5 @@
+#include "game/Particles.h"
+#include "game/ParticlePresets.h"
 #include "engine/SoundsManager.h"
 #include "game/MetaData.h"
 #include "game/MetaExpression.h"
@@ -634,10 +636,16 @@ void Decor::RemoveBlockedTiles() {
 }
 
 // ---- the quest reactions of a decoration's expression ------------------------------------------
-// Not ported yet, marked where they happen: the spell effects (ParticlePresets::OnSpell 0x1db8f8,
-// milestone 6).
-
 namespace {
+
+// SPELL_AFTER_*: the spell's effect (ParticlePresets::OnSpell) on the tile (at, at + 1), its spell at
+// spell, its argument (spell 7's big cube) after it when given.
+void SpellAt(const MetaData* d, unsigned at, unsigned spell) {
+    int x = Int(d, at), y = Int(d, at + 1);
+    TileCoordinatesToWorld(x, y);
+    ParticlePresets::OnSpell((unsigned)Int(d, spell), (float)x, (float)y,
+                             d->GetChildrenCount() > spell + 1 && Int(d, spell + 1) != 0);
+}
 
 uint32_t g_setupSeed = 0;   // 0x6118fc PrepareDecorationsForSetup: the RANDOM places' generator
 
@@ -692,8 +700,7 @@ void Decor::OnInteract(uint32_t object) {
         }
         if ((d = e->GetDataWithType(0x5d)) && d->type == MetaData::kNumber && (uint32_t)d->GetInt() == object)
             Disable(this);
-        // UNVERIFIED (milestone 6): SPELL_AFTER_INTERACT (object:x:y:spell[:arg]) plays
-        // ParticlePresets::OnSpell at the tile.
+        if ((d = meta->FindChildData(0x77)) && (uint32_t)Int(d, 0) == object) SpellAt(d, 1, 3);   // SPELL_AFTER_INTERACT
         if ((d = meta->FindChildData(kExpReplaceAfterInteract)) && (uint32_t)Int(d, 0) == object)
             ReplaceObject(this, (uint32_t)Int(d, 1));
     }
@@ -727,7 +734,7 @@ void Decor::OnSubTaskCompleted(uint32_t subtask) {
             AddCameraPath(d, 1);
         if ((d = e->GetDataWithType(kExpShakeAfterSubQuest)) && (uint32_t)Int(d, 1) == subtask)
             AddCameraShake((float)Int(d, 2) / 1000.f, (float)Int(d, 3));
-        // UNVERIFIED (milestone 6): SPELL_AFTER_SUB_QUEST (task:subtask:x:y:spell[:arg]).
+        if ((d = meta->FindChildData(0x76)) && (uint32_t)Int(d, 1) == subtask) SpellAt(d, 2, 4);   // SPELL_AFTER_SUB_QUEST
     }
 }
 
@@ -760,7 +767,7 @@ void Decor::OnTaskCompleted(uint32_t task) {
         if ((d = e->GetDataWithType(kExpCamAfterQuest)) && (uint32_t)Int(d, 0) == task) AddCameraPath(d, 1);
         if ((d = e->GetDataWithType(kExpShakeAfterQuest)) && (uint32_t)Int(d, 0) == task)
             AddCameraShake((float)Int(d, 1) / 1000.f, (float)Int(d, 2));
-        // UNVERIFIED (milestone 6): SPELL_AFTER_QUEST (task:x:y:spell[:arg]).
+        if ((d = meta->FindChildData(0x75)) && (uint32_t)Int(d, 0) == task) SpellAt(d, 1, 3);   // SPELL_AFTER_QUEST
     }
 }
 
@@ -2103,7 +2110,7 @@ float GetSpriteZ(float a, float b, int c) {
 // @0x1bf768 (Map::Load, the reload, the exit): everything of the map goes; its entities let go of it
 // and the temporary ones are removed.
 void Free() {
-    // UNVERIFIED (milestone 6): Particles::ClearParticles.
+    Particles::ClearParticles();
     for (auto& p : g_patches) {
         for (auto& d : p->decors) {
             BuildingHovers::UnregisterDecoration(d.get());   // ~Decor

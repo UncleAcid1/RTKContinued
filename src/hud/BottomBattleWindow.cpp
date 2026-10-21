@@ -14,7 +14,6 @@
 // buttons' accept / decline, the second tutorial's step 0x9e), the spell drag in Click, the mana
 // potion hints' actions (5k, 5l), the round mask on the centre button's icon, showing the bar
 // on every campaign map (Map::Load).
-// (milestone 6: the "ui_click" sound and the spells' sounds and particles.)
 #include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 
@@ -44,6 +43,7 @@
 #include "game/Setting.h"
 #include "game/SoldierSlots.h"
 #include "game/SpellMovement.h"
+#include "game/ParticlePresets.h"
 #include "game/Spells.h"
 #include "game/Squad.h"
 #include "game/StringTable.h"
@@ -859,7 +859,7 @@ bool CastSlot(unsigned i) {
         enemy->SetActiveSoldier(target);
         SpellMovement::Activate(spell, target->tileX, target->tileY);
         SoundsManager::PlaySound("ui_swing_in", 1, false);
-        // (milestone 6: ParticlePresets::SpellPreload(spell id, 0))
+        ParticlePresets::SpellPreload(spell->id, false);
         return true;
     }
     Entity* target = enemy->GetActiveSoldier();
@@ -887,8 +887,8 @@ bool CastSlot(unsigned i) {
     g_flyToY = (int)(target->worldY - 20.f);
     player->OnSpellCast(target);
     SoundsManager::PlaySound("spell_fly", 1, false);
-    // (milestone 6: ParticlePresets::SpellPreload(spell id, 0). Online, dormant: OG::MakeRequest(0x14,
-    // 0x10, spell id, -1, 0).)
+    // (Online, dormant: OG::MakeRequest(0x14, 0x10, spell id, -1, 0).)
+    ParticlePresets::SpellPreload(spell->id, false);
     return true;
 }
 
