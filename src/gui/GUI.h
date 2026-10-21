@@ -200,7 +200,9 @@ public:
     float duration = 0.2f;        // +0x1c seconds
     bool blocksInput = true;      // +0x20 (IsAnyAnimationActive)
     int insetL = 0, insetT = 0, insetR = 0, insetB = 0;   // +0x24..+0x30 centring margins
-    std::string swingIn = "ui_swing_in", swingOut = "ui_swing_out";   // +0x34 +0x38 sounds
+    // +0x34 +0x38 the sounds (id 1) TweenEffect::AnimateIn / AnimateOut play; SetSwingInSound @0x182d78 /
+    // SetSwingOutSound @0x182bc0 (an empty name: none) are assignments here.
+    std::string swingIn = "ui_swing_in", swingOut = "ui_swing_out";
 };
 
 // GUI::MovementEffect (0x4c bytes): slides a window from one position to another in `duration`

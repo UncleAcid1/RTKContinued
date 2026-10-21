@@ -15,6 +15,13 @@ find_package(JPEG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenGL REQUIRED)
 
+# libvorbisfile / libvorbis / libogg (Homebrew), linked statically: the original's sounds are Ogg Vorbis.
+find_path(VORBIS_INCLUDE_DIR vorbis/vorbisfile.h REQUIRED)
+find_path(OGG_INCLUDE_DIR ogg/ogg.h REQUIRED)
+find_library(VORBISFILE_LIB NAMES libvorbisfile.a vorbisfile REQUIRED)
+find_library(VORBIS_LIB NAMES libvorbis.a vorbis REQUIRED)
+find_library(OGG_LIB NAMES libogg.a ogg REQUIRED)
+
 add_subdirectory(third_party)   # FreeType 2.4.5 + SDL_ttf 2.0.11, the versions the game shipped
 
 add_executable(rtk
@@ -27,6 +34,8 @@ add_executable(rtk
   src/engine/Render.cpp
   src/engine/Resources.cpp
   src/engine/ViralFeatures.cpp
+  src/engine/Sounds.cpp
+  src/engine/SoundsManager.cpp
   src/game/Rand48.cpp
   src/game/SaveManager.cpp
   src/game/GameData.cpp
@@ -163,8 +172,9 @@ add_executable(rtk
   src/hud/InfoHoverWindows.cpp
   src/hud/ItemHoverWindow.cpp
 )
-target_include_directories(rtk PRIVATE src)
+target_include_directories(rtk PRIVATE src ${VORBIS_INCLUDE_DIR} ${OGG_INCLUDE_DIR})
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
 # -ffp-contract=off: ARMv7 VMLA/VMLS round the product and the sum separately; no fused multiply-add.
 target_compile_options(rtk PRIVATE -Wall -Wextra -Wno-unused-parameter -ffp-contract=off)
-target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL sdl_ttf2011)
+target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL sdl_ttf2011
+                      ${VORBISFILE_LIB} ${VORBIS_LIB} ${OGG_LIB})

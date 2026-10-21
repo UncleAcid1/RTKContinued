@@ -69,6 +69,7 @@
 #include "game/Professions.h"
 #include "game/Sets.h"
 #include "gui/GUI.h"
+#include "engine/SoundsManager.h"
 #include "gui/TextStyleManager.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
@@ -668,8 +669,10 @@ int main_Loop_Init() {
     SetSaveNames();
     // (a "last_played_save" other than "offline": SocNets::ChangeLoginFriendsSocNet(0);
     // FileManager::GetServerUpdate: online)
-    // UNVERIFIED (milestone 6): SoundsManager::Init("config/Sounds.xml", "ogg/", ".ogg"), the music
-    // and sound volumes (0 when muted in the settings window), SetMusicFadeDelays(1000, 500).
+    SoundsManager::Init("config/Sounds.xml", "ogg/", ".ogg");
+    SoundsManager::SetVolume_Music(SettingsWindow::GetMusicMutedState() ? 0.f : 0.35f);
+    SoundsManager::SetVolume_Sounds(SettingsWindow::GetSoundMutedState() ? 0.f : 1.f);
+    SoundsManager::SetMusicFadeDelays(1000, 500);
     gMusicName = "music_battle_map";
     turnMusic(true);
     canPlayMusic = true;
@@ -1053,6 +1056,7 @@ bool main_Loop_Func() {
     // (The online states that replace the game's Update: the Facebook question, a save being sent
     // or fetched, a required content update.)
     if (!restartGameAfterExit && !done) {
+        SoundsManager::Update((float)dt);
         Tick((float)(dt * (double)HUDWindow::GetDeltaTimeMultiplier()));
         Render::Frame();
         SDL_GL_SwapWindow(win);

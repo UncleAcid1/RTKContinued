@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "engine/FileManager.h"
+#include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -479,7 +480,7 @@ void Window::ApplyMask(Render::Texture* mask, Window* frame) {
 }
 
 // @0x17e260: no sound for an empty name or a "ui_close" one; otherwise the shared entry for (name, param)
-// from the list of action sounds (0x612228), made on first use. UNVERIFIED (milestone 6): Click plays it.
+// from the list of action sounds (0x612228), made on first use. Click plays it.
 void Window::SetActionSound(const char* n, int param) {
     if (!*n || std::strstr(n, "ui_close")) {
         sound = nullptr;
@@ -708,7 +709,7 @@ bool Window::Click(int px, int py, bool pressed, bool force) {
             SetTargetHighlight(this, 1.2f, true);
         } else if (this == g_capture) {
             if (enabled && CanInteractWith(this)) {
-                // SoundsManager::PlaySound(sound->name, sound->param, false): sounds are not ported yet.
+                if (sound) SoundsManager::PlaySound(sound->name.c_str(), sound->param, false);
                 onClick();
             }
             g_capture = nullptr;
@@ -921,8 +922,7 @@ void TweenEffect::Update(float dt) {
     if (onUpdate) onUpdate();
 }
 
-// @0x17877c: from above the screen (y = -h) down to the centre. UNVERIFIED (milestone 6): the swing-in
-// sound (SoundsManager::PlaySound) is not played yet.
+// @0x17877c: from above the screen (y = -h) down to the centre, with the swing-in sound.
 void TweenEffect::AnimateIn() {
     t = 0.f;
     int cx = GetCenteredX();
@@ -935,10 +935,11 @@ void TweenEffect::AnimateIn() {
     split = 0.8f;
     active = true;
     window->SetPosition(fromX, fromY);
+    if (!swingIn.empty()) SoundsManager::PlaySound(swingIn.c_str(), 1, false);
 }
 
-// @0x1786c4: from the centre down past the bottom of the screen; ignored while a tween runs.
-// UNVERIFIED (milestone 6): the swing-out sound is not played yet.
+// @0x1786c4: from the centre down past the bottom of the screen, with the swing-out sound; ignored
+// while a tween runs.
 void TweenEffect::AnimateOut() {
     if (active) return;
     t = 0.f;
@@ -952,6 +953,7 @@ void TweenEffect::AnimateOut() {
     split = 0.2f;
     toY = g_screenH;
     window->SetPosition(fromX, fromY);
+    if (!swingOut.empty()) SoundsManager::PlaySound(swingOut.c_str(), 1, false);
 }
 
 int AnimationEffect::GetCenteredX() const {   // @0x17621c

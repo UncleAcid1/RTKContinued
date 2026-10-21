@@ -1,3 +1,4 @@
+#include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 #include "game/Game.h"
 
@@ -75,9 +76,12 @@ void OnResume() {
 
 // @0x187674 turnMusic
 void turnMusic(bool on) {
-    // UNVERIFIED (milestone 6): SoundsManager::PauseAudio(!on) and, when on,
-    // SoundsManager::PlayMusic(gMusicName, true).
-    (void)on;
+    if (!on) {
+        SoundsManager::PauseAudio(true);
+        return;
+    }
+    SoundsManager::PauseAudio(false);
+    SoundsManager::PlayMusic(gMusicName.c_str(), true);
 }
 
 // @0x186fe0 LanguageDecline

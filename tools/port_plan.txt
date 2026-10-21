@@ -24,6 +24,13 @@ lib  ^(dollar\w+|bestDollarDifference)$   # SDL2's $1 gesture recognizer (SDL_ge
 5x  ^(Render::(SaveImage|GetScreenData|GetSurfaceFromPath)|ViralFeatures::(PostScreenshot|BlitBiliniar|ColorCorrection)|FileManager::SaveImage)$   # BottomScreenshotWindow::OnConfirm -> Render::SaveImage -> PostScreenshot -> FileManager::SaveImage (PORT: a PNG)
 5x  @1fc088   # Render::GetImageData(char const*, ...): PostScreenshot's cover (Resources::GetImageData)
 
+# ---- 6a (2026-10-20): the audio engine (Sounds, SoundsManager) ------------------------------------------
+dead  ^SoundsManager::UnpauseMusic$   # no caller, no address taken
+7  ^Sounds::(isInterrupted|willResignActive|interruptStart|interruptEnd)$   # Android's audio focus (the app interrupted / back): the platform
+7  ^SystemFuncs::SetNotificationsEnabled$|^FileManager::OnNotifications$   # the settings' notifications switch: Java (the OS backend, milestone 7)
+util  ^SoundsManager::DuplicateString$   # the event names' string pool (std::string in the port)
+implicit  ^(Sounds::FUN_(00220cb0|002210a4|002213e8)|SoundsManager::FUN_0022424c)$   # the name -> sound / music / event std::map inserts
+
 # ---- 4b.4: the item windows ------------------------------------------------------------------
 4b.4  ^ItemHoverWindow::
 4b.4  ^UseItemHoverWindow::

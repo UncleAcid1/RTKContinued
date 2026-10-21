@@ -5,6 +5,7 @@
 // and 0x60f390.
 #include <string>
 
+#include "engine/SoundsManager.h"
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
@@ -162,19 +163,21 @@ void Update(float) {
     UpdateContents();
 }
 
-// @0x33f9c4. UNVERIFIED (milestone 5): SoundsManager::SetVolume_Music(muted ? 0 : 0.35) is not ported.
+// @0x33f9c4
 void OnMusic() {
     g_musicMuted = Flip(g_musicMuted);
-    // FileManager::OnMusicMute (0x16af80)
+    SoundsManager::SetVolume_Music(g_musicMuted ? 0.f : 0.35f);
+    // FileManager::OnMusicMute @0x16af80
     SystemFuncs::SetSetting_Int("MC_music_mute", 1 - SystemFuncs::GetSetting_Int("MC_music_mute", 0, "MyCountry_mute"),
                                 "MyCountry_mute");
     UpdateContents();
 }
 
-// @0x33fa10. UNVERIFIED (milestone 5): SoundsManager::SetVolume_Sounds(muted ? 0 : 1) is not ported.
+// @0x33fa10
 void OnSound() {
     g_soundMuted = Flip(g_soundMuted);
-    // FileManager::OnSoundMute (0x16afc0)
+    SoundsManager::SetVolume_Sounds(g_soundMuted ? 0.f : 1.f);
+    // FileManager::OnSoundMute @0x16afc0
     SystemFuncs::SetSetting_Int("MC_sound_mute", 1 - SystemFuncs::GetSetting_Int("MC_sound_mute", 0, "MyCountry_mute"),
                                 "MyCountry_mute");
     UpdateContents();
