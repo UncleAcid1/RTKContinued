@@ -1,8 +1,5 @@
 <div align="center">
 
-<!-- BANNER: drop your banner at docs/images/readme/banner.png (1200 x 300 px), then uncomment:
-<img src="docs/images/readme/banner.png" alt="RTKContinued" width="100%">
--->
 
 <br>
 
