@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1446"/><stop offset=".6" stop-color="#6a3a7c"/><stop offset="1" stop-color="#f4a259"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff2a8"/><stop offset=".5" stop-color="#ffc83a"/><stop offset="1" stop-color="#c77a12"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#fff6c2" stop-opacity="1"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="300" fill="url(#sky)"/>
+  <circle cx="600" cy="215" r="170" fill="url(#sun)"/>
+  <g fill="#fff" opacity=".85">
+    <circle cx="90" cy="40" r="1.6"/><circle cx="210" cy="70" r="1.2"/><circle cx="330" cy="30" r="1.8"/><circle cx="450" cy="62" r="1.2"/>
+    <circle cx="760" cy="38" r="1.6"/><circle cx="880" cy="72" r="1.2"/><circle cx="1010" cy="28" r="1.8"/><circle cx="1120" cy="60" r="1.4"/>
+    <circle cx="150" cy="120" r="1"/><circle cx="1060" cy="120" r="1"/>
+  </g>
+  <path d="M0 230 L110 160 L190 205 L300 120 L400 200 L500 150 L600 215 L700 150 L800 200 L900 125 L1000 200 L1090 155 L1200 225 L1200 300 L0 300Z" fill="#3b2a5e" opacity=".9"/>
+  <path d="M0 262 L130 215 L260 250 L380 205 L520 255 L650 222 L780 258 L920 210 L1050 250 L1200 215 L1200 300 L0 300Z" fill="#1d1a3a"/>
+  <g fill="#120f28">
+    <rect x="70" y="214" width="10" height="46"/><polygon points="62,218 75,190 88,218"/><polygon points="64,200 75,176 86,200"/>
+    <rect x="1118" y="214" width="10" height="46"/><polygon points="1110,218 1123,190 1136,218"/><polygon points="1112,200 1123,176 1134,200"/>
+    <rect x="1000" y="236" width="8" height="30"/><polygon points="994,240 1004,218 1014,240"/>
+    <rect x="195" y="236" width="8" height="30"/><polygon points="189,240 199,218 209,240"/>
+    <!-- castle -->
+    <rect x="540" y="190" width="120" height="76"/><rect x="530" y="168" width="28" height="98"/><rect x="642" y="168" width="28" height="98"/>
+    <rect x="574" y="150" width="52" height="116"/>
+    <polygon points="526,168 544,142 562,168"/><polygon points="638,168 656,142 674,168"/><polygon points="570,150 600,112 630,150"/>
+  </g>
+  <g fill="#ffd166"><rect x="594" y="200" width="12" height="22" rx="6"/><rect x="540" y="190" width="6" height="12"/><rect x="652" y="190" width="6" height="12"/></g>
+  <text x="600" y="92" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="22" letter-spacing="10" fill="#ffe9a8" opacity=".9">THE  KINGDOM  RETURNS</text>
+  <text x="600" y="156" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="bold" font-size="76" fill="#2a1500" transform="translate(0,4)" opacity=".55">RTKContinued</text>
+  <text x="600" y="156" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="bold" font-size="76" fill="url(#gold)" stroke="#6b3a00" stroke-width="1.5">RTKContinued</text>
+</svg>

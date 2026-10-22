@@ -1,25 +1,38 @@
 <div align="center">
 
-<img src="docs/images/readme/logo.png" alt="Rule the Kingdom" width="360">
-
-# RTKContinued
-
-**A native, open-source C++ port of *Rule the Kingdom*, rebuilt function by function from the original Android game library so it can be played again on modern computers.**
-
-![status](https://img.shields.io/badge/status-work%20in%20progress-orange)
-![milestone](https://img.shields.io/badge/progress-90%25-blue)
-![platforms](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-SDL3%20%2B%20OpenGL-lightgrey)
-![fidelity](https://img.shields.io/badge/port-100%25%20faithful-brightgreen)
-
-<sub>README last updated **2026-10-20**. Project status as of the same day.</sub>
+<img src="docs/images/readme/banner.svg" alt="RTKContinued: the kingdom returns" width="100%">
 
 <br>
 
-<img src="docs/images/readme/trailer_intro.gif" alt="Official trailer, opening" width="420">
-&nbsp;
-<img src="docs/images/readme/port_footage.gif" alt="The port running on macOS" width="420">
+<img src="docs/images/readme/logo.png" alt="Rule the Kingdom" width="320">
 
-<sub>Left: the official 2012 trailer (Game Insight / innoWate). Right: **this port**, running natively on a Mac (test footage, 2026-10-05).</sub>
+### A native, open-source C++ port of *Rule the Kingdom*, rebuilt function by function from the original Android game library, so the kingdom can be ruled again on a modern computer.
+
+![status](https://img.shields.io/badge/status-playable%20%C2%B7%20bug%20hunting-ffb347)
+![ported](https://img.shields.io/badge/functions%20ported-96%25-6ee7a0)
+![fidelity](https://img.shields.io/badge/port-100%25%20faithful-brightgreen)
+![platforms](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-SDL3%20%2B%20OpenGL-lightgrey)
+![offline](https://img.shields.io/badge/play-100%25%20offline-8ab4ff)
+![money](https://img.shields.io/badge/real--money%20purchases-none-ff8a8a)
+
+<br>
+
+<img src="docs/images/readme/status.svg" alt="Status: playable start to finish, bug-hunting phase" width="820">
+
+<br><br>
+
+<img src="docs/images/readme/port_chapter1.jpg" alt="The port running: Chapter 1, The Story Begins" width="760">
+<br><sub><b>This is the port itself</b>, running natively: Chapter 1, "The Story Begins". Not a mock-up, not the original app.</sub>
+
+<br><br>
+
+<img src="docs/images/readme/trailer_intro.gif" alt="Official trailer, opening" width="380">
+&nbsp;
+<img src="docs/images/readme/port_footage.gif" alt="The port running on macOS" width="380">
+
+<sub>Left: the official 2012 trailer (Game Insight / innoWate). Right: the port, running natively on a Mac.</sub>
+
+<sub>README last updated <b>2026-10-22</b>.</sub>
 
 </div>
 
@@ -27,44 +40,130 @@
 
 ## Contents
 
-1. [Project snapshot](#project-snapshot)
-2. [The game that was](#the-game-that-was)
-3. [Full history and timeline](#full-history-and-timeline)
-4. [How the game played](#how-the-game-played)
-5. [The people and companies behind it](#the-people-and-companies-behind-it)
-6. [Gallery](#gallery)
-7. [Why a port](#why-a-port)
-8. [Scope and rules of the port](#scope-and-rules-of-the-port)
-9. [Progress](#progress) and the [progress report](#progress-report)
-10. [Building (macOS)](#building-macos)
-11. [Layout and reverse-engineering workspace](#layout)
-12. [Sources and accuracy notes](#sources-and-accuracy-notes)
+1. [Where things stand](#where-things-stand)
+2. [What is ported, and what is not](#what-is-ported-and-what-is-not)
+3. [Play it](#play-it)
+4. [Found a bug?](#found-a-bug)
+5. [Roadmap](#roadmap)
+6. [The game that was](#the-game-that-was) · [History](#full-history-and-timeline) · [How it played](#how-the-game-played) · [The people](#the-people-and-companies-behind-it) · [Gallery](#gallery)
+7. [Why a port](#why-a-port) · [Scope and rules](#scope-and-rules-of-the-port)
+8. [Progress](#progress)
+9. [Building](#building-macos) · [Layout](#layout) · [Sources](#sources-and-accuracy-notes)
 
 ---
 
-## Project snapshot
+## Where things stand
 
-*Timestamped 2026-10-20. Roughly **90% done**, see the [progress report](#progress-report).*
+> ### ⚔️ The honest version
+> **The port is playable from a new game to the end of the campaign.** The opening tutorial, the
+> city, workers and farms, quests, campaign maps, boss fights, spells, crafting, chests, the shops,
+> the daily bonus, the arena and offline PvP, saves, sound, music and particle effects all run.
+> Nearly every function of the original has been ported (**about 96%**, with a handful of deliberate exceptions, listed below).
+>
+> **It is not polished yet.** The project is in a **bug-hunting era**: the maintainer is playing the game through
+> and logging every bug found, then fixing them in batches. Expect crashes, wrong numbers,
+> odd visuals and the occasional soft-lock. Back up your saves.
 
-| | |
+<!-- STATUS-SWITCH: when the bug hunt is finished, replace the box above with the "release" box below and swap status.svg + the badges.
+> ### 🏰 Ready for the realm
+> Fully playable, fully polished, and ready for everyone. Download a build and rule the kingdom.
+-->
+
+| Phase | State |
 |---|---|
-| **Started** | 2026-10-04 (first commit; first push to GitHub 2026-10-06) |
-| **Repository** | [github.com/UncleAcid1/RTKContinued](https://github.com/UncleAcid1/RTKContinued) |
-| **Code base ported** | Android 5.11 `libkingdom.so` (ARMv7, October 2014, about 10.5k exported C++ symbols) |
-| **Language / stack** | C++17, SDL3, OpenGL, pugixml, libpng, libjpeg, zlib, FreeType (the original's own libraries, for parity) |
-| **Size of the port so far** | about 94,000 lines across 209 source files, about 4,750 functions tagged with their original address (`// @0x...`) |
-| **Coverage** | about 4,513 of 5,021 portable functions ported (90%); about 508 remain |
-| **Milestones** | 1 map rendering, 2 GUI and input, 3 city economy, 4 hero, army, quests, campaign, tutorial: **done**. 5 the rest of the game: steps 5a to 5t done, 5u to 5x left. 6 sound and effects, 7 Mac release: planned |
-| **Playable today** | New game, opening tutorial, city building, workers, farms, saves, quests, campaign maps and combat, boss fights, spells, the world map, hiring and healing troops, crafting, chests, the item shop, the daily bonus, the tavern, calendar events, the arena, and PvP against generated rivals (offline) |
-| **Next up** | Step 5u (PvP player info windows), then 5v to 5x; then milestone 6 (sound and effects) and 7 (Mac release and polish) |
-
-Detailed progress lives in [STATUS.md](STATUS.md); the per-function map of the original is in
-[docs/port_inventory.md](docs/port_inventory.md).
+| 1. **Port the code** | ✅ about 96% of the portable functions (4,800+ of 5,021); the rest is platform work |
+| 2. **Make it playable** | ✅ new game to campaign finish, with every major system working |
+| 3. **Bug hunt** | 🔶 **in progress**: full play-throughs, every bug logged and fixed |
+| 4. **Polish and release** | ⏳ platform builds, OS notifications, packaged downloads |
 
 <div align="center">
-<img src="docs/images/readme/map0_render.jpg" alt="The port's renderer drawing the starting kingdom map from the original map file" width="760">
-<br><sub>The starting kingdom (<code>map_0</code>) drawn by this project's own renderer, straight from the original map data.</sub>
+<img src="docs/images/readme/progress.svg" alt="Progress by area" width="760">
 </div>
+
+### What it feels like right now
+
+- ✅ You can start a fresh kingdom and play all the way through.
+- ✅ Saves load and store reliably in the original's own format.
+- ✅ It looks and sounds like the original: same art, same music, same spell effects.
+- 🔶 Some fights, windows and edge cases still misbehave; that is exactly what the bug hunt is for.
+- 🔶 Balance has been adjusted for an offline game (no real money, crystals earned in play).
+
+---
+
+## What is ported, and what is not
+
+Almost all of the game is ported, **function by function**, each tagged with its original address (`// @0x...`).
+
+| Area | State |
+|---|---|
+| Map rendering, GUI, input, dialogs | ✅ done |
+| City economy: buildings, workers, farms, taxes, shop | ✅ done |
+| Hero, army, quests, items, the opening tutorial | ✅ done |
+| Campaign maps, world map, campaign combat, boss fights | ✅ done |
+| Spells, rage and mana, buffs | ✅ done |
+| Hiring and healing troops, repairs, raids | ✅ done |
+| Character info, sets, collections, professions | ✅ done |
+| Crafting, chests and keys, the item shop | ✅ done |
+| Daily bonus, tavern, calendar events | ✅ done |
+| The arena, and PvP against generated rivals | ✅ done (offline stand-in for the server) |
+| Sound, music, particles, screen effects | ✅ done (final glow and close-out pass pending) |
+| Screenshot mode | ✅ done (saves a local PNG) |
+
+**The exceptions** (on purpose, or not yet):
+
+| Exception | Why |
+|---|---|
+| **Real-money purchases** | Removed. Crystals are earned in play. |
+| **Facebook, friends, gifts, the social tabs** | Need the publisher's servers, which are gone. Kept dormant in the code. |
+| **Server saves, live events and live PvP** | Replaced by local saves, the calendar and generated rivals. |
+| **Admin / editor / debug console** | Not reachable in the shipping game, so deliberately not ported. |
+| **Operating-system layer** (desktop notifications, packaging, platform polish) | Milestone 7, still ahead, roughly 180 functions. |
+| **A final sweep of notes and unverified guesses** | Paused while the bug hunt runs; each guess is marked `UNVERIFIED` in the code. |
+
+---
+
+## Play it
+
+There is no packaged download yet: you build it yourself (see [Building](#building-macos)) and point it at **your own copy of the
+original game files**. No game data is included in this repository.
+
+```
+./build/rtk --root <folder containing the game data> --storage <a folder for your saves>
+```
+
+> 💾 **Back up your saves.** While the bug hunt runs, a bad build can corrupt a save. Use `--storage` to keep test saves apart from your real one.
+
+---
+
+## Found a bug?
+
+The bug log is the heart of this phase. If you try the port and something is off, please open an
+[issue](https://github.com/UncleAcid1/RTKContinued/issues) with:
+
+1. **What you did** (the quest, the map, the window).
+2. **What you expected**, and **what happened instead**.
+3. A **screenshot**, and the end of the log if it crashed.
+
+<div align="center">
+
+| 🐞 Crash | 🎨 Visual glitch | 🔢 Wrong number | 🚧 Soft-lock | 🔊 Sound |
+|:-:|:-:|:-:|:-:|:-:|
+
+</div>
+
+---
+
+## Roadmap
+
+```
+ [✔] Map rendering        [✔] GUI and input        [✔] City economy
+ [✔] Hero, army, quests   [✔] Campaign and combat  [✔] Spells, chests, crafting, shops
+ [✔] Arena and PvP        [✔] Sound and particles
+ [▶] BUG HUNT             <- you are here: play-through, log, fix, repeat
+ [ ] Finish the paused notes, sound glow and close-out
+ [ ] Desktop release: notifications, packaging, polish
+ [ ] 🏰 Ready for the masses
+```
 
 ---
 
@@ -344,7 +443,7 @@ and nothing in the game's art or content is generated; all of it is the original
   Guesses are marked `UNVERIFIED`.
 - **Offline first.** Everything that needed the server is rebuilt to run locally: seasonal events
   follow the calendar, crystals are earned in play (daily rewards, chests, quests) instead of bought,
-  and the arena, PvP and friends will work offline. Online code is kept dormant so a community
+  the arena and PvP run offline against generated rivals, and friends stay dormant. Online code is kept dormant so a community
   server could be added later. **There are no real-money purchases.**
 - **Platforms:** macOS, Linux and Windows (Android possibly later), with SDL3 and OpenGL.
 - **Saves** stay in the original's format.
@@ -356,42 +455,27 @@ and nothing in the game's art or content is generated; all of it is the original
 
 | # | Milestone | Status |
 |---|---|---|
-| 1 | Map rendering | done |
-| 2 | GUI, input, dialogs | done |
-| 3 | City economy (buildings, workers, shop, farms, saves) | done |
-| 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial | **done (2026-10-18)** |
-| 5 | The rest of the game: spells, boss and siege fights, global map, hiring and healing, item shop, chests, crafting, collections, sets, tavern, daily bonus, events, arena and offline replacements of online features | **in progress: 5a to 5t done (2026-10-20), 5u to 5x left** |
-| 6 | Sound and effects | planned |
-| 7 | Mac release and polish | planned |
+| 1 | Map rendering | ✅ done |
+| 2 | GUI, input, dialogs | ✅ done |
+| 3 | City economy (buildings, workers, shop, farms, saves) | ✅ done |
+| 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial | ✅ done |
+| 5 | The rest of the game: spells, bosses, world map, hiring, crafting, chests, shops, tavern, events, arena, PvP | ✅ playable; a few notes paused for the bug hunt |
+| 6 | Sound and effects | ✅ sound, music and particles done; final glow pass left |
+| 7 | Desktop release and polish | ⏳ planned |
+| 🐞 | **Bug hunt** (play-through, log, fix) | 🔶 **now** |
 
-### Progress report
+Detailed progress lives in [STATUS.md](STATUS.md); the per-function map of the original is in
+[docs/port_inventory.md](docs/port_inventory.md).
 
-**As of 2026-10-20 the port is about 90% done** (about 4,513 of 5,021 portable functions; 68% on 2026-10-18).
-
-| Area | State |
-|---|---|
-| Map rendering, GUI, input, dialogs | done |
-| City economy, workers, farms, shop, saves | done |
-| Hero, army, quests, campaign maps and combat, tutorial | done |
-| Hiring and healing troops, repairs, raids, campaign complete screens | done |
-| Boss fights, spells, rage and mana | done |
-| Character info, sets, collections, professions, level info | done |
-| Crafting, chests and keys, the item shop | done |
-| Daily bonus, tavern, notifications (logic), calendar events | done |
-| The arena (events, difficulty, waves) | done |
-| PvP against generated rivals, valor, fight reports | done (offline server stand-in) |
-| PvP player info windows | next (5u) |
-| Remaining windows and systems | 5v to 5x, about 156 functions |
-| Sound and effects | planned, milestone 6 (about 115 functions) |
-| Mac release and polish, OS notifications | planned, milestone 7 (about 176 functions) |
-
-About 508 functions remain. The last 10% is the slowest: the sound and release milestones are
-mostly new platform work rather than translation, and the finished game still needs a full
-play-through to catch bugs.
+**Snapshot, 2026-10-22:** about 4,830 of 5,021 portable functions ported (about 96%, up from 68% on 2026-10-18),
+about 89,000 lines of C++ in the port, about 5,000 functions tagged with their original address.
+Language and stack: C++17, SDL3, OpenGL, pugixml, libpng, libjpeg, zlib, FreeType.
+Code base ported: Android 5.11 `libkingdom.so` (ARMv7, October 2014).
 
 <div align="center">
-<img src="docs/images/readme/map0_schematic.jpg" alt="Schematic of map_0 produced by the map-format tools" width="560">
-<br><sub>A schematic of <code>map_0</code> from the project's own decoder of the original map format.</sub>
+<img src="docs/images/readme/map0_render.jpg" alt="The port's renderer drawing the starting kingdom map from the original map file" width="48%">
+<img src="docs/images/readme/map0_schematic.jpg" alt="Schematic of map_0 produced by the map-format tools" width="48%">
+<br><sub>The starting kingdom drawn by this project's own renderer (left), and a schematic from its map-format decoder (right).</sub>
 </div>
 
 ## Building (macOS)
@@ -403,7 +487,7 @@ are bundled in `third_party/`.
 ```
 cmake -S . -B build
 cmake --build build -j8
-./build/rtk --root <folder containing the game data>
+./build/rtk --root <folder containing the game data> --storage <save folder>
 ```
 
 <a id="layout"></a>
