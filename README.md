@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="docs/images/readme/banner.svg" alt="RTKContinued: the kingdom returns" width="100%">
+<!-- BANNER: drop your banner at docs/images/readme/banner.png (1200 x 300 px), then uncomment:
+<img src="docs/images/readme/banner.png" alt="RTKContinued" width="100%">
+-->
 
 <br>
 
@@ -16,10 +18,6 @@
 ![money](https://img.shields.io/badge/real--money%20purchases-none-ff8a8a)
 
 <br>
-
-<img src="docs/images/readme/status.svg" alt="Status: playable start to finish, bug-hunting phase" width="820">
-
-<br><br>
 
 <img src="docs/images/readme/port_chapter1.jpg" alt="The port running: Chapter 1, The Story Begins" width="760">
 <br><sub><b>This is the port itself</b>, running natively: Chapter 1, "The Story Begins". Not a mock-up, not the original app.</sub>
@@ -64,7 +62,7 @@
 > and logging every bug found, then fixing them in batches. Expect crashes, wrong numbers,
 > odd visuals and the occasional soft-lock. Back up your saves.
 
-<!-- STATUS-SWITCH: when the bug hunt is finished, replace the box above with the "release" box below and swap status.svg + the badges.
+<!-- STATUS-SWITCH: when the bug hunt is finished, replace the box above with the "release" box below and swap the badges.
 > ### 🏰 Ready for the realm
 > Fully playable, fully polished, and ready for everyone. Download a build and rule the kingdom.
 -->
@@ -75,10 +73,6 @@
 | 2. **Make it playable** | ✅ new game to campaign finish, with every major system working |
 | 3. **Bug hunt** | 🔶 **in progress**: full play-throughs, every bug logged and fixed |
 | 4. **Polish and release** | ⏳ platform builds, OS notifications, packaged downloads |
-
-<div align="center">
-<img src="docs/images/readme/progress.svg" alt="Progress by area" width="760">
-</div>
 
 ### What it feels like right now
 
