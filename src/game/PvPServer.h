@@ -9,9 +9,9 @@
 
 namespace PvPServer {
 
-// A list of rivals of `type` (1..4) scaled to the player: names from the game's name lists, his
-// level give or take two, gear for the bindings he wears (items on sale he could wear at the
-// rival's level), warriors like his squad, a random look (SelectHQWindow's rule). Type 5 (one
+// A list of rivals of `type` (1..4) scaled to the player: names from the game's name lists; each
+// rolls easy / fair / hard, which sets his level around the player's, his gear against the
+// player's own and a random squad of tavern warriors; a random look (SelectHQWindow's rule). Type 5 (one
 // player looked up by uid, the social tabs: dormant) gets an empty list. DECIDED 2026-10-20: the
 // answer's cost is 0, refreshing is free. The refresh delay is the setting "pvp_refresh_time".
 std::vector<uint8_t> GetData(int type, int cost, const char* uid);
@@ -23,7 +23,5 @@ void ReportCombatState(int gid, int state);
 // Each frame (Tick): a pending answer goes to PvP::ReportLoadFinished.
 void Update();
 
-// One rival's game state block (the chunks GameState::Save writes for the player).
-std::vector<uint8_t> MakeRivalBlock(int level, bool male);
 
 }  // namespace PvPServer

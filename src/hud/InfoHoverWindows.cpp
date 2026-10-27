@@ -1875,6 +1875,13 @@ void DecorationHoverWindow::SetPosition(int x, int y) {
 
 void DecorationHoverWindow::Update(float) {
     if (!decor || !decor->data || !shownHover) return;
+    // PORT (user's bug report 2026-10-26): the window follows its decoration when the view moves,
+    // as the building windows do (the original placed it once, BuildingHovers' decoration tap).
+    if (const Render::Sprite* s = decor->sprite) {
+        int sx = (int)(s->x + s->w * 0.5f), sy = (int)(s->y - s->h);
+        Map::WorldCoordinatesToScreen(sx, sy);
+        SetPosition(sx, sy);
+    }
     int collect = (int)decor->data->collectTime;
     int elapsed = (int)(Timer::GetGlobalTime() - decor->collectStart);
     if (elapsed >= collect) elapsed = collect;

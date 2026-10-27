@@ -134,8 +134,8 @@ void OnTaskInfo(uint32_t id) {
             break;
         }
     if (top && top->taskId == id &&
-        (top->quickOrange->visibleSelf || top->quickRed->visibleSelf || top->allQuestsBg->visibleSelf ||
-         top->iconBattle->visibleSelf)) {
+        (top->campaign->visibleSelf || top->desert->visibleSelf || top->arena->visibleSelf ||
+         top->campaignDone->visibleSelf)) {   // (FIXED 2026-10-26: the port read four other buttons)
         if (Tasks::TaskInfo* t = Tasks::GetTask(id)) {
             if (t->debugMap == 0x74) {
                 if (GameState::GetCurrentMapID() != 0x74) {

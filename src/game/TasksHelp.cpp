@@ -688,16 +688,26 @@ bool TaskSubtask::OnHelp(bool arrow) {
     case kMakeScreenshot:
         CastleTopWindow::HelpWithScreenshot();
         return true;
-    case kTrainAnyWorker:      // HireTroopsWindow::ShowForBuilding(0x8e)
-    case kCraftItem:           // CraftItemWindow on the item
+    case kTrainAnyWorker:
+        HireTroopsWindow::ShowForBuilding(0x8e, false);
+        return true;
+    case kCraftItem:
+        CraftItemWindow::Show();
+        CraftItemWindow::ShowItem(value);
+        return true;
     case kOpenWeb:             // HelpWindow::Show(value) (online: the help web view)
         std::printf("Tasks::TaskSubtask::OnHelp() step %u (type %d): its help is not ported yet\n", id, type);
         return true;
-    // (online, not ported: 0x33 the FAQ, 0x34 rate the game, 0x38 like the game: the step is
-    // counted at once and the page opens.)
+    // 0x33 the FAQ, 0x34 rate the game, 0x38 like the game: the step is counted at once and (online,
+    // not ported) the page opens. PORT (user's bug report 2026-10-26): the counting is ported, so
+    // these quests can be finished offline.
     case kVisitFbFaq:
     case kWriteComment:
     case kLikeGame:
+        GameState::AddSubTask(id, 1);
+        Tasks::Update(true);
+        Map::SafeSave();
+        return true;
     // (these do nothing but count as helped)
     case kIncreaseSpeed:
     case kGetLevel:

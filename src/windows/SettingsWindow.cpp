@@ -197,7 +197,7 @@ void OnNews() { Hide(); }              // @0x33e35c then HelpWindow::Show(0)
 void OnSocialConnect() { Hide(); }     // @0x33e338 then SocialConnectWindow::Show
 void OnCoupon() { Hide(); }            // @0x33e228 CouponEntryWindow::Show, then Hide
 void OnSpecial() { Hide(); }           // @0x33e3a4 then HUDWindow::ShowCheatWindow
-void OnGPGS() {}                       // @0x33e17c Google Play Games sign-in / achievements
+// (OnGPGS @0x33e17c, Google Play Games sign-in / achievements: online, its button is the screenshot's)
 void OnPP() {}                         // @0x33e990 ToS::Show(1, ...) (privacy policy web view)
 void OnTOS() {}                        // @0x33e88c ToS::Show(0, ...) (terms web view)
 void OnSync() {}                       // @0x33e248 server save (needs the player's city and the server)
@@ -257,8 +257,11 @@ void Init() {
     }
     g_id = GUI::GetWindowTyped<Textfield>(g_root, "text_id");
 
-    Btn(1).holder->SetOnClick(OnGPGS);
-    Btn(1).screenshot->SetVisibility(false);
+    // PORT (user's bug report 2026-10-26): offline there is no Google Play sign-in, so the first
+    // button is the screenshot button (its icon is in the layout) and opens the screenshot mode;
+    // 5.11 showed the sign-in there and only the tutorial arrow's tap reached the screenshot.
+    Btn(1).holder->SetOnClick(OnScreenShot);
+    Btn(1).screenshot->SetVisibility(true);
     Btn(2).holder->SetOnClick(OnNews);
     Btn(3).holder->SetOnClick(OnMusic);
     Btn(4).holder->SetOnClick(OnSound);
@@ -314,15 +317,10 @@ void EnableSync(bool on) {   // @0x33f944
 // @0x33ea94
 void UpdateContents() {
     g_title->SetText(StringTable::GetString("SETTINGS_HEADER"));
-    if (SystemFuncs::signedInToGPGS()) {
-        Btn(1).text->SetText(U"Achievements");
-        Btn(1).gpgsLogin->SetVisibility(false);
-        Btn(1).gpgsAchievements->SetVisibility(true);
-    } else {
-        Btn(1).text->SetText(U"Sign In");
-        Btn(1).gpgsLogin->SetVisibility(true);
-        Btn(1).gpgsAchievements->SetVisibility(false);
-    }
+    // PORT: the screenshot button (see Init) in place of Google Play's sign-in / achievements.
+    Btn(1).text->SetText(StringTable::GetString("SETTINGS_SCREENSHOT"));
+    Btn(1).gpgsLogin->SetVisibility(false);
+    Btn(1).gpgsAchievements->SetVisibility(false);
     Btn(2).text->SetText(StringTable::GetString("SETTINGS_NEWS"));
     Btn(3).text->SetText(StringTable::GetString("SETTINGS_MUSIC"));
     Btn(4).text->SetText(StringTable::GetString("SETTINGS_SOUND"));

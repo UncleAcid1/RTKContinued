@@ -394,12 +394,12 @@ int Entity::OnHit(Entity* attacker, int* absorbed) {
 }
 
 void Entity::OnDying(Entity* attacker) {
-    // The death sound: the hero's, a soldier's (final class 10: fat / skinny, male / female) or the
-    // monster's sound_death, else "battle_death_monster". (PlayDeathSound @0x15d664 is the same with
+    // The death sound: the hero's, a soldier's (final class 10 but not a tamed beast: fat / skinny,
+    // male / female) or the monster's sound_death, else "battle_death_monster". (PlayDeathSound @0x15d664 is the same with
     // type 0x11 counted as a monster; only Entity::Die calls it: dead in 5.11.)
     if (data->id == 0xc || data->id == 0xd) {
         SoundsManager::PlaySound(IsMale() ? "battle_death_male_player" : "battle_death_female_player", 1, false);
-    } else if (data->finalClass == 10) {
+    } else if (data->finalClass == 10 && data->type != 0x11) {   // (a tamed beast, type 0x11, has its own; FIXED 2026-10-26)
         SoundsManager::PlaySound(IsFat() ? (IsMale() ? "battle_death_male_soldier_fat" : "battle_death_female_soldier_fat")
                                          : (IsMale() ? "battle_death_male_soldier_skinny" : "battle_death_female_soldier_skinny"),
                                  1, false);

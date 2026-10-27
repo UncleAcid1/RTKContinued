@@ -14,8 +14,8 @@
 #include "game/Rand48.h"
 #include "game/SaveManager.h"
 #include "game/Setting.h"
-#include "game/SoldierSlots.h"
 #include "game/StringTable.h"
+#include "game/Tavern.h"
 
 namespace PvPServer {
 namespace {
@@ -51,9 +51,20 @@ std::u32string RivalName(bool male) {
     return name;
 }
 
-// For an equipment binding (internal numbering): one of the three best items on sale for its slot
-// that the rival's level allows (not premium, not a customisation), or none.
-const Items::ItemInfo* RivalItem(unsigned binding, int level) {
+// How hard a rival is (user's bug report 2026-10-26: rivals were all too strong, wore the best gear
+// and copied the player's squad). Each rival rolls one: 25% easy, 55% fair, 20% hard.
+enum Tier { kEasy, kFair, kHard };
+
+Tier RollTier() {
+    const unsigned r = Rand(100);
+    return r < 25 ? kEasy : r < 80 ? kFair : kHard;
+}
+
+// For an equipment binding (internal numbering), measured against what the player wears there:
+// easy, something weaker (half the time nothing); fair, the best item no newer than the player's
+// (without one, now and then the plainest); hard, one of the two best the rival's level allows.
+// Only items on sale, not premium, not customisations, at most the rival's level.
+const Items::ItemInfo* RivalItem(unsigned binding, int level, Tier tier) {
     const uint32_t slot = GameState::InternalItemBindingToExternal(binding);
     std::vector<const Items::ItemInfo*> fit;
     for (unsigned i = 0; const Items::ItemInfo* it = Items::EnumItemInfo(i); ++i)
@@ -61,7 +72,23 @@ const Items::ItemInfo* RivalItem(unsigned binding, int level) {
             fit.push_back(it);
     if (fit.empty()) return nullptr;
     std::stable_sort(fit.begin(), fit.end(), [](const Items::ItemInfo* a, const Items::ItemInfo* b) { return a->level > b->level; });
-    return fit[Rand(std::min<unsigned>(3, (unsigned)fit.size()))];
+    const GameState::PlayerItem* mine = GameState::GetItemAt(binding);
+    const uint32_t mineLevel = mine && mine->info ? mine->info->level : 0;
+    switch (tier) {
+    case kHard:
+        return fit[Rand(std::min<unsigned>(2, (unsigned)fit.size()))];
+    case kFair:
+        if (!mine) return Rand(3) == 0 ? fit.back() : nullptr;
+        for (const Items::ItemInfo* it : fit)
+            if (it->level <= mineLevel) return it;
+        return fit.back();
+    case kEasy:
+    default:
+        if (!mine || Rand(2) == 0) return nullptr;
+        for (const Items::ItemInfo* it : fit)
+            if (it->level < mineLevel) return it;
+        return nullptr;
+    }
 }
 
 // SelectHQWindow::OnRandomizeAppearance's rule: for each customisation binding 2..9 but 7, one
@@ -89,7 +116,8 @@ void RivalLook(bool male, uint32_t customs[32]) {
 
 }  // namespace
 
-std::vector<uint8_t> MakeRivalBlock(int level, bool male) {
+// One rival's game state block (the chunks GameState::Save writes for the player).
+static std::vector<uint8_t> MakeRivalBlock(int level, bool male, Tier tier) {
     std::vector<uint8_t> block, c;
     PutUnsigned(c, male ? 1 : 0);
     PutString(c, RivalName(male));
@@ -111,7 +139,7 @@ std::vector<uint8_t> MakeRivalBlock(int level, bool male) {
     PutUnsigned(c, (uint32_t)level);
     PutUnsigned(c, 10);
     for (unsigned b = 0; b < 10; ++b) {
-        const Items::ItemInfo* it = (GameState::GetItemAt(b) || Rand(3) == 0) ? RivalItem(b, level) : nullptr;
+        const Items::ItemInfo* it = RivalItem(b, level, tier);
         if (!it) {
             PutUnsigned(c, 0);
             continue;
@@ -122,25 +150,24 @@ std::vector<uint8_t> MakeRivalBlock(int level, bool male) {
         PutUnsigned(c, it->durability);
     }
     PutUnsigned(c, 0);
-    // Warriors like the player's squad (one fewer to one more, at most three: a PvP fight has
-    // four a side with the hero); without a squad, now and then the ambush rival's warrior 0x2b.
-    std::vector<const Entity*> squad;
-    for (unsigned i = 0; i < SoldierSlots::GetOccupiedSlotCount(); ++i)
-        if (const Entity* e = SoldierSlots::GetSoldierBySlot(i)) squad.push_back(e);
-    const unsigned have = (unsigned)squad.size();
-    const unsigned lo = have ? have - 1 : 0, hi = std::min(have + 1, 3u);
-    const unsigned n = lo + Rand(hi - lo + 1);
+    // A random squad of different warriors (one of each, as the player's squad) from the tavern's
+    // offers his level allows, goblins aside: easy 0-1, fair 1-2, hard 2-3 of them.
+    std::vector<const Tavern::TavernInfo*> offers;
+    for (unsigned i = 0; const Tavern::TavernInfo* t = Tavern::EnumTavernInfo(i); ++i) {
+        if (t->type == 5 || t->level > (unsigned)level || !EntityFactory::GetEntityByID((int)t->entity)) continue;
+        bool seen = false;
+        for (const Tavern::TavernInfo* o : offers) seen = seen || o->entity == t->entity;
+        if (!seen) offers.push_back(t);
+    }
+    unsigned n = (tier == kEasy ? 0 : tier == kFair ? 1 : 2) + Rand(2);
+    n = std::min(n, (unsigned)offers.size());
     PutUnsigned(c, n);
     for (unsigned i = 0; i < n; ++i) {
-        int id = 0x2b, hpMax = 0;
-        if (have) {
-            const Entity* e = squad[Rand(have)];
-            id = (int)e->GetEntityData()->id;
-            hpMax = e->GetHpMax();
-        } else if (const EntityData* d = EntityFactory::GetEntityByID(id)) {
-            hpMax = d->GetHpForLevel(d->level);
-        }
-        PutShort(c, (int16_t)id);
+        const unsigned k = Rand((unsigned)offers.size());
+        const Tavern::TavernInfo* t = offers[k];
+        offers.erase(offers.begin() + k);
+        const int hpMax = t->GenerateHP();
+        PutShort(c, (int16_t)t->entity);
         PutShort(c, (int16_t)hpMax);
         PutChar(c, 1);
         PutShort(c, 0);
@@ -179,8 +206,10 @@ std::vector<uint8_t> GetData(int type, int, const char*) {
         PutUnsigned(out, 0);     // the player's losses against him
         PutUnsigned(out, 0);     // and wins
         PutChar(out, 0);
-        const int level = std::max(1, playerLevel - 2 + (int)Rand(5));
-        blocks.push_back(MakeRivalBlock(level, Rand(2) == 0));
+        // easy: 2 or 1 below the player, fair: one either side, hard: 1 to 3 above.
+        const Tier tier = RollTier();
+        const int offset = tier == kEasy ? -2 + (int)Rand(2) : tier == kFair ? -1 + (int)Rand(3) : 1 + (int)Rand(3);
+        blocks.push_back(MakeRivalBlock(std::max(1, playerLevel + offset), Rand(2) == 0, tier));
     }
     for (const std::vector<uint8_t>& b : blocks) {
         PutUnsigned(out, 0xffffffff);   // UNVERIFIED: the two words before the size (not read)

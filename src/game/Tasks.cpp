@@ -810,10 +810,9 @@ void CompleteSubtask(int type, uint32_t value, int n) {
                 if (t->daily) continue;
                 if (!RequiredStepsDone(t, s)) continue;
             }
-            if (s.type == kKillEnemyClass && s.assistMap == 0x74) {
-                // UNVERIFIED (milestone 5): only during a PvP fight (GameState::IsPvPCombatActive).
-                continue;
-            }
+            // An arena step to beat a class counts only in a PvP fight (FIXED 2026-10-26: the port
+            // never counted it, so "PvP Battle" stayed open after a won fight).
+            if (s.type == kKillEnemyClass && s.assistMap == 0x74 && !GameState::IsPvPCombatActive()) continue;
             if (GameState::GetSubTaskDone(s.id) < s.amount) {
                 GameState::AddSubTask(s.id, n);
                 if (s.amount <= GameState::GetSubTaskDone(s.id)) {

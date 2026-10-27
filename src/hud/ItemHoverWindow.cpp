@@ -639,12 +639,14 @@ void ItemHoverWindow::SetItem(const char32_t* /*unused*/, GameState::PlayerItem*
     if (inv && it && !viewOnly) {
         broken = it->IsBroken();
         uint32_t durabilityMax = inf->durability, durabilityLeft = it->f0c;
-        // UNVERIFIED (milestone 5): crafting. The source collection (Collections::
-        // GetCollectionWithSource: Improve), the crafting collection (GetCraftingCollectionForItem:
-        // Craft) and, for a profession of type 0, GetCollectionWithResult; without the
-        // "craft_unlock_task" task and a source collection the other two are dropped; type 7 items
-        // are never crafted. No collections are ported, so all three are null.
-        bool source = false, craftable = false, result = false;
+        // The source collection (Improve), the crafting collection (Craft) and, for an item of a
+        // profession of type 0, the one that makes it; without the "craft_unlock_task" task and a
+        // source collection the other two are dropped; type 7 items are never crafted.
+        // (FIXED 2026-10-26: the port left all three null, so Improve never showed.)
+        bool source = Collections::GetCollectionWithSource(inf->id) != nullptr;
+        bool craftable = Collections::GetCraftingCollectionForItem(inf->id) != nullptr;
+        const Professions::Profession* itemProf = Professions::GetProfession(inf->reputationId);
+        bool result = itemProf && (int)itemProf->type == 0 && Collections::GetCollectionWithResult(inf->id) != nullptr;
         if (!source && !GameState::TaskCompleted(Setting("craft_unlock_task").GetInt())) { result = false; craftable = false; }
         if (it->info->type == 7) { result = false; craftable = false; }
 

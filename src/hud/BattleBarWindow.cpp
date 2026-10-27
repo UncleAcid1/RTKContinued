@@ -65,15 +65,26 @@ struct Glide { bool started = false; float shown = 0.f, time = 0.f; } g_glide[3]
 
 void OnSlot(unsigned i);
 
-// @0x249ed4: the Army button. UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding (0x8f the
-// tavern by "your_army_opens_tavern" / "always_open_tavern" or without "skip_choose_troops_window",
-// else 0x8e the barracks); during the first-death helper: the barracks, with its arrow.
+// @0x249ed4: the Army button: the hire window, the tavern's (0x8f) by "your_army_opens_tavern" /
+// "always_open_tavern" or without "skip_choose_troops_window", else the barracks' (0x8e); during
+// the first-death helper the barracks, with its arrow. (FIXED 2026-10-26: the port only ended the
+// helper, so the button did nothing.)
 void OnArmy() {
-    if (!g_deathTutorial) return;
-    GUI::SetInteractionLock(false);
-    BuildingHovers::HideArrow();
-    BuildingHovers::HideWorldDialog(nullptr);
-    g_deathTutorial = false;
+    if (g_deathTutorial) {
+        GUI::SetInteractionLock(false);
+        BuildingHovers::HideArrow();
+        BuildingHovers::HideWorldDialog(nullptr);
+        g_deathTutorial = false;
+        HireTroopsWindow::ShowForBuilding(0x8e, false);
+        HireTroopsWindow::ShowArrow();
+        return;
+    }
+    if (Setting("your_army_opens_tavern").GetInt() == 1 || Setting("always_open_tavern").GetInt() == 1 ||
+        Setting("skip_choose_troops_window").GetInt() != 1) {
+        HireTroopsWindow::ShowForBuilding(0x8f, false);
+        return;
+    }
+    HireTroopsWindow::ShowForBuilding(0x8e, false);
 }
 
 // @0x24bbb8: over an edit mode or the shop the bar only swallows what lands on it.
@@ -266,14 +277,19 @@ void LaunchFirstDeathHelper() {
 
 namespace {
 
-// @0x24a04c: a tap on a slot. An empty one opens the barracks (milestone 5); a soldier's or a locked
+// @0x24a04c: a tap on a slot. An empty one opens the barracks; a soldier's or a locked
 // one's card pops up over it.
 void OnSlot(unsigned i) {
     if ((GameState::IsTutorial() || GameState::IsCityTutorial()) && GameState::tutorial != 0x17) return;
-    // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(0x8f) when "always_open_tavern",
-    // (0x8e) for an empty slot the player owns.
+    if (Setting("always_open_tavern").GetInt() == 1) {
+        HireTroopsWindow::ShowForBuilding(0x8f, false);
+        return;
+    }
     Entity* e = SoldierSlots::GetSoldierBySlot(i);
-    if (!e && i < GameState::GetSoldierSlotCount()) return;
+    if (!e && i < GameState::GetSoldierSlotCount()) {   // an empty slot the player owns: the barracks
+        HireTroopsWindow::ShowForBuilding(0x8e, false);
+        return;
+    }
     Tasks::TaskInfo* t =
         Tasks::GetTask((uint32_t)Setting(i == 1 ? "squad_slot_02_quest_unlock" : "squad_slot_03_quest_unlock").GetInt());
     std::u32string lock = t ? SWPrintf(0x100, StringTable::GetString("HIRE_TROOPS_TASK_LOCK"), {t->name})
