@@ -12,6 +12,10 @@
 # the port's own class definitions and globals carry them (field defaults are read with the class).
 # util = string/hash/parse helpers the port replaces with the C++ library or ports with a caller.
 
+# ---- 7c (2026-10-26): the restart -------------------------------------------------------------------
+dead  ^SettingsWindow::(OnRestart|OnRestartConfirm)$   # SettingsWindow::Init gives the restart holder (icon_settings_restart, +0x24) no click; no call, GOT slot or literal of OnRestart anywhere; OnRestartConfirm only from OnRestart's popup
+online  ^(HUDWindow::GameReset|ReloadSavedGame|GameState::RemoveWorkersFromOrders|FileManager::RemoveSaveFiles)$   # GameReset: PlayerProfileManager::ResetGame (the Facebook profile switch) and the dead OnRestartConfirm; ReloadSavedGame: the server's save callbacks, PlayerProfileManager::ResetGame and the dead console; RemoveWorkersFromOrders: those two, CleanBeforeLoading / GoHomeFromFriend (online), the dead GameReload / CmdLoadSaveLocal; RemoveSaveFiles: PlayerProfileManager::ConnectToOffline
+
 # ---- 7b (2026-10-26): render / Retina ----------------------------------------------------------------
 dead  ^Render::(didEnterBackground|willEnterForeground)$   # no caller
 platform  ^(Render::(Suspend|Restart)|GUI::ReloadTextures|BuildingHovers::RestoreTextures|HUDWindow::RestoreTextures)$   # main_Loop_Func's render suspend / restore (Java's surface events, renderSuspendEvent 0x6123fc): Android loses its GL context in the background; a desktop's is kept (main.cpp's pause note). Restart's other "callers" are literals in three static initialisers
@@ -95,7 +99,6 @@ dead  ^(Game::(showBackground|hideBackground|showKoreanLogo)|OnRestartGame|OnSys
 dead  ^GameState::(GetGoldSpent|SetGoldEarned|SetCrystalsEarned|GetTutorialStepName|RemoveAllEntitiesByID|RemoveEntity|GetGamePauseState|GetGoblinCountInTown|RemoveOrder|GetBuildingLimitExtend|ExtendBuildingLimit|RemoveBuilding|AddBulding)$   # no caller in 5.11 (the building counts are read by GetBuildingCount only)
 online  ^GameState::(GetCrystalsSpent|GetCrystalsEarned|CleanBeforeLoading)$   # SendPlayerData; friends' city visits
 4h    ^(GameState::SetTutorialType|BottomFarmWindow::GetPlantButton)$   # TutorialWindow
-7    ^(GameState::RemoveWorkersFromOrders|ReloadSavedGame|HUDWindow::GameReset)$   # the restart and the profiles: SettingsWindow::OnRestartConfirm, PlayerProfileManager (7); otherwise only online callbacks, CleanBeforeLoading / GoHomeFromFriend (online) and the console (5) (moved from 4h on 2026-10-14)
 dead  ^HUDWindow::GameReload$   # no caller in 5.11 (no call, pointer or relocation; checked 2026-10-18)
 4e    ^(Map::Building::RemoveHoldOfEntities|Map::FUN_(00130b58|00130b70)|Entity::SetEndWorkTS)$   # Map::RemoveHoldOfEntities, Decor::GetActionPoint, Decor::WorkStarted
 4c    ^Entity::PrepareForSetup$   # EntityManager::ExecuteStaticMeta
@@ -396,7 +399,6 @@ dead  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the a
 7  ^Render::(Resize|Restart|Suspend|didEnterBackground|willEnterForeground|getWindow|ForceBufferSwap|GetStatistics|CalculateFillrate|PrintLayerStats|UpdateTexTypeStats|GetDecoPlaceholderDebugTex|GetImageDebugTex|SaveImage|IsLowPerformanceDevice|Context::IsLowPerformanceDevice|Convert32To16Bits|FreeMemory|UpdateLogo|UpdateProgress|HideProgress|SetProgressScale)$
 7  ^SystemFuncs::(GetSettings_AllAsString|GetTemporarySetting|GetTemporarySettingString|SetTemporarySetting|SetTemporarySettingString|RemoveSetting|SaveSettings|SetSetting_Bool|GetSetting_Bool|SetSetting_String|GetSetting_String|Init|SetLogLevel|getBundle\w+|getCurrentLanguage\w*|getCurrentSelectedLanguage|getEvenMoreLocaleInfo|getDocumentsPath\w*|isDocumentExternalStorageExist|getPlatform\w*|getScreenBuff\w+|getTimeIntervalSince1970|getTimeZoneOffset|getXDPI|getYDPI|IsTabletVersion|ShowOldDeviceError|FixRunloopEvents|GetTime)$
 7  ^FileManager::(Init|GetStoragePathSpace|RemoveSaveFiles|RestartGame|SetPreferredLanguade|SaveImage|IsLowPerformanceDevice|GetThreadContext|ReleaseThreadContext|LoadStep|Apply|GetFileOffset|LoadFile)$
-7  ^SettingsWindow::(OnRestart|OnRestartConfirm)$   # language/restart
 7  ^HUDWindow::(GetDebugState|ShowCheatWindow|ShowArenaCheats|ShowVisualCheats|ToggleCheatOverlay|SetDeltaTimeMultiplier)$   # debug overlay: with the admin mode (5) if wanted
 7  ^Animation::(DumpToResources|PreLoadTextures)$
 
