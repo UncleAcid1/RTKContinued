@@ -728,7 +728,10 @@ int main_Loop_Init() {
     GameState::SetSetting("crystal_mult", 1.f);
     GameState::SetSetting("contract_coeff", 1.f);
     GameState::SetSetting("farm_coeff", 1.f);
-    GameState::SetSetting("hide_speedup", 0.f);
+    // PORT (user's bug report 2026-10-26): the server's switch set to 1, so the progress box over a
+    // building at work shows only "tap to speed up" until it is tapped, and shrinks back on a tap
+    // elsewhere (BuildProgressHoverWindow::Click); with 0 the big box and its hurry button never go.
+    GameState::SetSetting("hide_speedup", 1.f);
     GameState::SetSetting("stack_size", 50.f);
     GameState::SetSetting("friend_fight_timeout", 3600.f);
     GameState::SetSetting("pvp_refresh_time", 14400.f);

@@ -560,8 +560,9 @@ void Entity::OnDeath(Entity* attacker) {
         CharacterInfoWindow::UpdateContents();
         // In the PvP arena the opponent's record counts the defeat and the outro shows, with a heal
         // of 60% of the hero's HP (at most the HP he came with) as the loot; the combat pauses and,
-        // for the hero, hears of it. UNVERIFIED (milestone 5): map 0x70's BossIntroWindow
-        // (reputation 1 in the arena, 2 outside) does the same with the reputation screen.
+        // for the hero, hears of it. On the arena map 0x70 BossIntroWindow's reputation screen
+        // (1 in an arena fight, 2 outside one) takes the heal window's place (FIXED 2026-10-26:
+        // the port lacked it, so a death in the arena left the hero lying there).
         // A real opponent hears of it (PvP::ReportStateToServer, state 3).
         if (GameState::IsPvPCombatActive()) {
             if (PvP::PlayerInfo* p = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff)) {
@@ -581,6 +582,16 @@ void Entity::OnDeath(Entity* attacker) {
             PlayerBattleInOutWindow::Show();
             GameState::GetActiveCombat()->Pause(nullptr);
             if (player) GameState::GetActiveCombat()->PlayerDied();
+        } else if (GameState::IsArenaCombatActive() && GameState::GetCurrentMapID() == 0x70) {
+            // In an arena fight the arena's reputation screen ends it (the heal window refuses in
+            // the arena), the same pause and PlayerDied as above.
+            BossIntroWindow::SetReputation(1);
+            BossIntroWindow::Show();
+            GameState::GetActiveCombat()->Pause(nullptr);
+            if (player) GameState::GetActiveCombat()->PlayerDied();
+        } else if (GameState::GetCurrentMapID() == 0x70) {
+            BossIntroWindow::SetReputation(2);
+            BossIntroWindow::Show();
         } else if (attacker) {
             HealSquadWindow::Show();
             HealSquadWindow::SetAttacker(attacker);

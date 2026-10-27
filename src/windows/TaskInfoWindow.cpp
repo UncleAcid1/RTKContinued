@@ -20,6 +20,7 @@
 #include "game/Contracts.h"
 #include "game/Locations.h"
 #include "game/Combat.h"
+#include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/AIState.h"
 #include "game/Entity.h"
@@ -181,7 +182,12 @@ void OnHelpActual(unsigned step) {
             GlobalMapWindow::Hide();
         }
     }
-    // UNVERIFIED (milestone 5): with a boss set, a "kill" step for it starts the fight (OnFight).
+    // With a boss set, a step to kill it (its spawn point, or its monster ID) starts the fight.
+    if (g_boss && ((s.type == Tasks::kKillSpawn && s.value == g_boss->GetSpawnPointID()) ||
+                   (s.type == Tasks::kKillMob && s.value == g_boss->GetEntityData()->id))) {
+        OnFight();
+        return;
+    }
     if (GameState::GetSubTaskDone(s.id) < s.amount && s.OnHelp(!t->dnAssist)) {
         if (g_resetArrowLimit) BuildingHovers::SetArrowVisibleWindowLimit(1);
         return;
@@ -553,7 +559,12 @@ void SetTask(uint32_t id, bool boss) {
         HideWindow();
         return;
     }
-    // UNVERIFIED (milestone 5): task 0x5b7 takes the boss at spawn point 0x4e4 and the boss form.
+    // Quest 0x5b7 (the Chest Guardian) takes the guardian at spawn point 0x4e4 and the boss form.
+    if (id == 0x5b7)
+        if (Entity* guard = EntityManager::GetEntityBySpawnPoint(0x4e4)) {
+            SetFightBossCallback(guard);
+            g_bossMode = true;
+        }
     g_giverMale->SetVisibility(!g_bossMode && GameState::IsMalePlayer());
     g_giverFemale->SetVisibility(!g_bossMode && !GameState::IsMalePlayer());
     g_title->SetText(t->name);
