@@ -22,13 +22,14 @@
 namespace FileManager {
 namespace {
 
-enum class SourceKind { AndroidData, Blob, Win8 };
+enum class SourceKind { Apk, Blob };
 
 struct Source {
     SourceKind kind;
-    std::string path;                     // data dir, .kbf file, or Win8 Assets dir
+    std::string path;                     // the .apk or the .kbf file
     uint32_t dataBase = 0;                // Blob: 20 + index size (payload base)
-    std::map<uint32_t, uint32_t> chunkBase;  // AndroidData: chunk id -> smallest global offset in it
+    std::map<uint32_t, uint32_t> chunkBase;  // Apk: chunk id -> smallest global offset in it
+    std::map<uint32_t, long> chunkData;      // Apk: chunk id -> where data/<chunk>.jet starts in the zip
 };
 
 std::vector<Source> g_sources;
@@ -78,9 +79,10 @@ bool ParseIndex(const uint8_t* p, size_t n, Fn&& fn) {
     return i == n;
 }
 
-bool Inflate(const uint8_t* src, uint32_t n, std::vector<uint8_t>& out) {
+// windowBits 16 + MAX_WBITS: a gzip wrapper; -MAX_WBITS: raw deflate (a zip entry).
+bool Inflate(const uint8_t* src, uint32_t n, std::vector<uint8_t>& out, int windowBits = 16 + MAX_WBITS) {
     z_stream zs{};
-    if (inflateInit2(&zs, 16 + MAX_WBITS) != Z_OK) return false;  // gzip wrapper
+    if (inflateInit2(&zs, windowBits) != Z_OK) return false;
     zs.next_in = const_cast<Bytef*>(src);
     zs.avail_in = n;
     out.clear();
@@ -97,25 +99,112 @@ bool Inflate(const uint8_t* src, uint32_t n, std::vector<uint8_t>& out) {
     return true;
 }
 
+// PORT: the APK is a zip. Its central directory gives each entry's method, sizes and local header;
+// the entry's bytes follow that header (30 bytes, the name and the extra field).
+struct ZipEntry {
+    uint16_t method = 0;   // 0 stored, 8 deflated
+    uint32_t compSize = 0, size = 0;
+    long data = 0;         // the first byte of the entry's data in the file
+};
+
+uint32_t U16(const uint8_t* p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
+uint32_t U32(const uint8_t* p) { return U16(p) | U16(p + 2) << 16; }
+
+bool ReadZipDirectory(const std::string& path, std::map<std::string, ZipEntry>& out) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+    std::fseek(f, 0, SEEK_END);
+    const long fileSize = std::ftell(f);
+    const long tailSize = std::min(fileSize, 65557L);   // the end record: 22 bytes + a comment <= 64 KB
+    std::vector<uint8_t> tail((size_t)tailSize);
+    std::fseek(f, fileSize - tailSize, SEEK_SET);
+    bool ok = std::fread(tail.data(), 1, tail.size(), f) == tail.size();
+    long end = -1;
+    for (long i = tailSize - 22; ok && i >= 0; --i)
+        if (U32(&tail[(size_t)i]) == 0x06054b50u) { end = i; break; }
+    if (end < 0) { std::fclose(f); return false; }
+    const uint32_t count = U16(&tail[(size_t)end + 10]), dirSize = U32(&tail[(size_t)end + 12]),
+                   dirOffset = U32(&tail[(size_t)end + 16]);
+    std::vector<uint8_t> dir(dirSize);
+    std::fseek(f, (long)dirOffset, SEEK_SET);
+    ok = std::fread(dir.data(), 1, dir.size(), f) == dir.size();
+    size_t p = 0;
+    for (uint32_t n = 0; ok && n < count; ++n) {
+        if (p + 46 > dir.size() || U32(&dir[p]) != 0x02014b50u) { ok = false; break; }
+        const uint32_t nameLen = U16(&dir[p + 28]), extraLen = U16(&dir[p + 30]), commentLen = U16(&dir[p + 32]);
+        if (p + 46 + nameLen > dir.size()) { ok = false; break; }
+        ZipEntry e;
+        e.method = (uint16_t)U16(&dir[p + 10]);
+        e.compSize = U32(&dir[p + 20]);
+        e.size = U32(&dir[p + 24]);
+        const uint32_t local = U32(&dir[p + 42]);
+        uint8_t head[30];
+        std::fseek(f, (long)local, SEEK_SET);
+        if (std::fread(head, 1, 30, f) != 30 || U32(head) != 0x04034b50u) { ok = false; break; }
+        e.data = (long)local + 30 + (long)U16(head + 26) + (long)U16(head + 28);
+        out[std::string((const char*)&dir[p + 46], nameLen)] = e;
+        p += 46 + nameLen + extraLen + commentLen;
+    }
+    std::fclose(f);
+    return ok;
+}
+
+bool ReadZipEntry(const std::string& path, const ZipEntry& e, std::vector<uint8_t>& out) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+    std::vector<uint8_t> raw(e.compSize);
+    std::fseek(f, e.data, SEEK_SET);
+    const bool ok = std::fread(raw.data(), 1, raw.size(), f) == raw.size();
+    std::fclose(f);
+    if (!ok) return false;
+    if (e.method == 0) { out.swap(raw); return true; }
+    return e.method == 8 && Inflate(raw.data(), (uint32_t)raw.size(), out, -MAX_WBITS) && out.size() == e.size;
+}
+
 }  // namespace
 
-bool RegisterAndroidData(const std::string& dataDir) {
-    auto desc = ReadWhole(dataDir + "/res_desc.bin");
-    if (desc.empty()) return false;
-    Source src{SourceKind::AndroidData, dataDir};
-    int id = (int)g_sources.size();
+bool RegisterApk(const std::string& apkPath) {
+    std::map<std::string, ZipEntry> zip;
+    if (!ReadZipDirectory(apkPath, zip)) return false;
+    auto desc = zip.find("assets/data/res_desc.bin");
+    std::vector<uint8_t> index;
+    if (desc == zip.end() || !ReadZipEntry(apkPath, desc->second, index)) return false;
+    Source src{SourceKind::Apk, apkPath};
     std::vector<Entry> entries;
-    if (!ParseIndex(desc.data(), desc.size(), [&](Entry e) { entries.push_back(std::move(e)); })) return false;
+    if (!ParseIndex(index.data(), index.size(), [&](Entry e) { entries.push_back(std::move(e)); })) return false;
     for (auto& e : entries) {
         auto it = src.chunkBase.find(e.chunk);
         if (it == src.chunkBase.end() || e.offset < it->second) src.chunkBase[e.chunk] = e.offset;
     }
+    for (const auto& [chunk, base] : src.chunkBase) {
+        auto jet = zip.find("assets/data/" + std::to_string(chunk) + ".jet");
+        if (jet == zip.end() || jet->second.method != 0) {   // (5.11 stores every .jet uncompressed)
+            std::fprintf(stderr, "FileManager: %s has no stored assets/data/%u.jet\n", apkPath.c_str(), chunk);
+            return false;
+        }
+        src.chunkData[chunk] = jet->second.data;
+    }
+    const int id = (int)g_sources.size();
     g_sources.push_back(std::move(src));
     for (auto& e : entries) {
         e.source = id;
         g_files[Lower(e.name.c_str())] = std::move(e);
     }
     return true;
+}
+
+uint32_t GameApkIndexSize(const std::string& apkPath) {
+    std::map<std::string, ZipEntry> zip;
+    if (!ReadZipDirectory(apkPath, zip) || !zip.count("lib/armeabi-v7a/libkingdom.so")) return 0;
+    auto desc = zip.find("assets/data/res_desc.bin");
+    return desc == zip.end() ? 0 : desc->second.size;
+}
+
+bool ExtractFromApk(const std::string& apkPath, const char* name, std::vector<uint8_t>& out) {
+    std::map<std::string, ZipEntry> zip;
+    if (!ReadZipDirectory(apkPath, zip)) return false;
+    auto it = zip.find(name);
+    return it != zip.end() && ReadZipEntry(apkPath, it->second, out);
 }
 
 // @0x16e7b8 FileManager::RegisterBlobFile. Header: u32 magic 0x75B4A351, u32 index_size, 3 x u32,
@@ -140,19 +229,6 @@ bool RegisterBlobFile(const std::string& kbfPath, bool mainPack, unsigned versio
                 if (e.name == skip) return;
         e.source = id;
         g_files[Lower(e.name.c_str())] = std::move(e);  // newest registration wins
-    });
-}
-
-bool RegisterWin8Fallback(const std::string& assetsDir) {
-    auto desc = ReadWhole(assetsDir + "/res_desc.bin");
-    if (desc.empty()) return false;
-    int id = (int)g_sources.size();
-    g_sources.push_back({SourceKind::Win8, assetsDir});
-    return ParseIndex(desc.data(), desc.size(), [&](Entry e) {
-        std::string key = Lower(e.name.c_str());
-        if (g_files.count(key)) return;  // fallback only
-        e.source = id;
-        g_files[key] = std::move(e);
     });
 }
 
@@ -207,17 +283,13 @@ uint8_t* LoadFile(const char* name, uint32_t& size) {
     std::string path;
     long pos = 0;
     switch (s.kind) {
-        case SourceKind::AndroidData:
-            path = s.path + "/" + std::to_string(e.chunk) + ".jet";  // "data/%u.jet"
-            pos = (long)(e.offset - s.chunkBase.at(e.chunk));
+        case SourceKind::Apk:   // "data/%u.jet" inside the APK
+            path = s.path;
+            pos = s.chunkData.at(e.chunk) + (long)(e.offset - s.chunkBase.at(e.chunk));
             break;
         case SourceKind::Blob:
             path = s.path;
             pos = (long)(s.dataBase + e.offset);
-            break;
-        case SourceKind::Win8:
-            path = s.path + "/res_data.bin";
-            pos = (long)e.offset;
             break;
     }
     FILE* f = std::fopen(path.c_str(), "rb");

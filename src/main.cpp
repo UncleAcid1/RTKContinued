@@ -98,8 +98,9 @@ namespace Game { bool main_Loop_Func(); }   // below
 namespace {
 
 struct Options {
-    std::string root;         // the backup folder that contains "Android files", "files", "_extract"
-                              // (empty: FindGameRoot looks for it)
+    std::string root;         // PORT test aid: a folder with the APK (or its "Android files" folder)
+                              // (empty: FindGameApk looks beside the game)
+    std::string apk;          // the 5.11 APK in use (FindGameApk)
     unsigned map = 0;
     bool mapGiven = false;    // PORT test aid: without a save, start on that map past the tutorial
     long seed = 1;            // GameState::playerSeed of the test city (no save)
@@ -199,90 +200,152 @@ Options Parse(int argc, char** argv) {
 }
 
 // @0x171aa8 FileManager::Init: the main and patch packs (CheckExpansion), then the packs the server
-// listed (the "active_packs" setting: online, dormant). PORT: the files' sources are the APK's
-// data, then the two packs from disk (later wins), then the Windows 8 build's files as a fallback.
-bool RegisterSources(const std::string& root) {
-    bool ok = FileManager::RegisterAndroidData(root + "/Android files/rule-the-kingdom-5-11-multi-android/assets/data");
-    if (!ok) {
-        std::fprintf(stderr, "Cannot read the 5.11 APK data under %s\n", root.c_str());
+// listed (the "active_packs" setting: online, dormant). PORT: the files' sources are the player's
+// 5.11 APK (read in place), then the two packs the server once sent (main.27 and patch.33, later
+// wins), then the files only the Windows 8 build had (win8_supplement.kbf, made by
+// tools/make_supplement_pack.py); the three packs ship with the game (FindGameData).
+bool RegisterSources(const std::string& apk, const std::string& data) {
+    if (!FileManager::RegisterApk(apk)) {
+        std::fprintf(stderr, "Cannot read the game data in %s\n", apk.c_str());
         return false;
     }
-    FileManager::RegisterBlobFile(root + "/files/main.27.kbf", true, 27);   // expansion packs, later wins
-    FileManager::RegisterBlobFile(root + "/files/patch.33.kbf", false, 33);
-    FileManager::RegisterWin8Fallback(root + "/_extract/win5/Assets");  // PORT: fallback only
-    std::printf("FileManager: %zu files registered\n", FileManager::EntryCount());
+    if (!FileManager::RegisterBlobFile(data + "main.27.kbf", true, 27) ||
+        !FileManager::RegisterBlobFile(data + "patch.33.kbf", false, 33) ||
+        !FileManager::RegisterBlobFile(data + "win8_supplement.kbf", false, 0)) {
+        std::fprintf(stderr, "Cannot read the game's packs in %s\n", data.c_str());
+        return false;
+    }
+    std::printf("FileManager: %zu files registered (%s)\n", FileManager::EntryCount(), apk.c_str());
     return true;
 }
 
-// PORT: the game files' folder, the player's own copy of the game (it holds "Android files", "files"
-// and "_extract"). Without --root: the one remembered in the storage folder (game_root.txt), the
-// working folder's parent (the port's build folder), or a folder above the program (the app kept
-// next to the files); else the player picks it (not in a headless run), and it is remembered.
-const char* const kApkData = "/Android files/rule-the-kingdom-5-11-multi-android/assets/data";
-
-bool IsGameRoot(const std::string& dir) {
+bool IsFile(const std::string& path) {
     SDL_PathInfo info;
-    return !dir.empty() && SDL_GetPathInfo((dir + kApkData).c_str(), &info) && info.type == SDL_PATHTYPE_DIRECTORY;
+    return SDL_GetPathInfo(path.c_str(), &info) && info.type == SDL_PATHTYPE_FILE;
 }
 
-std::string PickGameRoot(const char* message) {
+// PORT: the folder of the packs that ship with the game: "data" beside the program (the .app's
+// Contents/Resources, or the Linux / Windows program's folder), else the source tree's gamedata
+// folder (a build in port/build).
+std::string FindGameData() {
+    std::vector<std::string> candidates;
+    if (const char* base = SDL_GetBasePath()) {
+        candidates.push_back(std::string(base) + "data/");
+        candidates.push_back(std::string(base) + "../gamedata/");
+    }
+    candidates.push_back(RTK_SOURCE_DIR "/gamedata/");
+    for (const std::string& dir : candidates)
+        if (IsFile(dir + "main.27.kbf")) return dir;
+    return "";
+}
+
+// PORT: the folders an APK is looked for in: the program's folder and the ones above it (the folder
+// that holds "Rule the Kingdom.app"), the working folder, and each one's "Android files".
+std::vector<std::string> ApkFolders(const std::string& root) {
+    std::vector<std::string> dirs;
+    if (!root.empty()) dirs = {root};
+    if (const char* base = SDL_GetBasePath()) {
+        std::string dir = base;
+        for (int i = 0; i < 6; ++i) {
+            while (dir.size() > 1 && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
+            dirs.push_back(dir);
+            const size_t slash = dir.find_last_of("/\\");
+            if (slash == std::string::npos || slash == 0) break;
+            dir.resize(slash);
+        }
+    }
+    if (root.empty()) dirs.push_back(".");
+    std::vector<std::string> all;
+    for (const std::string& d : dirs) {
+        all.push_back(d);
+        all.push_back(d + "/Android files");
+    }
+    return all;
+}
+
+// The newest Rule the Kingdom APK in `dirs` (the largest data index), or "".
+std::string FindApkIn(const std::vector<std::string>& dirs) {
+    std::string best;
+    uint32_t bestSize = 0;
+    for (const std::string& dir : dirs) {
+        int count = 0;
+        char** names = SDL_GlobDirectory(dir.c_str(), "*.apk", SDL_GLOB_CASEINSENSITIVE, &count);
+        for (int i = 0; names && i < count; ++i) {
+            const std::string path = dir + "/" + names[i];
+            const uint32_t size = FileManager::GameApkIndexSize(path);
+            if (size > bestSize) { bestSize = size; best = path; }
+        }
+        SDL_free(names);
+    }
+    return best;
+}
+
+std::string PickGameApk(const char* message) {
     if (!SDL_Init(SDL_INIT_VIDEO)) return "";
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Rule the Kingdom", message, nullptr);
-    struct Pick { std::string dir; bool done = false; } pick;
-    SDL_ShowOpenFolderDialog(
+    struct Pick { std::string path; bool done = false; } pick;
+    static const SDL_DialogFileFilter kFilter[] = {{"Android app (APK)", "apk"}};
+    SDL_ShowOpenFileDialog(
         [](void* data, const char* const* list, int) {
             Pick* p = (Pick*)data;
-            if (list && list[0]) p->dir = list[0];
+            if (list && list[0]) p->path = list[0];
             p->done = true;
         },
-        &pick, nullptr, nullptr, false);
+        &pick, nullptr, kFilter, 1, nullptr, false);
     while (!pick.done) {
         SDL_Event e;
         SDL_WaitEventTimeout(&e, 100);
     }
-    return pick.dir;
+    return pick.path;
 }
 
-std::string FindGameRoot(const std::string& storage, bool ask) {
-    const std::string memo = storage + "game_root.txt";
-    std::vector<std::string> candidates;
+// PORT: the player's Rule the Kingdom 5.11 APK, the one file the game needs from the player. With
+// --root DIR: the newest APK in DIR or DIR/Android files (the test runs' backup folder). Else: the
+// one remembered in the storage folder (game_apk.txt), else the newest APK beside the game (the
+// folder that holds the app or the program); else the player picks it (not in a headless run), and
+// it is remembered.
+std::string FindGameApk(const std::string& root, const std::string& storage, bool ask) {
+    if (!root.empty()) return FindApkIn(ApkFolders(root));
+    const std::string memo = storage + "game_apk.txt";
     if (FILE* f = std::fopen(memo.c_str(), "rb")) {
         char buf[4096];
         size_t n = std::fread(buf, 1, sizeof buf, f);
         std::fclose(f);
-        std::string dir(buf, n);
-        while (!dir.empty() && (dir.back() == '\n' || dir.back() == '\r')) dir.pop_back();
-        candidates.push_back(dir);
+        std::string path(buf, n);
+        while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
+        if (FileManager::GameApkIndexSize(path)) return path;
     }
-    candidates.push_back("..");
-    if (const char* base = SDL_GetBasePath()) {   // (in an app: its Contents/Resources)
-        std::string dir = base;
-        for (int i = 0; i < 6; ++i) {
-            while (dir.size() > 1 && dir.back() == '/') dir.pop_back();
-            const size_t slash = dir.rfind('/');
-            if (slash == std::string::npos || slash == 0) break;
-            dir.resize(slash);
-            candidates.push_back(dir);
-        }
-    }
-    for (const std::string& dir : candidates)
-        if (IsGameRoot(dir)) return dir;
-    if (!ask) return "";
-    const char* message = "Choose the folder with your Rule the Kingdom game files (the one that holds "
-                          "\"Android files\", \"files\" and \"_extract\").";
+    std::string apk = FindApkIn(ApkFolders(""));
+    if (!apk.empty() || !ask) return apk;
+    const char* message = "Put your Rule the Kingdom 5.11 APK (the Android game file) in the same folder as "
+                          "the game, or choose it now.";
     for (;;) {
-        const std::string dir = PickGameRoot(message);
-        if (dir.empty()) return "";
-        if (IsGameRoot(dir)) {
+        apk = PickGameApk(message);
+        if (apk.empty()) return "";
+        if (FileManager::GameApkIndexSize(apk)) {
             if (FILE* f = std::fopen(memo.c_str(), "wb")) {
-                std::fputs(dir.c_str(), f);
+                std::fputs(apk.c_str(), f);
                 std::fclose(f);
             }
-            return dir;
+            return apk;
         }
-        message = "That folder does not hold the game files (\"Android files/rule-the-kingdom-5-11-multi-android\"). "
-                  "Choose the folder that holds \"Android files\", \"files\" and \"_extract\".";
+        message = "That file is not the Rule the Kingdom APK. Choose the game's .apk file (version 5.11).";
     }
+}
+
+// PORT: Java's ShowVideoSplash plays the APK's assets/LOGO.mp4; the desktop player needs a file, so
+// it is copied from the APK into the storage folder once.
+std::string IntroVideoPath(const std::string& apk) {
+    const std::string path = FileManager::GetStoragePath() + "LOGO.mp4";
+    if (IsFile(path)) return path;
+    std::vector<uint8_t> film;
+    if (!FileManager::ExtractFromApk(apk, "assets/LOGO.mp4", film)) return "";
+    FILE* f = std::fopen(path.c_str(), "wb");
+    if (!f) return "";
+    const bool ok = std::fwrite(film.data(), 1, film.size(), f) == film.size();
+    std::fclose(f);
+    if (!ok) std::remove(path.c_str());
+    return ok ? path : "";
 }
 
 Options opt;
@@ -845,7 +908,7 @@ int main_Loop_Init() {
     // PORT: Java's ShowVideoSplash, the logo film the app opens with (not after a restart, which
     // Android does without a new activity).
     if (!headless && !std::getenv("RTK_RESTARTED") &&
-        !IntroVideo::Play(win, opt.root + "/Android files/rule-the-kingdom-5-11-multi-android/assets/LOGO.mp4"))
+        !IntroVideo::Play(win, IntroVideoPath(opt.apk)))
         return 1;
     if (opt.lang >= 0) languageID = (unsigned)opt.lang;   // (SDL_baseInit: "--lang=")
     // (CMyServer::Init / NET_Registration, Bonus::Init, PlayerProfileManager::Init, ToS::Init: online)
@@ -1403,11 +1466,13 @@ int main(int argc, char** argv) {
     if (!headless)
         if (const char* pictures = SDL_GetUserFolder(SDL_FOLDER_PICTURES))
             FileManager::SetPicturesPath(std::string(pictures) + "Rule the Kingdom/");
-    if (opt.root.empty()) opt.root = FindGameRoot(opt.storage, !headless);
-    if (!RegisterSources(opt.root)) {
+    opt.apk = FindGameApk(opt.root, opt.storage, !headless);
+    if (opt.apk.empty() || !RegisterSources(opt.apk, FindGameData())) {
         if (!headless)
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Rule the Kingdom",
-                                     "The game files (Rule the Kingdom 5.11 for Android) were not found.", nullptr);
+                                     opt.apk.empty() ? "The game needs the Rule the Kingdom 5.11 APK (the Android "
+                                                       "game file) in the same folder as the game."
+                                                     : "The game files could not be read.", nullptr);
         return 1;
     }
 

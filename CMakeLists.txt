@@ -202,7 +202,7 @@ if(APPLE)
                     DEPENDS rtk VERBATIM)
 endif()
 target_include_directories(rtk PRIVATE src ${VORBIS_INCLUDE_DIR} ${OGG_INCLUDE_DIR})
-target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
+target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION RTK_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # -ffp-contract=off: ARMv7 VMLA/VMLS round the product and the sum separately; no fused multiply-add.
 target_compile_options(rtk PRIVATE -Wall -Wextra -Wno-unused-parameter -ffp-contract=off)
 target_link_libraries(rtk PRIVATE SDL3::SDL3 pugixml::pugixml PNG::PNG JPEG::JPEG ZLIB::ZLIB OpenGL::GL sdl_ttf2011

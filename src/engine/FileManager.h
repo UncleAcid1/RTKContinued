@@ -20,13 +20,19 @@ struct Entry {
 };
 
 // Registration
-bool RegisterAndroidData(const std::string& dataDir);          // res_desc.bin + <chunk>.jet
+// PORT: the 5.11 APK file itself (a zip): assets/data/res_desc.bin + the stored data/<chunk>.jet
+// entries are read in place, as Android's asset manager did; nothing is unpacked.
+bool RegisterApk(const std::string& apkPath);
+// PORT: res_desc.bin's size when the file is a Rule the Kingdom APK (it has assets/data/res_desc.bin
+// and lib/armeabi-v7a/libkingdom.so), else 0. The newest version has the largest index.
+uint32_t GameApkIndexSize(const std::string& apkPath);
+// PORT: one entry of the APK (e.g. assets/LOGO.mp4), inflated if needed.
+bool ExtractFromApk(const std::string& apkPath, const char* name, std::vector<uint8_t>& out);
 // @0x16e7b8: a content pack (main.<version>.kbf: mainPack, or patch.<version>.kbf) on top of what
 // is registered. The original leaves out the files of two old main packs that the game's own
 // newer data replaced: version 27's tasks.xml, LocalizedStrings.xml, config/fbwall_mob.xml and
 // maps/map_11.bin; version 28's loading images.
 bool RegisterBlobFile(const std::string& kbfPath, bool mainPack, unsigned version);
-bool RegisterWin8Fallback(const std::string& assetsDir);        // PORT: fallback source
 
 // Queries (original API)
 bool FileExists(const char* name);                                              // @0x16d0ec
