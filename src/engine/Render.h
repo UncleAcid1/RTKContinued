@@ -145,6 +145,12 @@ void BlurTexture(Texture* t, int passes);   // @0x1f67dc
 inline void MarkDirty(Sprite*) {}           // @0x1fdee0 (nothing to mark: the port draws every sprite each frame)
 // @0x1f67c8 (Context::IsLowPerformanceDevice asks Android's Java side). PORT: a desktop is not.
 inline bool IsLowPerformanceDevice() { return false; }
+// @0x1f66e4 / @0x1f87dc: the stand-ins for a missing picture, loaded once: "images/placeholder.png"
+// and "images/Buildings/dirt_under" (a decoration's).
+Texture* GetImageDebugTex();
+Texture* GetDecoPlaceholderDebugTex();
+// @0x1f5ce0: empty in 5.11 (the window's new size is taken by main_Loop_Func's resize event).
+inline void Resize(int, int) {}
 // @0x1fe378 (Render::Update, before drawing): sprites whose texture is a frame chain step to the
 // next texture every frameTime seconds (a timer past 12.5 frame times restarts at 0).
 void UpdateAnimatedSprites(float dt);

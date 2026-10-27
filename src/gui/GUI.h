@@ -296,6 +296,8 @@ bool IsSmallScreenVersion();                                       // @0x1767ec
 float GetScaleFactor(int w, int h, bool phone, float scale);       // @0x176760
 float GetHighDPIScaleFactor();                                     // @0x176184
 void SetHighDPIScaleFactor(float f);                               // @0x176198
+void SetHoverHighDPIScaleFactor(float f);                          // @0x1761c0
+void SetHudHighDPIScaleFactor(float f);                            // @0x1761e8
 float GetHoverScaleFactor(float normal, float scale);              // @0x176728 HighDPI ? scale*hover : normal
 float GetHudScaleFactor();                                         // @0x176700
 int GetVerticalCenter(int h);                                      // @0x1761fc

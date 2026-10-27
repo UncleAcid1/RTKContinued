@@ -6,9 +6,16 @@
 # Steps: 4b.4 .. 4h, 5, 6, 7 = milestone steps (STATUS.md). 4b.5 = holes in finished work found by the
 # coverage pass (closed after 4b.4, before 4c). online = ported later as a dormant stub (project
 # decision). removed = real money (freemium removal). dead = nothing reaches it in 5.11.
+# platform = reached only by a mobile platform event a desktop never sends (Android's lost GL context,
+# its texture-memory limit); the port's call site carries a note.
 # implicit = constructors, destructors, static initialisers, callback-object factories, allocators:
 # the port's own class definitions and globals carry them (field defaults are read with the class).
 # util = string/hash/parse helpers the port replaces with the C++ library or ports with a caller.
+
+# ---- 7b (2026-10-26): render / Retina ----------------------------------------------------------------
+dead  ^Render::(didEnterBackground|willEnterForeground)$   # no caller
+platform  ^(Render::(Suspend|Restart)|GUI::ReloadTextures|BuildingHovers::RestoreTextures|HUDWindow::RestoreTextures)$   # main_Loop_Func's render suspend / restore (Java's surface events, renderSuspendEvent 0x6123fc): Android loses its GL context in the background; a desktop's is kept (main.cpp's pause note). Restart's other "callers" are literals in three static initialisers
+platform  ^Render::(FreeMemory|GetStatistics|UpdateTexTypeStats)$   # the textures unloaded past 40 / 50 MB (main_Loop_Func) and on Map::Free / ShowFarm / RemoveFarm: the port keeps the textures it loads (main.cpp's Tick note, Map.cpp, Background.cpp)
 
 # ---- 7a (2026-10-26): the platform layer's leftovers (callers checked in 5.11: bl, GOT, literal) ----------
 dead  ^(Animation::(DumpToResources|PreLoadTextures)|FileManager::Apply|Timer::GetFPS|Render::(getWindow|PrintLayerStats|CalculateFillrate|UpdateLogo|IsInitialized))$   # no caller (PreLoadTextures: only Entity::PreLoadAnimations, dead; UpdateLogo: only Game::showKoreanLogo, dead; IsInitialized: only EditorConsole::Print, dead)

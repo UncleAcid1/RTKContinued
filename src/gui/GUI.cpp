@@ -99,8 +99,8 @@ void SetScreenSize(int w, int h) {
     if (mx < 600) {                          // @0x18bb30 small screens
         g_highDPI = true;                    // CommonSetFlags(1000, 1)
         float f = ((float)w / 800.f) * 1.25f;
-        g_hoverScale = f <= 1.f ? f : 1.f;
-        g_hudScale = (float)w / 800.f;
+        SetHoverHighDPIScaleFactor(f <= 1.f ? f : 1.f);
+        SetHudHighDPIScaleFactor((float)w / 800.f);
         Render::SetBaseZoomFactor((float)w / 800.f);
         g_smallScreen = true;
     }
@@ -109,8 +109,8 @@ void SetScreenSize(int w, int h) {
         g_highDPI = true;
         Render::SetBaseZoomFactor(1.5f);
         g_highDPIScale = 2.f;
-        g_hoverScale = 2.f;
-        g_hudScale = 1.6f;
+        SetHoverHighDPIScaleFactor(2.f);
+        SetHudHighDPIScaleFactor(1.6f);
         Render::SetForceLinear(true);
     }
 }
@@ -121,6 +121,8 @@ bool IsHighDPIVersion() { return g_highDPI; }
 bool IsSmallScreenVersion() { return g_smallScreen; }
 float GetHighDPIScaleFactor() { return g_highDPIScale; }
 void SetHighDPIScaleFactor(float f) { g_highDPIScale = f; }
+void SetHoverHighDPIScaleFactor(float f) { g_hoverScale = f; }
+void SetHudHighDPIScaleFactor(float f) { g_hudScale = f; }
 float GetHudScaleFactor() { return g_highDPI ? g_hudScale : 1.f; }
 float GetHoverScaleFactor(float normal, float scale) { return g_highDPI ? scale * g_hoverScale : normal; }
 int GetVerticalCenter(int h) { return (g_screenH - h) / 2; }

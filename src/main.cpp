@@ -646,8 +646,13 @@ int SDL_baseInit() {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    // PORT: on a Retina display the framebuffer has the screen's real pixels (twice the window's
+    // size), so the original's large-screen setup applies (SetScreenSize: HighDPI, GUI scale 2.0, base
+    // zoom 1.5), as on a Retina tablet. The headless test runs keep 1280x800 pixels (their taps).
+    const bool retina = !headless || std::getenv("RTK_RETINA");
     win = SDL_CreateWindow("Rule the Kingdom", 1280, 800,
-                           SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | (headless ? SDL_WINDOW_HIDDEN : 0));
+                           SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | (headless ? SDL_WINDOW_HIDDEN : 0) |
+                               (retina ? SDL_WINDOW_HIGH_PIXEL_DENSITY : 0));
     if (!win) { std::fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); return 1; }
     gl = SDL_GL_CreateContext(win);
     if (!gl) { std::fprintf(stderr, "GL context: %s\n", SDL_GetError()); return 1; }
@@ -1095,13 +1100,15 @@ bool main_Loop_Func() {
                 Wheel(e.wheel.y > 0 ? 1 : (e.wheel.y < 0 ? -1 : 0));
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-                // SDL_WINDOWEVENT_RESIZED: new screen size, aspect, default zoom, Render::Resize.
-                // UNVERIFIED (milestone 7, window resizing): the windows are then laid out again (the
-                // queue's head MoveWindowOnTop(true)).
+                // SDL_WINDOWEVENT_RESIZED: new screen size, aspect, default zoom, Render::Resize, then the
+                // windows' depths again from the queue's head. PORT: Render::Init takes the new size
+                // (the GL viewport; on Android the surface keeps its size).
                 SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
                 Render::Init(fbw, fbh);
                 Render::aspect = (float)fbw / (float)fbh;
                 Render::zoom = Render::GetDefaultZoom();
+                Render::Resize(fbw, fbh);
+                if (WindowManager::Head()) WindowManager::Head()->MoveWindowOnTop(true);
                 break;
             default: break;
         }
@@ -1194,6 +1201,7 @@ int RepeatedMain() {
 int main(int argc, char** argv) {
     opt = Parse(argc, argv);
     headless = !opt.screenshot.empty();
+    if (!headless) Game::loadScreenSeconds = 3.0;   // PORT: see Game.h
     traceInput = std::getenv("RTK_TRACE_INPUT") != nullptr;
     if (!RegisterSources(opt.root)) return 1;
     // PORT: the storage folder is the user's application support folder (Android: the app's files).

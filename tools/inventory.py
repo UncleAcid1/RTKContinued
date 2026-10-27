@@ -33,7 +33,7 @@ import funtrace
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 SKIP = re.compile(r"^(sgl::|HashMap|ObjectBlockPool|DataBlockPool|ChunkedStackPool|GUI::Callback|"
                   r"GUI::ClassCallback|rapidjson|std$|std::|vec3|Cache<|__gnu|operator)")
-STEP_ORDER = ["4b.4", "4b.5", "4c", "4d", "4e", "4f", "4g", "4h", "5", "6", "7", "online", "removed", "dead", "implicit", "util",
+STEP_ORDER = ["4b.4", "4b.5", "4c", "4d", "4e", "4f", "4g", "4h", "5", "6", "7", "online", "removed", "platform", "dead", "implicit", "util",
               "lib"]
 
 

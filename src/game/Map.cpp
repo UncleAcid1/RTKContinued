@@ -470,7 +470,17 @@ void Decor::UpdateImage() {
     if (d->sprite) { Render::RemoveSprite(d->sprite); d->sprite = nullptr; }
     if (!d->GetData()) return;  // UNVERIFIED: decor ids that resolve to buildings (else-branch) not ported
     Render::Texture* tex = GameData::DecorImage(d->data);
-    if (!tex) return;      // the original shows a debug placeholder texture here
+    if (!tex) {
+        // A missing picture: the placeholder on the tile (layer 8, or 3 for a flat decoration).
+        if (Render::Texture* ph = Render::GetDecoPlaceholderDebugTex()) {
+            Render::Sprite* s = Render::CreateSprite(ph, d->data->layer == 0 ? Render::kLayerObjects : Render::kLayerFlat3,
+                                                     d->mirrored, false);
+            d->sprite = s;
+            float wy = (float)d->y * 42.f * 0.5f;
+            Render::SetPosition(s, (float)d->x * 84.f + ((d->y & 1) ? 42.f : 0.f), wy, GetSpriteZ(wy, s->w, d->x));
+        }
+        return;
+    }
     const GameData::DecorData& D = *d->data;
     Render::Sprite* s = Render::CreateSprite(tex, DecorLayer(D.layer), d->mirrored, false);
     d->sprite = s;

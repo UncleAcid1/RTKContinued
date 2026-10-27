@@ -146,7 +146,8 @@ void CreateFarm(int) {
         }
     }
     Render::Texture* paper = Resources::GetImage("images/WorldMap/pattern_paper_bg");
-    if (!paper) return;   // (the original falls back to Render::GetImageDebugTex)
+    if (!paper) paper = Render::GetImageDebugTex();
+    if (!paper) return;
     static const float kScale[4][2] = {{8.f, 1.f}, {8.f, 1.f}, {2.f, 4.f}, {2.f, 4.f}};
     for (int i = 0; i < 4; ++i) {
         Render::Sprite* s = Render::CreateSprite(paper, Render::kLayerGUI, false, false);

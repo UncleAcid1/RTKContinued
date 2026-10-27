@@ -882,6 +882,18 @@ void UpdateProgress(double progress, Sprite* text, bool noUpdate, float z) {
     if (!noUpdate) Update();
 }
 
+Texture* GetImageDebugTex() {
+    static Texture* tex = nullptr;   // 0x1f66f4's
+    if (!tex) tex = Resources::GetImage("images/placeholder");
+    return tex;
+}
+
+Texture* GetDecoPlaceholderDebugTex() {
+    static Texture* tex = nullptr;   // 0x1f87ec's
+    if (!tex) tex = Resources::GetImage("images/Buildings/dirt_under");
+    return tex;
+}
+
 void HideProgress() {
     for (Sprite* s : {g_progBg, g_progInno, g_progGameins, g_progUnused, g_progBarOff, g_progBarOn})
         if (s) SetVisibility(s, false);
