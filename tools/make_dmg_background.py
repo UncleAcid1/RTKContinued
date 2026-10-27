@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draws the Mac disk image's window background (packaging/macos/dmg/background.png and
 background@2x.png) from the original game's art: the world map (images/WorldMap/world_map_bg.jpg),
-the Rule the Kingdom logo, a band of mist, and a gold arrow from the game to Applications, with
+the game's large logo (kingdom_ui/2Optimized/..._logo_large_eng.jpg + its alpha mask), a band of mist, and a gold arrow from the game to Applications, with
 the game's own font (fonts/ARICYRB.TTF).
 
 The icon positions must match tools/make_dmg.sh (APP_X, APPS_X, ICON_Y). Finder writes the icons'
@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 A = os.path.join(ROOT, "out", "assets", "android511") + "/"
-LOGO = os.path.join(ROOT, "docs", "images", "readme", "logo.png")
+LOGO = A + "kingdom_ui/2Optimized/Window_chapters___logo_holder_large_logo_large_eng"   # .jpg + _.png (alpha)
 OUT = os.path.join(ROOT, "packaging", "macos", "dmg") + "/"
 
 S = 2                                   # drawn at 2x (Retina), scaled down for the 1x copy
@@ -49,11 +49,16 @@ def main():
         sd.line([(0, y), (W, y)], fill=(18, 40, 78, int(150 * t)))
     bg.alpha_composite(shade)
 
-        # the logo with its blue glow
-    logo = Image.open(LOGO).convert("RGBA")
-    lh = 150 * S
+        # the logo, a soft blue glow behind it
+    logo = Image.open(LOGO + ".jpg").convert("RGBA")
+    logo.putalpha(Image.open(LOGO + "_.png").convert("L"))
+    lh = 140 * S
     logo = logo.resize((int(logo.width * lh / logo.height), lh), Image.LANCZOS)
-    bg.alpha_composite(logo, ((W - logo.width) // 2, 4 * S))
+    lx, ly = (W - logo.width) // 2, 10 * S
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse((lx - 10 * S, ly, lx + logo.width + 10 * S, ly + lh), fill=(140, 220, 255, 90))
+    bg.alpha_composite(glow.filter(ImageFilter.GaussianBlur(28 * S)))
+    bg.alpha_composite(logo, (lx, ly))
 
         # the mist the icons' names sit on
     band = Image.new("RGBA", (W, H), (0, 0, 0, 0))
