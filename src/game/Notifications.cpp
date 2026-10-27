@@ -1,7 +1,6 @@
 #include "game/Notifications.h"
 
-#include <cstdio>
-
+#include "engine/FileManager.h"
 #include "game/GameState.h"
 #include "game/StringTable.h"
 #include "windows/Windows.h"
@@ -12,27 +11,6 @@ int g_lastSystemNotificationTime = -1;
 Notifications& GetNotifications() {
     static Notifications n;
     return n;
-}
-
-void SystemNotification(const std::u32string& text, int seconds) {
-    g_lastSystemNotification = text;
-    g_lastSystemNotificationTime = seconds;
-    std::string utf8;   // (for the log only)
-    for (char32_t c : text) {
-        if (c < 0x80) utf8 += (char)c;
-        else if (c < 0x800) { utf8 += (char)(0xc0 | (c >> 6)); utf8 += (char)(0x80 | (c & 0x3f)); }
-        else if (c < 0x10000) {
-            utf8 += (char)(0xe0 | (c >> 12));
-            utf8 += (char)(0x80 | ((c >> 6) & 0x3f));
-            utf8 += (char)(0x80 | (c & 0x3f));
-        } else {
-            utf8 += (char)(0xf0 | (c >> 18));
-            utf8 += (char)(0x80 | ((c >> 12) & 0x3f));
-            utf8 += (char)(0x80 | ((c >> 6) & 0x3f));
-            utf8 += (char)(0x80 | (c & 0x3f));
-        }
-    }
-    std::printf("notification in %d s: %s\n", seconds, utf8.c_str());
 }
 
 // @0x1d94ec: the kind's time, replacing one already there.
@@ -90,5 +68,5 @@ void Notifications::FlushNotifications() {
             // an empty text.
             break;
     }
-    SystemNotification(text, (int)(best + delay));
+    FileManager::PushNotification(text, (int)(best + delay));
 }

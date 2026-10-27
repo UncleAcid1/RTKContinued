@@ -36,6 +36,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/SystemFuncs.h"
+#include "engine/SystemNotifications.h"
 #include "game/Tavern.h"
 #include "game/Notifications.h"
 #include "game/Tags.h"
@@ -666,6 +667,8 @@ int SDL_baseInit() {
     // framebuffer in pixels.
     GUI::SetScreenSize(fbw, fbh);
     Render::InitFonts();
+    // PORT: the reminder left by the last quit is dropped (the player is back).
+    SystemNotifications::Init();
     return 0;
 }
 
@@ -1149,7 +1152,15 @@ int main_Exit_Func() {
     BuildingPlacement::Deinit();
     MapMovement::Deinit();
     // (online: also not during a required content update or the Facebook sync window)
-    if (!GameState::IsCityTutorial() && !forceExitNoSave) Map::Save(0);
+    if (!GameState::IsCityTutorial() && !forceExitNoSave) {
+        Map::Save(0);
+        // PORT (user 2026-10-26): a desktop sends no pause event, so the quit hands the reminders to
+        // the system as the pause does (main_Loop_Func's WILL_ENTER_BACKGROUND).
+        GetNotifications().PurgeNotifications();
+        GameState::UpdateNotifications();
+        Map::UpdateNotifications();
+        GetNotifications().FlushNotifications();
+    }
     Map::Free();
     EntityManager::Clean(true);
     // The windows' Deinit (WindowQueue::DeinitWindows), then the desktop window goes.
@@ -1201,7 +1212,6 @@ int RepeatedMain() {
 int main(int argc, char** argv) {
     opt = Parse(argc, argv);
     headless = !opt.screenshot.empty();
-    if (!headless) Game::loadScreenSeconds = 3.0;   // PORT: see Game.h
     traceInput = std::getenv("RTK_TRACE_INPUT") != nullptr;
     if (!RegisterSources(opt.root)) return 1;
     // PORT: the storage folder is the user's application support folder (Android: the app's files).

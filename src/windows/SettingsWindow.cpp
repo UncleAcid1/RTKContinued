@@ -5,6 +5,7 @@
 // and 0x60f390.
 #include <string>
 
+#include "engine/FileManager.h"
 #include "engine/SoundsManager.h"
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
@@ -183,10 +184,10 @@ void OnSound() {
     UpdateContents();
 }
 
-// @0x33f994: FileManager::OnNotifications (Java) and MyNeighbours::OnLoaded are online/platform
-// calls with nothing to do offline.
+// @0x33f994 (MyNeighbours::OnLoaded after it: online)
 void OnNotifications() {
     g_notifications = Flip(g_notifications);
+    FileManager::OnNotifications();
     UpdateContents();
 }
 

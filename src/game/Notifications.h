@@ -4,8 +4,8 @@
 // purges the list, GameState::UpdateNotifications and Map::UpdateNotifications push one time per
 // kind, and FlushNotifications hands the soonest one to the system (FileManager::PushNotification).
 //
-// DECIDED (user 2026-10-19): these become real desktop notifications; the system call is
-// milestone 7 (macOS / Linux / Windows backends), until then SystemNotification below is a stub.
+// DECIDED (user 2026-10-19): these become real desktop notifications (engine/SystemNotifications);
+// (user 2026-10-26) the desktop flushes them when the game quits (Game::main_Exit_Func).
 #pragma once
 #include <cstdint>
 #include <map>
@@ -36,9 +36,6 @@ private:
 // PORT: App::GetNotifications (the App's member; the port keeps one instance).
 Notifications& GetNotifications();
 
-// PORT stub (milestone 7): FileManager::PushNotification(text, seconds) asked Java to show `text`
-// as a system notification `seconds` from now. Until the OS backends exist this only logs it and
-// keeps it for the test hooks.
-void SystemNotification(const std::u32string& text, int seconds);
-extern std::u32string g_lastSystemNotification;   // PORT (tests): the last text handed over
-extern int g_lastSystemNotificationTime;          // PORT (tests): its delay, -1 for none
+// PORT (tests): the last text FileManager::PushNotification handed over, and its delay (-1 for none).
+extern std::u32string g_lastSystemNotification;
+extern int g_lastSystemNotificationTime;

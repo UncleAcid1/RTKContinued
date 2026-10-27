@@ -55,6 +55,13 @@ void SaveSave(const char* name, const uint8_t* data, uint32_t size, bool online)
 // @0x16c50c: the shared screenshot (0xAARRGGBB, top row first). PORT: a PNG in the storage folder.
 void SaveImage(const uint32_t* pixels, int w, int h);
 
+// @0x16c90c: `text` as a system notification `seconds` from now (Java's pushNotification). PORT:
+// logged, then handed to SystemNotifications (the .app on macOS).
+void PushNotification(const std::u32string& text, int seconds);
+// @0x16bc04: the settings' notifications switch was flipped (Java's OnNotifications). PORT: when
+// switched off, a pending reminder is dropped.
+void OnNotifications();
+
 // Text input for the edited Textfield. The callback gets the whole text after every change, with
 // final = true when editing ends.
 using TextInputCallback = void (*)(const char32_t* text, bool final);

@@ -46,8 +46,8 @@ lib  ^(dollar\w+|bestDollarDifference)$   # SDL2's $1 gesture recognizer (SDL_ge
 
 # ---- 6a (2026-10-20): the audio engine (Sounds, SoundsManager) ------------------------------------------
 dead  ^SoundsManager::UnpauseMusic$   # no caller, no address taken
-7  ^Sounds::(isInterrupted|willResignActive|interruptStart|interruptEnd)$   # Android's audio focus (the app interrupted / back): the platform
-7  ^SystemFuncs::SetNotificationsEnabled$|^FileManager::OnNotifications$   # the settings' notifications switch: Java (the OS backend, milestone 7)
+dead  ^Sounds::(isInterrupted|willResignActive|interruptStart|interruptEnd)$   # Android's audio focus: no call, GOT slot or literal in 5.11 (isInterrupted only from the other two) (7d, 2026-10-26)
+online  ^SystemFuncs::SetNotificationsEnabled$   # only ServerFlags' static table (_INIT_141): the server's switch (7d, 2026-10-26)
 util  ^SoundsManager::DuplicateString$   # the event names' string pool (std::string in the port)
 implicit  ^(Sounds::FUN_(00220cb0|002210a4|002213e8)|SoundsManager::FUN_0022424c)$   # the name -> sound / music / event std::map inserts
 
@@ -210,7 +210,6 @@ online  ^GameState::(Send|GetServer|SetServer|IsServerSettingSet|GetOnlineExtra|
 online  ^Map::SaveOnline
 online  ^SaveManager::(ApplyBlockDiff|ApplySaveDiff|DuplicateBlock|GetDifference|GetGameStateDataFromSave|GetMapDataFromLoadedSave|MinifyBlock|MinifySave|QueueSendSave|SaveOnlineSave|SavePvPSave|SetEnableSavePing|SetSaveDelay|SetSavePeriod|SetSendSavePeriod|SaveData::)
 online  ^SystemFuncs::(FB|GetFBToken|IsConnectedTo|LikeGame|Log|LoginTo|LogoutFromFB|OpenFAQ|OpenMarketURL|OpenSupport|RateGame|SendPaymentDataToServer|SetProcessPayments|ShowConnectionError|ShowToSPP|callExternalBrowser|geUniqFBID|getDeviceToken|getEmails|getGCID|getGID|getPushID|getReferral|getSID|getSecret|getUniqueIDs|launchApp|showGPGS|signInGPGS|signOutGPGS|IsAppInstalled|SetGUID|getPlatformForServer|getPlatformJailbreak|getDeviceExtendedInfo)
-7  ^FileManager::PushNotification$   # the system notification (DECIDED 2026-10-19: real desktop notifications; the port's SystemNotification stub until the OS backends)
 online  ^FileManager::(Billing|Blog|Coupon|Facebook|FlowGameCurrency|GetChestContents|GetFriendMap|GetServerUpdate|LogAndroid|LogCBPurchase|MakeFBRequest|MoreGamesRequest|NotifyTutorialStep|OnAmazonAchievements|OnFacebookToggle|OnItemBought|OnKoreanMoreGames|OnLevelUpEvent|OnTwitterToggle|PayForItem|PostImage|Send|SetChapterNow|SetFlagStage|ShowOffers|ToggleStatEvent|UpdateFriend|CheckDailyBonusAvailability|JNI_|RegisterExpansionFile|RemoveExpansionFile|ValidateExpansionFile|DoesExpansionFileExist|EnumExpansionFileInfo|GetExpansionCount|GetExpansionFileInfo|SetGameState|SetLastLoadedCity|AddResetCount|GameLoaded|ResaveVersion|DebugUpdate|BlobFileDescriptor|RegisterBlob|DataHash|FileDataHash)
 online  ^SettingsWindow::(GetFacebook|SetFacebook|ToggleFacebook|GetTwitter|SetTwitter|ToggleTwitter|OnGameCenter|OnGames|OnInvite)
 online  ^(LevelUpWindow|LandExpandedWindow|TaskCompleteWindow)::OnFacebookToggle   # the share toggle is not offered (PORT)
