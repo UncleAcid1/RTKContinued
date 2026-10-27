@@ -8,7 +8,8 @@ Rule the Kingdom (the open-source port of the 2012 game by Game Insight and inno
    If the APK isn't found, the game asks you to pick it once and remembers it.
 
 Controls: the mouse does what a finger did on the phone (click, drag to scroll, wheel or pinch to
-zoom). Esc = Back, F10 = frame-rate cap (30 / 60 / display), F11 = fullscreen.
+zoom). Esc = Back, F10 = frame-rate cap (30 / 60 / display), F11 = fullscreen; both are also
+buttons in the game's Settings (the gear).
 Saves: Windows %APPDATA%\Rule the Kingdom, Linux ~/.local/share/Rule the Kingdom.
 
 https://github.com/UncleAcid1/RTKContinued

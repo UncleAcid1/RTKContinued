@@ -28,7 +28,7 @@
 
 <sub>Left: the official 2012 trailer (Game Insight / innoWate). Right: the port, running natively on a Mac.</sub>
 
-<sub>README last updated <b>2026-10-27</b> (version 1.1).</sub>
+<sub>README last updated <b>2026-10-27</b> (version 1.2).</sub>
 
 </div>
 
@@ -125,7 +125,10 @@ wheel or a pinch to zoom.
 |---|---|
 | **Esc** | Back (closes the top window, as Android's Back button did) |
 | **F10** | Frame-rate cap: 30 / 60 / the display's rate |
-| **F11** (or Cmd+Ctrl+F, Alt+Enter) | Fullscreen on / off |
+| **F11** (or Cmd+Enter, Cmd+Ctrl+F, Alt+Enter) | Fullscreen on / off |
+
+Both are also buttons in the game's **Settings** (the gear): "Fullscreen" and "FPS". On a Mac
+keyboard F10 / F11 are media keys unless `fn` is held, so the buttons are the easy way there.
 
 ---
 

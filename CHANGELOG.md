@@ -1,5 +1,13 @@
 # Changelog
 
+## Rule the Kingdom 1.2 (2026-10-27)
+
+- Fullscreen and FPS buttons in the game's Settings (the gear): "Fullscreen: on/off" and
+  "FPS: 30 / 60 / max". On a Mac keyboard F10 / F11 are media keys, so the keys alone did not
+  switch in game; Cmd+Enter now switches fullscreen too.
+- If a new game starts in the castle map with no quests: that is a save left from a 2026-10-06
+  test build of the port. Move save.bin and save.binprev out of the save folder to start fresh.
+
 ## Rule the Kingdom 1.1 (2026-10-27)
 
 - Only the 5.11 APK is needed: put the APK file next to the game, as it is. The game reads it
