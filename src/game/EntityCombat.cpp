@@ -2,6 +2,7 @@
 // experience, quest steps, the dead hero's broken gear), the belt orbs' bonuses, aggro.
 // Port of the combat functions of Entity (libkingdom.so 5.11, @0x14ffb4..0x15e7ac).
 #include <cstdio>
+#include <cstdlib>
 
 #include "engine/SoundsManager.h"
 #include "engine/IconManager.h"

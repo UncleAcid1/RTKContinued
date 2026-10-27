@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"

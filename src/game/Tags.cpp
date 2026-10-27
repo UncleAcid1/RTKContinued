@@ -35,7 +35,11 @@ Tag* EnumTag(unsigned i) { return i < g_tags.size() ? g_tags[i] : nullptr; }
 bool CalendarActive(const char* name, time_t now) {
     if (!name) return false;
     std::tm t{};
+#if defined(_WIN32)
+    localtime_s(&t, &now);
+#else
     localtime_r(&now, &t);
+#endif
     const int date = t.tm_mon * 100 + t.tm_mday;   // month (0-11) * 100 + day
     if (std::strcmp(name, "xmas_2012") == 0 || std::strcmp(name, "xmas_2012_raid") == 0)
         return date >= 1101 || date <= 6;

@@ -2,6 +2,8 @@
 // button) and the crafting progress bar. Port of BeltBarWindow (libkingdom.so 5.11),
 // 0x24c63c..0x251694.
 #include <cstdio>
+#include <cmath>
+#include <cstdlib>
 
 #include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
@@ -849,7 +851,7 @@ void UpdateCraftBar(float dt) {
             x = g_craftFromX + (tx - g_craftFromX);
             k = 1.f;
         }
-        const float y = g_craftFromY + k * (ty - g_craftFromY) + sinf(f * 3.14159f) * -100.f;
+        const float y = g_craftFromY + k * (ty - g_craftFromY) + std::sin(f * 3.14159f) * -100.f;
         if (g_craftSprite) Render::SetPosition(g_craftSprite, x, y, 0.0001f);
         return;
     }

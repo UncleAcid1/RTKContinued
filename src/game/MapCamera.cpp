@@ -21,6 +21,7 @@
 #include "game/Setting.h"
 #include "game/Tasks.h"
 #include "gui/GUI.h"
+#include "game/Rand48.h"
 
 namespace Map {
 
@@ -202,8 +203,8 @@ void UpdateCamera(float dt) {
     }
     if (g_shakeLeft > 0.f) {
         float c = std::cos((g_shakeLeft / g_shakeTime) * 3.1415925f);
-        Render::offsetX = g_shakeX + ((float)(lrand48() % 1000) / 1000.f - 0.5f) * (1.f - std::fabs(c)) * g_shakeStrength;
-        long r = lrand48();
+        Render::offsetX = g_shakeX + ((float)(Rand48::lrand48() % 1000) / 1000.f - 0.5f) * (1.f - std::fabs(c)) * g_shakeStrength;
+        long r = Rand48::lrand48();
         g_shakeLeft -= dt;
         Render::offsetY = g_shakeY + ((float)(r % 1000) / 1000.f - 0.5f) * (1.f - std::fabs(c)) * g_shakeStrength;
         if (!(g_shakeLeft > 0.f)) {

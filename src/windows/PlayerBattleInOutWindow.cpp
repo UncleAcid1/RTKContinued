@@ -33,6 +33,7 @@
 #include "hud/HUD.h"
 #include "hud/Shared.h"
 #include "windows/Windows.h"
+#include "game/Rand48.h"
 
 namespace PlayerBattleInOutWindow {
 namespace {
@@ -323,7 +324,7 @@ void Finish() {
     } else if (!g_intro) {
         if (BaseCombat* c = GameState::GetActiveCombat()) c->PostCombat();
         if (!g_won) Map::EnqueueLoadMap((int)GameState::mReturnMapID, true, false, 0.f);
-    } else if (!GameState::IsPvPTutorial() && (lrand48() & 1) == 0) {
+    } else if (!GameState::IsPvPTutorial() && (Rand48::lrand48() & 1) == 0) {
         if (BaseCombat* c = GameState::GetActiveCombat()) c->Continue(10);
     }
 }
@@ -679,7 +680,7 @@ void Show() {
                     Entity* e = sq->GetSoldier(i);
                     if (!e) continue;
                     if (!e->IsDead() && g_won) {
-                        e->SetDirection((lrand48() & 1) == 0 ? 1 : 7);
+                        e->SetDirection((Rand48::lrand48() & 1) == 0 ? 1 : 7);
                         e->SetAnimationP(e->player ? "bat_vict" : "victory", true, false, false);
                     }
                     if (e->player) Render::CenterOn(e->worldX, e->worldY - e->GetIdleHeight(), true);
@@ -690,7 +691,7 @@ void Show() {
                     for (unsigned i = 0; i < (unsigned)sq->GetSoldierCount(); ++i) {
                         Entity* e = sq->GetSoldier(i);
                         if (!e || e->IsDead()) continue;
-                        e->SetDirection((lrand48() & 1) == 0 ? 1 : 7);
+                        e->SetDirection((Rand48::lrand48() & 1) == 0 ? 1 : 7);
                         const uint32_t id = e->GetEntityData()->id;
                         e->SetAnimationP(id == 0xc || id == 0xd ? "bat_vict" : "victory", true, false, false);
                     }

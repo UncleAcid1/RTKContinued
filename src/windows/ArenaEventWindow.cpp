@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <cstring>
 
 #include "engine/SoundsManager.h"
 #include "engine/IconManager.h"

@@ -575,7 +575,7 @@ void GiveDrops(const Decor* d, const MetaData* list, int wx, int wy, bool direct
         }
         if (c->GetChild(0)->type == MetaData::kNumber) {
             for (int n = 0; n < c->GetChild(1)->GetInt(); ++n)
-                if (lrand48() % 100 < percent)
+                if (Rand48::lrand48() % 100 < percent)
                     BuildingHovers::DropItem((float)wx, (float)wy,
                                              Items::GetItemInfo((uint32_t)c->GetChild(0)->GetInt()), 0, 1);
         }
