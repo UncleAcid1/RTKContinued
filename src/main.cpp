@@ -1213,7 +1213,7 @@ bool main_Loop_Func() {
             case SDL_EVENT_KEY_DOWN:
                 // PORT aids: Esc quits (not while typing), F12 saves a screenshot.
                 if (e.key.key == SDLK_ESCAPE && !TextInput::enabled) done = true;
-                if (e.key.key == SDLK_F12) Render::SaveScreenshot("rtk_screenshot.png");
+                if (e.key.key == SDLK_F12) Render::SaveScreenshot((FileManager::GetPicturesPath() + "rtk_screenshot.png").c_str());
                 // PORT: the display options' keys (DisplayOptions).
                 if (!e.key.repeat) {
                     if (e.key.key == SDLK_F10) { DisplayOptions::CycleCap(); break; }
@@ -1372,6 +1372,11 @@ int main(int argc, char** argv) {
         opt.storage += '/';
     }
     FileManager::SetStoragePath(opt.storage);
+    // PORT: pictures (the screenshot mode, F12) go to the user's Pictures folder, in its own folder;
+    // headless runs keep them in the storage folder.
+    if (!headless)
+        if (const char* pictures = SDL_GetUserFolder(SDL_FOLDER_PICTURES))
+            FileManager::SetPicturesPath(std::string(pictures) + "Rule the Kingdom/");
     if (opt.root.empty()) opt.root = FindGameRoot(opt.storage, !headless);
     if (!RegisterSources(opt.root)) {
         if (!headless)

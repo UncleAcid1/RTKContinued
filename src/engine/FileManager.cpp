@@ -324,9 +324,16 @@ void OnNotifications() {
     if (SettingsWindow::GetNotificationState() == 0) SystemNotifications::CancelAll();
 }
 
+std::string g_picturesPath;
+void SetPicturesPath(const std::string& path) { g_picturesPath = path; }
+// (made when the first picture is saved)
+std::string GetPicturesPath() {
+    if (g_picturesPath.empty() || !SDL_CreateDirectory(g_picturesPath.c_str())) return g_storagePath;
+    return g_picturesPath;
+}
+
 // @0x16c50c: the shared picture (0xAARRGGBB words, top row first). On Android it went to Java's
-// savePicture (the gallery). PORT: written as a PNG in the storage folder; the folder and name are
-// milestone 7's choice.
+// savePicture (the gallery). PORT: written as a PNG, "screenshot_<time>.png", in the pictures folder.
 void SaveImage(const uint32_t* pixels, int w, int h) {
     std::vector<uint8_t> rgba((size_t)w * h * 4);
     for (size_t i = 0; i < (size_t)w * h; ++i) {
@@ -338,7 +345,7 @@ void SaveImage(const uint32_t* pixels, int w, int h) {
     }
     char name[64];
     std::snprintf(name, sizeof name, "screenshot_%lld.png", (long long)std::time(nullptr));
-    const std::string path = g_storagePath + name;
+    const std::string path = GetPicturesPath() + name;
     png_image img;
     std::memset(&img, 0, sizeof img);
     img.version = PNG_IMAGE_VERSION;
