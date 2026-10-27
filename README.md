@@ -10,7 +10,7 @@
 ![status](https://img.shields.io/badge/status-complete%20%C2%B7%201.0-6ee7a0)
 ![ported](https://img.shields.io/badge/game%20functions%20ported-100%25-6ee7a0)
 ![fidelity](https://img.shields.io/badge/port-100%25%20faithful-brightgreen)
-![platforms](https://img.shields.io/badge/macOS-SDL3%20%2B%20OpenGL-lightgrey)
+![platforms](https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-SDL3%20%2B%20OpenGL-lightgrey)
 ![offline](https://img.shields.io/badge/play-100%25%20offline-8ab4ff)
 ![money](https://img.shields.io/badge/real--money%20purchases-none-ff8a8a)
 ![license](https://img.shields.io/badge/code-MIT-blue)
@@ -28,7 +28,7 @@
 
 <sub>Left: the official 2012 trailer (Game Insight / innoWate). Right: the port, running natively on a Mac.</sub>
 
-<sub>README last updated <b>2026-10-27</b>.</sub>
+<sub>README last updated <b>2026-10-27</b> (version 1.1).</sub>
 
 </div>
 
@@ -62,7 +62,7 @@
 | 1. **Port the code** | ✅ every game function of 5.11; what is left out is online-only, dead in 5.11, or platform code SDL3 replaces |
 | 2. **Make it playable** | ✅ new game to campaign finish, with every system working |
 | 3. **Bug hunt** | ✅ play-tested; bugs are fixed from the original as they turn up |
-| 4. **Polish and release** | ✅ a Mac app with Retina, fullscreen, a frame-rate cap, desktop notifications, and a DMG |
+| 4. **Polish and release** | ✅ downloads for macOS (DMG), Windows and Linux; Retina, fullscreen, a frame-rate cap, desktop notifications |
 
 ---
 
@@ -99,18 +99,22 @@ All of the game is ported, **function by function**, each tagged with its origin
 
 ## Play it
 
-**You need your own copy of the original game files.** No game data is included in this
-repository or in the download. The game asks for the folder that holds them the first time it
-starts (the one with `Android files/rule-the-kingdom-5-11-multi-android`, `files` and `_extract`),
-and remembers it.
+**All you need is the original game's Android file, the Rule the Kingdom 5.11 APK.** Put it in
+the same folder as the game (any file name ending in `.apk`); nothing has to be unpacked. The
+game's two update packs, which can no longer be downloaded anywhere, come with the game. If the
+APK isn't beside the game, the game asks you to pick it the first time and remembers it.
 
-**On a Mac:** download `Rule-the-Kingdom-1.0-macOS-AppleSilicon.dmg` from the
-[releases](https://github.com/UncleAcid1/RTKContinued/releases), open it and drag the game to
-Applications. The app is signed ad hoc rather than with an Apple developer certificate: the first
-time, open it with right-click → Open (or System Settings → Privacy & Security → Open Anyway).
+Downloads are on the [releases](https://github.com/UncleAcid1/RTKContinued/releases) page:
 
-Or build it yourself (see [Building](#building-macos)). Saves go in
-`~/Library/Application Support/Rule the Kingdom/`; `--storage <folder>` keeps them somewhere else.
+| System | Download | How |
+|---|---|---|
+| **macOS** (Apple Silicon) | `Rule-the-Kingdom-<version>-macOS-AppleSilicon.dmg` | Open it and drag the game to Applications; put the APK in Applications too (or pick it on the first start). The app is signed ad hoc, not with an Apple developer certificate: the first time, open it with right-click → Open (or System Settings → Privacy & Security → Open Anyway). |
+| **Windows** (64-bit) | `Rule-the-Kingdom-<version>-Windows-x86_64.zip` | Unzip it, put the APK in the folder, run `rtk.exe`. |
+| **Linux** (x86-64) | `Rule-the-Kingdom-<version>-Linux-x86_64.tar.gz` | Unpack it, put the APK in the folder, run `./rtk`. |
+
+Saves go in `~/Library/Application Support/Rule the Kingdom/` (macOS), `%APPDATA%\Rule the Kingdom`
+(Windows) or `~/.local/share/Rule the Kingdom` (Linux); `--storage <folder>` keeps them somewhere
+else. Or build it yourself (see [Building](#building-macos)).
 
 ### Controls
 
@@ -413,11 +417,12 @@ and nothing in the game's art or content is generated; all of it is the original
   follow the calendar, crystals are earned in play (daily rewards, chests, quests) instead of bought,
   the arena and PvP run offline against generated rivals, and friends stay dormant. Online code is kept dormant so a community
   server could be added later. **There are no real-money purchases.**
-- **Platforms:** macOS (released), with SDL3 and OpenGL; the code keeps Linux and Windows within reach.
+- **Platforms:** macOS, Windows and Linux, with SDL3 and OpenGL.
 - **Saves** stay in the original's format.
-- **No game data is included.** You need your own copy of the original files (the 5.11 Android
-  APK assets and the `.kbf` expansion packs). This repository holds only the port's source and the
-  tools that read the original formats.
+- **Only the APK comes from the player.** The 5.11 Android APK can still be found; the game reads
+  it as it is. The two update packs the game's server once sent (`main.27.kbf`, `patch.33.kbf`) and
+  the art only the Windows 8 build had are lost anywhere else, so they are kept in `gamedata/` and
+  ship with the game.
 
 ## Progress
 
@@ -461,8 +466,17 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target app
 ```
 
-That leaves `build/Rule the Kingdom.app` (the Homebrew libraries copied in, signed ad hoc). The
-bare program runs too: `./build/rtk --root <folder with the game files> --storage <save folder>`.
+That leaves `build/Rule the Kingdom.app` (the Homebrew libraries and the update packs copied in,
+signed ad hoc). The bare program runs too: `./build/rtk --storage <save folder>` (it looks for the
+APK beside it, or `--root <folder with the APK>`).
+
+**Windows and Linux** are built by GitHub Actions on every push
+([.github/workflows/build.yml](.github/workflows/build.yml)): Linux on Ubuntu 22.04 with clang,
+Windows with MSYS2 (CLANG64), both with SDL 3.4 built from source. The packages
+(`tools/package_linux.sh`, `tools/package_windows.sh`) are the run's artifacts: the program, the
+libraries it needs, the update packs in `data/` and `HOW_TO_PLAY.txt`. To build on Linux yourself:
+install CMake, clang, SDL 3.4, pugixml, libpng, libjpeg, libvorbis and the OpenGL headers, then the
+same two `cmake` commands without `--target app`.
 
 ### The Mac disk image (DMG)
 
@@ -539,8 +553,9 @@ are shown here for documentation and preservation. This project is not affiliate
 licences.
 
 **The game itself is not covered by it.** *Rule the Kingdom*, its art, music, text, data and
-trademarks belong to **Game Insight** (publisher) and **innoWate** (developer). None of it is
-included here: players need their own copy of the original game files. This project is a
+trademarks belong to **Game Insight** (publisher) and **innoWate** (developer). Only the parts that
+can no longer be obtained are included (`gamedata/`: the two update packs and the Windows 8 build's
+extra art), kept for preservation; players supply the 5.11 APK themselves. This project is a
 non-commercial preservation effort and is not affiliated with either company.
 
 **Credits**

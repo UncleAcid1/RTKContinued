@@ -9,9 +9,18 @@ of the Android 5.11 `libkingdom.so` is ported (`python3 tools/inventory.py --ste
 online / dead / removed / implicit / util / lib / platform functions; `--unplanned` is empty); no
 "milestone N" and no UNVERIFIED note is left in src. The game plays from a new game to the end of
 the campaign, offline, with no real money (crystals are earned in play) and the online features
-dormant. Release: the Mac app and DMG (`bash tools/make_dmg.sh` -> dist/Rule-the-Kingdom-1.0-macOS-
-AppleSilicon.dmg), the GitHub release v1.0 on https://github.com/UncleAcid1/RTKContinued. README,
-LICENSE (MIT, the port's code only) and CHANGELOG.md describe it for players.
+dormant. Releases on https://github.com/UncleAcid1/RTKContinued: v1.0 (Mac), v1.1 (2026-10-27:
+macOS DMG via `bash tools/make_dmg.sh`, Windows and Linux packages from GitHub Actions,
+.github/workflows/build.yml). README, LICENSE (MIT, the port's code only) and CHANGELOG.md describe
+it for players.
+
+**Game data (1.1).** The player supplies only the 5.11 APK file, read in place (FileManager::
+RegisterApk; FindGameApk looks beside the program, else asks once, game_apk.txt). The lost parts
+ship in gamedata/ (main.27.kbf, patch.33.kbf, win8_supplement.kbf from tools/make_supplement_pack.py:
+the 218 files only the Windows 8 build had); the app keeps them in Contents/Resources/data, the
+Windows / Linux packages in data/ (FindGameData). Test runs: `--root ..` finds the APK in
+"../Android files". Platform code: engine/GL.h (GL 2+ functions loaded on Linux / Windows),
+IntroVideo and SystemNotifications are macOS-only (stubs elsewhere).
 
 **From here on: minor bug fixes only** (user, 2026-10-27). For each reported bug: find the
 original's behaviour (tools/fnres.py, tools/asmfn.py; objdump of libkingdom.so for gaps in

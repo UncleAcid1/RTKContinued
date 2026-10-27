@@ -14,8 +14,8 @@
 # that's how the window gets laid out.
 #
 # The background is packaging/macos/dmg/background.png (+ @2x), drawn by
-# tools/make_dmg_background.py; the icon positions below must match it. The DMG holds no game
-# files: players need their own copy of the game (README "Play it").
+# tools/make_dmg_background.py; the icon positions below must match it. The app holds the update
+# packs; players add their own 5.11 APK beside it (README "Play it").
 
 set -e
 cd "$(dirname "$0")/.."
@@ -65,7 +65,7 @@ if [ "$VERSION" != "dev" ]; then
         # builds made after the release's own commit say which commit they're from
         # (only what goes into the app counts: a change to this script leaves it the release)
     if ! git diff --quiet "$(git log -1 --format=%H -- CHANGELOG.md)" HEAD -- src third_party \
-            CMakeLists.txt packaging/macos/Info.plist packaging/macos/AppIcon.icns tools/make_app.sh 2>/dev/null; then
+            CMakeLists.txt gamedata packaging/macos/Info.plist packaging/macos/AppIcon.icns tools/make_app.sh 2>/dev/null; then
         VERSION="$VERSION+$(git rev-parse --short HEAD)"
     fi
 fi
