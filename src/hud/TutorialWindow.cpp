@@ -294,6 +294,7 @@ void UpdateCity(float dt) {
         step = 0x19;
         break;
     case 0x19: {   // the city is set up: the guide and his house, the farm's site, the barracks' site
+        HUDWindow::ShowVisualCheats(false);
         if (Map::Building* hq = Map::GetHQ()) hq->stateTime = Timer::GetGlobalTime();
         Render::CenterOn(2524.f, 209.f);   // (at once on the original too)
         if (Map::Building* house = Map::GetBuilding(0x1b, 10)) {
@@ -321,6 +322,7 @@ void UpdateCity(float dt) {
         g_guide = EntityManager::GetEntityByClass(0, false, true);
         g_guide->GetAI()->SetSpeed(140.f);
         g_guide->GetAI()->WalkTo(0x1c, 0xb);
+        HUDWindow::ShowVisualCheats(false);
         BattleBarWindow::Hide();
         player->SetPos(0x16, 0x11);
         player->GetAI()->UpdateLastTarget();
@@ -439,6 +441,7 @@ void UpdateCity(float dt) {
         }
         BuildingHovers::HideArrow();
         Map::Save(0);
+        HUDWindow::ShowVisualCheats(false);
         CenterOn(2441.f, 97.f);
         g_farmer = EntityManager::SpawnEntityAt(7, 0x1b, 4, false, false);
         g_farmer->GetAI()->WalkTo(0x1c, 7);
@@ -619,6 +622,7 @@ void Update(float dt) {
     }
     switch (step) {
     case 0: {   // the scene and the starting purse
+        HUDWindow::ShowVisualCheats(false);
         Render::CenterOn(574.f, 256.f);
         soldier->SetPos(6, 8);
         soldier->SetDirection(7);

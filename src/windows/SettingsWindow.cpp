@@ -197,7 +197,7 @@ void OnFAQ() { Hide(); }               // @0x33e238 then SystemFuncs::OpenFAQ (w
 void OnNews() { Hide(); }              // @0x33e35c then HelpWindow::Show(0)
 void OnSocialConnect() { Hide(); }     // @0x33e338 then SocialConnectWindow::Show
 void OnCoupon() { Hide(); }            // @0x33e228 CouponEntryWindow::Show, then Hide
-void OnSpecial() { Hide(); }           // @0x33e3a4 then HUDWindow::ShowCheatWindow
+void OnSpecial() { Hide(); HUDWindow::ShowCheatWindow(); }   // @0x33e3a4
 // (OnGPGS @0x33e17c, Google Play Games sign-in / achievements: online, its button is the screenshot's)
 void OnPP() {}                         // @0x33e990 ToS::Show(1, ...) (privacy policy web view)
 void OnTOS() {}                        // @0x33e88c ToS::Show(0, ...) (terms web view)

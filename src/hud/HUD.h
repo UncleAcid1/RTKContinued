@@ -22,6 +22,12 @@ void RemoveTaskArrows();       // @0x2c7bac
 int UpdateNumberToTarget(int current, int target);   // @0x2c6560 (animated counters)
 inline int GetDeltaTimeMultiplier() { return 1; }    // @0x2c6664
 inline bool GetDebugState() { return false; }       // @0x2c665c (always 0 in 5.11)
+// The debug / cheat overlay: empty in the 5.11 release build (the admin mode is dead, port_plan 5w).
+inline void SetDeltaTimeMultiplier(int) {}            // @0x2c666c (the tutorial's skip and game bot)
+inline void ToggleCheatOverlay() {}                   // @0x2c6678
+inline void ShowCheatWindow() {}                      // @0x2c667c (SettingsWindow::OnSpecial)
+inline void ShowVisualCheats(bool) {}                 // @0x2c66b4 (TutorialWindow's updates)
+inline void ShowArenaCheats(bool) {}                  // @0x2c66b8
 WindowManager::FunctionalWindow* Queue();
 // @0x2c6948: a line of text under the top bar (the second map-name popup), or none.
 void SetInfoText(const char32_t* text);
