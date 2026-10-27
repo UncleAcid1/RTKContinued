@@ -2,7 +2,62 @@
 
 This file is the single source of truth for where the project stands. Update it at every milestone.
 
-## START HERE (new conversation, written 2026-10-18)
+## START HERE (the project is finished: written 2026-10-27)
+
+**State.** COMPLETE: version 1.0, 2026-10-27. Milestones 1-7 are all closed. Every game function
+of the Android 5.11 `libkingdom.so` is ported (`python3 tools/inventory.py --steps` lists only
+online / dead / removed / implicit / util / lib / platform functions; `--unplanned` is empty); no
+"milestone N" and no UNVERIFIED note is left in src. The game plays from a new game to the end of
+the campaign, offline, with no real money (crystals are earned in play) and the online features
+dormant. Release: the Mac app and DMG (`bash tools/make_dmg.sh` -> dist/Rule-the-Kingdom-1.0-macOS-
+AppleSilicon.dmg), the GitHub release v1.0 on https://github.com/UncleAcid1/RTKContinued. README,
+LICENSE (MIT, the port's code only) and CHANGELOG.md describe it for players.
+
+**From here on: minor bug fixes only** (user, 2026-10-27). For each reported bug: find the
+original's behaviour (tools/fnres.py, tools/asmfn.py; objdump of libkingdom.so for gaps in
+out/asm_all.txt), fix it faithfully, run the regression, one commit per fix, add a CHANGELOG line.
+A new release: bump the version in CHANGELOG.md, `bash tools/make_dmg.sh`, ask the user before
+pushing or uploading.
+
+**Standing rules.** 100% faithful port: every function gets `// @0xADDR` (Ghidra address = nm
+address + 0x10000); clean code matching the surroundings; offline-first, online features dormant;
+no real money; ask the user before porting or adding anything freemium or online that is not
+decided (Project decisions below); confirm before downloads, installs or anything outward-facing;
+never share the user's email; commits end with the Co-Authored-By line; push only when asked.
+The user keeps local TEMPORARY blocks in src/main.cpp (a cheat key, a crash trace): never commit
+them (stage a copy of `git show HEAD:src/main.cpp` plus only your hunks with `git hash-object -w` +
+`git update-index --cacheinfo`; tools/make_dmg.sh builds from a clean worktree, so they never ship).
+TEST RUNS: always `--storage <scratch dir>` and `--screenshot <file>`; there is no `--help` (an
+unknown flag loads and re-saves the REAL save in ~/Library/Application Support/Rule the Kingdom).
+
+**Regression** (about 4 minutes): `python3 tools/test_hook.py on tools/test_hook.txt`, `cmake --build
+build -j8`; an empty storage folder with settings.txt holding "i MyCountry_flags/selected_language=0"
+and "i MyCountry_flags/show_starting_win=0"; `SL=720,730,740,750 CO=800,830,860,890 tools/testrun.sh
+SCRATCH base v1 3500 "<AMBUSH>"` (ends at tut=27, 0x1b), then `SL=<SL> CO=<CO> tools/testrun.sh
+SCRATCH v1 c1 2750 "<CITY>"` (ends at tut=97, 0x61), with AMBUSH, CITY, SL and CO from
+tools/test_inputs.txt; then the hook OFF and a rebuild before any commit.
+
+**Tools (all in tools/, see each file's docstring).**
+- Reading the original: `out/decomp.c` (Ghidra C, one "// ==== ADDR Name" block per function) and
+  `out/asm_all.txt` (asm), both local and regenerable (out/ is git-ignored; README "Regenerate").
+  `tools/fnres.py Class::Func` (one function, PIC globals resolved), `tools/asmfn.py 0xADDR` (its
+  asm), `tools/dat.py 0xADDR...` (constants), `tools/elfread.py` (u32/cstr at Ghidra addresses),
+  `tools/picsym.py | tools/picvar.py` (named globals), `tools/vtable.py`, `nm -D -C` on
+  "../Android files/rule-the-kingdom-5-11-multi-android/.../libkingdom.so".
+  Ghidra often mixes floats/ints (softfp) and drops values: check doubtful parts in the asm.
+- Planning: `tools/inventory.py` (--functions STEP, --unplanned, --steps, --holes) with the rules in
+  `tools/port_plan.txt` (first match wins).
+- Test loop: tools/test_hook.py, tools/testrun.sh, tools/test_inputs.txt (tap lists for each
+  tutorial point; the hook prints "[t] f=<frame> tut=<step>/<secondTutorial> ..." every 20 frames).
+- Packaging: `cmake --build build --target app` (tools/make_app.sh), `bash tools/make_dmg.sh`
+  (tools/make_dmg_background.py, tools/make_app_icon.py; the After Midnight project's style).
+- Run the game for the user: `./build/rtk --root .. --storage ~/rtk-test` (from port/).
+
+**History.** Everything below is the per-step log: first the old START HERE (2026-10-18 .. 2026-10-27,
+newest entries first in its "Next" line), then the per-milestone handoff notes and the roadmap with
+every milestone's steps, before "Open questions".
+
+## Old START HERE (2026-10-18 .. 2026-10-27, kept as history)
 
 **State.** Milestones 1-4 are DONE (closed 2026-10-18, last commit on GitHub main). Coverage:
 3437 of 5021 portable functions ported (68%); left: milestone 5 1290, 6 118, 7 176

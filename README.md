@@ -7,12 +7,13 @@
 
 ### A native, open-source C++ port of *Rule the Kingdom*, rebuilt function by function from the original Android game library, so the kingdom can be ruled again on a modern computer.
 
-![status](https://img.shields.io/badge/status-playable%20%C2%B7%20bug%20hunting-ffb347)
-![ported](https://img.shields.io/badge/functions%20ported-96%25-6ee7a0)
+![status](https://img.shields.io/badge/status-complete%20%C2%B7%201.0-6ee7a0)
+![ported](https://img.shields.io/badge/game%20functions%20ported-100%25-6ee7a0)
 ![fidelity](https://img.shields.io/badge/port-100%25%20faithful-brightgreen)
-![platforms](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-SDL3%20%2B%20OpenGL-lightgrey)
+![platforms](https://img.shields.io/badge/macOS-SDL3%20%2B%20OpenGL-lightgrey)
 ![offline](https://img.shields.io/badge/play-100%25%20offline-8ab4ff)
 ![money](https://img.shields.io/badge/real--money%20purchases-none-ff8a8a)
+![license](https://img.shields.io/badge/code-MIT-blue)
 
 <br>
 
@@ -27,7 +28,7 @@
 
 <sub>Left: the official 2012 trailer (Game Insight / innoWate). Right: the port, running natively on a Mac.</sub>
 
-<sub>README last updated <b>2026-10-22</b>.</sub>
+<sub>README last updated <b>2026-10-27</b>.</sub>
 
 </div>
 
@@ -37,53 +38,37 @@
 
 1. [Where things stand](#where-things-stand)
 2. [What is ported, and what is not](#what-is-ported-and-what-is-not)
-3. [Play it](#play-it)
+3. [Play it](#play-it) · [Controls](#controls)
 4. [Found a bug?](#found-a-bug)
-5. [Roadmap](#roadmap)
-6. [The game that was](#the-game-that-was) · [History](#full-history-and-timeline) · [How it played](#how-the-game-played) · [The people](#the-people-and-companies-behind-it) · [Gallery](#gallery)
-7. [Why a port](#why-a-port) · [Scope and rules](#scope-and-rules-of-the-port)
-8. [Progress](#progress)
-9. [Building](#building-macos) · [Layout](#layout) · [Sources](#sources-and-accuracy-notes)
+5. [The game that was](#the-game-that-was) · [History](#full-history-and-timeline) · [How it played](#how-the-game-played) · [The people](#the-people-and-companies-behind-it) · [Gallery](#gallery)
+6. [Why a port](#why-a-port) · [Scope and rules](#scope-and-rules-of-the-port)
+7. [Progress](#progress)
+8. [Building](#building-macos) · [Layout](#layout) · [Sources](#sources-and-accuracy-notes) · [Licence and credits](#licence-and-credits)
 
 ---
 
 ## Where things stand
 
-> ### ⚔️ The honest version
-> **The port is playable from a new game to the end of the campaign.** The opening tutorial, the
-> city, workers and farms, quests, campaign maps, boss fights, spells, crafting, chests, the shops,
-> the daily bonus, the arena and offline PvP, saves, sound, music and particle effects all run.
-> Nearly every function of the original has been ported (**about 96%**, with a handful of deliberate exceptions, listed below).
->
-> **It is not polished yet.** The project is in a **bug-hunting era**: the maintainer is playing the game through
-> and logging every bug found, then fixing them in batches. Expect crashes, wrong numbers,
-> odd visuals and the occasional soft-lock. Back up your saves.
-
-<!-- STATUS-SWITCH: when the bug hunt is finished, replace the box above with the "release" box below and swap the badges.
 > ### 🏰 Ready for the realm
-> Fully playable, fully polished, and ready for everyone. Download a build and rule the kingdom.
--->
+> **The port is complete (version 1.0, 27 October 2026).** Every game function of the original
+> 5.11 release is ported: the opening tutorial, the city, workers and farms, quests, campaign maps,
+> boss fights, spells, crafting, chests, the shops, the daily bonus, the arena and offline PvP,
+> saves, sound, music and particle effects, from a new game to the end of the campaign.
+>
+> The project is finished. From here on it only gets **minor bug fixes**, as they turn up in play.
 
 | Phase | State |
 |---|---|
-| 1. **Port the code** | ✅ about 96% of the portable functions (4,800+ of 5,021); the rest is platform work |
-| 2. **Make it playable** | ✅ new game to campaign finish, with every major system working |
-| 3. **Bug hunt** | 🔶 **in progress**: full play-throughs, every bug logged and fixed |
-| 4. **Polish and release** | ⏳ platform builds, OS notifications, packaged downloads |
-
-### What it feels like right now
-
-- ✅ You can start a fresh kingdom and play all the way through.
-- ✅ Saves load and store reliably in the original's own format.
-- ✅ It looks and sounds like the original: same art, same music, same spell effects.
-- 🔶 Some fights, windows and edge cases still misbehave; that is exactly what the bug hunt is for.
-- 🔶 Balance has been adjusted for an offline game (no real money, crystals earned in play).
+| 1. **Port the code** | ✅ every game function of 5.11; what is left out is online-only, dead in 5.11, or platform code SDL3 replaces |
+| 2. **Make it playable** | ✅ new game to campaign finish, with every system working |
+| 3. **Bug hunt** | ✅ play-tested; bugs are fixed from the original as they turn up |
+| 4. **Polish and release** | ✅ a Mac app with Retina, fullscreen, a frame-rate cap, desktop notifications, and a DMG |
 
 ---
 
 ## What is ported, and what is not
 
-Almost all of the game is ported, **function by function**, each tagged with its original address (`// @0x...`).
+All of the game is ported, **function by function**, each tagged with its original address (`// @0x...`).
 
 | Area | State |
 |---|---|
@@ -97,10 +82,11 @@ Almost all of the game is ported, **function by function**, each tagged with its
 | Crafting, chests and keys, the item shop | ✅ done |
 | Daily bonus, tavern, calendar events | ✅ done |
 | The arena, and PvP against generated rivals | ✅ done (offline stand-in for the server) |
-| Sound, music, particles, screen effects | ✅ done (final glow and close-out pass pending) |
-| Screenshot mode | ✅ done (saves a local PNG) |
+| Sound, music, particles, screen effects | ✅ done |
+| Screenshot mode | ✅ done (saves a PNG to `~/Pictures/Rule the Kingdom`) |
+| Desktop: Retina, fullscreen, frame-rate cap, notifications, saves | ✅ done |
 
-**The exceptions** (on purpose, or not yet):
+**The exceptions** (on purpose):
 
 | Exception | Why |
 |---|---|
@@ -108,53 +94,44 @@ Almost all of the game is ported, **function by function**, each tagged with its
 | **Facebook, friends, gifts, the social tabs** | Need the publisher's servers, which are gone. Kept dormant in the code. |
 | **Server saves, live events and live PvP** | Replaced by local saves, the calendar and generated rivals. |
 | **Admin / editor / debug console** | Not reachable in the shipping game, so deliberately not ported. |
-| **Operating-system layer** (desktop notifications, packaging, platform polish) | Milestone 7, still ahead, roughly 180 functions. |
-| **A final sweep of notes and unverified guesses** | Paused while the bug hunt runs; each guess is marked `UNVERIFIED` in the code. |
 
 ---
 
 ## Play it
 
-There is no packaged download yet: you build it yourself (see [Building](#building-macos)) and point it at **your own copy of the
-original game files**. No game data is included in this repository.
+**You need your own copy of the original game files.** No game data is included in this
+repository or in the download. The game asks for the folder that holds them the first time it
+starts (the one with `Android files/rule-the-kingdom-5-11-multi-android`, `files` and `_extract`),
+and remembers it.
 
-```
-./build/rtk --root <folder containing the game data> --storage <a folder for your saves>
-```
+**On a Mac:** download `Rule-the-Kingdom-1.0-macOS-AppleSilicon.dmg` from the
+[releases](https://github.com/UncleAcid1/RTKContinued/releases), open it and drag the game to
+Applications. The app is signed ad hoc rather than with an Apple developer certificate: the first
+time, open it with right-click → Open (or System Settings → Privacy & Security → Open Anyway).
 
-> 💾 **Back up your saves.** While the bug hunt runs, a bad build can corrupt a save. Use `--storage` to keep test saves apart from your real one.
+Or build it yourself (see [Building](#building-macos)). Saves go in
+`~/Library/Application Support/Rule the Kingdom/`; `--storage <folder>` keeps them somewhere else.
+
+### Controls
+
+The mouse (or trackpad) does what a finger did on the phone: click to tap, drag to scroll, the
+wheel or a pinch to zoom.
+
+| Key | Does |
+|---|---|
+| **Esc** | Back (closes the top window, as Android's Back button did) |
+| **F10** | Frame-rate cap: 30 / 60 / the display's rate |
+| **F11** (or Cmd+Ctrl+F, Alt+Enter) | Fullscreen on / off |
 
 ---
 
 ## Found a bug?
 
-The bug log is the heart of this phase. If you try the port and something is off, please open an
-[issue](https://github.com/UncleAcid1/RTKContinued/issues) with:
+Please open an [issue](https://github.com/UncleAcid1/RTKContinued/issues) with:
 
 1. **What you did** (the quest, the map, the window).
 2. **What you expected**, and **what happened instead**.
 3. A **screenshot**, and the end of the log if it crashed.
-
-<div align="center">
-
-| 🐞 Crash | 🎨 Visual glitch | 🔢 Wrong number | 🚧 Soft-lock | 🔊 Sound |
-|:-:|:-:|:-:|:-:|:-:|
-
-</div>
-
----
-
-## Roadmap
-
-```
- [✔] Map rendering        [✔] GUI and input        [✔] City economy
- [✔] Hero, army, quests   [✔] Campaign and combat  [✔] Spells, chests, crafting, shops
- [✔] Arena and PvP        [✔] Sound and particles
- [▶] BUG HUNT             <- you are here: play-through, log, fix, repeat
- [ ] Finish the paused notes, sound glow and close-out
- [ ] Desktop release: notifications, packaging, polish
- [ ] 🏰 Ready for the masses
-```
 
 ---
 
@@ -431,12 +408,12 @@ and nothing in the game's art or content is generated; all of it is the original
 
 - **A faithful port, not a remake.** Every function is translated from the original's code and
   tagged with its address (`// @0x...`); its formats, formulas and even its quirks are kept.
-  Guesses are marked `UNVERIFIED`.
+  Every guess was checked against the original's code before the project closed.
 - **Offline first.** Everything that needed the server is rebuilt to run locally: seasonal events
   follow the calendar, crystals are earned in play (daily rewards, chests, quests) instead of bought,
   the arena and PvP run offline against generated rivals, and friends stay dormant. Online code is kept dormant so a community
   server could be added later. **There are no real-money purchases.**
-- **Platforms:** macOS, Linux and Windows (Android possibly later), with SDL3 and OpenGL.
+- **Platforms:** macOS (released), with SDL3 and OpenGL; the code keeps Linux and Windows within reach.
 - **Saves** stay in the original's format.
 - **No game data is included.** You need your own copy of the original files (the 5.11 Android
   APK assets and the `.kbf` expansion packs). This repository holds only the port's source and the
@@ -450,17 +427,20 @@ and nothing in the game's art or content is generated; all of it is the original
 | 2 | GUI, input, dialogs | ✅ done |
 | 3 | City economy (buildings, workers, shop, farms, saves) | ✅ done |
 | 4 | Hero, army, quests, items, decoration jobs, campaign maps, campaign combat, new-game tutorial | ✅ done |
-| 5 | The rest of the game: spells, bosses, world map, hiring, crafting, chests, shops, tavern, events, arena, PvP | ✅ playable; a few notes paused for the bug hunt |
-| 6 | Sound and effects | ✅ sound, music and particles done; final glow pass left |
-| 7 | Desktop release and polish | ⏳ planned |
-| 🐞 | **Bug hunt** (play-through, log, fix) | 🔶 **now** |
+| 5 | The rest of the game: spells, bosses, world map, hiring, crafting, chests, shops, tavern, events, arena, PvP | ✅ done |
+| 6 | Sound and effects | ✅ done |
+| 7 | Desktop release and polish | ✅ done |
+| 🏰 | **Version 1.0** (27 October 2026) | ✅ **complete**; minor bug fixes only from here on |
 
-Detailed progress lives in [STATUS.md](STATUS.md); the per-function map of the original is in
+The full log of every step lives in [STATUS.md](STATUS.md), the changes per version in
+[CHANGELOG.md](CHANGELOG.md), and the per-function map of the original in
 [docs/port_inventory.md](docs/port_inventory.md).
 
-**Snapshot, 2026-10-22:** about 4,830 of 5,021 portable functions ported (about 96%, up from 68% on 2026-10-18),
-about 89,000 lines of C++ in the port, about 5,000 functions tagged with their original address.
-Language and stack: C++17, SDL3, OpenGL, pugixml, libpng, libjpeg, zlib, FreeType.
+**At the close, 2026-10-27:** every game function of the original ported, in 23 days (the first
+commit was on 4 October 2026); about 100,000 lines of C++, about 5,000 functions tagged with their
+original address. What stays unported is online-only, dead in 5.11 (nothing reaches it), or platform
+code that SDL3 replaces (`python3 tools/inventory.py --steps`).
+Language and stack: C++17, SDL3, OpenGL, pugixml, libpng, libjpeg, zlib, libvorbis, FreeType.
 Code base ported: Android 5.11 `libkingdom.so` (ARMv7, October 2014).
 
 <div align="center">
@@ -471,15 +451,35 @@ Code base ported: Android 5.11 `libkingdom.so` (ARMv7, October 2014).
 
 ## Building (macOS)
 
-Requirements: CMake 3.20+, a C++17 compiler, and SDL3, pugixml, libpng, libjpeg and zlib
-(e.g. `brew install cmake sdl3 pugixml libpng jpeg-turbo zlib`). FreeType 2.4.5 and SDL_ttf 2.0.11
-are bundled in `third_party/`.
+Requirements: CMake 3.20+, Apple's command line tools (`xcode-select --install`), and SDL3,
+pugixml, libpng, libjpeg, libvorbis and libogg
+(`brew install cmake sdl3 pugixml libpng jpeg-turbo libvorbis libogg`). FreeType 2.4.5 and
+SDL_ttf 2.0.11 are bundled in `third_party/`.
 
 ```
-cmake -S . -B build
-cmake --build build -j8
-./build/rtk --root <folder containing the game data> --storage <save folder>
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target app
 ```
+
+That leaves `build/Rule the Kingdom.app` (the Homebrew libraries copied in, signed ad hoc). The
+bare program runs too: `./build/rtk --root <folder with the game files> --storage <save folder>`.
+
+### The Mac disk image (DMG)
+
+To share the game, make a disk image: a window with the game's icon, an arrow and the
+Applications folder over the original world map, ready to drag and install.
+
+```
+bash tools/make_dmg.sh
+```
+
+It installs what it needs with Homebrew the first time (and `create-dmg`), builds HEAD in a clean
+worktree (local, uncommitted changes are left out), and leaves
+`dist/Rule-the-Kingdom-<version>-macOS-<chip>.dmg` (the version comes from `CHANGELOG.md`; a build
+after the release's commit adds the commit, `1.0+3f2a1b9`). The first time, macOS asks whether
+Terminal may control Finder: allow it, that's how the window is laid out. The background is
+`packaging/macos/dmg/background.png` (+ `@2x`), drawn by `tools/make_dmg_background.py`; the icon is
+`packaging/macos/AppIcon.icns`, made from the original Android icon by `tools/make_app_icon.py`.
 
 <a id="layout"></a>
 ## Layout and reverse-engineering workspace
@@ -531,3 +531,21 @@ Images and video frames on this page come from the archived official site, the o
 store listings and recordings of the original game, and screenshots of this port. All Rule the
 Kingdom artwork and trademarks belong to their respective owners (Game Insight and innoWate); they
 are shown here for documentation and preservation. This project is not affiliated with them.
+
+## Licence and credits
+
+**The port's code** (everything in `src/`, `tools/` and `packaging/`) is released under the
+[MIT licence](LICENSE), © 2026 UncleAcid1. The bundled libraries in `third_party/` keep their own
+licences.
+
+**The game itself is not covered by it.** *Rule the Kingdom*, its art, music, text, data and
+trademarks belong to **Game Insight** (publisher) and **innoWate** (developer). None of it is
+included here: players need their own copy of the original game files. This project is a
+non-commercial preservation effort and is not affiliated with either company.
+
+**Credits**
+- *Rule the Kingdom* (2012-2014): developed by innoWate, published by Game Insight.
+- The port: [UncleAcid1](https://github.com/UncleAcid1), with Claude (Anthropic) under constant
+  human supervision.
+- Built on SDL3, OpenGL, pugixml, libpng, libjpeg-turbo, zlib, libvorbis / libogg, FreeType and
+  SDL_ttf.
