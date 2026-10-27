@@ -857,7 +857,7 @@ void Building::UpdateResources() {
     pile->SetWorldPos(px, py);
     workers[1] = pile;
     pile->SetHome(this);
-    if (GameState::TutorialStep() == 0x29) pile->Appear(true, true);   // UNVERIFIED: the third argument is not set
+    if (GameState::TutorialStep() == 0x29) pile->Appear(true, true);
 }
 
 // @0x127170
@@ -920,7 +920,7 @@ void Building::PrepareToAction() {
         for (Entity* e : livers)
             if (e) Render::SetVisibility(e->GetSprite(), false);
         if (farmEntity) {
-            farmEntity->SetActive(false, false);   // UNVERIFIED: the idle argument (decompile drops it)
+            farmEntity->SetActive(false, true);   // (r2 = 1 in the asm)
             if (!trainee) return;
             EntityManager::RemoveEntity(trainee, true);
             trainee = nullptr;
@@ -939,7 +939,7 @@ void Building::UndoAction() {
     if (data->buildingClass == 0xd) {
         for (Entity* e : livers)
             if (e) Render::SetVisibility(e->GetSprite(), true);
-        if (farmEntity) farmEntity->SetActive(true, false);   // UNVERIFIED: the idle argument
+        if (farmEntity) farmEntity->SetActive(true, true);
     } else if (data->buildingClass == 7) {
         for (Entity* pile : piles)
             if (pile) Render::SetVisibility(pile->GetSprite(), true);

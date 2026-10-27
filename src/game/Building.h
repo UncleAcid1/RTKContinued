@@ -10,8 +10,7 @@
 //                 growStart (+0x108), 1 ready, 2 cut; resourceLeft (+0x100) is what a worker can gather.
 //   class 2/0xc (workshops, training): contract (+0x58, 1-based) started at stateTime (+0x40).
 //   class 0xd (farms): six soil patches, patchContract (+0x150) / patchStart (+0xb4).
-// Workers, builders and the farm/storage entities are goblin Entities (milestone 3c); until they
-// exist those pointers stay null and the code that spawns them is marked UNVERIFIED (3c).
+// Workers, builders and the farm/storage entities are goblin Entities (milestone 3c).
 #pragma once
 #include <cstdint>
 #include <string>
@@ -49,7 +48,9 @@ struct Building {
     int linearX = 0, linearY = 0;  // +0x10, +0x14 (TileCoordinatesToLinear of x, y)
     uint32_t id = 0;             // +0x18
     bool mirrored = false;       // +0x1c
-    MetaData* meta = nullptr;    // +0x20 MetaExpression (quest buildings)  UNVERIFIED: kept as text
+    // +0x20 MetaExpression (quest buildings). PORT: kept as text; no building code evaluates it (it is
+    // saved, copied by Duplicate and handed to a stand-in decoration, LoadBuidings).
+    MetaData* meta = nullptr;
     std::string metaText;
     float baseX = 0, minX = 0, maxX = 0, baseY = 0, maxY = 0, minY = 0;  // +0x24 +0x28 +0x2c +0x30 +0x34 +0x38
     Render::Sprite* mainSprite = nullptr;  // +0x3c the last part sprite created

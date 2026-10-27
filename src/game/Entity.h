@@ -3,8 +3,7 @@
 // its AI (AIState.h). Port of Entity (libkingdom.so 5.11, 0x1c8 bytes; constructor @0x15ca70).
 // Offsets are the original's.
 //
-// The fight side (damage, death, drops, aggro) is in EntityCombat.cpp. Not ported yet (marked
-// UNVERIFIED where they would run): projectiles, spells, particles, glow effects and sounds.
+// The fight side (damage, death, drops, aggro) is in EntityCombat.cpp.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -347,7 +346,7 @@ public:
     std::vector<Entity*> observers;  // +0x00 told OnMoved (their AI's +0x178)
     AI::Waypoint* waypoint = nullptr;   // +0x0c the waypoint under the entity
     int entityState = 0;             // +0x10
-    // +0x14 EventManager<Entity> (classes 9 and 10)  UNVERIFIED: not ported
+    // +0x14 EventManager<Entity> (classes 9 and 10): dead (the siege system's attacks)
     int linearX = 0, linearY = 0;    // +0x20 +0x24 (Map::TileCoordinatesToLinear)
     bool player = false;             // +0x34
     bool onFarm = false;             // +0x35 classes 3, 4, 6, 7, 0xf (farm coordinates)

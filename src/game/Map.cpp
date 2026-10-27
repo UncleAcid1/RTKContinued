@@ -248,7 +248,7 @@ void LoadBuilding(Patch* p, SaveManager::SaveBlock* block) {
     b->f110 = r.u32();
     b->f114 = r.u32();
     b->resourceText = r.str16();
-    b->metaText = r.str16();   // UNVERIFIED: MetaExpression (quest conditions) not ported; kept as text
+    b->metaText = r.str16();   // (the expression: see Building::meta)
     b->contract = (int)r.u32();
 
     const GameData::BuildingData* d = GameData::GetBuilding(b->id);

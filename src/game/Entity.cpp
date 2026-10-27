@@ -60,7 +60,8 @@ Entity::Entity(EntityData* d, int x, int y) : data(d) {
     spawnY = tileY = linearY = y;
     Map::TileCoordinatesToLinear(linearX, linearY);
     observers.clear();
-    // UNVERIFIED: classes 9 and 10 get an EventManager<Entity> (+0x14); not ported.
+    // (Classes 9 and 10 get an EventManager<Entity> (+0x14): only the siege system's attacks,
+    // DoMeleeAttack / DoRangedAttack, use it; dead in 5.11.)
     SetPos(x, y);
     CreateAnims();
     firstName = surname = U"";   // (+0x160/+0x164 point at an empty string)
@@ -286,7 +287,21 @@ void Entity::Update(float dt) {
         Render::SetShaderType(sprite, 1);
         Render::SetAlpha(sprite, alpha);
     }
-    // UNVERIFIED (milestone 5): the glow sprite (+0xa0) pulse.
+    // The glow (ShowGlowAnimation): centred on the sprite just above it, its shader's centre and angle
+    // (glowAlpha / 2.125) set; it fades in to 1, past 4.14 out (5.14 - glowAlpha), and goes after
+    // glowTime (1.25 s).
+    if (glow) {
+        Render::SetPosition(glow, sprite->x + glow->w * -0.5f + sprite->w * 0.5f,
+                            sprite->y + glow->h * 0.5f + sprite->h * -0.5f, sprite->z + 0.0001f);
+        glow->color[0] = glow->x + glow->w * 0.5f;
+        glow->color[1] = glow->h * 0.5f - glow->y;
+        glow->color[2] = glowAlpha / 2.125f;
+        if (glowAlpha < 1.f) Render::SetAlpha(glow, glowAlpha);
+        glowAlpha = glowAlpha + dt * 4.25f;
+        if ((double)glowAlpha > 4.14) Render::SetAlpha(glow, glowAlpha <= 5.14f ? 5.14f - glowAlpha : 0.f);
+        glowTime = glowTime - dt;
+        if (glowTime < 0.f) glow = Render::RemoveSprite(glow);
+    }
     if (disappearing && sprite) {
         if (alpha <= 0.f) {
             alpha = 0.f;
@@ -629,12 +644,10 @@ void Entity::Appear(bool glow, bool sound) {
     disappearing = false;
     appearing = true;
     SetAlpha(0.f);
-    // UNVERIFIED (milestone 5): ShowGlowAnimation when glow (and the tutorial is not at 0x1a).
-    (void)glow;
-    // UNVERIFIED: Map::IsMapLoading (true only during Map::Load) gates this.
-    spawnSound = sound;
-    // UNVERIFIED (milestone 5): the rest above. A goblin (class 0x10) announces itself (not at tutorial
-    // 0x1a), a person (class 0) says hello unless the same line plays.
+    if (glow && GameState::tutorial != 0x1a) ShowGlowAnimation();
+    if (!Map::IsMapLoading()) spawnSound = sound;
+    // A goblin (class 0x10) announces itself (not at tutorial 0x1a), a person (class 0) says hello
+    // unless the same line plays.
     if (data->clas == 0x10) {
         if (GameState::tutorial == 0x1a) return;
         SoundsManager::PlaySound("goblin_spawned", 1, false);
