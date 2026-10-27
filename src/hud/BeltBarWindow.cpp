@@ -652,17 +652,16 @@ void OnActivateSlot(unsigned i) {
         st = 0x8d;
     }
     if (GameState::PlayerItem* item = GameState::GetFirstItemByID(GameState::GetBeltItemAt(i), false)) {
-        // "<item>\n<Activated / Deactivated>". UNVERIFIED: the order of the two texts (the decompile
-        // lost SWPrintf's arguments).
+        // "<Activated / Deactivated>\n<item>" (the argument order from the asm, 0x23edc4 / 0x23ead4).
         const char32_t* title = item->info->title ? item->info->title : U"";
         std::u32string text;
         if (GameState::GetBeltItemActivationTimeAt(i) == 0) {
             SoundsManager::PlaySound("ui_activate_slot", 1, false);
-            text = SWPrintf(0x100, U"%s\n%s", {title, StringTable::GetString("BOTTOM_BAR_ACTIVATED")});
+            text = SWPrintf(0x100, U"%s\n%s", {StringTable::GetString("BOTTOM_BAR_ACTIVATED"), title});
             GameState::SetBeltItemActivationTimeAt(i, (uint32_t)Timer::GetGlobalTime());
         } else {
             SoundsManager::PlaySound("ui_deactivate_slot", 1, false);
-            text = SWPrintf(0x100, U"%s\n%s", {title, StringTable::GetString("BOTTOM_BAR_DEACTIVATED")});
+            text = SWPrintf(0x100, U"%s\n%s", {StringTable::GetString("BOTTOM_BAR_DEACTIVATED"), title});
             GameState::SetBeltItemActivationTimeAt(i, 0);
         }
         int x, y;

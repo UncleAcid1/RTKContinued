@@ -345,7 +345,8 @@ void Init() {
     g_scroller.itemSize = (g_windows[0].root->h + g_gap) * kCount;
     g_scroller.padStart = (int)(GUI::GetHudScaleFactor() * 10.f);
     if (GUI::ScreenHeight() > 600) g_scroller.padEnd = (int)(GUI::GetHudScaleFactor() * 35.f);
-    // UNVERIFIED: the scroller's +0x78 (the bar's container, g_scrollBar) has no field in the port.
+    // (The original also stores the bar's container, g_scrollBar, in the scroller's +0x78; no
+    // ContentScroller function reads it.)
     g_scroller.scrollbar = g_scrollBar->GetChild("scroll_bar_tiny");
     g_scroller.scrollbar->SetTexture(Resources::GetDirectImage("images/scroll.png"), false, 0, 0, false, 0);
     g_scroller.scrollbar->MoveWindow(g_windows[0].root->w - (int)(g_scale * 15.f), 0);

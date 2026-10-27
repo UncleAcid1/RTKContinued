@@ -16,6 +16,7 @@
 #include "game/Building.h"
 #include "game/BuildingHovers.h"
 #include "game/Collections.h"
+#include "game/Contracts.h"
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Items.h"
@@ -29,6 +30,7 @@
 #include "gui/GUI.h"
 #include "gui/WindowManager.h"
 #include "hud/HUD.h"
+#include "hud/Shared.h"
 
 namespace NotEnoughWindow {
 namespace {
@@ -89,7 +91,34 @@ float g_produceX = 0.f, g_produceY = 0.f;   // 0x6259a4 0x6259a8
 Window* g_upgrade = nullptr;           // 0x62599c button_upgrade_window_upgrade (the action)
 Textfield* g_upgradeText = nullptr;    // 0x6259ac
 Textfield* g_upgrade02Text = nullptr;  // 0x6259b0
-Window* g_purpose = nullptr;           // 0x6259b4 BuildingPurposeInfo root
+// BuildingPurposeInfo (0x6259b4, 0x90 bytes): what the upgrade brings, LoadFrom @0x2f7850.
+struct BuildingPurposeInfo {
+    Window* root = nullptr;                     // +0x00
+    Shared::HouseLivingInfo living;             // +0x04 purpose_living_house
+    Shared::HouseTrainingInfo training;         // +0x14 purpose_hire (a storage's picture and space)
+    Shared::HouseConvertingInfo converting;     // +0x20 purpose_converting
+    Shared::HouseProducingInfo producing;       // +0x30 purpose_producing
+    Shared::HouseDecorationInfo decoration;     // +0x74 purpose_decoration
+    Shared::HouseLivingWorkerInfo livingWorker; // +0x7c purpose_living_house_worker
+    void LoadFrom(Window* r, const char* prefix) {
+        root = GUI::GetWindowTypedF<Window>(r, "%s", prefix);
+        char buf[0x80];
+        std::snprintf(buf, sizeof buf, "%s.purpose_living_house", prefix);
+        living.LoadFrom(r, buf);
+        std::snprintf(buf, sizeof buf, "%s.purpose_hire", prefix);
+        training.LoadFrom(r, buf);
+        std::snprintf(buf, sizeof buf, "%s.purpose_converting", prefix);
+        converting.LoadFrom(r, buf);
+        std::snprintf(buf, sizeof buf, "%s.purpose_producing", prefix);
+        producing.LoadFrom(r, buf);
+        std::snprintf(buf, sizeof buf, "%s.purpose_decoration", prefix);
+        decoration.LoadFrom(r, buf);
+        std::snprintf(buf, sizeof buf, "%s.purpose_living_house_worker", prefix);
+        livingWorker.LoadFrom(r, buf);
+    }
+};
+BuildingPurposeInfo g_purposeInfo;
+Window*& g_purpose = g_purposeInfo.root;
 Line g_lines[8];                       // 0x625a44
 Textfield* g_header = nullptr;         // 0x625d64 text_header
 Textfield* g_desc = nullptr;           // 0x625d68 text_desc
@@ -509,9 +538,7 @@ void Init() {
     g_scalerH = g_scaler->origH;
     g_darker = GUI::GetWindowTyped<Window>(g_root, "upgrade_unlocked_holder.darker_02");
     g_bonusText = GUI::GetWindowTyped<Textfield>(g_root, "upgrade_unlocked_holder.text_upgrade_bonus");
-    // BuildingPurposeInfo::LoadFrom @0x2f7850. UNVERIFIED (building upgrades): only its root is
-    // loaded; the purpose blocks (Shared::House*Info) are filled for an upgradable building.
-    g_purpose = GUI::GetWindowTyped<Window>(g_root, "upgrade_unlocked_holder.building_purpose_holder");
+    g_purposeInfo.LoadFrom(g_root, "upgrade_unlocked_holder.building_purpose_holder");
     g_underline = GUI::GetWindowTyped<Window>(g_root, "scaler_limit_underline_2px");
     for (unsigned i = 0; i < 8; ++i) {
         const unsigned n = i + 1;
@@ -927,10 +954,66 @@ void UpdateContents() {
     g_purpose->SetVisibility(false);
     g_darker->SetVisibility(false);
     g_bonusText->SetVisibility(false);
+    Render::Texture* purposeImage = nullptr;   // a storage's picture, set after the rescale
+    float purposeScale = 1.f;
     if (g_upgradable) {
-        // UNVERIFIED (building upgrades): "UPGRADE_WILL_UNLOCK" and the building's purpose (the
-        // missions a workshop unlocks, a house's tax and workers, a storage's extra space), shown in
-        // the purpose block with the darker background and the bonus text.
+        // What the next level brings: a workshop's or farm's orders (lit up to the next level), a
+        // house's tax and workers, a storage's extra space.
+        BuildingPurposeInfo& pi = g_purposeInfo;
+        pi.living.root->SetVisibility(false);
+        pi.training.root->SetVisibility(false);
+        pi.converting.root->SetVisibility(false);
+        pi.producing.root->SetVisibility(false);
+        pi.decoration.root->SetVisibility(false);
+        pi.livingWorker.root->SetVisibility(false);
+        g_bonusText->SetText(StringTable::GetString("UPGRADE_WILL_UNLOCK"));
+        const GameData::BuildingData* d = g_upgradable->data;
+        const int cls = d->buildingClass;
+        bool shown = true;
+        if ((cls == 2 || cls == 0xd) && d->delivery) {
+            pi.root->SetVisibility(true);
+            pi.producing.root->SetVisibility(true);
+            pi.producing.text->SetText(StringTable::GetString("BUILDING_PRODUCING"));
+            const std::vector<Contracts::ContractMission>& missions = d->delivery->missions;
+            for (unsigned i = 0; i < 5; ++i) {
+                Window* icon = pi.producing.icons[i];
+                if (i < missions.size()) {
+                    const Contracts::ContractMission& m = missions[i];
+                    if (m.item) icon->SetTexture(m.item->GetIcon(), true, 0, 0, false, 0);
+                    else if (!m.icon.empty()) icon->SetTexture(IconManager::GetIcon(m.icon.c_str(), false), true, 0, 0, false, 0);
+                }
+                icon->SetEnabled(i < missions.size() && missions[i].buildingLevel <= (unsigned)g_upgradable->level + 1);
+            }
+            for (unsigned i = 0; i < 5; ++i) pi.producing.confirms[i]->SetVisibility(pi.producing.icons[i]->enabled);
+            for (unsigned i = 0; i < 5; ++i) pi.producing.locks[i]->SetVisibility(!pi.producing.icons[i]->enabled);
+        } else if (cls == 0) {
+            const int workers = (int)d->givePopulation + 1 + g_upgradable->level;
+            pi.root->SetVisibility(true);
+            pi.livingWorker.root->SetVisibility(true);
+            pi.livingWorker.time->SetText(StringTable::GetTimeString(d->collectTime, false).c_str());
+            pi.livingWorker.icon->SetTexture(IconManager::GetIcon(GameState::GetResourceMapIconName(8), false), true, 0, 0,
+                                             false, 0);
+            pi.livingWorker.tax->SetText(ToWideString(workers * 5 + d->collectMoney));
+            pi.livingWorker.workers->SetText(ToWideString(workers));
+        } else if (cls == 7) {
+            pi.root->SetVisibility(true);
+            pi.training.root->SetVisibility(true);
+            // The storage's picture fitted to the icon (half its width: the strip's first frame).
+            if (!d->parts.empty() && (purposeImage = GameData::PartImage(&d->parts[0]))) {
+                const Window* icon = pi.training.icon;
+                float sh = (float)icon->h / (float)purposeImage->h, sw = (float)icon->w / (float)(purposeImage->w / 2);
+                purposeScale = (sh < sw ? sh : sw) / g_scale;
+            }
+            const int now = Setting("storage_space").GetChild((unsigned)g_upgradable->level).GetInt();
+            const int next = Setting("storage_space").GetChild((unsigned)g_upgradable->level + 1).GetInt();
+            pi.training.text->SetText(
+                SWPrintf(0x100, StringTable::GetString("STORAGE_UPGRADE"), {ToWideString(next - now)}).c_str());
+        } else {
+            shown = false;
+        }
+        g_purpose->SetVisibility(shown);
+        g_darker->SetVisibility(shown);
+        g_bonusText->SetVisibility(shown);
     }
     g_buttonsY = g_extraH;
     g_underline->SetVisibility(g_purpose->visibleSelf);
@@ -959,6 +1042,9 @@ void UpdateContents() {
     g_upgrade02->MoveWindow(0, g_shiftY);
     g_buyAll02->MoveWindow(0, g_shiftY);
     g_root->SetSize((unsigned)g_root->w, (unsigned)(g_close->h + g_golden->h));
+    if (purposeImage)
+        g_purposeInfo.training.icon->SetTexture(purposeImage, true, (unsigned)((float)purposeImage->w * purposeScale),
+                                                (unsigned)((float)purposeImage->h * purposeScale), true, 0);
 }
 
 // @0x2fc7f8: a single missing level, gold, crystals or people (with no action, or the action's

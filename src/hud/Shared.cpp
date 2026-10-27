@@ -525,7 +525,7 @@ void BuffHolder::LoadFrom(Window* parent, const char* prefix, int size) {
     root = prefix ? GUI::GetWindowTypedF<Window>(parent, "%s", prefix) : parent;
     const char* name = size == 0x10 ? "icon_holder_16x16_pure" : size == 0x18 ? "icon_holder_24" : "icon_holder_60";
     if (size != 0x10 && size != 0x18 && size != 0x3c) {
-        icon = root;   // UNVERIFIED: the original takes a template window for any other size
+        icon = GUI::DummyWindow();   // any other size: the template window (GUI::dummyWindow)
     } else if (prefix) {
         icon = GUI::GetWindowTypedF<Window>(parent, "%s.%s", prefix, name);
     } else {

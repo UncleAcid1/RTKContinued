@@ -667,8 +667,7 @@ void Update(float dt) {
         bool arrived = k > 1.f;
         if (arrived) k = 1.f;
         Render::SetPosition(f.sprite, f.fromX + k * (f.toX - f.fromX), f.fromY + k * (f.toY - f.fromY), 0.01f);
-        // It fades over the last 15% of the way. UNVERIFIED: the alpha (the decompile lost
-        // Sprite::SetAlpha's argument); a linear fade is used.
+        // It fades over the last 15% of the way: alpha (k - 0.85) / -0.15 + 1 (from the asm).
         if (arrived || k > 0.85f) Render::SetAlpha(f.sprite, (1.f - k) / 0.15f);
         if (!arrived) {
             // (Another window on top: the item is dropped.)

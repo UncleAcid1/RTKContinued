@@ -208,7 +208,7 @@ CustomItemHolder g_custom;                // 0x61a15c
 GUI::TweenEffect* g_tween = nullptr;      // 0x61a514
 Window* g_buffHolder = nullptr;           // 0x61a518 buff_holder_01
 Window* g_itemHolder = nullptr;           // 0x61a51c Character_item_holder.xml (the figure's pieces)
-ItemHoverWindow* g_hover2 = nullptr;      // 0x61a520 the second card. UNVERIFIED (5l-3): the compare card
+ItemHoverWindow* g_hover2 = nullptr;      // 0x61a520 the second card: the worn piece to compare with
 std::map<uint32_t, uint32_t> g_buffTimes; // 0x61a524 each buff item's seconds left (UpdateItemTimers)
 // The items shown with "NEW" (got less than 15 minutes ago) in this opening of the window, and those
 // seen in an earlier one (Hide moves them over), which no longer get it.
@@ -279,7 +279,7 @@ int g_pressedCell = -1;                   // 0x60f1a8 the grid index pressed
 // 0x61ab60: the tool chosen per profession (OnEquip; GetToolOverride drops one no longer owned).
 std::map<uint32_t, uint32_t> g_toolOverrides;
 // 0x61abcc: the card to explain once the window is in (OnTweenIn): 1 equip, 4 drink, 2 / 3 kept
-// for later. UNVERIFIED (5l-3): ShowInventoryItem sets it.
+// for later. ShowInventoryItem sets it.
 unsigned g_help = 0;
 uint32_t g_lastProfession = 3;            // 0x60f178 the profession whose tool the tool slot shows
 int g_selectedItem = -1;                  // 0x60f17c the selected cell's item index (-1: none)
@@ -666,7 +666,8 @@ float ZRange() { return g_queue->shown ? 0.12f : 0.001f; }
 // @0x285a1c: the card's depth, the buff row, the scrollers, the gliding piece (ease-out-back, with
 // its turning glow when asked), the figure's pieces (a just-equipped piece flashes, a broken one
 // pulses red, a mended one loses its red), the pulsing slot of the selected item, and once a
-// second the buffs (a buff with more than its BUFF_TIME left is cut to half: UNVERIFIED why).
+// second the buffs (a buff with more than BUFF_TIME + 1 left, as after a clock set back, is reset
+// to half its BUFF_TIME: asm 0x2860c0).
 void Update(float dt) {
     g_time += dt;
     if (g_hover->shownHover) {

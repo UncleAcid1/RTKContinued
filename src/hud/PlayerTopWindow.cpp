@@ -214,12 +214,15 @@ void Init() {
         g_hpRestoreEffect = GUI::CreateMovementEffect(g_hpRestore, nullptr, nullptr, OnRestoreOut);
         g_hpRestore1 = GUI::GetWindowTyped<Textfield>(g_hpRestore, "text_hp_1");
         g_hpRestore2 = GUI::GetWindowTyped<Textfield>(g_hpRestore, "text_hp_2");
+        if (GUI::IsSmallScreenVersion()) {   // the second line 5 px left and 100 px wider
+            g_hpRestore2->MoveWindow(-5, 0);
+            g_hpRestore2->SetSize((unsigned)(g_hpRestore2->w + 100), (unsigned)g_hpRestore2->h);
+        }
     }
     // The popup slides out from under the panel: 28 units above its place, then 25 down.
     g_restoreHideX = g_restoreShowX = restoreAt->x;
     g_restoreHideY = (int)(g_rootScale * -28.f) + restoreAt->y;
     g_restoreShowY = g_restoreHideY + (int)(g_rootScale * 25.f);
-    // UNVERIFIED: the small-screen adjustments of text_hp_2.
     g_dialog = new PlayerHintHoverWindow();
 }
 

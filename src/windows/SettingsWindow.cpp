@@ -340,17 +340,17 @@ void UpdateContents() {
     Btn(8).text->SetText(StringTable::GetString("WEBVIEW_COUPONS"));
     Btn(8).holder->SetEnabled(true);
 
-    // The player's id: L"%s %S" of WEBVIEW_BLOG_MOBILE_YOURID and the device GUID. UNVERIFIED
-    // (online): when signed in to a social network with a "fb_displayname" setting, that name is
-    // shown instead; SocNets is not ported, so the port always takes the GUID path.
+    // The player's id: L"%s %S" of WEBVIEW_BLOG_MOBILE_YOURID and the device GUID. Online
+    // (dormant): signed in to a social network with a "fb_displayname" setting, that name was
+    // shown instead; SocNets is not ported, so it is always the GUID.
     std::u32string id = StringTable::GetString("WEBVIEW_BLOG_MOBILE_YOURID");
     id += U' ';
     for (char c : SystemFuncs::getGUID()) id += (char32_t)(unsigned char)c;
     g_id->SetText(id.c_str());
 
     Btn(9).holder->SetEnabled(g_syncEnabled && GameState::SecondTutorialStep() == 0x100 && GameState::IsPlayerCity());
-    // "last_sync_time" is only written by a server save. UNVERIFIED (online): the "SETTINGS_SYNC_LAST"
-    // text with StringTable::GetTimeString(now - last) is not ported.
+    // "last_sync_time" is only written by a server save (online, dormant), so the
+    // "SETTINGS_SYNC_LAST" text with StringTable::GetTimeString(now - last) never shows offline.
     if (SystemFuncs::GetSetting_Int("last_sync_time", 0) == 0)
         Btn(9).lastSync->SetText(StringTable::GetString("SETTINGS_SYNC_NEVER"));
     // NeighboursServer::IsRegistered / PushEnabledToggle (online) are skipped.

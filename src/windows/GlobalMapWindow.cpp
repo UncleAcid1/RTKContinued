@@ -1640,7 +1640,7 @@ void ShowPvPAnimation() {
 void ArrowAtMap(uint32_t map, bool keep, bool center) {
     if (center) CenterOnMap(map);
     if (!keep) HideArrow();
-    for (unsigned i = 0; i < g_locations.size(); ++i) {   // (the bound reads 0x620600, UNVERIFIED: the count)
+    for (unsigned i = 0; i < g_locations.size(); ++i) {   // (the bound is the list's count, 0x6206bc)
         if (!g_locations[i]->HasMap(map)) continue;
         g_arrows.push_back(Arrow{});
         Arrow& a = g_arrows.back();
