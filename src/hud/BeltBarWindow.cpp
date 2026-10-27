@@ -37,6 +37,7 @@ using GUI::Window;
 WindowManager::FunctionalWindow* g_queue = nullptr;
 int g_offsetX = 0x89, g_offsetY = 0x14;   // 0x60f0c8 / 0x60f0cc
 bool g_tablet = false;                    // 0x60f0d4
+float g_rootScale = 1.f;                  // 0x60f0d8 the bar's scale (+0x60) at Init
 Window* g_root = nullptr;                 // "Belt_bar"
 GUI::MovementEffect* g_effect = nullptr;
 Window* g_bg2Slots = nullptr;             // battle_bar_main_bg_2_slots_right
@@ -500,6 +501,7 @@ void Init() {
                              GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);
     if (!g_root) return;
     Queue()->RegisterTopWindow(g_root);
+    g_rootScale = g_root->scale;
     g_root->SetVisibility(false);
     g_root->SetPosition(W, H - g_root->h);
     // OnTweenMove @0x24c674 is empty.
@@ -536,6 +538,10 @@ void Init() {
     g_barNameX = g_barName->x;
     g_hover = new ItemHoverWindow();
     // (The TapHoverWindow created here, the belt's tap hint, is never shown: dead in 5.11.)
+    // The slide offsets are in the bar's own pixels: scaled like it (0x60f0d8 keeps the root's
+    // scale from above), truncated.
+    g_offsetX = (int)((float)g_offsetX * g_rootScale);
+    g_offsetY = (int)((float)g_offsetY * g_rootScale);
 
     g_craftBar = GUI::RegisterUI("../resource/kingdom_ui/1Original/Crafting_p_bar.xml", "Crafting_p_bar.png",
                                  GUI::GetHudScaleFactor(), 0, 0, 0, 0, false, 1.f);
