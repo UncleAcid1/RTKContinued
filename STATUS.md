@@ -1413,7 +1413,7 @@ reworked to work offline later. Rebuilding the server is a separate future proje
 | .xmlb UI layouts | `tools/rtk_xmlb.py` | 304/304 internally consistent |
 | static map render | `tools/render_map.py` | map_0 matches the reference screenshot |
 
-## Phase 2: engine (IN PROGRESS)
+## Phase 2: engine and game (DONE 2026-10-27)
 Stack: C++17, CMake, SDL3, OpenGL (the game's own GLSL), pugixml, libpng/libjpeg, zlib, FreeType.
 
 Milestones:
@@ -1604,7 +1604,7 @@ Milestones:
        Not in M4 (later milestones; ask before porting the online/freemium ones): spells and magic,
        arena/PvP/boss/siege/async combats, chests, crafting and professions, the item shop,
        collections, the global map, presents (chunk 8, friends' gifts), CharacterInfoWindow.
-5. [ ] The rest of the game (planned 2026-10-18). 1290 functions at the start. BITE-SIZED STEPS (user
+5. [x] (closed 2026-10-27) The rest of the game (planned 2026-10-18). 1290 functions at the start. BITE-SIZED STEPS (user
        2026-10-18): each step is one sitting of about 20-40 minutes, ends with a build, a short
        check in the test loop, a commit and a 2-3 line update to the user, then WAIT for the user
        before the next step. A step that grows past that is split at a natural seam and the user
@@ -3522,8 +3522,13 @@ Milestones:
               false). Classified: the 0x5b7 fight / shop hide (undone at the end of SetTask), g_spell (only
               written), the Settings buttons (online), the stale notes (crafting buy-now PORT, ItemHoverWindow's
               actions, BeltBar's drag, FoundItemsWindow's owners). Regression: AMBUSH 0x1b, CITY 0x61.
-       5y [ ] close: inventory --functions 5 empty, no "milestone 5" note, a long play test, STATUS.
-6. [ ] Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
+       5y [x] 2026-10-27 close: inventory --functions 5 and --unplanned empty (--steps lists only online /
+              dead / removed / implicit / util / lib / platform), no "milestone 5" and no UNVERIFIED note in src.
+              4232cd5 (the hunting grounds finishable: LocationHasBeenCompletedByTask skips finished tasks as
+              the original does; the deferred entity destroy) regression: AMBUSH 0x1b, CITY 0x61. The user's long
+              play test goes on after the close: its bugs are fixed one commit each (minor bug fixes only).
+       MILESTONE 5 CLOSED 2026-10-27.
+6. [x] (closed 2026-10-26) Sound and effects: music/SFX playback (the GUI and game sound hooks), particles, weather,
        screen effects. Started 2026-10-20 (milestone 5 paused, see START HERE). 118 functions
        (inventory --functions 6), 157 "milestone 6" notes. The original links SDL_mixer (76 Mix_*) with
        libvorbis (the sounds are ogg/*.ogg). PORT: the port has no SDL_mixer for SDL3; Sounds' Mix_* calls
@@ -3615,7 +3620,7 @@ Milestones:
               notes (their sounds were wired in 6c). Regression: AMBUSH 0x1b, CITY 0x61; the campaign
               map 0xe shows its sky and mountains.
 6. [x] CLOSED 2026-10-26.
-7. [ ] (split 2026-10-26: 7a platform layer (ErrorReporter, LoadSampling, the start-up loading
+7. [x] (closed 2026-10-27; split 2026-10-26: 7a platform layer (ErrorReporter, LoadSampling, the start-up loading
        screen, SystemFuncs settings/locale/paths, FileManager, Timer samples), 7b render / Retina
        (Resize, Suspend, Restart, FreeMemory, stats, GUI HighDPI, ReloadTextures / RestoreTextures),
        7c the restart (SettingsWindow::OnRestart(Confirm), ReloadSavedGame, HUDWindow::GameReset,
@@ -3730,7 +3735,7 @@ Milestones:
        patch kept (3584 bytes), "Successfully updated user map", the same 18 buildings on the same tiles,
        version 12, the city looks the same. 7h closed; MILESTONE 7 CLOSED (porting; the full play-through
        check is the long play test). Regression: AMBUSH 0x1b, CITY 0x61.
-7. [ ] Mac release and polish: .app bundle, settings/persistence paths, languages, Retina/fullscreen,
+7. [x] (closed 2026-10-27, see 7a .. 7h above) Mac release and polish: .app bundle, settings/persistence paths, languages, Retina/fullscreen,
        (user 2026-10-18) a frame-rate cap option (e.g. 30 / 60 / display): the port runs at the
        display rate (120 Hz here) and feels faster than the original on phones, though its timing
        code matches the original (real-time dt, cos(t*15)*8 arrow bob, 0.3 s sepia);
