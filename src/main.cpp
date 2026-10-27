@@ -824,10 +824,10 @@ int main_Loop_Init() {
     // mcSetAvailableLanguage).
     languageHasBeenSelected = SystemFuncs::HasSelectedLanguage();
     availableLanguageID = (unsigned)(opt.systemLang >= 0 ? opt.systemLang : SystemFuncs::GetSystemLanguage());
-    // PORT: Korean and Japanese need Android's fallback font (see GUI::Init below); without it
-    // they are not offered (milestone 7: a font for them). "--lang=" still forces them.
+    // PORT: Korean and Japanese need Android's fallback font or a desktop stand-in (see GUI::Init
+    // below); without one they are not offered. "--lang=" still forces them.
     if ((availableLanguageID == 7 || availableLanguageID == 8) &&
-        !FileManager::FileExists("/system/fonts/DroidSansFallback.ttf"))
+        FileManager::SystemFontPath("/system/fonts/DroidSansFallback.ttf").empty())
         availableLanguageID = 0;
     if (SDL_baseInit() != 0) return 1;
     // PORT: Java's ShowVideoSplash, the logo film the app opens with (not after a restart, which
@@ -987,10 +987,11 @@ int main_Loop_Init() {
     if (!LoadSystemConfiguration(Tavern::Init, "tavern.xml", "L", "Tavern::Init", 22.0 / 46.0, 0x16, 0x16)) return 1;
     Tavern::InitSpecial();
     Render::zoom = Render::GetDefaultZoom();
-    // Korean and Japanese use Android's fallback font. PORT: it only exists on Android; without it
-    // the game's own font is used (it has no such glyphs; milestone 7).
+    // Korean and Japanese use Android's fallback font (FileManager::LoadFile reads it from the disk;
+    // PORT: a desktop stand-in, FileManager::SystemFontPath; without one the game's own font, which
+    // has no such glyphs).
     const char* font = "fonts/ARICYRB.ttf";
-    if ((languageID == 7 || languageID == 8) && FileManager::FileExists("/system/fonts/DroidSansFallback.ttf"))
+    if ((languageID == 7 || languageID == 8) && !FileManager::SystemFontPath("/system/fonts/DroidSansFallback.ttf").empty())
         font = "/system/fonts/DroidSansFallback.ttf";
     GUI::Init(font, false);
     // The game's windows: their static FunctionalWindow objects are constructed in the binary's

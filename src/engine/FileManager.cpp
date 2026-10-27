@@ -170,11 +170,29 @@ bool GetFileInfo(const char* name, int& w, int& h, unsigned& bpp, bool quiet) {
     return true;
 }
 
+std::string SystemFontPath(const char* name) {
+    static const char* const kStandIns[] = {
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",   // macOS
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",   // Linux
+        "/usr/share/fonts/truetype/droid/DroidSansFallback.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "C:/Windows/Fonts/ARIALUNI.TTF",   // Windows (with Office)
+    };
+    SDL_PathInfo info;
+    if (SDL_GetPathInfo(name, &info) && info.type == SDL_PATHTYPE_FILE) return name;
+    for (const char* path : kStandIns)
+        if (SDL_GetPathInfo(path, &info) && info.type == SDL_PATHTYPE_FILE) return path;
+    return "";
+}
+
 uint8_t* LoadFile(const char* name, uint32_t& size) {
     size = 0;
     if (!name) return nullptr;
-    if (name[0] == '$') {  // '$' prefix: direct file system path (LoadFile/GetFileInfo)
-        auto v = ReadWhole(name + 1);
+    const bool systemFont = name[0] != '$' && std::strstr(name, "/system/fonts/");
+    if (name[0] == '$' || systemFont) {  // '$' prefix: direct file system path (LoadFile/GetFileInfo)
+        auto v = ReadWhole(systemFont ? SystemFontPath(name) : std::string(name + 1));
         if (v.empty()) return nullptr;
         auto* p = (uint8_t*)std::malloc(v.size() + 1);
         std::memcpy(p, v.data(), v.size());
