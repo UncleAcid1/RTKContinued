@@ -51,6 +51,7 @@ struct Sprite {                  // 0x68 bytes on the original
 
 bool Init(int screenW, int screenH);        // after a GL context exists
 void Shutdown();
+void EnableTerrainShadowing(bool on);   // @0x1f61e8 (a flag nothing reads in 5.11)
 // @0x1f6028 / @0x1f604c: the size of the view in world units.
 float GetScreenViewWidth();
 float GetScreenViewHeight();

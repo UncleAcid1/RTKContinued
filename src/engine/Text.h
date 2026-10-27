@@ -29,6 +29,7 @@ struct GlowFilter {
     bool allowAsync = true;       // +0x28
     GlowFilter* next = nullptr;   // +0x2c
     int GetOffset() const;        // @0x1fae60
+    static void SetOverscale(GlowFilter* chain, float overscale);   // @0x1faecc (every filter of the chain)
 };
 
 void InitFonts();                 // TTF_Init (done in SDL_baseInit @0x18b59c)
@@ -39,6 +40,7 @@ void DeinitFonts();               // @0x1fec10
 Font* CreateFont(const char* file, unsigned size);
 
 struct Sprite;
+struct Texture;
 
 // A pattern image that recolours text (TextStyleManager gradients): RGBA bytes, rows of `pitch`.
 struct TextPattern { int w = 0, h = 0, pitch = 0, bytesPerPixel = 4; const uint8_t* pixels = nullptr; };
@@ -52,6 +54,8 @@ enum TextStyle { kTextBold = 1, kTextItalic = 2, kTextUnderline = 4, kTextStrike
 Sprite* CreateTextInternal(Font* font, const char32_t* text, float r, float g, float b, bool screenSpace,
                            bool wrap, int width, int align, GlowFilter* glow, Sprite* reuse, int layer,
                            int lineSpacing, const TextPattern* pattern, unsigned style);
+// @0x1ff184: a new text sprite on `layer` showing an already rendered text texture (the TextCache's).
+Sprite* CreateForText(Texture* tex, bool screenSpace, int layer);
 // @0x2013b0 (wrapping, GUI layer) and @0x2013f4 (no wrap).
 unsigned GetSymbolCountInWidth(Font* font, const char32_t* text, unsigned width);   // @0x1fedd4
 Sprite* CreateTextWrapped(Font* font, const char32_t* text, float r, float g, float b, int width,
@@ -60,6 +64,8 @@ Sprite* CreateTextWrapped(Font* font, const char32_t* text, float r, float g, fl
 Sprite* CreateText(Font* font, const char32_t* text, float r, float g, float b, int align, bool screenSpace,
                    GlowFilter* glow, Sprite* reuse, int layer);
 
+void InitFilters();     // @0x1faf94 the glow passes' buffers (Render::Init)
+void DeinitFilters();   // @0x1fb098 (Render::Deinit)
 // @0x1fb110: premultiply (optional) and apply the glow chain to 32-bit RGBA pixels in place.
 void ApplyImageFilters(uint8_t* px, int w, int h, int pitch, bool premultiply, const GlowFilter* glow);
 

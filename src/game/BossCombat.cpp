@@ -3,8 +3,7 @@
 // was range-decompiled (out/big/bc_snt.c): Ghidra split it into FUN_001182b8 / FUN_00118418 (the
 // STL helpers placed inside it).
 //
-// UNVERIFIED (milestone 6): the music (EndCombat: "music_*" by the map's tileset, unless playing)
-// and the sounds ("battle_boss_outro" when the boss's own side loses its leader,
+// The music (EndCombat: "music_*" by the map's tileset, unless playing) and the sounds ("battle_boss_outro" when the boss's own side loses its leader,
 // "battle_boss_intro" when the boss reaches its place).
 #include "engine/SoundsManager.h"
 #include "game/Combat.h"

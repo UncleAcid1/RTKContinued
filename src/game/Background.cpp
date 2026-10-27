@@ -2,6 +2,8 @@
 
 #include "engine/Render.h"
 #include "engine/Resources.h"
+#include "game/GameState.h"
+#include "game/Locations.h"
 #include "game/Map.h"
 
 namespace Background {
@@ -9,7 +11,7 @@ namespace {
 Render::Sprite* g_land = nullptr;     // +0x2c
 Render::Sprite* g_horizon = nullptr;  // +0x04 (0x611630) the sky strip
 // The mission maps' mountains and front strips (0x611634, 0x611638; CreateLand's mission-map
-// branch, milestone 5 with the raids): null elsewhere.
+// branch): null elsewhere.
 Render::Sprite* g_mountains = nullptr;
 Render::Sprite* g_front = nullptr;
 // The farm view (CreateFarm): its ground, the farm's building (and the animal farm's fence) and
@@ -18,9 +20,40 @@ Render::Sprite* g_farmBg = nullptr;       // 0x61162c
 Render::Sprite* g_farmBuilding = nullptr; // 0x611640
 Render::Sprite* g_farmFence = nullptr;    // 0x61163c
 Render::Sprite* g_farmPaper[4] = {};      // 0x611648..0x611654 top, bottom, left, right
+
+// The mission maps' strip textures by tileset (summer, winter, desert), loaded once: the sky
+// (0x611684 + 0xc * tileset), the mountains (0x611688 ...) and the front (0x61168c ...).
+Render::Texture* g_stripTex[3][3] = {};
+const char* const kStripFile[3][3] = {
+    {"images/map_top/summer_night_top_0002_sky.jpg", "images/map_top/summer_night_top_0001_mountains.jpg",
+     "images/map_top/summer_night_top_0000_front.jpg"},
+    {"images/map_top/winter_night_top_0002_sky.jpg", "images/map_top/winter_night_top_0001_mountains.jpg",
+     "images/map_top/winter_night_top_0000_front.jpg"},
+    {"images/map_top/sunset_desert_0002_sky.jpg", "images/map_top/sunset_desert_0001_back.jpg",
+     "images/map_top/Sunset_desert_0000_dunes.jpg"},
+};
+
+// One mission strip: eight tiles wide, centred on the map, at height y.
+void PlaceStrip(Render::Sprite*& s, Render::Texture* t, int layer, float y) {
+    if (!t) return;
+    if (!s) s = Render::CreateSprite(t, layer, false, false);
+    else Render::SetTexture(s, t);
+    Render::SetWrapping(t, true);
+    const float H = (float)t->h;
+    s->u1 = 8.f;                             // +0x2c
+    s->h = H;                                // +0x18
+    s->vTop = 0.5f / (float)s->tex->h;       // +0x34
+    s->vBottom = -0.5f / H + 1.f;            // +0x30
+    s->w = (float)(t->w << 3);               // +0x14
+    Render::SetPosition(s, (float)(t->w << 3) * -0.5f + (float)(unsigned)Map::GetGridWidth() * 84.f * 0.5f, y, 0.9f);
+}
 }  // namespace
 
+// @0x10b9ec. PORT: the land and the top strip are made again here; the original keeps their
+// sprites and swaps the texture (the same result).
 void CreateLand(unsigned tileset) {
+    g_mountains = Render::RemoveSprite(g_mountains);
+    g_front = Render::RemoveSprite(g_front);
     if (g_land) { Render::RemoveSprite(g_land); g_land = nullptr; }
     if (g_horizon) { Render::RemoveSprite(g_horizon); g_horizon = nullptr; }
 
@@ -45,7 +78,19 @@ void CreateLand(unsigned tileset) {
         }
     }
 
-    // Horizon strip for non-mission maps (0x10bfa0). Mission maps use images/map_top/* (not ported yet).
+    // A mission map (or a fight entered from one) of the first three tilesets: the sky, mountains
+    // and front strips (Update moves them with the camera), and no terrain shadow switch.
+    bool mission = Locations::IsMissionMap((uint32_t)GameState::GetCurrentMapID());
+    if (!mission && GameState::IsCombatActive()) mission = Locations::IsMissionMap(GameState::mReturnMapID);
+    if (tileset < 3 && mission) {
+        for (int i = 0; i < 3; ++i)
+            if (!g_stripTex[tileset][i]) g_stripTex[tileset][i] = Resources::GetDirectImage(kStripFile[tileset][i]);
+        PlaceStrip(g_horizon, g_stripTex[tileset][0], Render::kLayerGround, -40.5f);
+        PlaceStrip(g_mountains, g_stripTex[tileset][1], Render::kLayerFlat2, -26.5f);
+        PlaceStrip(g_front, g_stripTex[tileset][2], Render::kLayerFlat2, -25.5f);
+        return;
+    }
+    // The top strip of the other maps (0x10bfa0).
     static const char* top[] = {"images/Tileset/summer/top", "images/Tileset/winter/winter_top",
                                 "images/Tileset/desert/desert_top", "images/Tileset/winter/winter_top",
                                 "images/Tileset/swamp/swamp_top"};
@@ -64,6 +109,7 @@ void CreateLand(unsigned tileset) {
             Render::SetShaderType(g_horizon, 2);
         }
     }
+    Render::EnableTerrainShadowing(true);
 }
 
 // @0x10b4fc: the farm's ground (images/Farm/farm_bg) at the farm patch's row, the farm's own
@@ -120,7 +166,7 @@ void CreateFarm(int) {
         Render::SetPosition(g_farmPaper[2], left, y, 1.f);
         Render::SetPosition(g_farmPaper[3], x + w, y, 1.f);
     }
-    // UNVERIFIED (milestone 6): Render::EnableTerrainShadowing(false) (the terrain shadow pass).
+    Render::EnableTerrainShadowing(false);
 }
 
 // @0x10b238: with all three strips (mission maps) they follow the camera at different rates: the

@@ -4,6 +4,7 @@
 #include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Text.h"
+#include "gui/TextCache.h"
 
 namespace GUI {
 namespace {
@@ -16,7 +17,9 @@ int AlignArg(int a) { return (a != 0 && a != 1) ? 2 : a; }
 // @0x175f8c (the other fields keep their zero/one defaults; +0xb4 comes from a global that is 0)
 Textfield::Textfield(Render::Font* f) : font(f) { type = kTextfield; }
 
+// @0x17de28: the cache forgets the texts made with this field's filters before they go.
 Textfield::~Textfield() {
+    if (glow && GetTextCache()) GetTextCache()->InvalidateEntriesWithGlow(glow);
     for (Render::GlowFilter* g = glow; g;) {
         Render::GlowFilter* n = g->next;
         delete g;
@@ -40,7 +43,9 @@ void Textfield::BuildSprite(Render::Sprite* reuse, bool setShader) {
     sprite->h = (float)(-sprite->tex->h) / zoom;
 }
 
-// @0x17b9b8
+// @0x17b9b8. A short text being replaced leaves its texture in the TextCache, and a text found
+// there is shown with that texture instead of being rendered again (plain texts only: no async
+// flag, pattern or style).
 void Textfield::SetText(const char32_t* t, void* tag, Render::Font* fontOverride) {
     extern Textfield* DefaultTextfield();
     if (this == DefaultTextfield()) return;
@@ -50,6 +55,17 @@ void Textfield::SetText(const char32_t* t, void* tag, Render::Font* fontOverride
         tagChanged = tag != nullptr;
     }
     if (t && hasText && text == t) return;
+    float zoom = TextZoom();
+    const unsigned width = (unsigned)(int)((float)w * zoom);
+    Render::Font* f = fontOverride ? fontOverride : font;
+    TextCache* cache = GetTextCache();
+    // PORT: the original reads the old sprite without a check; the port skips a missing one.
+    if (hasText && cache && !async && !pattern && !style && text.size() < 0x40 && sprite && sprite->tex) {
+        cache->AddTextureFor(sprite->tex, f, text.c_str(), color[0], color[1], color[2], width,
+                             AlignArg(alignH), glow, lineSpacing);
+        sprite->isText = false;
+        sprite->tex = nullptr;
+    }
     if (!t || !*t) {
         text.clear();
         hasText = false;
@@ -58,8 +74,6 @@ void Textfield::SetText(const char32_t* t, void* tag, Render::Font* fontOverride
         text = t;
         hasText = true;
     }
-    // PORT: short strings go through GUI::TextCache on the original, which renders them with the
-    // same CreateTextInternal call; the cache only saves work.
     Render::Sprite* reuse = nullptr;
     if (hasText || tagChanged) {
         reuse = sprite;
@@ -67,10 +81,20 @@ void Textfield::SetText(const char32_t* t, void* tag, Render::Font* fontOverride
         UpdatePosition();
         return;
     }
-    Render::Font* f = fontOverride ? fontOverride : font;
-    float zoom = TextZoom();
-    sprite = Render::CreateTextWrapped(f, text.c_str(), color[0], color[1], color[2], (int)((float)w * zoom),
-                                       AlignArg(alignH), true, glow, reuse, lineSpacing, pattern, style);
+    Render::Texture* cached = nullptr;
+    if (cache && !async && !pattern && !style)
+        cached = cache->GetTextureFor(f, text.c_str(), color[0], color[1], color[2], width, AlignArg(alignH),
+                                      glow, lineSpacing);
+    if (!cached) {
+        sprite = Render::CreateTextWrapped(f, text.c_str(), color[0], color[1], color[2], (int)width,
+                                           AlignArg(alignH), true, glow, reuse, lineSpacing, pattern, style);
+    } else if (!sprite) {
+        sprite = Render::CreateForText(cached, true, Render::kLayerGUI);
+    } else {
+        if (sprite->tex) Render::RemoveTexture(sprite->tex);
+        Render::SetTexture(sprite, cached);
+        sprite->isText = true;
+    }
     Render::SetShaderType(sprite, ShaderFor(this));
     if (!reuse) Render::SortRenderLayer(Render::kLayerGUI, 1);
     sprite->screenSpace = screenSpace;
@@ -118,7 +142,7 @@ void Textfield::SetOverscale(float o) {
     if (overscale == o) return;
     overscale = o;
     if (!root) return;
-    for (Render::GlowFilter* g = glow; g; g = g->next) g->overscale = o;   // GlowFilter::SetOverscale
+    Render::GlowFilter::SetOverscale(glow, o);
     font = Render::CreateFont(GetFontFile(), FontSizeFor(this, (worldOverscale ? Render::GetBaseZoomFactor() : 1.f) * o));
     if (hasText) BuildSprite(sprite, true);
     UpdatePosition();

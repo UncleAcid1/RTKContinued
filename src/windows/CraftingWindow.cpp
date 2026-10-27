@@ -4,7 +4,7 @@
 //
 // PORT (user 2026-10-19): the crystal "Buy now" buttons of the missing parts are not offered: they
 // stay hidden (UpdateContents) and OnBuy does nothing, so nothing here spends crystals. The online
-// request of OnCraft (OG::MakeRequest) is dropped and the sound is milestone 6.
+// request of OnCraft (OG::MakeRequest) is dropped; OnCraft's sound plays (OnBuy's goes with the buy).
 #include <cstdio>
 
 #include "engine/SoundsManager.h"

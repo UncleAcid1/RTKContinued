@@ -12,6 +12,7 @@
 
 #include "engine/FileManager.h"
 #include "engine/Image.h"
+#include "engine/Text.h"
 #include "engine/ViralFeatures.h"
 
 namespace Render {
@@ -282,7 +283,7 @@ bool LoadShader(int type, const char* vsName, const char* psName) {
 //     DeallocateTexture, @0x201894 Texture::Remove, @0x2018e8 Texture::Set, @0x201be4 (the texture
 //     list's push_back), @0x2017a4 SetMinifyFilter / @0x2017f0 SetMagnifyFilter (below; otherwise a
 //     texture's filters are chosen when it is made, CreateTextureRGBA's nearest).
-//   Text: @0x1ff184 CreateForText (Text.cpp's CreateText makes the texture and its sprite).
+//   Text: CreateForText, CreateText and the filters (InitFilters / DeinitFilters) are in Text.cpp.
 
 // Shader table from Render::InitMain @0x1f7bd4 (types 0..15). Only types used so far are loaded;
 // the rest are recorded here for completeness.
@@ -314,8 +315,14 @@ bool Init(int screenW, int screenH) {
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    InitFilters();
     return ok;
 }
+
+// @0x1f61e8: the terrain shadow flag (0x60f03c, on by default): Background::CreateLand sets it, the
+// farm view clears it. Nothing in 5.11 reads it.
+namespace { bool g_terrainShadowing = true; }
+void EnableTerrainShadowing(bool on) { g_terrainShadowing = on; }
 
 // @0x1f6028 Render::GetScreenViewWidth
 float GetScreenViewWidth() { return 2.f / zoom; }
@@ -323,6 +330,7 @@ float GetScreenViewWidth() { return 2.f / zoom; }
 float GetScreenViewHeight() { return 2.f / zoom / aspect; }
 
 void Shutdown() {
+    DeinitFilters();
     for (auto& l : g_layers) {
         for (Sprite* s : l.sprites) delete s;
         l.sprites.clear();

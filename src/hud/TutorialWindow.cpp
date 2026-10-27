@@ -11,7 +11,7 @@
 // from out/switch/*.c, made by tools/ghidra_scripts/SwitchDecomp.java.
 // Not ported: TutorialSender's report to the server (FileManager::NotifyTutorialStep, online);
 // SkipTutorialStep @0x366498 and the game bot (StartTutorialSkip, StartGameBot have no caller in
-// 5.11, so their flags 0x630925 / 0x630924 are never set); the sounds (milestone 6).
+// 5.11, so their flags 0x630925 / 0x630924 are never set). Update's battle-map music: 6c-2.
 #include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 

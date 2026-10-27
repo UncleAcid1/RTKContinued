@@ -1,7 +1,7 @@
 // ArenaCombat and PvPArenaCombat (see Combat.h). Port of libkingdom.so 5.11 @0xfa030..0xfee54 and
 // @0x1f31dc..0x1f4da4.
 //
-// UNVERIFIED (milestone 6): the sounds.
+// The sounds: the four 5.11 calls (6c-2, arena_win / arena_lose, the PvP win).
 #include "engine/SoundsManager.h"
 #include "game/Combat.h"
 

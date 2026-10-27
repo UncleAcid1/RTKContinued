@@ -6,7 +6,7 @@
 // PORT (online removed): the Facebook/Twitter share (OnShare's WallPost::PostForEvent from level 3,
 // the share ticks icon_social_03 and their toggles OnTwitterToggle (0x2a4634) / OnFacebookToggle
 // (0x2a4644)) is not offered; the share button is the plain "Ok" and the ticks stay hidden.
-// UNVERIFIED (milestone 6): the sound.
+// The sound: 6c-2 (with a profession).
 #include "engine/SoundsManager.h"
 #include "engine/IconManager.h"
 #include "engine/Text.h"

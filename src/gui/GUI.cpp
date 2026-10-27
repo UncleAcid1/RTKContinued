@@ -14,6 +14,7 @@
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/Text.h"
+#include "gui/TextCache.h"
 
 namespace GUI {
 namespace {
@@ -28,6 +29,7 @@ float g_hudScale = 1.25f;                // 0x60ef40
 float g_fontScale = 1.f;                 // 0x60ef44 (GUI::Init's float argument, 1.0 in the game)
 
 const char* g_fontFile = "fonts/ARICYRB.ttf";
+TextCache* g_textCache = nullptr;        // 0x6121f8 GUI::Init
 Window* g_desktop = nullptr;             // GUI::Init's template objects: SetTexture/SetFrame ignore them
 Textfield* g_defaultText = nullptr;
 Button* g_defaultButton = nullptr;
@@ -802,13 +804,17 @@ void Init(const char* fontFile, bool highDPI) {   // @0x178b64
     g_defaultText->type = Window::kTextfield;
     g_defaultButton = new Button();
     g_defaultButton->type = Window::kButton;
-    // PORT: the TextCache (0x1a0c bytes) only caches rendered strings; not ported.
+    g_textCache = new TextCache();
 }
 
 // @0x17d60c: the template windows, the name and string tables, the font scale back to 1, the action
-// sounds, the tap rings' sprites (and the text cache, not ported). The layouts' windows are not
-// destroyed here.
+// sounds, the tap rings' sprites and the text cache. The layouts' windows are not destroyed here.
 void Deinit() {
+    if (g_textCache) {
+        g_textCache->InvalidateCache();   // ~TextCache
+        delete g_textCache;
+        g_textCache = nullptr;
+    }
     delete g_defaultButton;
     delete g_defaultText;
     delete g_desktop;
@@ -825,6 +831,7 @@ void Deinit() {
 
 const char* GetFontFile() { return g_fontFile; }
 Textfield* DefaultTextfield() { return g_defaultText; }
+TextCache* GetTextCache() { return g_textCache; }
 
 Window* DummyWindow() { return g_desktop; }
 

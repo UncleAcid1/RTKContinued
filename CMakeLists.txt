@@ -100,6 +100,7 @@ add_executable(rtk
   src/engine/Text.cpp
   src/engine/IconManager.cpp
   src/gui/GUI.cpp
+  src/gui/TextCache.cpp
   src/gui/Textfield.cpp
   src/gui/TextStyleManager.cpp
   src/gui/WindowManager.cpp

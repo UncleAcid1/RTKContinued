@@ -19,6 +19,10 @@ std::vector<Font*> g_fonts;   // @0x1fee80 sgl::vector<Render::Font*>
 void InitFonts() { TTF_Init(); }
 
 // @0x1fae60: border needed around the text for the whole filter chain.
+void GlowFilter::SetOverscale(GlowFilter* chain, float overscale) {
+    for (GlowFilter* f = chain; f; f = f->next) f->overscale = overscale;
+}
+
 int GlowFilter::GetOffset() const {
     int off = 0;
     for (const GlowFilter* f = this; f; f = f->next) {
@@ -367,6 +371,20 @@ Sprite* CreateTextInternal(Font* font, const char32_t* text, float r, float g, f
     return s;
 }
 
+Sprite* CreateForText(Texture* tex, bool screenSpace, int layer) {
+    Sprite* s = CreateSprite(tex, layer, false, false);
+    s->u0 = 0.f; s->u1 = 1.f;
+    s->vBottom = 0.f; s->vTop = 1.f;
+    for (float& c : s->color) c = 1.f;
+    for (float& a : s->alpha) a = 1.f;
+    s->isText = true;
+    s->screenSpace = screenSpace;
+    s->w = (float)tex->w;
+    s->h = -(float)tex->h;
+    SetShaderType(s, 1);
+    return s;
+}
+
 // @0x1fedd4: the text is measured at growing lengths, from none; the first length whose text is
 // wider than `width` is returned (the whole length when none is).
 unsigned GetSymbolCountInWidth(Font* font, const char32_t* text, unsigned width) {
@@ -395,6 +413,26 @@ Sprite* CreateText(Font* font, const char32_t* text, float r, float g, float b, 
                               nullptr, 0);
 }
 
+// Render::FilterContext (0x2000c bytes): the glow passes' work buffers and tap tables.
+struct FilterContext {
+    std::vector<int> src, tmp;   // +0x00 +0x04 (+0x08 their size)
+    int tables[65][256];         // per-tap lookup: v * weight (16.16)
+};
+namespace { FilterContext* g_filters = nullptr; }   // 0x614094
+
+// @0x1faf94 (Render::Init). PORT: the port's Init also runs on a window resize, so an existing
+// context is replaced.
+void InitFilters() {
+    delete g_filters;
+    g_filters = new FilterContext();
+}
+
+// @0x1fb098 (Render::Deinit)
+void DeinitFilters() {
+    delete g_filters;   // ~FilterContext @0x1fb068
+    g_filters = nullptr;
+}
+
 // @0x1fb110
 void ApplyImageFilters(uint8_t* px, int w, int h, int pitch, bool premultiply, const GlowFilter* glow) {
     if (premultiply) {
@@ -408,8 +446,10 @@ void ApplyImageFilters(uint8_t* px, int w, int h, int pitch, bool premultiply, c
             }
         }
     }
-    static std::vector<int> src, tmp;          // FilterContext buffers
-    static int tables[65][256];                // per-tap lookup: v * weight (16.16)
+    if (!g_filters) InitFilters();   // PORT: a text made before Render::Init
+    std::vector<int>& src = g_filters->src;
+    std::vector<int>& tmp = g_filters->tmp;
+    auto& tables = g_filters->tables;
     const int n = w * h;
     for (const GlowFilter* f = glow; f; f = f->next) {
         if ((int)src.size() < n) { src.assign((size_t)n, 0); tmp.assign((size_t)n, 0); }
