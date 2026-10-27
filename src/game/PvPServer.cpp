@@ -212,7 +212,8 @@ std::vector<uint8_t> GetData(int type, int, const char*) {
         blocks.push_back(MakeRivalBlock(std::max(1, playerLevel + offset), Rand(2) == 0, tier));
     }
     for (const std::vector<uint8_t>& b : blocks) {
-        PutUnsigned(out, 0xffffffff);   // UNVERIFIED: the two words before the size (not read)
+        // Two words ParsePvPData reads past without looking at them, then the size.
+        PutUnsigned(out, 0xffffffff);
         PutUnsigned(out, (uint32_t)b.size());
         PutUnsigned(out, (uint32_t)b.size());
         out.insert(out.end(), b.begin(), b.end());

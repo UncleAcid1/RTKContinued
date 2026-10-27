@@ -8,9 +8,6 @@
 //
 // A tap that no hover takes opens the tapped object's info window (OnEntityClick, OnBuildingClick,
 // OnDecorClick; the windows are in hud/InfoHoverWindows.cpp).
-// Not ported yet (marked UNVERIFIED where they would run): the world dialog, the tutorial arrows
-// and steps, item drops (DropItem, Items), farms (DropFarmFood, the farm hovers and windows: 3f),
-// the entity hovers (talk, health bars, boss time, player names) and the text cache.
 #pragma once
 
 namespace Items { struct ItemInfo; }
@@ -124,7 +121,7 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
 // @0x269f4c: a rising, fading text popup in the GUI font.
 void ShowTextHover(float x, float y, const char32_t* text, float r, float g, float b, float glowR,
                    float glowG, float glowB, int fontSize, int glowBlur, float glowStrength,
-                   bool nearest, float fade, float rise);
+                   bool linear, float fade, float rise);
 // @0x269cec: an icon that rises and fades like the text popups, centred on x.
 void ShowIconHover(float x, float y, Render::Texture* tex);
 void OnFreeWorkerAssignDecoration(Map::Decor* d);   // @0x263af8 a free (else the first busy) worker takes the job
@@ -167,7 +164,7 @@ void ShowArrowAtSpeedup(Map::Building* b);  // @0x263bd0
 void ShowArrowAtUpgrade();                  // @0x263c44
 void ShowArrowAtFactoryContract(unsigned i, bool ignoreCompletion);   // @0x263cfc
 // @0x266088: a tap on a visible arrow runs its callback (on the release) and hides the arrows.
-// UNVERIFIED (tutorial): the +0x24..+0x2c fields it clears are not ported.
+// It clears the arrow's item flag and the entity / decoration it follows (+0x24, +0x28, +0x2c).
 bool ClickOnArrow(int x, int y, bool pressed);
 bool OnBuildingClick(Map::Building* b, int x, int y);   // @0x26726c the building's info window
 int OnEntityClick(Entity* e, int x, int y);             // @0x26aafc 0 not taken, 1 taken, 2 go on

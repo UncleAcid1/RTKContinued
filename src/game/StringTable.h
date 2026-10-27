@@ -33,9 +33,9 @@ const char32_t* GetStringF(const char* fmt, ...);   // @0x22c908
 // from a minute, else "S s"; compact gives "H h" / "M m" instead. (The original writes into a
 // caller buffer; callers pass 0x20 characters.)
 std::u32string GetTimeString(int seconds, bool compact);
-// @0x22a30c (the non-compact form): "00:SS", "MM:SS", "HH:MM:SS", from a day "D days HH:MM:SS".
-// UNVERIFIED: the compact form (second argument true) is not ported; it formats as false.
-std::u32string GetNumericTimeString(int seconds, bool compact);
+// @0x22a30c: "00:SS", "MM:SS", "HH:MM", from a day "D days HH:MM"; full: always "HH:MM:SS"
+// (from a day "D days HH:MM:SS").
+std::u32string GetNumericTimeString(int seconds, bool full);
 // @0x2293e0: a duration in words with COUNT_DAYS / _HOURS / _MINUTES / _SECONDS ("%d %s"): under a
 // minute the seconds; under an hour minutes (and seconds); under a day hours (and minutes); else
 // days with hours and minutes, the zero parts left out. (The bool is not read.)

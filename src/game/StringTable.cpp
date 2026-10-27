@@ -185,12 +185,12 @@ std::u32string GetGenderString(const char32_t* forms, bool male) {
     return f.substr(start, end == std::u32string::npos ? std::u32string::npos : end - start);
 }
 
-// UNVERIFIED: on a missing form the original prints the error and formats the text with a format
-// not read yet; the port returns the whole text.
+// No text gives "ERROR", a missing form "Declination string format is incorrect: <forms>"
+// (and the error printed).
 std::u32string GetDeclinationString(const char32_t* forms, unsigned size, int declination) {
     if (!forms) {
         std::fprintf(stderr, "Declination string format is incorrect\n");   // ErrorReporter::Printf
-        return U"";
+        return U"ERROR";
     }
     std::u32string f = forms;
     size_t start = 0;
@@ -198,7 +198,7 @@ std::u32string GetDeclinationString(const char32_t* forms, unsigned size, int de
         size_t comma = f.find(U',', start);
         if (comma == std::u32string::npos) {
             std::fprintf(stderr, "Declination string format is incorrect\n");
-            return f;
+            return SWPrintf(size, U"Declination string format is incorrect: %s", {forms});
         }
         start = comma + 1;
     }
@@ -228,19 +228,23 @@ std::u32string GetCountableString(const char32_t* forms, int n) {
     return f.substr(p, end == std::u32string::npos ? std::u32string::npos : end - p);
 }
 
-std::u32string GetNumericTimeString(int t, bool) {
+std::u32string GetNumericTimeString(int t, bool full) {
     char buf[64];
     std::u32string out;
+    const int h = t / 3600 % 24, m = t % 3600 / 60, sec = t % 60;
     if (t > 0x1517f) {
-        int d = t / 86400, r = t - d * 86400;
+        int d = t / 86400;
         std::snprintf(buf, sizeof buf, "%d ", d);
         out.assign(buf, buf + std::strlen(buf));
         out += GetCountableString(GetString("COUNT_DAYS"), d);
-        std::snprintf(buf, sizeof buf, " %02d:%02d:%02d", r / 3600, r % 3600 / 60, r % 60);
+        if (full) std::snprintf(buf, sizeof buf, " %02d:%02d:%02d", h, m, sec);
+        else std::snprintf(buf, sizeof buf, " %02d:%02d", h, m);
+    } else if (full) {
+        std::snprintf(buf, sizeof buf, "%02d:%02d:%02d", t / 3600, m, sec);
     } else if (t >= 3600) {
-        std::snprintf(buf, sizeof buf, "%02d:%02d:%02d", t / 3600, t % 3600 / 60, t % 60);
+        std::snprintf(buf, sizeof buf, "%02d:%02d", t / 3600, m);
     } else if (t > 59) {
-        std::snprintf(buf, sizeof buf, "%02d:%02d", t % 3600 / 60, t % 60);
+        std::snprintf(buf, sizeof buf, "%02d:%02d", m, sec);
     } else {
         std::snprintf(buf, sizeof buf, "00:%02d", t);
     }

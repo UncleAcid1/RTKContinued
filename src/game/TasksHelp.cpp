@@ -303,8 +303,36 @@ bool TaskSubtask::OnHelp(bool arrow) {
             return true;
         }
         if (b == Map::GetCurrentFarm()) {
-            // UNVERIFIED (3f detail): a patch growing this crop gets the arrow on its plant (its
-            // tap harvests it); a ripe farm whose crop would not fit shows "WORK_RES_NO_SPACE".
+            // A patch with this order gets the arrow on its crop (its tap is the tap on the patch).
+            for (Entity* patch : b->patchEntities) {
+                int n = patch->GetAI()->GetFarmPatchNum();
+                if (n < 0 || n >= 6 || b->patchContract[n] != (int)(value % 10) + 1) continue;
+                Entity* crop = patch->GetAI()->GetItem();
+                if (!crop || !arrow) return true;
+                float x = 0.f, y = 0.f;
+                crop->GetWorldPos(x, y);
+                int sx = (int)x, sy = (int)(y - crop->GetIdleHeight());
+                Map::WorldCoordinatesToScreen(sx, sy);
+                BuildingHovers::SetArrowClickCallback(
+                    new GUI::Callback([patch, sx, sy] { BuildingHovers::OnEntityClick(patch, sx, sy); }));
+                BuildingHovers::ArrowAt(x, y - crop->GetIdleHeight(), false, false, false, false, false, false, false);
+                return true;
+            }
+            // A ripe farm whose crops would not fit in the storage says so.
+            if (b->GetFarmState(b->GetFirstGrowingPatchNum()) == 6) {
+                int crops = 0;
+                for (Entity* patch : b->patchEntities)
+                    if (patch->GetAI()->GetItem()) ++crops;
+                const Contracts::ContractMission& m = b->data->delivery->missions[(size_t)b->GetMissionID()];
+                if (GameState::resourceAmountMax <=
+                    (int)m.rewardResourceCount * crops + (int)GameState::GetResourceAmount(m.rewardResource)) {
+                    float x = Map::GetFarmWorldX() + (float)(GUI::ScreenWidth() / 2) - 100.f;
+                    float y = Map::GetFarmWorldY() - (float)(GUI::ScreenHeight() / 2) + 300.f;
+                    BuildingHovers::ShowTextHover(x, y, StringTable::GetString("WORK_RES_NO_SPACE"), 1.f, 1.f, 1.f, 0.f,
+                                                  0.f, 0.f, 0x19, 5, 5.f, true, 2.f, 50.f);
+                    return true;
+                }
+            }
             BuildingHovers::ShowFarmHover(false, 0, 1);
             BuildingHovers::ShowArrowAtFactoryContract(value % 10, false);
             return true;
@@ -431,7 +459,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         if (e) {
             float x = 0.f, y = 0.f;
             e->GetWorldPos(x, y);
-            // UNVERIFIED (3f detail): the arrow's tap is the tap on that patch.
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([e] { BuildingHovers::OnEntityClick(e, 0, 0); }));
             BuildingHovers::ArrowAt(x, y - e->GetIdleHeight(), false, false, false, false, false, false, false);
         }
         return true;

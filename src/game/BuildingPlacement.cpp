@@ -467,7 +467,7 @@ void DecorBought(Map::Decor* d, Render::Sprite* sprite, bool fromPresents) {
 
 void UpdateCost(int extraGold, bool show) {
     g_extraGold += extraGold;
-    // UNVERIFIED: the price line under the controls (an SWPrintf of the cost) is not ported.
+    (void)show;
 }
 
 void Accept() {

@@ -61,9 +61,10 @@ bool LoadSystemConfiguration(bool (*loader)(const char*), const char* file, cons
                              double progress, unsigned failStep, unsigned okStep);
 bool LoadEntityFactoryData(const char* file);   // @0x18564c
 }
-// @0x188480: the "exit" answer of the back-key question. UNVERIFIED (online): with a profile that
-// wants warnings, the player's city first goes to the server (LoadingInternetWindow, NET_SendSave);
-// offline it is MainExit.
+// @0x188480: the "exit" answer of the back-key question. Online (dormant): in the player's city
+// after the tutorial, a last-played "fb" profile with warnings enabled first sent the city to
+// the server (LoadingInternetWindow, Map::SafeSave, NET_SendSave); PlayerProfileManager is
+// dormant (7e), so it is MainExit.
 void ExitWithSendSave();
 // @0x1885e0: the player's city from the main save: GameState::Load, the city's entities and map.
 // Without a game state a new game starts (the hero and Stoutbeard on campaign map 0x15, the

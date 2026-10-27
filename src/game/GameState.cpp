@@ -130,9 +130,8 @@ uint32_t g_processedChest = 0;  // 0x612d8c GetProcessedChest
 bool g_dailyChestFailure = false;      // 0x612d90 Get/SetDailyChestFailure
 uint32_t g_mainExpansionBackgroundLoad = 0;   // 0x612f44
 bool g_socnetConnections[2];    // 0x612d91 Facebook, 0x612d92 Twitter (chunk 0x3c)
-// UNVERIFIED (offline port): the expansion pack versions the save keeps
-// (FileManager::GetExpansionFileInfo(1 and 2) + 0x24 on the original; every pack ships with the
-// port): kept as loaded.
+// PORT: the expansion pack versions the save keeps (FileManager::GetExpansionFileInfo(1 and 2) +
+// 0x24 on the original, for the downloaded packs; every pack ships with the port): kept as loaded.
 uint32_t g_expansionVersions[2];
 // Online state (Neighbours, PvP, PlayerProfileManager), kept as loaded.
 char32_t g_neighbourSaveName[0x80];   // Neighbours::GetSaveName

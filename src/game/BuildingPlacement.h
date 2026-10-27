@@ -28,6 +28,9 @@ void Decline();                      // @0x3a1fe4 back to the shop
 void BuildingBought(Map::Building* b, Render::Sprite* sprite, bool fromPresents);
 // @0x3a2cf0: the same for a decoration (taken over, not copied).
 void DecorBought(Map::Decor* d, Render::Sprite* sprite, bool fromPresents);
-void UpdateCost(int extraGold, bool show);   // @0x3a35b0 (UNVERIFIED: the cost line; its target window is unknown)
+// @0x3a35b0: adds to the extra gold (the roads' cost). It also formats the ADDITIONAL_ROADS line
+// ("%s$%$d" with the extra gold) into a local buffer and drops it: nothing in 5.11 shows it (and
+// `show` is unused), so the line is not built here.
+void UpdateCost(int extraGold, bool show);
 
 }  // namespace BuildingPlacement

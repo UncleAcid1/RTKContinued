@@ -52,7 +52,7 @@ struct Decor {
     mutable const GameData::DecorData* data = nullptr;  // +0x3c (GetData fills it on first use)
     bool fake = false;                 // +0x43 random decoration (Patch::AddRandomDecors)
     // +0x44 (map flag bit 1; also set on unowned city patches and in the tame tutorial). Decor::IsFake
-    // is +0x43 || +0x44. UNVERIFIED: only loaded and saved so far.
+    // is +0x43 || +0x44; UpdateRoadConnections looks past a large hidden one.
     bool hidden = false;
     bool trapOn = true;                // +0x42 a trap's phase (TRAP_PATTERN): it hurts while set
     // +0x48: when its taxes (DecorData collectTime) or the job on it (workTime) started; a trap's
@@ -252,7 +252,7 @@ Decor* GetDecorationWithAnyDrop();                     // @0x1bea14 unlocked, wi
 Decor* GetDecorationToClick(uint32_t key);
 // @0x1bca94 (Override): a named value for object `id` (with sub-id) is kept in a table; a value
 // already there for the same name is replaced too, and the entry is always added.
-// UNVERIFIED (online, dormant): Map::LoadPlayer (0x1c0cd8) applies the table to the map's objects.
+// Online (dormant): only Map::LoadPlayer (0x1c0cd8, a neighbour's city) applies the table.
 void ChangeObjectAttribute(uint32_t id, uint32_t sub, const char* name, const char* value);
 // @0x1b6cb4: a workshop or farm (class 2 / 0xd) whose type delivers the contract list; with
 // `done` one whose order is ready is preferred.

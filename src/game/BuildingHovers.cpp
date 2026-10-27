@@ -123,8 +123,6 @@ int g_styleCounter = 0;                // 0x6188dc (ShowTextHoverWithStyle)
 
 // HelperArrow (0x30 bytes): the bobbing "Arrow_show" pointer (tutorial steps, building placement).
 // arrows[0] always exists (Init); ArrowAt(..., newArrow) adds more, HideArrow drops them again.
-// UNVERIFIED (tutorial): the tablet attention rings (+0x18, +0x1c, +0x20, +0x24) and the arrow
-// following an entity (+0x28, UpdateArrow) are not ported.
 struct HelperArrow {
     Render::Sprite* sprite = nullptr;  // +0x00
     bool left = false;                 // +0x04 points left (Arrow_show_left), else down
@@ -251,7 +249,7 @@ WindowManager::FunctionalWindow* Queue() {
 }
 
 void Init() {
-    // UNVERIFIED: wndScale is 1.5 below a 320 px screen height (the arrows' scale).
+    // (wndScale 0x60f134, 1.5, becomes 1 below a 320 px screen height here; nothing in 5.11 reads it.)
     g_arrows.push_back(new HelperArrow());
     // (PersonHoverWindow and FarmGrowHoverWindow are created here too, but nothing in 5.11 shows
     // them: not ported.)
@@ -1298,12 +1296,7 @@ void ItemDrop::Collect(bool automatic, bool showWindow) {
     // (HideWorldDialog(nullptr) first: there is no world dialog yet)
     GameState::ChangeResourceAmount(type, (int)amount);
     OnCollect(0, automatic ? nullptr : sprite, false, false, 0xb, false);
-    // UNVERIFIED: the text's format (the decompile shows only its "+"; the city drops' "+%d %s").
-    std::u32string text = U"+";
-    std::string n = std::to_string(amount);
-    text.append(n.begin(), n.end());
-    text += U' ';
-    if (const char32_t* name = GameState::GetResourceGameName(type)) text += name;
+    std::u32string text = SWPrintf(0x100, U"+%d %s", {amount, GameState::GetResourceGameName(type)});
     ShowTextHover(x, y - (float)sprite->tex->h, text.c_str(), 1.f, 1.f, 1.f, 0.f, 0.f, 0.f, 0x19, 5, 5.f, true,
                   2.f, 50.f);
     SoundsManager::PlaySound("collect_farm_item", 1, false);
@@ -1672,7 +1665,7 @@ void OnCollect(unsigned item, Render::Sprite* sprite, bool screenSpace, bool glo
 
 void ShowTextHover(float x, float y, const char32_t* text, float r, float g, float b, float glowR,
                    float glowG, float glowB, int fontSize, int glowBlur, float glowStrength,
-                   bool nearest, float fade, float rise) {
+                   bool linear, float fade, float rise) {
     if (!text) {
         std::puts("BuildingHovers::ShowTextHover() text is NULL");
         return;
@@ -1697,8 +1690,7 @@ void ShowTextHover(float x, float y, const char32_t* text, float r, float g, flo
     Render::SetPosition(s, x + s->w * -0.5f, y, z);
     if (s->x + s->w > (float)(unsigned)Map::GetGridWidth() * 84.f) Render::SetPosition(s, x - s->w, y, z);
     if (s->x < 0.f) Render::SetPosition(s, 0.f, y, z);
-    // UNVERIFIED: `nearest` sets the text texture's magnify filter to nearest (Texture::SetMagnifyFilter).
-    (void)nearest;
+    if (linear && s->tex) Render::SetMagnifyFilter(s->tex, false);
 }
 
 // @0x269cec BuildingHovers::ShowIconHover
@@ -1715,7 +1707,7 @@ void ShowIconHover(float x, float y, Render::Texture* tex) {
     g_itemInfo.push_back(ti);
     Render::SetPosition(ti.sprite, x + ti.sprite->w * -0.5f, y, 0.3f);
     Render::SetShaderType(ti.sprite, 1);
-    // UNVERIFIED: the texture's magnify filter is set to linear (Texture::SetMagnifyFilter(false)).
+    if (ti.sprite->tex) Render::SetMagnifyFilter(ti.sprite->tex, false);
 }
 
 // @0x263218 BuildingHovers::FollowDecor

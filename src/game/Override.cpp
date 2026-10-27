@@ -60,7 +60,7 @@ void Apply(int kind) {
         case kLocation: Locations::ChangeLocationAttribute(p.id, p.name, p.value); break;
         case kWarrior: Tavern::ChangeWarriorAttribute(p.id, p.sub, p.name, p.value); break;
         default:
-            // UNVERIFIED (online, dormant): the other kinds are only sent by the server:
+            // Online (dormant): the other kinds are only sent by the server:
             // Items::ChangeItemAttribute (1), GameState::SetSetting(name, text) 0x1ac674 (4),
             // Contracts::ChangeContractAttribute (6),
             // EntityFactory::ChangeEntityAttribute (7), Collections::ChangeCollectionAttribute (8),
