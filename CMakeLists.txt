@@ -185,6 +185,16 @@ if(APPLE)
 else()
   target_sources(rtk PRIVATE src/engine/SystemNotifications_none.cpp)
 endif()
+# The intro film (engine/IntroVideo.h): AVFoundation on macOS.
+if(APPLE)
+  enable_language(OBJCXX)
+  target_sources(rtk PRIVATE src/engine/IntroVideo_mac.mm)
+  set_source_files_properties(src/engine/IntroVideo_mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+  target_link_libraries(rtk PRIVATE "-framework AppKit" "-framework AVFoundation" "-framework CoreMedia"
+                        "-framework QuartzCore")
+else()
+  target_sources(rtk PRIVATE src/engine/IntroVideo_none.cpp)
+endif()
 target_include_directories(rtk PRIVATE src ${VORBIS_INCLUDE_DIR} ${OGG_INCLUDE_DIR})
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
 # -ffp-contract=off: ARMv7 VMLA/VMLS round the product and the sum separately; no fused multiply-add.

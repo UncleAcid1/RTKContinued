@@ -47,6 +47,9 @@ inline void splashLoop() {}               // @0x184f3c (empty in 5.11: no splash
 // The start-up loading screen's letter (0x612384, black with a white glow, loadFont 0x612388 size
 // 20) and the bar filled to `progress` (Render::UpdateProgress at z 0.2).
 void ShowLoadProgress(const char* letter, double progress);
+// PORT (user's request 2026-10-26): the loading bar fills over at least this many seconds (the
+// desktop loads in a blink); 0 (headless test runs) shows it at once as the original.
+extern double loadScreenSeconds;
 void InitLoadProgress();   // main_Loop_Init: the font and the glow (0x61238c)
 void HideLoadProgress();   // main_Loop_Init's end: the letter goes, the screen hides
 // @0x18c080: one string table from res_files/1Original (and, online, from each active content

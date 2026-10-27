@@ -33,6 +33,7 @@
 
 #include "engine/ErrorReporter.h"
 #include "engine/FileManager.h"
+#include "engine/IntroVideo.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
 #include "engine/SystemFuncs.h"
@@ -700,6 +701,11 @@ int main_Loop_Init() {
         !FileManager::FileExists("/system/fonts/DroidSansFallback.ttf"))
         availableLanguageID = 0;
     if (SDL_baseInit() != 0) return 1;
+    // PORT: Java's ShowVideoSplash, the logo film the app opens with (not after a restart, which
+    // Android does without a new activity).
+    if (!headless && !std::getenv("RTK_RESTARTED") &&
+        !IntroVideo::Play(win, opt.root + "/Android files/rule-the-kingdom-5-11-multi-android/assets/LOGO.mp4"))
+        return 1;
     if (opt.lang >= 0) languageID = (unsigned)opt.lang;   // (SDL_baseInit: "--lang=")
     // (CMyServer::Init / NET_Registration, Bonus::Init, PlayerProfileManager::Init, ToS::Init: online)
     LoadSampling::LoadStep(2);
@@ -1212,6 +1218,7 @@ int RepeatedMain() {
 int main(int argc, char** argv) {
     opt = Parse(argc, argv);
     headless = !opt.screenshot.empty();
+    if (!headless) Game::loadScreenSeconds = 4.0;   // PORT: see Game.h
     traceInput = std::getenv("RTK_TRACE_INPUT") != nullptr;
     if (!RegisterSources(opt.root)) return 1;
     // PORT: the storage folder is the user's application support folder (Android: the app's files).
@@ -1230,6 +1237,7 @@ int main(int argc, char** argv) {
     done = false;
     GameState::ResetGamePauseState();
     if (restart) {
+        setenv("RTK_RESTARTED", "1", 1);   // (no intro film again)
         SDL_Process* next = SDL_CreateProcess(argv, false);
         if (!next) std::fprintf(stderr, "restart failed: %s\n", SDL_GetError());
         SDL_Quit();

@@ -2,6 +2,8 @@
 #include "hud/HUD.h"
 #include "game/Game.h"
 
+#include <SDL3/SDL.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -163,10 +165,26 @@ void Game::InitLoadProgress() {
     g_loadGlow.strength = 5.f;
 }
 
+double Game::loadScreenSeconds = 0.0;
+
 void Game::ShowLoadProgress(const char* letter, double progress) {
     std::u32string t(letter, letter + std::strlen(letter));
     g_loadText = Render::CreateText(g_loadFont, t.c_str(), 0.f, 0.f, 0.f, 1, true, &g_loadGlow, g_loadText,
                                     Render::kLayerGUI);
+    // PORT: the bar glides from where it was to `progress` at loadScreenSeconds per full bar.
+    static double shown = 0.0;
+    if (loadScreenSeconds > 0.0 && progress > shown) {
+        double last = Timer::GetTime();
+        while (shown < progress) {
+            SDL_Delay(16);
+            const double now = Timer::GetTime();
+            shown = std::min(progress, shown + (now - last) / loadScreenSeconds);
+            last = now;
+            SDL_PumpEvents();   // keeps the window responsive
+            Render::UpdateProgress(shown, g_loadText, false, 0.2f);
+        }
+    }
+    shown = std::max(shown, progress);
     Render::UpdateProgress(progress, g_loadText, false, 0.2f);
 }
 

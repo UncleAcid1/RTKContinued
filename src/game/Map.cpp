@@ -7,6 +7,8 @@
 #include "game/Map.h"
 #include "game/Notifications.h"
 
+#include <SDL3/SDL.h>
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -2172,6 +2174,21 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     // The loading screen only shows when the switch starts from the open world map (drawn twice
     // first, the world map still up).
     if (!GlobalMapWindow::IsVisible()) g_loadScreen = false;
+    // PORT (user's request 2026-10-26): with Game::loadScreenSeconds set, every map switch in play
+    // shows the card, over a still of the last frame when the world map is not up, and it stays at
+    // least that long (below).
+    const double loadStart = Timer::GetTime();
+    Render::Texture* stillTex = nullptr;
+    Render::Sprite* still = nullptr;
+    if (gameLoaded && !g_loadScreen && Game::loadScreenSeconds > 0.0) {
+        Render::Frame();
+        stillTex = Render::CreateScreenTexture();
+        still = Render::CreateSprite(stillTex, Render::kLayerGUI, false, false);
+        still->screenSpace = true;
+        Render::SetPosition(still, 0.f, (float)GUI::ScreenHeight(), 10.f);   // under every window
+        Render::SortRenderLayer(Render::kLayerGUI, 1);
+        g_loadScreen = true;
+    }
     if (gameLoaded && g_loadScreen) {
         Render::Update();
         Render::Update();
@@ -2464,11 +2481,27 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     AllowDecorationVisibilityUpdate(true);
     Update(0.0);
     if (gameLoaded) {
+        if (g_loadScreen && Game::loadScreenSeconds > 0.0) {
+            // PORT: the card stays up (its cogs turning) until loadScreenSeconds have passed.
+            double last = Timer::GetTime();
+            while (last - loadStart < Game::loadScreenSeconds) {
+                SDL_Delay(16);
+                SDL_PumpEvents();
+                const double now = Timer::GetTime();
+                Render::UpdateAnimatedSprites((float)(now - last));
+                last = now;
+                Render::Update();
+            }
+        }
         Render::minLayer = 0;
         if (g_loadScreen) {
             Render::Update();
             LoadingScreenWindow::Hide();
         }
+    }
+    if (still) {
+        Render::RemoveSprite(still);
+        Render::RemoveTexture(stillTex);
     }
     g_loadScreen = true;
     if (GameState::tutorial == 9) {
