@@ -42,7 +42,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_PREFIX_PATH="$PWD/sdl-install"
-          cmake --build build
+          cmake --build build -- -k 0
       - name: Package
         run: |
           export LD_LIBRARY_PATH="$PWD/sdl-install/lib"
@@ -76,7 +76,7 @@ jobs:
       - name: Build
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/sdl-install"
-          cmake --build build
+          cmake --build build -- -k 0
       - name: Package
         run: |
           export PATH="$PWD/sdl-install/bin:$PATH"

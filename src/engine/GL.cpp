@@ -1,6 +1,8 @@
 #include "engine/GL.h"
 
 #if !defined(__APPLE__)
+#include <SDL3/SDL_video.h>
+
 #include <cstdio>
 
 #define RTK_GL_DEFINE(type, name) type rtk_##name = nullptr;
