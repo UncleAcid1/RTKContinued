@@ -284,6 +284,7 @@ template <class T, class... A> T* GetWindowTypedF(Window* root, const char* fmt,
 
 // Screen configuration (set by SDL_baseInit @0x18b1e0 from the device screen).
 void SetScreenSize(int w, int h);
+void ResizeScreen(int w, int h);   // the window's new size (main_Loop_Func's resize event)
 int ScreenWidth();
 int ScreenHeight();
 bool IsTabletVersion();                                            // @0x176698

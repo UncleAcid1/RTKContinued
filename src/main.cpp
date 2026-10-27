@@ -719,6 +719,19 @@ void AfterEvents(double frameDt) {
     }
 }
 
+// SDL_WINDOWEVENT_RESIZED (main_Loop_Func): new screen size, aspect, default zoom, Render::Resize,
+// then the windows' depths (and places) again from the queue's head. PORT: Render::Init takes the
+// new size (the GL viewport; on Android the surface keeps its size).
+void WindowResized() {
+    SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
+    Render::Init(fbw, fbh);
+    GUI::ResizeScreen(fbw, fbh);
+    Render::aspect = (float)fbw / (float)fbh;
+    Render::zoom = Render::GetDefaultZoom();
+    Render::Resize(fbw, fbh);
+    if (WindowManager::Head()) WindowManager::Head()->MoveWindowOnTop(true);
+}
+
 // PORT test aid (--screenshot): the frames and inputs of a run without a window, then the picture.
 int RunHeadless() {
     const float dt = 1.f / 30.f;
@@ -1341,15 +1354,7 @@ bool main_Loop_Func() {
                 DisplayOptions::OnFullscreen(e.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN);
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-                // SDL_WINDOWEVENT_RESIZED: new screen size, aspect, default zoom, Render::Resize, then the
-                // windows' depths again from the queue's head. PORT: Render::Init takes the new size
-                // (the GL viewport; on Android the surface keeps its size).
-                SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
-                Render::Init(fbw, fbh);
-                Render::aspect = (float)fbw / (float)fbh;
-                Render::zoom = Render::GetDefaultZoom();
-                Render::Resize(fbw, fbh);
-                if (WindowManager::Head()) WindowManager::Head()->MoveWindowOnTop(true);
+                WindowResized();
                 break;
             default: break;
         }

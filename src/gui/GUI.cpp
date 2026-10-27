@@ -2,6 +2,7 @@
 
 #include <pugixml.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -90,6 +91,18 @@ std::vector<ActionSound*> g_actionSounds;   // 0x612228 (SetActionSound)
 // ---------------------------------------------------------------------------------------------
 // Screen configuration
 
+namespace {
+float g_designBaseZoom = 1.f;   // PORT: the base zoom SetScreenSize chose for the first size
+
+// PORT: the world is drawn at a fixed size per screen pixel (GetDefaultZoom), so a desktop window
+// far larger than the phones and tablets 5.11 ran on showed much more of the map. The base zoom
+// grows so the view is never wider or taller than on the largest of them (2560x1600 at base zoom
+// 1.5: 1707 x 1067 world pixels); smaller screens keep the original's choice.
+float FitBaseZoom(int w, int h) {
+    return std::max({g_designBaseZoom, (float)w / (2560.f / 1.5f), (float)h / (1600.f / 1.5f)});
+}
+}  // namespace
+
 // The Android path of SDL_baseInit (no command-line switches): flags and scale factors from the
 // device screen size in pixels. The original then creates the window at that size.
 void SetScreenSize(int w, int h) {
@@ -113,6 +126,16 @@ void SetScreenSize(int w, int h) {
         SetHudHighDPIScaleFactor(1.6f);
         Render::SetForceLinear(true);
     }
+    g_designBaseZoom = Render::GetBaseZoomFactor();
+    Render::SetBaseZoomFactor(FitBaseZoom(w, h));
+}
+
+// main_Loop_Func's resize event: SCREEN_WIDTH / SCREEN_HEIGHT take the new size (the windows place
+// themselves by it again in their SetZ, from MoveWindowOnTop). PORT: and the base zoom is fitted.
+void ResizeScreen(int w, int h) {
+    g_screenW = w;
+    g_screenH = h;
+    Render::SetBaseZoomFactor(FitBaseZoom(w, h));
 }
 int ScreenWidth() { return g_screenW; }
 int ScreenHeight() { return g_screenH; }
