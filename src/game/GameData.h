@@ -92,7 +92,7 @@ struct BuildingData {            // BuildingData, 0x1b4 bytes
     int tab = 0, subtab = 0;     // +0x24, +0x28
     int visid = 0;               // +0x2c
     bool buy = false;            // +0x30
-    bool giveable = false;       // +0x31 (set by ChangeBuildingAttribute; UNVERIFIED: its "giveable" is not read from the file yet)
+    bool giveable = false;       // +0x31 (only ChangeBuildingAttribute's "giveable" sets it: the building list has none)
     int collectTime = 0;         // +0x34 "collecttime"
     int collectMoney = 0;        // +0x38 "collectmoney"
     unsigned gold = 0;           // +0x44

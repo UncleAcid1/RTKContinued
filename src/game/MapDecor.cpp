@@ -88,8 +88,7 @@ bool Decor::HasEntity(const Entity* e) const {
 
 // @0x130be8 Map::Decor::FindBaseCoordinates
 void Decor::FindBaseCoordinates() {
-    // UNVERIFIED: an id that is a building's uses that building's data here (GetData gives null).
-    if (!GetData()) return;
+    if (!GetData()) return;   // (no decoration data: see GetData)
     float X, Y;
     GetBasePoint(X, Y);
     baseX = minX = maxX = X;

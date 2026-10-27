@@ -94,8 +94,10 @@ struct Decor {
     void OnTaskCompleted(uint32_t task);             // +0x38 @0x138ae4
     void OnSubTaskCompleted(uint32_t subtask);       // +0x3c @0x138430
     void OnInteract(uint32_t object);                // +0x40 @0x1341d4
-    // @0x131234: the data of `id`, looked up on first use. UNVERIFIED: an id that is a building's
-    // (the original then looks it up and drops it) gives null.
+    // @0x131234: the data of `id`, looked up on first use. The original returns a building's data
+    // (not kept) for an id that is a building's, which FindBaseCoordinates and UpdateImage then use.
+    // PORT: null; no decoration in 5.11's 131 map files has a building's id (checked 2026-10-27), and
+    // LoadBuidings' stand-ins take decoration data.
     const GameData::DecorData* GetData() const;
     // @0x13120c: its data's icon_y (without data, that of a building with its id; else 0).
     int GetIconOffsetY() const;

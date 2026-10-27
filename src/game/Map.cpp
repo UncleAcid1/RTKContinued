@@ -275,17 +275,31 @@ void LoadBuilding(Patch* p, SaveManager::SaveBlock* block) {
             return;
         }
         std::printf("Map::LoadBuidings() Replacing building (ID: %d) with a decoration\n", b->id);
-        // UNVERIFIED: the decoration also takes the building's timer and resources.
+        // The decoration takes the building's place, timer, counters, resources and expression.
         auto dec = std::make_unique<Decor>();
-        dec->SetMeta(b->metaText);   // (the building's expression moves to it)
         dec->patch = p;
+        dec->data = dd;
+        dec->hp = dec->hpMax = dd->hp;
         dec->x = b->x;
         dec->y = b->y;
         dec->id = b->id;
-        dec->data = dd;
         dec->mirrored = b->mirrored;
+        dec->collectStart = b->stateTime;
+        dec->f4c = b->f10c;
+        dec->f50 = b->f110;
+        dec->f54 = b->f114;
+        dec->resourceText = std::move(b->resourceText);
+        if (!dec->resourceText.empty())
+            for (const std::string& part : SplitterParse(dec->resourceText.c_str(), "|")) {
+                std::vector<std::string> kv = SplitterParse(part.c_str(), "=");
+                // PORT: as LoadDecors, a part without '=' or of an unknown type is skipped.
+                int type = GameState::StringToResourceType(kv[0].c_str());
+                if (kv.size() > 1 && type >= 0 && type < 11) dec->cost[type] = atoi(kv[1].c_str());
+            }
+        dec->SetMeta(b->metaText);   // (the building's expression moves to it)
         dec->UpdateImage();
         dec->UpdateMapLink();
+        if (dec->meta || dec->f4c != 0 || dec->hp > 0) BuildingHovers::RegisterDecoration(dec.get());
         p->decors.push_back(std::move(dec));
         return;
     }
@@ -473,7 +487,7 @@ void Decor::UpdateMapLink() {
 void Decor::UpdateImage() {
     Decor* d = this;
     if (d->sprite) { Render::RemoveSprite(d->sprite); d->sprite = nullptr; }
-    if (!d->GetData()) return;  // UNVERIFIED: decor ids that resolve to buildings (else-branch) not ported
+    if (!d->GetData()) return;  // (no decoration data: see Decor::GetData)
     Render::Texture* tex = GameData::DecorImage(d->data);
     if (!tex) {
         // A missing picture: the placeholder on the tile (layer 8, or 3 for a flat decoration).
@@ -493,9 +507,9 @@ void Decor::UpdateImage() {
     float X, Y;
     d->GetBasePoint(X, Y);
     float half = s->w * 0.5f;
-    // UNVERIFIED: GetSpriteZ's third argument (r2) is not set by this caller; it only adds a
-    // (c % 5) / 10000 tie-break. Passed as 0.
-    float z = GetSpriteZ(wy, half, 0);
+    // (GetSpriteZ's third argument is the decoration's x, still in r2 from the position: a
+    // (x % 5) / 10000 tie-break.)
+    float z = GetSpriteZ(wy, half, d->x);
     Render::SetPosition(s, X - (float)(int)half, Y, z);
     if (tex->frames > 0) {   // an animation sheet: its controller starts over
         tex->frameTime = D.frameTime;
@@ -1330,7 +1344,7 @@ std::unique_ptr<Patch> PatchFromArea(const GameState::AreaInfo& a) {
     p->infoId = a.id;
     p->x = a.x; p->y = a.y; p->w = a.w; p->h = a.h;
     p->price = a.c;
-    p->buyable = a.a;   // UNVERIFIED: "a" mapped to Patch+0xa8 (used by UpdateAreaBorders)
+    p->buyable = a.a;   // Patch+0xa8 = AreaInfo+0xa8 "a" (the copy; UpdateAreaBorders reads it)
     return p;
 }
 
@@ -1600,8 +1614,7 @@ void UpdateRoadConnections(int x0, int y0, int x1, int y1) {
     }
 }
 
-// UNVERIFIED: both read the farm's own grid (0x613794) while the current location is the farm;
-// the farm is not ported yet.
+// Both read the farm's own grid (0x613794) while the current location is the farm.
 bool GetBlock(int x, int y) {
     if (GameState::GetCurrentLocation() == 1) {
         if ((unsigned)x >= (unsigned)kFarmGridW || (unsigned)y >= (unsigned)kFarmGridH || g_farmBlocks.empty())
@@ -1698,7 +1711,9 @@ void PrepareImages() {
         "images/Effects/clouds/cloud_no_shad_003", "images/Effects/clouds/cloud_small_001",
         "images/Effects/clouds/cloud_small_002",   "images/Effects/clouds/cloud_small_003"};
     for (int i = 0; i < 6; ++i) g_cloudTex[i] = Resources::GetImage(kClouds[i]);
-    // UNVERIFIED: each cloud texture's byte +0x28 is cleared; the port's Texture has no such field.
+    // (Each cloud texture's byte +0x28 is cleared. PORT: Render::CreateTextureReserved sets it and
+    // BuildingHovers::RestoreTextures (Android's lost GL context) sets it again; nothing in 5.11 reads
+    // it, and the port's Texture has no such field.)
 }
 
 // (Map::Load) twelve clouds on layer 11 at random spots above the map.

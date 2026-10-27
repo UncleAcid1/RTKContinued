@@ -795,7 +795,8 @@ int SDL_baseInit() {
     if (!win) { std::fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); return 1; }
     gl = SDL_GL_CreateContext(win);
     if (!gl) { std::fprintf(stderr, "GL context: %s\n", SDL_GetError()); return 1; }
-    SDL_GL_SetSwapInterval(1);
+    // PORT: vsync, except in headless runs (a hidden window's swap can wait for a display that sleeps).
+    SDL_GL_SetSwapInterval(headless ? 0 : 1);
     SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
     if (!Render::Init(fbw, fbh)) return 1;
