@@ -296,6 +296,7 @@ bool headless = false;
 int lastX = 0x96, lastY = 0x96;   // 0x60ef50: the previous pointer position
 bool held = false;                // 0x6122ec: a button is down
 float longTapTime = 0.f;          // 0x6122f0: seconds since the press or release
+float wheelSum = 0.f;             // PORT: the trackpad's scroll fractions
 bool longTapStarted = false;      // 0x6122f4: GUI::OnLongTapStart ran for this press
 // Game::mActionToDo / mActionValue: a request to open a screen, set by CommonSetAction (Java's
 // mcAddAction, coupons, server flags, blog commands). Nothing sets it offline, so the switch in
@@ -385,7 +386,9 @@ void Tick(float dt) {
     WindowManager::DestroyPendingWindows();
 }
 
-// Mouse input as in Game::main_Loop_Func. Not ported (UNVERIFIED, milestone 7: trackpad pinch): the touch/pinch path (Game::touchDown). Left out:
+// Mouse input as in Game::main_Loop_Func. The two-finger path (Game::touchDown, the fingers list):
+// its pinch is the trackpad's (Pinch below); its two-finger pan is the trackpad's scroll, which SDL
+// sends as the wheel (it zooms, as the mouse wheel). Left out:
 // EditorConsole::IsVisible / Click / Move / OnScroll* and Editor::OnMouseOver (the admin mode, dead in 5.11: never shown).
 void MouseDown(int x, int y, bool left) {
     longTapTime = 0.f;
@@ -523,6 +526,14 @@ void Wheel(int amount) {
     if (amount > 0) Render::zoom = Render::zoom * 1.1f;
     if (amount < 0) Render::zoom = Render::zoom / 1.1f;
     Render::ApplyViewportLimit();
+}
+
+// The two-finger pinch: with no farm and no window shown (and no LoadingInternetWindow: online) the
+// zoom changes by the fingers' distance, zoom / (last distance / distance), with no viewport limit.
+// PORT: the trackpad's pinch (SDL's scale is distance / last distance).
+void Pinch(float scale) {
+    if (scale <= 0.f || Map::GetCurrentFarm() || WindowManager::GetShownWindowCount() != 0) return;
+    Render::zoom = Render::zoom / (1.f / scale);
 }
 
 // Key presses (SDL_KEYDOWN in main_Loop_Func, by scancode). While a text field is edited they go
@@ -1193,7 +1204,7 @@ bool main_Loop_Func() {
                 // The app's pause (Java sets createAutosave and paused; desktop systems do not send
                 // this event, the exit saves): outside the city tutorial the drops are collected,
                 // the edit modes closed, the game saved and the reminders handed to the system
-                // (Notifications; the OS side is milestone 7).
+                // (Notifications; the OS side: SystemNotifications, 7d).
                 if (!forceExitNoSave && !GameState::IsCityTutorial()) {
                     TaskCompleteWindow::Hide();
                     BuildingHovers::CollectAll();
@@ -1212,8 +1223,12 @@ bool main_Loop_Func() {
                 paused = false;   // SDLMain.mcPauseEvent(0)
                 break;
             case SDL_EVENT_KEY_DOWN:
-                // PORT aids: Esc quits (not while typing), F12 saves a screenshot.
-                if (e.key.key == SDLK_ESCAPE && !TextInput::enabled) done = true;
+                // PORT: Esc is the desktop's Back key (Android's: the top window closes, else the exit
+                // question); not while typing. F12 saves a screenshot (an aid).
+                if (e.key.key == SDLK_ESCAPE) {
+                    if (!TextInput::enabled) KeyDown(SDL_SCANCODE_AC_BACK);
+                    break;
+                }
                 if (e.key.key == SDLK_F12) Render::SaveScreenshot((FileManager::GetPicturesPath() + "rtk_screenshot.png").c_str());
                 // PORT: the display options' keys (DisplayOptions).
                 if (!e.key.repeat) {
@@ -1246,7 +1261,18 @@ bool main_Loop_Func() {
                 break;
             }
             case SDL_EVENT_MOUSE_WHEEL:
-                Wheel(e.wheel.y > 0 ? 1 : (e.wheel.y < 0 ? -1 : 0));
+                // PORT: a trackpad scrolls in small fractions: they add up to whole steps (a mouse's
+                // notches are whole: one step each, as before).
+                if (e.wheel.y != std::floor(e.wheel.y)) {
+                    wheelSum += e.wheel.y;
+                    for (; wheelSum >= 1.f; wheelSum -= 1.f) Wheel(1);
+                    for (; wheelSum <= -1.f; wheelSum += 1.f) Wheel(-1);
+                } else {
+                    Wheel(e.wheel.y > 0 ? 1 : (e.wheel.y < 0 ? -1 : 0));
+                }
+                break;
+            case SDL_EVENT_PINCH_UPDATE:
+                Pinch(e.pinch.scale);
                 break;
             case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
             case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:

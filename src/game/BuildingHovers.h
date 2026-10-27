@@ -78,6 +78,7 @@ void ShowWorldDialog(Entity* e, const char32_t* text, uint32_t task, bool arrow,
 void HideWorldDialog(Entity* e);            // @0x263a6c e's dialog (any when nullptr) closes
 void HideWorldDialogByTask(uint32_t task);  // @0x263a1c
 void FollowEntity(Entity* e);               // @0x2631fc the last arrow follows e
+bool OnBack();                              // @0x2635c0
 bool IsHoverVisible();                      // @0x263320
 void ScheduleUpdate();                      // @0x2630a4
 void AddDeliveryContractToFinishOnLastItem(unsigned id);   // @0x263164

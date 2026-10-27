@@ -265,7 +265,7 @@ void Init() {
     g_farmRestoreWindow = new FarmRestoreWindow();
     g_decorationWindow = new DecorationHoverWindow();
     g_worldDialog = new WorldHintHoverWindow();
-    // UNVERIFIED (milestone 7, the Back key): the queue's back function becomes BuildingHovers::OnBack.
+    Queue()->fn.back = OnBack;   // (the Back key)
 }
 
 // ---- the helper arrow ----
@@ -626,6 +626,17 @@ void Hide() {
     g_currentHover->Hide();
     if (WindowManager::GetShownWindowCount() == 0 && !IsWorldDialogVisible()) HUDWindow::Show();
     g_currentHover = nullptr;
+}
+
+// @0x2635c0: the Back key closes the tapped building's info window (unlike Hide, whether or not it
+// is shown, and without bringing the HUD back).
+bool OnBack() {
+    if (!g_currentHover) return false;
+    WindowManager::WindowHide(false);
+    g_wnd->shown = false;
+    g_currentHover->Hide();
+    g_currentHover = nullptr;
+    return true;
 }
 
 bool IsHoverVisible() { return g_currentHover && g_currentHover->shownHover; }

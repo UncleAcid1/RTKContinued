@@ -138,7 +138,15 @@ void SetSetting_String(const char* key, const char* value, const char* file) {
     SaveSettings();
 }
 
-std::string getGUID() { return std::string(); }
+std::string getGUID() {
+    std::string id = GetSetting_String("guid", "", "port");
+    if (id.empty()) {
+        static const char kHex[] = "0123456789abcdef";
+        for (int i = 0; i < 16; ++i) id += kHex[SDL_rand(16)];
+        SetSetting_String("guid", id.c_str(), "port");
+    }
+    return id;
+}
 std::string getSID() { return std::string(); }
 
 uint8_t* GZIP_Compress(const void* data, uint32_t& size) {
