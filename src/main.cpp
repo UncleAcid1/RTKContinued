@@ -21,6 +21,8 @@
 //                                    it_IT fr_FR ko_KR ja_JA)
 //            [--system-lang N]               (PORT test aid: the system's language id, 0..8)
 //            [--empty_strings]               (the original's switch: empty texts show their key)
+//            [--fps N] [--fullscreen | --windowed]   (PORT: the display options for this run, see
+//                                    DisplayOptions below)
 #include <SDL3/SDL.h>
 #include <OpenGL/gl3.h>
 
@@ -120,6 +122,8 @@ struct Options {
     bool quit = false;           // PORT test aid: a headless run ends through main_Exit_Func
     int lang = -1;               // "--lang=": the language id (SDL_baseInit)
     int systemLang = -1;         // PORT test aid: the system's language id
+    int fps = -1;                // --fps: the frame-rate cap for this run (0: the display's rate)
+    int fullscreen = -1;         // --fullscreen 1 / --windowed 0 for this run
 };
 
 Options Parse(int argc, char** argv) {
@@ -167,6 +171,9 @@ Options Parse(int argc, char** argv) {
         else if (a == "--save") o.save = true;
         else if (a == "--quit") o.quit = true;
         else if (a == "--system-lang") o.systemLang = std::atoi(next());
+        else if (a == "--fps") o.fps = std::atoi(next());
+        else if (a == "--fullscreen") o.fullscreen = 1;
+        else if (a == "--windowed") o.fullscreen = 0;
         else if (a == "--empty_strings") StringTable::SetEmptyNameReplacement();   // (SDL_baseInit)
         else if (a.rfind("--lang=", 0) == 0) {
             // SDL_baseInit (0x18b1e0): the language by locale name
@@ -707,6 +714,53 @@ int RunHeadless() {
     return ok ? 0 : 1;
 }
 
+// PORT (user 2026-10-18): the desktop's display options, kept in settings.txt (file "port"). The
+// frame-rate cap ("fps_cap": 30, 60 or 0 for the display's rate; 60 by default, the phones' rate:
+// the port otherwise runs at the display's 120 Hz) waits after the buffer swap; on a display of the
+// cap's rate or slower vsync alone paces the frames. "fullscreen" is the window's state. F10 cycles
+// the cap; F11, Cmd+Ctrl+F or Alt+Enter switch fullscreen (as the window's green button does).
+// Headless test runs are never capped and never fullscreen.
+namespace DisplayOptions {
+int fpsCap = 60;
+uint64_t nextFrame = 0;   // SDL_GetTicksNS of the next capped frame
+
+void Load() {
+    fpsCap = opt.fps >= 0 ? opt.fps : SystemFuncs::GetSetting_Int("fps_cap", 60, "port");
+}
+
+void Present() {
+    SDL_GL_SwapWindow(win);
+    if (headless || fpsCap <= 0) return;
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(win));
+    if (mode && mode->refresh_rate > 0.f && mode->refresh_rate <= (float)fpsCap + 1.f) return;
+    const uint64_t period = 1000000000ull / (uint64_t)fpsCap;
+    const uint64_t now = SDL_GetTicksNS();
+    if (now < nextFrame) {
+        SDL_DelayPrecise(nextFrame - now);
+        nextFrame += period;
+    } else if (now - nextFrame < period) {
+        nextFrame += period;   // a little late: keep the rhythm
+    } else {
+        nextFrame = now + period;
+    }
+}
+
+void CycleCap() {
+    fpsCap = fpsCap == 30 ? 60 : (fpsCap == 60 ? 0 : 30);
+    SystemFuncs::SetSetting_Int("fps_cap", fpsCap, "port");
+    std::printf("frame-rate cap: %s\n", fpsCap ? std::to_string(fpsCap).c_str() : "the display's rate");
+}
+
+void ToggleFullscreen() {
+    SDL_SetWindowFullscreen(win, (SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN) == 0);
+}
+
+// The window entered or left fullscreen (a key, the green button or the system).
+void OnFullscreen(bool on) {
+    if (!headless) SystemFuncs::SetSetting_Bool("fullscreen", on, "port");
+}
+}  // namespace DisplayOptions
+
 // The platform start (SDL_baseInit 0x18b1e0, whose command line is read by Parse): SDL, the
 // window and its GL context, the renderer and the fonts. PORT: SDL3 and desktop OpenGL; the
 // device's screen is the window's framebuffer.
@@ -734,7 +788,10 @@ int SDL_baseInit() {
     SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
     if (!Render::Init(fbw, fbh)) return 1;
-    Render::presentHook = [] { SDL_GL_SwapWindow(win); };   // Render::Update's buffer swap
+    Render::presentHook = DisplayOptions::Present;   // Render::Update's buffer swap
+    DisplayOptions::Load();
+    if (!headless && (opt.fullscreen >= 0 ? opt.fullscreen != 0 : SystemFuncs::GetSetting_Bool("fullscreen", false, "port")))
+        SDL_SetWindowFullscreen(win, true);
     Render::aspect = (float)fbw / (float)fbh;
     // The device screen decides the UI configuration; the port's "device screen" is the window's
     // framebuffer in pixels.
@@ -1157,6 +1214,16 @@ bool main_Loop_Func() {
                 // PORT aids: Esc quits (not while typing), F12 saves a screenshot.
                 if (e.key.key == SDLK_ESCAPE && !TextInput::enabled) done = true;
                 if (e.key.key == SDLK_F12) Render::SaveScreenshot("rtk_screenshot.png");
+                // PORT: the display options' keys (DisplayOptions).
+                if (!e.key.repeat) {
+                    if (e.key.key == SDLK_F10) { DisplayOptions::CycleCap(); break; }
+                    if (e.key.key == SDLK_F11 ||
+                        (e.key.key == SDLK_F && (e.key.mod & SDL_KMOD_GUI) && (e.key.mod & SDL_KMOD_CTRL)) ||
+                        (e.key.key == SDLK_RETURN && (e.key.mod & SDL_KMOD_ALT))) {
+                        DisplayOptions::ToggleFullscreen();
+                        break;
+                    }
+                }
                 KeyDown(e.key.scancode);
                 break;
             case SDL_EVENT_TEXT_INPUT:
@@ -1179,6 +1246,10 @@ bool main_Loop_Func() {
             }
             case SDL_EVENT_MOUSE_WHEEL:
                 Wheel(e.wheel.y > 0 ? 1 : (e.wheel.y < 0 ? -1 : 0));
+                break;
+            case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
+            case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+                DisplayOptions::OnFullscreen(e.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN);
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 // SDL_WINDOWEVENT_RESIZED: new screen size, aspect, default zoom, Render::Resize, then the
@@ -1207,7 +1278,7 @@ bool main_Loop_Func() {
         SoundsManager::Update((float)dt);
         Tick((float)(dt * (double)HUDWindow::GetDeltaTimeMultiplier()));
         Render::Frame();
-        SDL_GL_SwapWindow(win);
+        DisplayOptions::Present();
     }
     // (FileManager::DebugUpdate)
     return true;
