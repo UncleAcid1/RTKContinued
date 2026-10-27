@@ -26,6 +26,7 @@ add_subdirectory(third_party)   # FreeType 2.4.5 + SDL_ttf 2.0.11, the versions 
 
 add_executable(rtk
   src/main.cpp
+  src/engine/ErrorReporter.cpp
   src/engine/FileManager.cpp
   src/engine/SystemFuncs.cpp
   src/engine/Timer.cpp
@@ -42,7 +43,8 @@ add_executable(rtk
   src/game/Map.cpp
   src/game/BossIntroEffect.cpp
   src/game/Fog.cpp
-    src/game/Locations.cpp
+    src/game/LoadSampling.cpp
+  src/game/Locations.cpp
     src/game/Notifications.cpp
     src/game/Spells.cpp
     src/game/SpellMovement.cpp

@@ -30,6 +30,8 @@ bool RegisterWin8Fallback(const std::string& assetsDir);        // PORT: fallbac
 
 // Queries (original API)
 bool FileExists(const char* name);                                              // @0x16d0ec
+// @0x16bb1c: a start-up load step for Java's load-time sampling. PORT: no platform side, nothing.
+inline void LoadStep(int) {}
 bool GetFileInfo(const char* name, int& w, int& h, unsigned& bpp, bool quiet);  // @0x16b0d8
 // Returns a malloc'd, NUL-terminated buffer (size excludes the NUL) or nullptr.
 // Payloads flagged as gzip (flags & 1) are inflated, as in LoadFile @0x172ff0.

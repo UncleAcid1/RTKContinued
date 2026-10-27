@@ -3,10 +3,13 @@
 #include "game/Game.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "engine/FileManager.h"
 #include "engine/IconManager.h"
+#include "engine/Render.h"
 #include "engine/SystemFuncs.h"
+#include "engine/Text.h"
 #include "engine/Timer.h"
 #include "game/BuildingHovers.h"
 #include "game/BuildingMovement.h"
@@ -14,6 +17,7 @@
 #include "game/Entity.h"
 #include "game/EntityData.h"
 #include "game/GameState.h"
+#include "game/LoadSampling.h"
 #include "game/EntityManager.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
@@ -143,27 +147,53 @@ void LoadFromActivePacks(const char* file, F load) {
 }
 }  // namespace
 
+namespace {
+Render::Font* g_loadFont = nullptr;     // 0x612388
+Render::Sprite* g_loadText = nullptr;   // 0x612384
+Render::GlowFilter g_loadGlow;          // 0x61238c
+}  // namespace
+
+void Game::InitLoadProgress() {
+    g_loadFont = Render::CreateFont("fonts/ARICYRB.ttf", 0x14);
+    g_loadText = nullptr;
+    g_loadGlow = Render::GlowFilter();   // GlowFilter(1, 1, 1, 2, 5, 0, 0) @0x1fae08
+    g_loadGlow.r = g_loadGlow.g = g_loadGlow.b = 1.f;
+    g_loadGlow.blur = 2;
+    g_loadGlow.strength = 5.f;
+}
+
+void Game::ShowLoadProgress(const char* letter, double progress) {
+    std::u32string t(letter, letter + std::strlen(letter));
+    g_loadText = Render::CreateText(g_loadFont, t.c_str(), 0.f, 0.f, 0.f, 1, true, &g_loadGlow, g_loadText,
+                                    Render::kLayerGUI);
+    Render::UpdateProgress(progress, g_loadText, false, 0.2f);
+}
+
+void Game::HideLoadProgress() {
+    g_loadText = Render::RemoveSprite(g_loadText);
+    Render::HideProgress();
+}
+
 // @0x18c080 Game::LoadLanguageTable
 bool Game::LoadLanguageTable(const char* file, const char* letter, double progress) {
-    // (Render::CreateText(loadFont, letter) and Render::UpdateProgress(progress): the loading
-    // screen, milestone 7)
-    (void)letter;
-    (void)progress;
+    ShowLoadProgress(letter, progress);
     if (!StringTable::Init((std::string(kDataFolder) + file).c_str(), false, false)) return false;
     LoadFromActivePacks(file, [](const char* path) { StringTable::Init(path, false, false); });
     return true;
 }
 
-// @0x18cc4c Game::LoadSystemConfiguration
+// @0x18cc4c Game::LoadSystemConfiguration. PORT: the steps reach only Java's load sampling
+// (FileManager::LoadStep), so the failure / success order of the two is not followed closely.
 bool Game::LoadSystemConfiguration(bool (*loader)(const char*), const char* file, const char* letter,
                                    const char* name, double progress, unsigned failStep, unsigned okStep) {
-    (void)letter;
     (void)name;
-    (void)progress;
-    (void)failStep;   // (LoadSampling::LoadStep, when not 0)
-    (void)okStep;
-    if (!loader((std::string(kDataFolder) + file).c_str())) return false;
+    ShowLoadProgress(letter, progress);
+    if (!loader((std::string(kDataFolder) + file).c_str())) {
+        if (failStep) LoadSampling::LoadStep(failStep);
+        return false;
+    }
     LoadFromActivePacks(file, loader);
+    if (okStep) LoadSampling::LoadStep(okStep);
     return true;
 }
 

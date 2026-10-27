@@ -51,7 +51,14 @@ struct Sprite {                  // 0x68 bytes on the original
 
 bool Init(int screenW, int screenH);        // after a GL context exists
 void Shutdown();
-void EnableTerrainShadowing(bool on);   // @0x1f61e8 (a flag nothing reads in 5.11)
+void EnableTerrainShadowing(bool on);
+// The start-up loading screen: @0x1f9df4 the background, logos and the bar filled to `progress`
+// (0..1) with `text` under it, drawn at once unless noUpdate; @0x1f6740 hides it; @0x1f5cb8 its
+// logos' and bar's scale (1).
+void UpdateProgress(double progress, Sprite* text, bool noUpdate, float z);
+void HideProgress();
+void SetProgressScale(float s);
+void ForceBufferSwap();   // @0x1f79b8   // @0x1f61e8 (a flag nothing reads in 5.11)
 // @0x1f6028 / @0x1f604c: the size of the view in world units.
 float GetScreenViewWidth();
 float GetScreenViewHeight();

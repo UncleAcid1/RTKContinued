@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/ErrorReporter.h"
 #include "engine/FileManager.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -61,6 +62,7 @@
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/GameState.h"
+#include "game/LoadSampling.h"
 #include "game/PvP.h"
 #include "game/PvPServer.h"
 #include "game/Items.h"
@@ -239,6 +241,7 @@ const char* QueueName(WindowManager::WindowQueue* q) {
 // camera step (the CenterOn glide and ApplyViewportLimit), UpdateTagState, UpdatePaymentItems and
 // DestroyPendingWindows; its drawing is Render::Frame.
 void Tick(float dt) {
+    ErrorReporter::Update(dt);
     PvPServer::Update();   // PORT: the offline PvP server's replies (the original's network callbacks)
     if (!GameState::IsPaused()) GameState::UpdateHPRegen(dt);
     GameState::Update(dt);
@@ -664,10 +667,12 @@ bool LoadItemPacks(const char* file) { return Items::InitPacks(file); }
 namespace Game {
 
 // @0x18d850 Game::main_Loop_Init. 0: the game is loaded; 1: it could not start.
-// Left out throughout: LoadSampling (load-time analytics) and the loading screen's letters and
-// progress bar (Render::CreateText(loadFont, ...) / UpdateProgress / HideProgress, milestone 7).
+// The loading screen's letter and bar show as the start-up goes (ShowLoadProgress); the load
+// steps go to LoadSampling.
 int main_Loop_Init() {
     splashLoop();
+    LoadSampling::Init();
+    LoadSampling::LoadStep(1);
     SystemFuncs::Init();
     GameState::InitDefaultSettings();
     languageID = (unsigned)SystemFuncs::getCurrentLanguage();
@@ -683,7 +688,12 @@ int main_Loop_Init() {
     if (SDL_baseInit() != 0) return 1;
     if (opt.lang >= 0) languageID = (unsigned)opt.lang;   // (SDL_baseInit: "--lang=")
     // (CMyServer::Init / NET_Registration, Bonus::Init, PlayerProfileManager::Init, ToS::Init: online)
+    LoadSampling::LoadStep(2);
     lastTicks = SDL_GetTicks();   // Game::startTime, Game::time
+    Render::ForceBufferSwap();
+    InitLoadProgress();
+    LoadSampling::LoadStep(3);
+    ShowLoadProgress("L", 0.0);
     // ("fbid" is cleared when not connected to Facebook: online)
     SetSaveNames();
     // (a "last_played_save" other than "offline": SocNets::ChangeLoginFriendsSocNet(0);
@@ -692,9 +702,11 @@ int main_Loop_Init() {
     SoundsManager::SetVolume_Music(SettingsWindow::GetMusicMutedState() ? 0.f : 0.35f);
     SoundsManager::SetVolume_Sounds(SettingsWindow::GetSoundMutedState() ? 0.f : 1.f);
     SoundsManager::SetMusicFadeDelays(1000, 500);
+    LoadSampling::LoadStep(4);
     gMusicName = "music_battle_map";
     turnMusic(true);
     canPlayMusic = true;
+    LoadSampling::LoadStep(5);
     // (WallPost::Init("config/fbwall_mob.xml"): online. Render::CreateAtlas(0, 0x400, 0x800 or, on a
     // slow device, 0x400, 8): the port's renderer has no atlases.)
     if (!LoadLanguageTable("LocalizedStringsEN.xml", "L", 3.0 / 46.0)) return 1;
@@ -775,6 +787,8 @@ int main_Loop_Init() {
     Override::AddParameter(Override::kBuilding, 99, 1, "r_cb_limit", "75");
     Override::Apply(Override::kSetting);
 
+    ShowLoadProgress("L", 3.0 / 46.0);
+    LoadSampling::LoadStep(6);
     // The data files, in the original's order; the ones of later milestones are named in place.
     // (Resources::RegisterResources "files_in_packs_list.xml", 4/46: the port finds a file's pack
     // when it is asked for, see Resources.h)
@@ -894,33 +908,43 @@ int main_Loop_Init() {
     TaskListWindow::Queue();
     TopCityWindow::Queue();
     TutorialWindow::Queue();
+    ShowLoadProgress("L", 0.5);
     TextStyleManager::Init();
+    LoadSampling::LoadStep(0x17);
     // The desktop window last (the bottom of the queue), then every window's Init.
     WindowManager::g_desktopWindow = new WindowManager::DesktopWindow();
     WindowManager::InitWindows();
+    ShowLoadProgress("I", 0.9);
     BuildingPlacement::Init();
     BuildingMovement::Init();
     SpellMovement::Init();
     MapMovement::Init();
+    LoadSampling::LoadStep(0x18);
+    ShowLoadProgress("L", 0.95);
     TutorialSender::SetTimeLimit(20.f);
     SaveManager::Init();
+    LoadSampling::LoadStep(0x19);
     SoldierPool::Init();
     SoldierSlots::Init();
     PvP::Init();
     PvP::ClearPlayerInfo(0xff);
     PvP::CreatePvPTutorialPlayer();
     PvP::CreatePvPTutorialPlayersRandom();
+    LoadSampling::LoadStep(0x19);
     TextInput::enabled = false;
     // (The waits for the server's first answers and for a save being fetched, Bonus::Enqueue: online.)
-    // (Render::SortRenderLayer(0xe, 1) here; the port sorts the GUI layer once the HUD is up.
-    // Background::Init: the port loads the ground textures with the first land. FileManager::
+    // (Background::Init: the port loads the ground textures with the first land. FileManager::
     // SetGameState(1): a state Java reads.)
+    ShowLoadProgress("T", 1.0);
+    Render::SortRenderLayer(Render::kLayerGUI, 1);
     bool corrupt = false;
     SaveManager::Load(nullptr, &corrupt);
+    LoadSampling::LoadStep(0x1a);
     // Walking costs: 50 while the required content packs are not installed (Expansions, online:
     // not enabled), 1.41 otherwise.
     AI::SetWeight(1.41f);
     // (GameState::ResetGameLock, Game::skipGameLoad, profileChosen: the online profile choice)
+    ShowLoadProgress("T", 1.0);   // (the original only draws the bar again, the letter unchanged)
     if (!opt.mapGiven || SaveManager::GetGameStateData()) {
         LoadSavedGame(false);
     } else {
@@ -947,6 +971,7 @@ int main_Loop_Init() {
     Render::SortRenderLayer(Render::kLayerGUI, 1);
     // (LoadingInternetWindow::AllowToShow: online.) The queued start presents (none offline):
     PresentsContainer::UnqueueStartPresents();
+    HideLoadProgress();
     // (The sandbox mode sets tutorial 0x80 / secondTutorial 0x100 here. EditorConsole::Init: the admin mode,
     // dead in 5.11 (port_plan 5w). FileManager::GameLoaded: a call to Java.)
 
@@ -962,6 +987,7 @@ int main_Loop_Init() {
     }
 
     std::printf("main() Game loaded in %f\n", Timer::GetTime());
+    LoadSampling::LoadStep(0x22);
     OnResume();
     pauseTime = 0.f;
     return 0;

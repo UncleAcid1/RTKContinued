@@ -12,8 +12,11 @@
 
 #include "engine/FileManager.h"
 #include "engine/Image.h"
+#include "engine/Resources.h"
 #include "engine/Text.h"
 #include "engine/ViralFeatures.h"
+#include "game/Game.h"
+#include "gui/GUI.h"
 
 namespace Render {
 namespace {
@@ -791,6 +794,100 @@ void (*presentHook)() = nullptr;
 
 void Update() {
     Frame();
+    if (presentHook) presentHook();
+}
+
+// The start-up loading screen (UpdateProgress / HideProgress): the background picture, the two
+// publisher logos and the progress bar, GUI layer, screen space; 0x614014 .. 0x614028.
+namespace {
+Sprite* g_progBg = nullptr;        // +0x40 0x614014
+Sprite* g_progInno = nullptr;      // +0x44 0x614018
+Sprite* g_progGameins = nullptr;   // +0x48 0x61401c
+Sprite* g_progUnused = nullptr;    // +0x4c 0x614020 (nothing sets it in 5.11)
+Sprite* g_progBarOff = nullptr;    // +0x50 0x614024
+Sprite* g_progBarOn = nullptr;     // +0x54 0x614028
+float g_progressScale = 1.f;       // 0x60f034 SetProgressScale
+Sprite* LoadProgressSprite(const char* file, bool flip) {
+    Texture* t = Resources::GetDirectImage(file);
+    return t ? CreateSprite(t, kLayerGUI, false, flip) : nullptr;
+}
+}  // namespace
+
+void SetProgressScale(float s) { g_progressScale = s; }
+
+void UpdateProgress(double progress, Sprite* text, bool noUpdate, float z) {
+    if (::paused) return;
+    const int W = GUI::ScreenWidth(), H = GUI::ScreenHeight();
+    if (!g_progBg) g_progBg = LoadProgressSprite(H < 400 ? "images/loading_image_mobile_small.jpg"
+                                                         : "images/loading_image_mobile.jpg", false);
+    if (Sprite* s = g_progBg) {
+        // The picture fills the height, centred.
+        s->screenSpace = true;
+        SetMagnifyFilter(s->tex, false);
+        const float th = (float)s->tex->h, tw = (float)s->tex->w;
+        const float k = (float)H / th;
+        SetPosition(s, ((float)W - tw * k) * 0.5f, th * k + ((float)H - th * k) * 0.5f, z);
+        s->h = th * k;
+        s->w = tw * k;
+    }
+    if (!g_progGameins) g_progGameins = LoadProgressSprite("images/gameins.png", false);
+    if (Sprite* s = g_progGameins) {   // bottom left
+        s->screenSpace = true;
+        const float k = H < 400 ? (float)H / 400.f : g_progressScale;
+        SetPosition(s, 14.f, k * (float)s->tex->h + 14.f, z - 0.001f);
+        s->h = k * (float)s->tex->h;
+        s->w = k * (float)s->tex->w;
+    }
+    if (!g_progInno) g_progInno = LoadProgressSprite("images/inno.png", false);
+    if (Sprite* s = g_progInno) {   // bottom right
+        s->screenSpace = true;
+        const float k = H < 400 ? (float)H / 400.f : g_progressScale;
+        SetPosition(s, (float)W - k * (float)s->tex->w - 22.f, 14.f + k * (float)s->tex->h, z - 0.001f);
+        s->h = k * (float)s->tex->h;
+        s->w = k * (float)s->tex->w;
+    }
+    // The bar: centred, 95 px (at 720 high) above the bottom, narrowed to the screen if wider.
+    float barX = 0.f, barY = 0.f, barK = g_progressScale;
+    if (!g_progBarOff) g_progBarOff = LoadProgressSprite("images/progress_bar_inactive.png", true);
+    if (Sprite* s = g_progBarOff) {
+        s->screenSpace = true;
+        const int tw = s->tex->w;
+        float sw = (float)W;
+        if (tw > W) barK = (float)W / (float)tw;
+        else barK = g_progressScale;
+        sw -= (float)tw * barK;
+        barY = (float)H + ((float)H / 720.f) * -95.f;
+        barX = sw * 0.5f;
+        SetPosition(s, barX, barY, z - 0.0001f);
+        s->h = g_progressScale * (float)s->tex->h;
+        s->w = (float)s->tex->w * barK;
+    }
+    if (!g_progBarOn) g_progBarOn = LoadProgressSprite("images/progress_bar_active.png", true);
+    if (Sprite* s = g_progBarOn) {   // the filled part: the left `progress` of the bar
+        s->screenSpace = true;
+        const float p = (float)progress;
+        SetPosition(s, barX, barY, z - 0.0002f);
+        s->u1 = p;
+        s->w = (float)s->tex->w * barK * p;
+        s->h = g_progressScale * (float)s->tex->h;
+    }
+    // The loading letter under the bar.
+    if (text && g_progBarOff) {
+        const float y = barY + 0.5f + (g_progressScale * (float)g_progBarOff->tex->h - (float)text->tex->h) * -0.5f;
+        SetPosition(text, 0.5f + ((float)W - text->w) * 0.5f, y + text->h, z - 0.0003f);
+    }
+    for (Sprite* s : {g_progBg, g_progInno, g_progGameins, g_progUnused, g_progBarOff, g_progBarOn})
+        if (s) SetVisibility(s, true);
+    if (!noUpdate) Update();
+}
+
+void HideProgress() {
+    for (Sprite* s : {g_progBg, g_progInno, g_progGameins, g_progUnused, g_progBarOff, g_progBarOn})
+        if (s) SetVisibility(s, false);
+}
+
+// @0x1f79b8: the frame drawn so far on screen (the platform's buffer swap; FixRunloopEvents is iOS's).
+void ForceBufferSwap() {
     if (presentHook) presentHook();
 }
 

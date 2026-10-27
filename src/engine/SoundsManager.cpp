@@ -1,6 +1,8 @@
 // Port of SoundsManager (libkingdom.so 5.11), see SoundsManager.h.
 #include "engine/SoundsManager.h"
 
+#include "engine/ErrorReporter.h"
+
 #include <pugixml.hpp>
 
 #include <cstdio>
@@ -70,7 +72,7 @@ std::string g_prefix, g_postfix;               // 0x615644 / 0x61565c
 std::string g_latestMusicPlayed;               // SoundsManager::mLatestMusicPlayed
 int g_fadeIn = 1000, g_fadeOut = 1000;         // 0x60f064 / 0x60f068 (ms)
 int g_musicChannel = -1;                       // 0x60f06c what the last music start returned
-bool g_showInfo = false;                       // 0x615610 (ErrorReporter's on-screen lines: not ported)
+bool g_showInfo = false;                       // 0x615610 (the ErrorReporter lines below)
 bool g_inFallback = false;                     // 0x615674
 
 struct DelayedSound { Sounds::SoundInfo* sound; float delay; };   // 0x615614
@@ -179,7 +181,7 @@ bool PlaySound(const char* event, int id, bool onlyIfNotPlaying) {
     if (!s) return false;
     if (delay > 0.f) {
         g_delayedSounds.push_back({s, delay});
-        if (g_showInfo) std::printf("SoundsManager::PlaySound(%s, %d) Playing with delay %f\n", event, id, (double)delay);
+        if (g_showInfo) ErrorReporter::Printf(1.f, 1.f, 1.f, "SoundsManager::PlaySound(%s, %d) Playing with delay %f\n", event, id, (double)delay);
     } else if (!onlyIfNotPlaying || !Sounds::IsSoundPlaying(s)) {
         Sounds::PlaySound(s);
     }
@@ -191,7 +193,7 @@ bool PlaySoundDelayed(const char* event, int id, float delay) {
     if (!s) return false;
     if (delay <= 0.f) Sounds::PlaySound(s);
     else g_delayedSounds.push_back({s, delay});
-    if (g_showInfo) std::printf("SoundsManager::PlaySound(%s, %d) Playing with delay %f\n", event, id, (double)delay);
+    if (g_showInfo) ErrorReporter::Printf(1.f, 1.f, 1.f, "SoundsManager::PlaySound(%s, %d) Playing with delay %f\n", event, id, (double)delay);
     return true;
 }
 
@@ -221,7 +223,7 @@ void PlayMusic(const char* name, bool fade) {
     } else {
         g_musicChannel = Sounds::PlayMusic(file.c_str(), fade, g_fadeIn);
     }
-    if (g_showInfo) std::printf("SoundsManager::PlayMusic(%s, %d)\n", file.c_str(), g_fadeIn);
+    if (g_showInfo) ErrorReporter::Printf(1.f, 1.f, 1.f, "SoundsManager::PlayMusic(%s, %d)\n", file.c_str(), g_fadeIn);
 }
 
 void Init(const char* xml, const char* prefix, const char* postfix) {

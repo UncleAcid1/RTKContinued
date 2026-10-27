@@ -44,12 +44,16 @@ void RestartGame();                       // @0x16b0a4
 
 namespace Game {
 inline void splashLoop() {}               // @0x184f3c (empty in 5.11: no splash screens)
+// The start-up loading screen's letter (0x612384, black with a white glow, loadFont 0x612388 size
+// 20) and the bar filled to `progress` (Render::UpdateProgress at z 0.2).
+void ShowLoadProgress(const char* letter, double progress);
+void InitLoadProgress();   // main_Loop_Init: the font and the glow (0x61238c)
+void HideLoadProgress();   // main_Loop_Init's end: the letter goes, the screen hides
 // @0x18c080: one string table from res_files/1Original (and, online, from each active content
-// pack's folder). `letter` is the loading screen's debug letter and `progress` its bar (the
-// loading screen is milestone 7).
+// pack's folder). `letter` is the loading screen's letter and `progress` its bar.
 bool LoadLanguageTable(const char* file, const char* letter, double progress);
 // @0x18cc4c: one data file through its loader, the same way; a pack's copy of the file is loaded
-// on top. failStep / okStep are the load-sampling steps reported (analytics, not ported).
+// on top. failStep / okStep are the load steps passed to LoadSampling (when not 0).
 bool LoadSystemConfiguration(bool (*loader)(const char*), const char* file, const char* letter, const char* name,
                              double progress, unsigned failStep, unsigned okStep);
 bool LoadEntityFactoryData(const char* file);   // @0x18564c
