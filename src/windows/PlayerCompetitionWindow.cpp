@@ -387,16 +387,14 @@ void OnWarrior(unsigned i) {
     Render::SortRenderLayer(0xe, 1);
 }
 
-// @0x308d28 the shown opponent's profile, once fought (beaten or won against).
+// @0x308d28 the shown opponent's profile.
 void OnInfo() {
     PvP::PlayerInfo* p = ShownPlayer();
     if (!p) return;
-    if (p->defeated != 0) {
-        PlayerInfoWindow::SetParameters(p->gid, true);
-        PlayerInfoWindow::Show();
-        return;
-    }
-    PopupWindow::Show(StringTable::GetString("PVP_BATTLE_TO_SHOW_INFO"), PopupWindow::Hide, nullptr, nullptr);
+    // PORT (see UpdateContents): offline every rival's save is at hand, so the profile opens before
+    // a fight too (the original asked to fight first, "PVP_BATTLE_TO_SHOW_INFO").
+    PlayerInfoWindow::SetParameters(p->gid, true);
+    PlayerInfoWindow::Show();
 }
 
 // @0x309148 the shown opponent (or g_fightGID's) becomes the selected one, his valor is worked out
@@ -1067,7 +1065,9 @@ void UpdateContents() {
         e.name2->SetText(name.c_str());
         e.statsBg->SetVisibility(g_tab != 1);
         e.statsTitle->SetVisibility(g_tab != 1);
-        const bool record = g_tab != 1 && p->defeated == 0;
+        // PORT (user's bug report 2026-10-26): every rival gets the gear-and-stats button (its window
+        // shows the record too); the original showed the record line instead until he was fought.
+        const bool record = false;
         for (StatisticHolder& s : e.stats) s.root->SetVisibility(record);
         e.separator->SetVisibility(record);
         e.stats[0].number->SetText(ToWideString(p->losses));
@@ -1089,7 +1089,7 @@ void UpdateContents() {
             e.start.root->SetVisibility(true);
             e.vicDef->SetVisibility(false);
         }
-        e.info->SetVisibility(p->defeated != 0 && g_mode != 2);
+        e.info->SetVisibility(g_mode != 2);
         e.infoText->SetText(StringTable::GetString("PVP_INFO"));
     }
     // The pictures reaching out of the carousel are clipped to it.

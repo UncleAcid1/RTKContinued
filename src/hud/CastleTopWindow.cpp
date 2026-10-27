@@ -573,7 +573,9 @@ void Update(float dt) {
     g_friendsNotify->SetVisibility(g_friendRequests != 0 && cityIdle && friendsOn);
     g_friendsNotifyText->SetText(ToWideString(g_friendRequests));
     g_compass->SetEnabled(canTravel);
-    g_compassText->SetText(StringTable::GetString(toCastle ? "WORLD_NAV_TO_CASTLE" : "CONTROL_BATTLE_ATTACK"));
+    // PORT (user's bug report 2026-10-26): "To Map" (the game's own unused WORLD_NAV_TO_MAP) in place
+    // of "Attack" (CONTROL_BATTLE_ATTACK), since the compass opens the world map.
+    g_compassText->SetText(StringTable::GetString(toCastle ? "WORLD_NAV_TO_CASTLE" : "WORLD_NAV_TO_MAP"));
     const bool pvpOn = canTravel && GameState::TaskCompleted(0x74d) && !Map::GetCurrentFarm();
     g_pvpBg->SetEnabled(pvpOn);
     g_pvpIcon->SetEnabled(pvpOn);

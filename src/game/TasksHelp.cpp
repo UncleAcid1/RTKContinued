@@ -534,7 +534,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         return true;
     case kCastSpell:
         if (city) PopupWindow::Show(StringTable::GetString("CAN_NOT_CAST"), PopupWindow::Hide, nullptr, nullptr);
-        // UNVERIFIED (milestone 5, spells): else BottomBattleWindow::HelpWithSpell(value, false).
+        else BottomBattleWindow::HelpWithSpell(value, false);
         return true;
     case kBuyRealMoney:   // PORT: the exchange (the original opens its real-money tab 0)
         ExchangeWindow::Show();

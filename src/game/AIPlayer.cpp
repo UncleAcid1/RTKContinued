@@ -288,6 +288,13 @@ void AIPlayer::PlayBuffAnimation(unsigned, float, float, float) {
     Particles::Particle* glow = new Particles::BuffParticleSystem(at, vec3(1.f, 1.f, 1.f));
     entity->SetParticleEmitter(Particles::AddParticle(glow, true), glow);
     entity->SetDirection(0);
+    // PORT (the log of the user's play test 2026-10-26): 5.11's data has no "cast" images for the
+    // heroes (player_female / player_male cast_SE / cast_NE are listed but not packed), so the hero
+    // vanished while drinking; without them he keeps his idle pose.
+    if (Animation* cast = d->GetAnimation("cast")) {
+        if (!cast->loaded) cast->Load();
+        if (!cast->GetTexByDir(0)) return;
+    }
     entity->SetAnimationOnce("cast", false, false, false, false);
 }
 

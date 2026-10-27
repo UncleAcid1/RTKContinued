@@ -606,6 +606,7 @@ uint32_t TaskInfo::GetFirstLockedTaskInChain(bool skipHidden) const {
 #include "game/BuildingPlacement.h"
 #include "game/Entity.h"
 #include "game/EntityData.h"
+#include "game/Collections.h"
 #include "game/EntityManager.h"
 #include "game/Map.h"
 #include "game/Rand48.h"
@@ -1072,8 +1073,15 @@ void CheckOverlimit(TaskInfo** tasks, unsigned count, bool withMobs) {
                 if (s.value % 10 <= (uint32_t)Locations::GetMissionStarCount(s.value / 10, 0)) direct = true;
                 break;
             case kImproveItem:
-                // UNVERIFIED (milestone 5): met when the player has an item (type 8, with an item
-                // level) improved from `value` (Collections::GetCollectionWithResult, 0x12d7d8).
+                // Done when the player has an item (type 8, with an item level) improved from
+                // `value`: some step of its improvement chain started from it.
+                for (unsigned k = 0; GameState::PlayerItem* it = GameState::EnumItems(k); ++k) {
+                    if (!it->info || it->info->type != 8 || it->info->itemLevel == 0) continue;
+                    for (uint32_t id = it->id; Collections::Collection* c = Collections::GetCollectionWithResult(id);) {
+                        id = c->from;
+                        if (id == s.value) direct = true;
+                    }
+                }
                 break;
             case kIncreaseLandAny:
                 if (GameState::GetCurrentMapID() == 0) {

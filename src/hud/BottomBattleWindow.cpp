@@ -417,6 +417,13 @@ void NetLanded() {
         e->SetAlpha(0.f);
         if (uint32_t n = Items::GetPlayersBestNet()) GameState::RemoveItem(n, 1);
         Tasks::CompleteSubtask(Tasks::kTameEnemyClass, (uint32_t)e->GetEntityData()->enemyClass, 1);
+        // PORT (user's bug report 2026-10-26): a tamed beast leaves the map as a killed one does, so
+        // taming the last enemy also clears the map (Entity::OnDeath's "kill all" step; the
+        // original asks only on a death, and a raid ended by a catch was never completed).
+        bool enemyLeft = false;
+        for (unsigned k = 0; Entity* o = EntityManager::EnumEntities(k); ++k)
+            if (o != e && o->IsActive() && !o->IsDead() && o->IsEnemy()) enemyLeft = true;
+        if (!enemyLeft) Tasks::CompleteSubtask(Tasks::kKillAllOnMap, GameState::GetCurrentMapID(), 1);
         if (tamed) {
             if (SoldierPool::GetOccupiedSlotCount() < GameState::GetSoldierReserveSlots()) {
                 Entity* s = EntityManager::CreateEntity((int)tamed->id, false, true);

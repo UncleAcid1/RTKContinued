@@ -589,7 +589,8 @@ bool GetItemOffsetInHolder(int& x, int& y, bool large, const char* name) {
     }
     char path[0x100];
     std::snprintf(path, sizeof path, "../resource/kingdom_icons/1Original/%s.xml", name);
-    GUI::Window* w = GUI::RegisterUI(path, "", 1.f, 0, 0, 0, 0, false, 1.f);
+    // PORT: a missing variant is tried quietly (the callers try several names in turn).
+    GUI::Window* w = FileManager::FileExists(path) ? GUI::RegisterUI(path, "", 1.f, 0, 0, 0, 0, false, 1.f) : nullptr;
     if (!w) {
         x = y = 0;
         h.found = false;
