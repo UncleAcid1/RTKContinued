@@ -8,6 +8,8 @@
 	<string>Rule the Kingdom</string>
 	<key>CFBundleExecutable</key>
 	<string>rtk</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.uncleacid1.rtkcontinued</string>
 	<key>CFBundleInfoDictionaryVersion</key>
