@@ -188,6 +188,9 @@ Options Parse(int argc, char** argv) {
     return o;
 }
 
+// @0x171aa8 FileManager::Init: the main and patch packs (CheckExpansion), then the packs the server
+// listed (the "active_packs" setting: online, dormant). PORT: the files' sources are the APK's
+// data, then the two packs from disk (later wins), then the Windows 8 build's files as a fallback.
 bool RegisterSources(const std::string& root) {
     bool ok = FileManager::RegisterAndroidData(root + "/Android files/rule-the-kingdom-5-11-multi-android/assets/data");
     if (!ok) {
@@ -288,6 +291,9 @@ void Tick(float dt) {
     }
     for (float& t : GameState::dialogueTimer)
         if (t < 20.f) t += dt;
+    // (With Game::renderBackground 0x6123cc set, Render::Update draws the loading background under the
+    // frame (UpdateProgress at renderBackgroundZ 0.2, then HideProgress); only Game::showBackground
+    // sets it, which nothing calls in 5.11.)
     Render::UpdateCamera(dt);
     Render::ApplyViewportLimit();
     Render::UpdateAnimatedSprites(dt);   // (Render::Update, before its drawing)
@@ -1100,10 +1106,11 @@ bool main_Loop_Func() {
             default: break;
         }
     }
-    // The frame's time (Timer::AddSample, the frame-rate statistics, is not ported).
+    // The frame's time, also kept for the frame-rate statistics.
     uint64_t now = SDL_GetTicks();
     double dt = (double)(now - lastTicks) / 1000.0;
     lastTicks = now;
+    Timer::AddSample(dt);
     AfterEvents(dt);
     dt = Timer::ApplyDeltaTimeCompensation(dt);
     // (The online states that replace the game's Update: the Facebook question, a save being sent

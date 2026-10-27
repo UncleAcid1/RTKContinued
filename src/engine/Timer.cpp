@@ -8,6 +8,11 @@ namespace Timer {
 int timeAdvance = 0;
 static double g_compensation = 0.0;   // 0x616a00
 
+static unsigned g_sampleCount = 0;   // 0x23eabc
+static double g_samples[32];         // 0x23eac4
+
+void AddSample(double frameTime) { g_samples[g_sampleCount++ & 0x1f] = frameTime; }
+
 double ApplyDeltaTimeCompensation(double dt) {
     double d = dt - g_compensation;
     g_compensation = 0.0;

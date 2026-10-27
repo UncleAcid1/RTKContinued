@@ -10,6 +10,15 @@
 # the port's own class definitions and globals carry them (field defaults are read with the class).
 # util = string/hash/parse helpers the port replaces with the C++ library or ports with a caller.
 
+# ---- 7a (2026-10-26): the platform layer's leftovers (callers checked in 5.11: bl, GOT, literal) ----------
+dead  ^(Animation::(DumpToResources|PreLoadTextures)|FileManager::Apply|Timer::GetFPS|Render::(getWindow|PrintLayerStats|CalculateFillrate|UpdateLogo|IsInitialized))$   # no caller (PreLoadTextures: only Entity::PreLoadAnimations, dead; UpdateLogo: only Game::showKoreanLogo, dead; IsInitialized: only EditorConsole::Print, dead)
+dead  ^GUI::(GetHoverHighDPIScaleFactor|GetHudHighDPIScaleFactor|IsXHighDPI_Retina|SetXHighDPI_Retina|getXHighDPI_Retina_Scale|setXHighDPI_Retina_Scale)$   # no caller (IsXHighDPI_Retina: only getXHighDPI_Retina_Scale)
+dead  ^SystemFuncs::(SaveSettings|getPlatform|IsTabletVersion|ShowOldDeviceError|GetTime|getDocumentsPathSpace|getBundleDisplayName|getBundleName)$   # no caller
+online  ^SystemFuncs::(getScreenBuff\w+|getTimeIntervalSince1970|GetSettings_AllAsString|getTimeZoneOffset|getXDPI|getYDPI|getCurrentLanguageTxtLocale\w*|getEvenMoreLocaleInfo|getCurrentSelectedLanguage|getPlatformString\w*|getPlatformCPU|getPlatformVersion|getBundleVersion\w*|GetTemporarySettingString|SetTemporarySettingString|SetLogLevel|RemoveSetting|isDocumentExternalStorageExist|getDocumentsPathFileByMask|FUN_003d890c|getDocumentsPath)$   # callers only CMyServer / ServerFlags / NeighboursServer / OG / CheckExpansion (online) and CMyPayment's logs (removed)
+online  ^FileManager::(GetThreadContext|ReleaseThreadContext|GetStoragePathSpace)$   # AsyncImageLoader / AsyncRequestRunner, Expansions::DownloadAll
+util  ^FileManager::GetFileOffset$   # Resources::GetUIImage's cache key (the file's archive offset); the port's caches are keyed by the lower-cased name
+implicit  ^(FileManager::IsLowPerformanceDevice|Render::Context::IsLowPerformanceDevice|Render::Convert32To16Bits)$   # Java's low-end device check (Sounds::IsLowQualityMode, Render::IsLowPerformanceDevice: false on a desktop, see Render.h) and CreateTexture's 16-bit textures (low-end only)
+
 # ---- 5x-1 (2026-10-20): leftovers checked in the 5.11 binary (callers: bl, GOT, vtable, literal) ----------
 dead  ^GameState::(GetSettingCount|EnumSetting)$   # only ContextSetting (the admin console's settings completion, dead: 5w)
 dead  ^Map::(DebugAdvanceTime|ShowLevelStats)$   # no caller, no address taken (debug)

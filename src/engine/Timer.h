@@ -19,6 +19,10 @@ inline uint32_t GetTimeAdvance() { return (uint32_t)timeAdvance; }   // @0x23ebd
 double ApplyDeltaTimeCompensation(double dt);
 // @0x23ea14: time spent in a blocking loop, taken off the next frame's dt.
 void AddDeltaTimeCompensation(double seconds);
+// @0x23eaa8: main_Loop_Func's frame time into a ring of the last 32 frames (0x23eabc: the count).
+// Only Timer::GetFPS (dead in 5.11) reads it.
+void AddSample(double frameTime);
+
 // @0x23eb80: once a map is loaded the advance also counts to GameState::totalTimeSpent.
 void AdvanceGlobalTime(uint32_t seconds);
 

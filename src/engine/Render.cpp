@@ -13,6 +13,7 @@
 #include "engine/FileManager.h"
 #include "engine/Image.h"
 #include "engine/Resources.h"
+#include "engine/SystemFuncs.h"
 #include "engine/Text.h"
 #include "engine/ViralFeatures.h"
 #include "game/Game.h"
@@ -886,9 +887,10 @@ void HideProgress() {
         if (s) SetVisibility(s, false);
 }
 
-// @0x1f79b8: the frame drawn so far on screen (the platform's buffer swap; FixRunloopEvents is iOS's).
+// @0x1f79b8: the frame drawn so far on screen (the platform's buffer swap).
 void ForceBufferSwap() {
     if (presentHook) presentHook();
+    SystemFuncs::FixRunloopEvents();
 }
 
 // @0x1f67dc Render::BlurTexture(texture, passes): the picture is blurred by a 5-tap box in x, then in y,

@@ -81,6 +81,18 @@ uint8_t* Copy(const std::vector<uint8_t>& v, uint32_t& size) {
 }
 }  // namespace
 
+namespace {
+int g_tempValues[18];   // 0x3d74a4's block: the values,
+bool g_tempSet[18];     // +0x48: set or not
+}  // namespace
+
+void SetTemporarySetting(int id, int value) {
+    g_tempValues[id] = value;
+    g_tempSet[id] = true;
+}
+
+int GetTemporarySetting(int id, int def) { return g_tempSet[id] ? g_tempValues[id] : def; }
+
 void Init() { LoadSettings(); }
 
 int getCurrentLanguage() { return GetSetting_Int("selected_language", 0, "MyCountry_flags"); }

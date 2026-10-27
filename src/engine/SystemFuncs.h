@@ -33,6 +33,16 @@ int getCurrentLanguage();
 bool HasSelectedLanguage();
 int GetSystemLanguage();
 
+// @0x3d7488 / @0x3d74a8: the temporary settings (SystemFuncs::TemporarySetting: 18 ints with a
+// "was set" byte each, kept for the run only). Get gives def until the setting was set. In 5.11 only
+// the online code sets them (the save sent / fetched, the Facebook question, the server's flags).
+void SetTemporarySetting(int id, int value);
+int GetTemporarySetting(int id, int def);
+
+// @0x3d7484: empty in 5.11 (an iOS run-loop aid; called by main_Loop_Init's loading loop and
+// Render::ForceBufferSwap).
+inline void FixRunloopEvents() {}
+
 // @0x3d7664: the device id shown in the settings window. UNVERIFIED (milestone 7, the Mac's id): empty.
 std::string getGUID();
 // @0x3da2d0: the Android id the online state chunk keeps. PORT (online, dormant): empty.

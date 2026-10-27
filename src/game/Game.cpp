@@ -67,10 +67,11 @@ void OnResume() {
     // milestone 5.)
     CastleTopWindow::ActivateFeatureHolders();
     // The first daily bonus ever (none received yet), once task 0x35c is done, with no window,
-    // fight, hover, world dialog or pause: forced. As the original it never happens: the check
-    // SystemFuncs::GetTemporarySetting(2, 1) gives its default 1 (nothing in 5.11 sets setting 2).
-    const int setting2 = 1;
-    if (GameState::GetReceivedDailyBonusCount() != 0 || !GameState::TaskCompleted(0x35c) || setting2 != 0) return;
+    // fight, hover, world dialog or pause: forced. As the original it never happens offline:
+    // temporary setting 2 keeps its default 1 (only the online code sets it).
+    if (GameState::GetReceivedDailyBonusCount() != 0 || !GameState::TaskCompleted(0x35c) ||
+        SystemFuncs::GetTemporarySetting(2, 1) != 0)
+        return;
     if (DailyBonusWindow::IsVisible() || WindowManager::GetShownWindowCount() != 0 || GameState::IsCombatActive() ||
         BuildingHovers::IsHoverVisible() || BuildingHovers::IsWorldDialogVisible() || GameState::IsPaused())
         return;
