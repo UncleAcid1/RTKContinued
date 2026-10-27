@@ -12,6 +12,7 @@
 #include "game/GameData.h"
 #include "game/GameState.h"
 #include "game/Map.h"
+#include "game/MetaExpression.h"
 #include "game/Rand48.h"
 
 namespace AI {
@@ -182,8 +183,8 @@ void CreateMapWaypoint(int x, int y) {
         } else if (d->data && d->data->isRoad) {
             wp->weight = 0.1f;
         }
-        // UNVERIFIED: a decoration whose MetaExpression has type 0x6f sets weight 10; decoration
-        // meta expressions are not ported yet.
+        // A decoration whose expression has a node of type 0x6f weighs 10.
+        if (d->meta && d->meta->FindByType(0x6f)) wp->weight = 10.f;
     }
     wp->x = x;
     wp->y = y;
@@ -382,6 +383,13 @@ Waypoint* GetWaypointNearDecoration(Map::Decor* dc, bool noCorners) {
     return wp;
 }
 
+namespace {
+bool Under6f(int x, int y) {
+    Map::Decor* d = Map::GetDecoration(x, y);
+    return d && d->meta && d->meta->FindChildData(0x6f);
+}
+}  // namespace
+
 void GetWaypointsInRange(std::vector<Waypoint*>& out, unsigned x, unsigned y, unsigned range, bool all) {
     int marker = GetNextWaypointMarker();
     if (Waypoint* wp = GetWaypoint((int)x, (int)y, false)) {
@@ -395,9 +403,9 @@ void GetWaypointsInRange(std::vector<Waypoint*>& out, unsigned x, unsigned y, un
             size_t end = prev;
             for (; i < prev; ++i) {
                 for (Waypoint* n : out[i]->n) {
-                    // UNVERIFIED: without `all`, neighbours under a decoration with meta type 0x6f
-                    // are skipped; decoration meta expressions are not ported yet.
-                    if (n && n->marker != marker) {
+                    // Without `all`, neighbours under a decoration whose expression has a type 0x6f
+                    // value are left out.
+                    if (n && n->marker != marker && (all || !Under6f(n->x, n->y))) {
                         out.push_back(n);
                         n->marker = marker;
                     }
@@ -408,7 +416,11 @@ void GetWaypointsInRange(std::vector<Waypoint*>& out, unsigned x, unsigned y, un
             i = end;
         }
     }
-    (void)all;
+    // ... and so is the start tile (the last one found takes its place).
+    if (!all && Under6f((int)x, (int)y) && !out.empty()) {
+        out[0] = out.back();
+        out.pop_back();
+    }
 }
 
 Waypoint* GetRandomRoadWaypoint() {

@@ -68,6 +68,7 @@ struct Decor {
     float baseX = 0.f, minX = 0.f, maxX = 0.f, baseY = 0.f, maxY = 0.f, minY = 0.f;
     Render::Sprite* sprite = nullptr;  // +0x88
     Render::Sprite* extraDecors = nullptr;   // +0x8c more sprites of it, chained by Sprite::next
+    std::vector<Render::Sprite*> placeholders;   // +0xa8 UpdateMapLink's stand-ins for a missing picture
     std::unique_ptr<DecorAnim> anim;   // +0x98 while its image is an animation sheet
     Portal* portal = nullptr;          // +0x90 the way to another map it is (Map::LinkPortals)
     Entity* worker = nullptr;          // +0x9c the hero or goblin doing its job

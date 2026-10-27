@@ -465,21 +465,45 @@ void UpdateAreaBorders() {
 
 // ------------------------------------------------------------------------------- decorations
 // @0x1346b8 Map::Decor::UpdateMapLink (home-map fake/real precedence included)
+// The decoration takes its footprint's tiles. In the city a fake one (IsFake: random, or hidden)
+// leaves a real one's tile alone, and a real one removes a fake one in its way. The tiles' waypoints
+// get the walking weight (a road 0.1; in the city, under a ground-layer decoration 1000), and a
+// decoration without a picture gets a placeholder on each tile (+0xa8).
 void Decor::UpdateMapLink() {
     Decor* d = this;
-    if (!d->data) return;
-    ForEachFootprintTile(d->x, d->y, d->data->w, d->data->h, [&](int x, int y) {
-        Cell* c = At(x, y);
-        if (!c) return;
-        if (g_mapId == 0 && c->decor) {
-            if (c->decor->fake && !d->fake) {
-                // RemoveDecoration(x, y, false) of the fake one happens in the original; fakes are
-                // only created on free tiles at load, so this path does not trigger during load.
-            } else if (!c->decor->fake && d->fake) {
-                return;  // real decoration keeps the tile
+    const GameData::DecorData* data = GameData::GetDecoration(d->id);
+    if (!data) return;
+    const bool city = GameState::GetCurrentMapID() == 0;
+    const bool heavy = city && data->layer == 0;
+    ForEachFootprintTile(d->x, d->y, data->w, data->h, [&](int x, int y) {
+        if ((unsigned)x < (unsigned)GetGridWidth() && (unsigned)y < (unsigned)GetGridHeight()) {
+            bool keep = false;
+            if (city) {
+                if (Decor* old = GetDecoration(x, y)) {
+                    if (!old->IsFake()) keep = d->IsFake();
+                    else if (!d->IsFake()) RemoveDecoration(x, y, false);
+                }
+            }
+            if (!keep) SetDecoration(x, y, d);
+        }
+        if (data->isRoad) {
+            if (AI::Waypoint* wp = AI::GetWaypoint(x, y, false)) wp->weight = 0.1f;
+        } else if (heavy) {
+            if (AI::Waypoint* wp = AI::GetWaypoint(x, y, false)) wp->weight = 1000.f;
+        }
+        if (!data->image) {
+            if (Render::Texture* ph = Render::GetDecoPlaceholderDebugTex()) {
+                Render::Sprite* s = Render::CreateSprite(ph, Render::kLayerFlat3, false, false);
+                s->h = 42.f;
+                s->w = 84.f;
+                // PORT: the original keeps only the last tile's sprite (+0xa8); all are kept here so
+                // ~Decor removes them all.
+                d->placeholders.push_back(s);
+                int wx = x, wy = y;
+                TileCoordinatesToWorld(wx, wy);
+                Render::SetPosition(s, (float)wx, (float)wy, 0.2f);
             }
         }
-        c->decor = d;
     });
 }
 
@@ -606,7 +630,10 @@ bool Decor::CanBePlaced(bool ignoreFake) const {
     return ok;
 }
 
-Decor::~Decor() { delete meta; }
+Decor::~Decor() {
+    for (Render::Sprite* s : placeholders) Render::RemoveSprite(s);
+    delete meta;
+}
 
 void Decor::SetMeta(const std::string& text) {
     delete meta;
