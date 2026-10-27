@@ -968,9 +968,7 @@ int main_Loop_Init() {
         !LoadSystemConfiguration(LoadItemPacks, "item_packs.xml", "L", "Items::InitPacks", 10.0 / 46.0, 0xb, 0xb))
         return 1;
     Items::InitSpecial();
-    // UNVERIFIED (milestone 5): the load screen's two step numbers of Spells::Init (0xc, 0xc: between
-    // the item packs' 0xb and the locations' 0xd).
-    if (!LoadSystemConfiguration(Spells::Init, "spells.xml", "L", "Spells::Init", 11.0 / 46.0, 0xc, 0xc) ||
+    if (!LoadSystemConfiguration(Spells::Init, "spells.xml", "L", "Spells::Init", 11.0 / 46.0, 0x7dd, 0xc) ||
         !LoadSystemConfiguration(Locations::Init, "locations.xml", "L", "Locations::Init", 12.0 / 46.0, 0xd, 0xd))
         return 1;
     Locations::InitSpecial();

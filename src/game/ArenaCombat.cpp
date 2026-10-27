@@ -1356,11 +1356,17 @@ step:
 }
 
 // The valor (map item 0x249) and the PvP victory: the outro, the win's subtasks (0x42, 0x3f with
-// the beaten hero's enemy class). UNVERIFIED (milestone 5): the pumpkin event's extra drops (task
-// 0x77b; "pumkin_drop_count" / "pumkin_drop_chance", item 0x300); LoadingInternetWindow (online).
+// the beaten hero's enemy class); during the pumpkin event (task 0x77b) "pumkin_drop_count" tries
+// at "pumkin_drop_chance" percent each for a pumpkin (item 0x300). (LoadingInternetWindow: online.)
 void PvPArenaCombat::OnValorReceived(unsigned valor) {
     waitingForServer = false;
     GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), 0x249, (int)valor);
+    if (Tasks::IsTaskActive(0x77b, true)) {
+        const int tries = Setting("pumkin_drop_count").GetInt();
+        for (int i = 0; i < tries; ++i)
+            if ((int)(Rand48::lrand48() % 100) < Setting("pumkin_drop_chance").GetInt())
+                GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), 0x300, 1);
+    }
     SoundsManager::PlaySound("ui_campaign_completed", 1, false);
     PvP::SetVictoryCount(PvP::GetVictoryCount() + 1);
     PlayerBattleInOutWindow::SetModeOutro();

@@ -17,6 +17,7 @@
 #include "game/GameState.h"
 #include "game/Items.h"
 #include "game/Setting.h"
+#include "game/Spells.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
 #include "gui/GUI.h"
@@ -58,7 +59,7 @@ RewardInfo g_holders[5];               // 0x62def0
 // "item_boosts" setting is not filled in, and the next reward overwrites it.
 std::vector<Reward> g_rewards;
 int g_filled = 0;                      // 0x62dfe4
-void* g_lockedSpell = nullptr;         // 0x62dfb0 Spells::GetSpellLockedByTask (milestone 5)
+Spells::SpellInfo* g_lockedSpell = nullptr;   // 0x62dfb0 the spell the task unlocks (GetSpellLockedByTask)
 uint32_t g_completed = 0;              // 0x62dfb4 the task the closing window has completed
 ItemHoverWindow* g_hover = nullptr;    // 0x62dfb8
 Window* g_root = nullptr;              // 0x62dfbc Completed_win.xml
@@ -152,9 +153,12 @@ void OnTweenOut() {
     if (GameState::secondTutorial == 0x208) GameState::secondTutorial = 0x20b;
     else if (GameState::secondTutorial == 0x210 || GameState::secondTutorial == 0x212)
         GameState::secondTutorial = 0x217;
-    // UNVERIFIED (milestone 5): a spell the task unlocked (g_lockedSpell) is shown in
-    // CraftSuccessWindow (SetParameters(SpellInfo*) and Show).
-    g_lockedSpell = nullptr;
+    // A spell the task unlocked is shown in CraftSuccessWindow.
+    if (g_lockedSpell) {
+        CraftSuccessWindow::SetParameters(g_lockedSpell);
+        CraftSuccessWindow::Show();
+        g_lockedSpell = nullptr;
+    }
     Tasks::SetBlocked(false);
     WindowManager::WindowHide(false);
     g_queue->shown = false;
@@ -371,8 +375,7 @@ void Complete(uint32_t task) {
         for (Textfield* n : h.name) n->SetVisibility(false);
         h.count->SetVisibility(false);
     }
-    // UNVERIFIED (milestone 5): g_lockedSpell = Spells::GetSpellLockedByTask(g_task).
-    g_lockedSpell = nullptr;
+    g_lockedSpell = Spells::GetSpellLockedByTask(g_task);
     g_root->UpdatePosition();
 }
 

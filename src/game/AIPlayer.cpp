@@ -588,7 +588,9 @@ void AIPlayer::WalkCompleted() {
             entity->SetRetreating(false);
         }
     }
-    // (In an arena combat, types 5 and 6, the waypoint under him gets weight 1000: milestone 5.)
+    // In an arena fight (types 5, 6) the tile he stands on is taken (weight 1000).
+    if (BaseCombat* c = GameState::GetActiveCombat(); c && (c->GetType() == 5 || c->GetType() == 6))
+        if (AI::Waypoint* wp = AI::GetWaypoint(entity->tileX, entity->tileY, false)) wp->weight = 1000.f;
 }
 
 void AIPlayer::UnableToWalk(int x, int y) {

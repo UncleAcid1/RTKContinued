@@ -45,8 +45,8 @@ struct LocationInfo {                  // 0xec bytes
     bool disabled = false;             // +0x4c
     bool mission = false;              // +0x4d
     uint32_t startMap = 0;             // +0x50 the first map, or the one with start="1"
-    // +0x54: only the city (0x400) has it after loading. UNVERIFIED (milestone 5): the global map
-    // sets it for the locations it shows.
+    // +0x54: after loading only the city (0x400) has it; GlobalMapWindow's LoadFrom sets it for the
+    // locations it shows.
     bool onGlobalMap = false;
     uint32_t starsCount[3] = {};       // +0x58 completions needed for 1, 2, 3 stars
     std::vector<MapInfo> maps;         // +0x64

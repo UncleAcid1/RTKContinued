@@ -1282,8 +1282,9 @@ void ItemDrop::Collect(bool automatic, bool showWindow) {
             ShowTextHoverWithStyle(x, y, text.c_str(), (int)item->itemLevel + 0xe, 2.f, 50.f, false, false);
         }
         SoundsManager::PlaySound("collect_item", 1, false);
-        // UNVERIFIED (milestone 5, with the windows that list a map's loot): on other maps GameState::AddMapItemCollectionInfo (not item 0x88
-        // in the city tutorial).
+        // Away from the city the map's loot list counts it (not item 0x88 in the city tutorial).
+        if (GameState::GetCurrentMapID() != 0 && !(GameState::IsCityTutorial() && item->id == 0x88))
+            GameState::AddMapItemCollectionInfo((uint32_t)GameState::GetCurrentMapID(), item->id, (int)amount);
         if (item->id == 0x6b && GameState::secondTutorial == 0xa0) {
             HideArrow();
             GameState::secondTutorial = 0xa1;

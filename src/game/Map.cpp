@@ -80,7 +80,7 @@ std::unique_ptr<Patch> g_farmPatch;             // 0x6136b4
 std::vector<std::pair<uint8_t, uint8_t>> g_blockedTiles;   // 0x61379c tiles blocked after load
 std::vector<std::pair<uint8_t, uint8_t>> g_openedTiles;    // 0x613784 blocked tiles given a waypoint for a search
 int g_startX = -1, g_startY = -1;               // 0x60eff0 0x60eff4 the player's saved position
-bool g_victoryPose = false;   // 0x6138cc set by UpdateSpawns after a won boss fight (milestone 5)
+bool g_victoryPose = false;   // 0x6138cc set by UpdateSpawns after a won boss fight
 bool g_loadQueued = false;                      // 0x613658 (Map::EnqueueLoadMap)
 bool g_loadQueuedSave = false;                  // 0x613659
 bool g_bossReward = false;                      // 0x61365a a boss reward waits for the next map
@@ -2515,7 +2515,7 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
     LoadScreenFrame();
     // The map's name; a boss or arena fight with an enemy squad shows its intro instead: the PvP
     // one the players' (PlayerBattleInOutWindow; a real opponent's fight is reported as started),
-    // UNVERIFIED (milestone 5) the others the boss's banner (BossIntroWindow with the boss name).
+    // the others the boss's banner (BossIntroWindow with the boss's name).
     if (EntityManager::GetPlayer()) {
         BaseCombat* combat = GameState::GetActiveCombat();
         if (!combat || combat->GetType() < 3 || !combat->GetEnemySquad()) {
@@ -2528,6 +2528,10 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
             const PvP::PlayerInfo* p = PvP::GetPlayerInfoByGID(PlayerCompetitionWindow::GetSelectedPlayerGID(), 0xff);
             if (p && (unsigned)(p->gid + 4) > 3)
                 PvP::ReportStateToServer(PlayerCompetitionWindow::GetSelectedPlayerGID(), PvP::kStateStarted);
+        } else {
+            if (Entity* boss = combat->GetBoss()) BossIntroWindow::SetBossName(boss->GetEntityData()->title);
+            else std::fprintf(stderr, "ERROR: Map::Load() Boss has no name\n");   // ErrorReporter::Printf
+            BossIntroWindow::Show();
         }
         CharacterInfoWindow::UpdateContents();
         GameState::SetupPlayerRegenerationState();

@@ -329,8 +329,9 @@ void OnRepair() {
 // @0x2c9f90 (Move @0x2c9ef8 is empty and never registered.)
 float ZRange() { return g_queue->shown ? 0.02f : 0.0001f; }
 
-// @0x2ca358. UNVERIFIED (milestone 5, PlayerWeakWindow): the "too weak" advice on maps 0x71, 0x73,
-// 0x75 below level 12, or after the third death within 5 minutes (the death times are kept).
+// @0x2ca358. (The original also opened PlayerWeakWindow's "too weak" advice here on maps 0x71, 0x73,
+// 0x75 below level 12, or after the third death within 5 minutes: removed, DECIDED 2026-10-18; the
+// death times are kept.)
 void OnTweenIn() {
     SoundsManager::PlaySound("ui_heal_opened", 1, false);
 }

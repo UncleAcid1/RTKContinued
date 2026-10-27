@@ -10,7 +10,8 @@
 // arena's: after a win "Continue" (back from the fight), after a loss "Attack again" (the fight
 // restarts), "Continue" and "Restock".
 // UNVERIFIED (later milestones):
-//  - PlayerWeakWindow (5: the warning before a rematch with a weak army or belt);
+//  - PlayerWeakWindow (the warning before a rematch with a weak army or belt): removed, DECIDED
+//    2026-10-18;
 //  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with the global map's windows (5);
 //  - OnClose's owners (raid / campaign / boss / chest windows) are named in comments only.
 // PORT (online removed): the share ticks (Shared::ShareButtonsHolder, the Facebook / Twitter
@@ -206,7 +207,7 @@ void OnTavern() {
         return;
     }
     if (PlayerBattleInOutWindow::EnemyDefeated()) return;
-    // UNVERIFIED (milestone 5): PlayerWeakWindow::Show.
+    // (PlayerWeakWindow::Show: removed, DECIDED 2026-10-18.)
 }
 
 // @0x2b9b90
@@ -310,9 +311,9 @@ void OnShare() {
             belt += (unsigned)GameState::GetItemAmount(GameState::GetBeltItemAt(i), true);
         const bool weak = belt <= 4 && alive == 0;
         if (weak && !g_weakShown) {
-            // UNVERIFIED (milestone 5): PlayerWeakWindow::Show.
+            // PORT: the original showed PlayerWeakWindow here once instead of the rematch (removed,
+            // DECIDED 2026-10-18: it pointed to the shop and paid chests), so the tap goes on.
             g_weakShown = true;
-            return;
         }
         GiveCollectedToPlayer(false, nullptr, false);
         GameState::ResetMapCollectionInfo((uint32_t)GameState::GetCurrentMapID());

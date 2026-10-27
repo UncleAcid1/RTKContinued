@@ -44,7 +44,8 @@ int g_grabX = 0, g_grabY = 0;                  // 0x630c14 0x630c18 the grab poi
 bool g_fromPresents = false;                   // 0x630c1c a present: free and built at once
 bool g_declineOnAccept = false;                // 0x630c1d
 PresentsContainer::Present* g_present = nullptr;   // 0x630c20 the present being built (only read; BuildingFromPresents @0x3a19bc: dead)
-// 0x630c24 is a sprite chain removed by Accept (milestone 5, with the gifts' window); nothing sets it yet.
+// 0x630c24 is a sprite chain Accept removes; nothing in 5.11 writes it (a search of the decompile), so it
+// is left out.
 
 // @0x3a1b18
 void Activate() {

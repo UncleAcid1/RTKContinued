@@ -5,7 +5,7 @@
 //
 // The goblins away on a job (GameState::GetOfflineGoblin) are listed before the quests in the All
 // and Battle tabs (goblin picture, the map's name, a countdown that Update refreshes); a tap leads
-// to the goblin. BuyGoblin's hire window is milestone 5.
+// to the goblin; BuyGoblin leads home to the goblins' hire window.
 // The original's sort helpers (0x35ef14, 0x35f000, 0x35f210: std::sort; 0x35fef8, 0x35ffe4,
 // 0x360138, 0x360224, 0x360854: std::stable_sort; 0x35f194: the slot list's growth) are the
 // standard library's here.
@@ -474,8 +474,8 @@ void RunLastHelpItem() {
         g_goblin = nullptr;
     }
     if (!g_buyGoblin) return;
-    // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(0x12, false) and
-    // ShowSlot(GameState::GetGoblinCount()).
+    HireTroopsWindow::ShowForBuilding(0x12, false);
+    HireTroopsWindow::ShowSlot((unsigned)GameState::GetGoblinCount());
     g_buyGoblin = false;
 }
 

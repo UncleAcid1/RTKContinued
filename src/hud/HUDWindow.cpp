@@ -568,7 +568,7 @@ void HardMapReset(uint32_t map) {
     if (GameState::GetCurrentMapID() == map) return;
     SaveManager::GetMainSave()->ResetMap(map);
     Tasks::ResetMap(map);
-    // UNVERIFIED (milestone 5, boss fights): GameState::ResetBossFightsOnMap(map).
+    GameState::ResetBossFightsOnMap(map);
     Tasks::Update(true);
     UpdateTasks();
 }
@@ -579,7 +579,7 @@ void MapReset() {
     const uint32_t map = GameState::GetCurrentMapID();
     SaveManager::GetMainSave()->ResetMap(map);
     Tasks::ResetMap(map);
-    // UNVERIFIED (milestone 5, boss fights): GameState::ResetBossFightsOnMap(map).
+    GameState::ResetBossFightsOnMap(map);
     if (GameState::IsCombatActive()) GameState::GetActiveCombat()->EndCombat();
     Map::Load(SaveManager::GetMapData(GameState::GetCurrentMapID()), (uint32_t)Timer::GetGlobalTime(), false, false);
     Map::UpdateOfflineResources();
@@ -596,7 +596,7 @@ void SoftMapReset() {
     Map::StorePlayerPosition();
     Map::StoreFogInfo();
     SaveManager::GetMainSave()->ResetMap(GameState::GetCurrentMapID());
-    // UNVERIFIED (milestone 5, boss fights): GameState::ResetBossFightsOnMap(map).
+    GameState::ResetBossFightsOnMap(GameState::GetCurrentMapID());
     if (GameState::IsCombatActive()) GameState::GetActiveCombat()->EndCombat();
     Map::Load(SaveManager::GetMapData(GameState::GetCurrentMapID()), (uint32_t)Timer::GetGlobalTime(), false, false);
     Map::UpdateOfflineResources();
@@ -699,7 +699,7 @@ void Update(float dt) {
         BuildingHovers::MoveWindowDown();
         TaskHolderWindow::Show();
         CastleTopWindow::Show();
-        TopCityWindow::Show();   // (not while ArenaTurnWindow is visible: milestone 5)
+        if (!ArenaTurnWindow::IsVisible()) TopCityWindow::Show();
         Queue()->MoveWindowOnTop(true);
     }
 }

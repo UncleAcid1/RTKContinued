@@ -26,6 +26,8 @@
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
 #include "game/SaveManager.h"
+#include "game/MetaData.h"
+#include "game/Sets.h"
 #include "game/Setting.h"
 #include "game/StringTable.h"
 #include "game/Tasks.h"
@@ -778,9 +780,9 @@ bool IsItemBinded(const PlayerItem* item) {
     return false;
 }
 
-// UNVERIFIED (milestone 5): an item of a set counts the set's parts (Sets::GetSetForItem,
-// FindInventorySetState, Tasks::CompleteSubtask(0x28, ...)). Not ported (online): the OG / OG2
-// sharing requests (a complete set, a new gem or orb, new equipment unless noShare).
+// An item of a set counts the set's bonuses the inventory now completes (the kCollectSet step
+// "set id * 10 + bonuses"). Not ported (online): the OG / OG2 sharing requests (a complete set, a
+// new gem or orb, new equipment unless noShare).
 PlayerItem* AddItem(uint32_t id, int count, bool flag14, bool timesOnly, bool noShare) {
     if (count < 1) {
         std::fprintf(stderr, "ERROR: GameState::AddItem() Item %d count is %d\n", id, count);
@@ -800,6 +802,13 @@ PlayerItem* AddItem(uint32_t id, int count, bool flag14, bool timesOnly, bool no
             it->f14 = flag14;
             last = it.get();
             g_items.push_back(std::move(it));
+        }
+        if (Sets::Set* set = Sets::GetSetForItem(id)) {
+            Sets::FindInventorySetState();
+            unsigned complete = 0;
+            for (unsigned i = 0; i < 3; ++i)
+                if (set->bonusSlots[i] && set->covered[i] == set->bonusSlots[i]->GetChildrenCount()) ++complete;
+            if (complete != 0) Tasks::CompleteSubtask(Tasks::kCollectSet, complete + set->id * 10, 1);
         }
     }
     if (!g_itemAcquireTime.count(id)) g_itemAcquireTime[id] = (uint32_t)Timer::GetGlobalTime();

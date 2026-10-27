@@ -3,9 +3,8 @@
 // follows the jump table at 0x238238, read from the binary), HelpWithLocation @0x22f53c,
 // HelpWithMapSwitchTo @0x235964 (+ Continuation @0x235e24). RunLastSubTaskHelp is in Tasks.cpp.
 //
-// A step type whose target is not ported yet is marked in its case with the step that brings it:
-// decorations' jobs 4e, spawn points / the campaign maps / fog 4f, enemies 4g, the
-// hire, craft, character, set, heal and level windows and the world map: milestone 5.
+// The step types the original leaves to its default (daily, the friends', community, upgrade
+// level, kill spawn, reputation) do nothing here either.
 #include <cstdio>
 
 #include "engine/Render.h"
@@ -185,8 +184,21 @@ bool TaskSubtask::OnHelp(bool arrow) {
         int x = (int)assistX, y = (int)assistY;
         Map::TileCoordinatesToWorld(x, y);
         HelpWithLocation(x, y, (int)assistX, (int)assistY);
-        // UNVERIFIED (milestone 5, with that quest's map): step 0x36c also points an arrow at each of its decorations
-        // still to be used (the tile list 0x58c6ec).
+        if (id == 0x36c) {
+            // That step also points an arrow at each of its decorations still to be used.
+            static const int kTiles[7][2] = {{30, 67}, {32, 64}, {34, 65}, {33, 72}, {35, 76}, {33, 80}, {33, 81}};   // 0x58c6ec
+            bool more = false;
+            for (const auto& t : kTiles) {
+                Map::Decor* d = Map::GetDecoration(t[0], t[1]);
+                if (!d || d->f4c == 0) continue;
+                int dx, dy;
+                DecorPoint(d, dx, dy);
+                BuildingHovers::ArrowAt((float)dx, (float)dy, false, false, false, false, false, false, more);
+                BuildingHovers::SetArrowClickCallback(new GUI::Callback([d] { BuildingHovers::OnDecorClick(d, 0, 0); }));
+                BuildingHovers::FollowDecor(d);
+                more = true;
+            }
+        }
         return true;
     }
     const bool city = GameState::GetCurrentMapID() == 0;
@@ -242,7 +254,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
         }
         if (b->IsOpened() && b->data->buildingClass != 0xd && (!b->HasActiveContract() || !b->contractDone)) {
             if (b->data->buildingClass == 0xc) {
-                // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(b->id, true).
+                HireTroopsWindow::ShowForBuilding(b->id, true);
                 return true;
             }
             Render::CenterOn(b->baseX, b->minY - 100.f);
@@ -436,7 +448,7 @@ bool TaskSubtask::OnHelp(bool arrow) {
                 return true;
             }
         }
-        // UNVERIFIED (milestone 5): HireTroopsWindow::ShowForBuilding(value, false).
+        HireTroopsWindow::ShowForBuilding(value, false);
         return true;
     }
     case kBuyFarmPatch: {
@@ -712,7 +724,6 @@ bool TaskSubtask::OnHelp(bool arrow) {
     case kWinInRow:
         CastleTopWindow::HelpWithPvP();
         return true;
-    // UNVERIFIED (milestone 5): other windows.
     case kMakeScreenshot:
         CastleTopWindow::HelpWithScreenshot();
         return true;

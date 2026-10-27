@@ -17,6 +17,8 @@
 #include "game/Map.h"
 #include "game/Rand48.h"
 #include "game/Setting.h"
+#include "game/Squad.h"
+#include "hud/HUD.h"
 
 void TurnAIToward(Entity* e, const AI::Waypoint* wp);   // game/Entity.cpp
 
@@ -460,10 +462,22 @@ void AIBaseState::UpdateWalking(float dt, int depth) {
     x = tx;
     y = ty;
     runTime = 0.f;
-    // UNVERIFIED (milestone 5, running on the rage bar's centre button): the hero's sprint
-    // (Entity::IsSpeedRunning) doubles his speed in the city and on map 0xb from level 5, and
-    // elsewhere costs AP every "player_sprint_cost" tiles (out of AP: the squad stops running,
-    // "ui_deactivate_slot", BottomBattleWindow::EnableFuryGlow).
+    // The hero's sprint (the rage bar's centre button) costs 2 AP every "player_sprint_cost" + 1
+    // tiles away from the city and map 0xb, outside fights; out of AP the squad stops running.
+    if (entity->player && entity->IsSpeedRunning() && current != nxt && !GameState::IsCombatActive() &&
+        mapId != 0xb && mapId != 0) {
+        if (sprintSteps < Setting("player_sprint_cost").GetInt()) {
+            ++sprintSteps;
+        } else {
+            entity->AddAP(-2);
+            if (entity->GetAP() == 0) {
+                entity->GetSquad()->DisableSpeedRun();
+                SoundsManager::PlaySound("ui_deactivate_slot", 1, false);
+                BottomBattleWindow::EnableFuryGlow();
+            }
+            sprintSteps = 0;
+        }
+    }
     current = nxt;
     if (repathing) repathing = false;
     entity->SetPos(nxt->x, nxt->y);

@@ -85,7 +85,7 @@ bool IsBossCombatActive();                     // @0x190f90 its type is above 2 
 bool IsArenaCombatActive();                    // @0x190fd0 above 4
 bool IsPvPCombatActive();                      // @0x191010 above 5
 bool IsVirtualTutorial();                      // @0x190b68 second-tutorial steps 0x200..0x21b
-extern int mBossSpawnID;                       // GameState::mBossSpawnID (boss fights: milestone 5)
+extern int mBossSpawnID;                       // GameState::mBossSpawnID the spawn point of the boss / arena fight
 extern uint32_t mReturnMapID;                  // GameState::mReturnMapID the map a boss / arena fight was entered from
 // The fight a map load sets up (Map::SpawnEntities) and where it stands (BaseCombat::SwitchTo*):
 extern std::vector<uint32_t> mBossWaves;       // GameState::mBossWaves the enemies' entity ids, the boss last

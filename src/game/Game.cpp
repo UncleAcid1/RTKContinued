@@ -67,7 +67,7 @@ void FileManager::RestartGame() {
 // @0x185668 OnResume
 void OnResume() {
     PlayerProfileManager::ResetNoConnectionWarning();
-    // (PlayerWeakWindow::ResetSession: milestone 5.)
+    // (PlayerWeakWindow::ResetSession: the window is removed, DECIDED 2026-10-18.)
     CastleTopWindow::ActivateFeatureHolders();
     // The first daily bonus ever (none received yet), once task 0x35c is done, with no window,
     // fight, hover, world dialog or pause: forced. As the original it never happens offline:

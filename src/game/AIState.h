@@ -328,7 +328,7 @@ public:
 // soldiers, 180 for others), reports to its squad when it arrives, trains at a city building.
 // Port of AIWarrior (@0xf208c..0xf4b78, vtable 0x6072a0). In a fight BaseCombat calls StartedAttack
 // and Attack on the attacker; Attack rolls block / hit / death and tells the target's AI, which
-// plays it when the swing lands. The magic slots come with the spells (milestone 5).
+// plays it when the swing lands; the magic attacks likewise (Spells, 5j).
 class AIWarrior : public AIBaseState {
 public:
     explicit AIWarrior(Entity* e);                    // @0xf39dc
@@ -445,8 +445,8 @@ public:
     bool movingSquad = false;           // +0xf8 a tap is moving the squad (UnableToWalk retries)
 };
 
-// A spell's entity (AI state 10): a finished animation does nothing; SpellMovement (milestone 5)
-// moves it. Port of AISpell (@0xf1e18..0xf1ed4).
+// A spell's entity (AI state 10): a finished animation does nothing; SpellMovement (5k) moves
+// it. Port of AISpell (@0xf1e18..0xf1ed4).
 class AISpell : public AIBaseState {
 public:
     explicit AISpell(Entity* e) : AIBaseState(e) {}   // @0xf1ea0

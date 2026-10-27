@@ -2,8 +2,7 @@
 // and the missions' side nodes over a scrolling parchment; the hero's marker travels between them.
 // Port of GlobalMapWindow (libkingdom.so 5.11), 0x2bd364..0x2c6494. Statics at 0x61f850..0x620968.
 //
-// UNVERIFIED (milestone 5): the windows its nodes open (PlayerWeakWindow), the PvP travel to map 0x70 and the castle's featured
-// quests are not ported yet; each call site says so. Expansions (downloaded content) are online:
+// PlayerWeakWindow's advice is removed (DECIDED 2026-10-18); the call sites say so. Expansions (downloaded content) are online:
 // Expansions::AreEnabled() is false offline, so their branches are left out. flagDemoVersion is 0.
 #include <cmath>
 #include <cstdio>
@@ -1128,11 +1127,11 @@ void Hide() {
     } else {
         BottomCityWindow::Hide();
     }
-    // UNVERIFIED (milestone 5): PlayerWeakWindow's advice. On map 0x6d (once the shop task,
+    // (Removed, DECIDED 2026-10-18: PlayerWeakWindow's advice. On map 0x6d (once the shop task,
     // Setting "shop_unlock_task", is done) when the hero is hurt with fewer than 3 belt potions
     // below level 5; on another map of a location on the world map when no boss fight, no soldier
     // in the slots, the camera still, not maps 0, 0x74, 0xd, 0xb, and secondTutorial 0x100; each
-    // map once (PlayerWeakWindow::HasBeenShownOnMap).
+    // map once, PlayerWeakWindow::HasBeenShownOnMap.)
     HideArrow();
     HUDWindow::UpdateFrameBorder();
     if (const char32_t* name = Locations::GetMapName((uint32_t)GameState::GetCurrentMapID())) HUDWindow::ShowMapName(name);

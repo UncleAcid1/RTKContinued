@@ -1335,9 +1335,8 @@ void Update(bool force) {
                     CompleteTask(t->id, true, true, false);
                     return;
                 }
-            } else if (WindowManager::GetEnqueuedWindowCount() == 0 && !FoundItemsWindow::HasPostAction() &&
-                       !Map::IsMapLoadQueued()) {
-                // UNVERIFIED: not during a PvP fight (GameState::IsPvPCombatActive, milestone 5).
+            } else if (!GameState::IsPvPCombatActive() && WindowManager::GetEnqueuedWindowCount() == 0 &&
+                       !Map::IsMapLoadQueued() && !FoundItemsWindow::HasPostAction()) {
                 TaskCompleteWindow::Complete(t->id);
                 TaskCompleteWindow::Show();
                 return;

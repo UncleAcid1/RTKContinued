@@ -415,8 +415,7 @@ void AIWarrior::MagicAttackArea(unsigned slot) {
                     target->SetUpdateSpeedScale(0.1f);
                     delay = ParticlePresets::OnSpell(spell->id, target->worldX, target->worldY, false);
                 }
-                // UNVERIFIED (milestone 5, the PvP tutorial): outside tutorial 0x80 the spell
-                // always lands.
+                // Before the tutorial's end (step 0x80) the spell always lands (asm: GameState::tutorial).
                 if (target->GetDefenseMagic() < BRand::Percent() || GameState::tutorial != 0x80) {
                     if (!target->WillDieMagic(entity, spell, mult, false))
                         ai->MagicHit(delay, false, mult, false, spell->id);
