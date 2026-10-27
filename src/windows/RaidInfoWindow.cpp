@@ -8,11 +8,11 @@
 // star's flag fades in.
 // Port of RaidInfoWindow (libkingdom.so 5.11), 0x32f150..0x3360a4 (UpdateContents is
 // 0x332728..0x335c04: Ghidra cut it at 0x3352b8 into a bogus "_INIT_112"). Statics at 0x62b1c4.
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <strings.h>
 #include <vector>
 
 #include "engine/SoundsManager.h"
@@ -589,7 +589,7 @@ void OnBlue() {
                     const MetaData* c = list->GetChild(i);
                     if (c->GetChild(0)->type == 2) {
                         const char* name = c->GetChild(0)->GetString();
-                        if (strcasecmp(name, "REPUTATION") != 0)
+                        if (SDL_strcasecmp(name, "REPUTATION") != 0)
                             NotEnoughWindow::AddRequirement(GameState::StringToResourceType(name),
                                                             (unsigned)c->GetChild(1)->GetInt());
                         else
@@ -610,7 +610,7 @@ void OnBlue() {
                     const MetaData* c = list->GetChild(i);
                     if (c->GetChild(0)->type != 2) continue;
                     const char* name = c->GetChild(0)->GetString();
-                    if (strcasecmp(name, "REPUTATION") == 0) continue;
+                    if (SDL_strcasecmp(name, "REPUTATION") == 0) continue;
                     GameState::ChangeResourceAmount(GameState::StringToResourceType(name), -c->GetChild(1)->GetInt());
                 }
             }
@@ -992,7 +992,7 @@ void UpdateContents() {
         bool enough = true;
         if (c->GetChild(0)->type == 2) {
             const char* name = c->GetChild(0)->GetString();
-            if (strcasecmp(name, "REPUTATION") != 0) {
+            if (SDL_strcasecmp(name, "REPUTATION") != 0) {
                 const int type = GameState::StringToResourceType(name);
                 r.icon->SetTexture(IconManager::GetIcon(GameState::GetResourceIconName(type), false), true);
                 need = c->GetChild(1)->GetInt();

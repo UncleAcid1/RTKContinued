@@ -1,6 +1,6 @@
 #include "engine/Render.h"
 
-#include <OpenGL/gl3.h>
+#include "engine/GL.h"
 #include <png.h>
 
 #include <algorithm>

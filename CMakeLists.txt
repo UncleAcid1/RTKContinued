@@ -28,6 +28,7 @@ add_executable(rtk
   src/main.cpp
   src/engine/ErrorReporter.cpp
   src/engine/FileManager.cpp
+  src/engine/GL.cpp
   src/engine/SystemFuncs.cpp
   src/engine/Timer.cpp
   src/engine/TextInput.cpp
@@ -195,6 +196,15 @@ if(APPLE)
                         "-framework QuartzCore")
 else()
   target_sources(rtk PRIVATE src/engine/IntroVideo_none.cpp)
+endif()
+# Windows: a windowed program (no console) with the game's icon; Linux: the libraries that ship
+# with it are in "lib" beside it (tools/package_linux.sh, tools/package_windows.sh).
+if(WIN32)
+  target_sources(rtk PRIVATE packaging/windows/rtk.rc)
+  set_target_properties(rtk PROPERTIES WIN32_EXECUTABLE TRUE)
+  target_compile_definitions(rtk PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+elseif(NOT APPLE)
+  set_target_properties(rtk PROPERTIES BUILD_RPATH "$ORIGIN/lib" INSTALL_RPATH "$ORIGIN/lib")
 endif()
 # The macOS app ("cmake --build build --target app" -> build/Rule the Kingdom.app), see tools/make_app.sh.
 if(APPLE)

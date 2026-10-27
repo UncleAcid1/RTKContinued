@@ -24,7 +24,8 @@
 //            [--fps N] [--fullscreen | --windowed]   (PORT: the display options for this run, see
 //                                    DisplayOptions below)
 #include <SDL3/SDL.h>
-#include <OpenGL/gl3.h>
+#include <SDL3/SDL_main.h>   // (Windows: SDL gives the program its WinMain)
+#include "engine/GL.h"
 
 #include <cmath>
 #include <cstdio>
@@ -871,6 +872,7 @@ int SDL_baseInit() {
     if (!win) { std::fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); return 1; }
     gl = SDL_GL_CreateContext(win);
     if (!gl) { std::fprintf(stderr, "GL context: %s\n", SDL_GetError()); return 1; }
+    if (!GL::Load()) return 1;   // PORT: the GL 2+ functions (Linux, Windows)
     // PORT: vsync, except in headless runs (a hidden window's swap can wait for a display that sleeps).
     SDL_GL_SetSwapInterval(headless ? 0 : 1);
     SDL_GetWindowSizeInPixels(win, &fbw, &fbh);
@@ -1487,7 +1489,7 @@ int main(int argc, char** argv) {
     done = false;
     GameState::ResetGamePauseState();
     if (restart) {
-        setenv("RTK_RESTARTED", "1", 1);   // (no intro film again)
+        SDL_setenv_unsafe("RTK_RESTARTED", "1", 1);   // (no intro film again)
         SDL_Process* next = SDL_CreateProcess(argv, false);
         if (!next) std::fprintf(stderr, "restart failed: %s\n", SDL_GetError());
         SDL_Quit();

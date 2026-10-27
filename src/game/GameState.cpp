@@ -2,9 +2,9 @@
 #include "game/PvP.h"
 #include "game/PresentsContainer.h"
 
+#include <SDL3/SDL_stdinc.h>
 #include <cmath>
 #include <cstdio>
-#include <strings.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -293,7 +293,7 @@ int StringToResourceType(const char* name) {
         {"MEAT", kMeat}, {"SAUSAGE", kSausage}, {"SAUSAGES", kSausage}, {"OIL", kOil}, {"GOLD", kGold},
         {"CRYSTAL", kCrystal}, {"XP", kExpAfter}, {"EXP", kExpAfter}};
     for (const auto& e : table)
-        if (strcasecmp(name, e.name) == 0) return e.type;
+        if (SDL_strcasecmp(name, e.name) == 0) return e.type;
     std::fprintf(stderr, "ERROR: GameState::StringToResourceType() Unknown resource type %s", name);
     return kGold;
 }

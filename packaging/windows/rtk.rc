@@ -1,0 +1,2 @@
+// The Windows program's icon (tools/make_app_icon.py).
+IDI_ICON1 ICON "rtk.ico"
