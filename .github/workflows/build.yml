@@ -47,6 +47,14 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$PWD/sdl-install/lib"
           bash tools/package_linux.sh build dist
+      - name: Smoke test
+        # From the package alone (no SDL from the build): without an APK the game stops with its own
+        # error (exit 1); a missing library would fail differently.
+        run: |
+          cd dist/Rule-the-Kingdom-*-Linux-x86_64
+          ! ldd ./rtk | grep "not found"
+          set +e; ./rtk --storage "$RUNNER_TEMP/s/" --screenshot "$RUNNER_TEMP/s.png"; code=$?; set -e
+          echo "exit code $code"; test "$code" -eq 1
       - uses: actions/upload-artifact@v4
         with:
           name: linux
@@ -81,6 +89,12 @@ jobs:
         run: |
           export PATH="$PWD/sdl-install/bin:$PATH"
           bash tools/package_windows.sh build dist
+      - name: Smoke test
+        # Only Windows' own folders on the PATH: every other DLL must come from the package.
+        run: |
+          cd dist/Rule-the-Kingdom-*-Windows-x86_64
+          set +e; PATH=/c/Windows/System32:/c/Windows ./rtk.exe --storage ./s/ --screenshot s.png; code=$?; set -e
+          echo "exit code $code"; test "$code" -eq 1
       - uses: actions/upload-artifact@v4
         with:
           name: windows
