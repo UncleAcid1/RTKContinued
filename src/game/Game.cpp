@@ -23,6 +23,7 @@
 #include "game/EntityManager.h"
 #include "game/Map.h"
 #include "game/MetaData.h"
+#include "game/PlayerProfileManager.h"
 #include "game/SaveManager.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
@@ -65,8 +66,8 @@ void FileManager::RestartGame() {
 
 // @0x185668 OnResume
 void OnResume() {
-    // (PlayerProfileManager::ResetNoConnectionWarning: online. PlayerWeakWindow::ResetSession:
-    // milestone 5.)
+    PlayerProfileManager::ResetNoConnectionWarning();
+    // (PlayerWeakWindow::ResetSession: milestone 5.)
     CastleTopWindow::ActivateFeatureHolders();
     // The first daily bonus ever (none received yet), once task 0x35c is done, with no window,
     // fight, hover, world dialog or pause: forced. As the original it never happens offline:

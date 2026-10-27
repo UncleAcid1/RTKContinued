@@ -44,6 +44,7 @@ add_executable(rtk
   src/game/BossIntroEffect.cpp
   src/game/Fog.cpp
     src/game/LoadSampling.cpp
+    src/game/PlayerProfileManager.cpp
   src/game/Locations.cpp
     src/game/Notifications.cpp
     src/game/Spells.cpp

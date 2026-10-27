@@ -12,6 +12,11 @@
 # the port's own class definitions and globals carry them (field defaults are read with the class).
 # util = string/hash/parse helpers the port replaces with the C++ library or ports with a caller.
 
+# ---- 7e (2026-10-27): the profiles (online, ported dormant: game/PlayerProfileManager) ----------------
+online  ^PlayerProfileManager::(Init|Start|Stop|ChangeStateTo|ConnectedOffline|ConnectedFB|ConnectToOffline|ConnectToFB|OnAFB|GetFBInfoAndConnect|GetFBInfo|GetOfflineInfo|GetLocalInfo|CheckOfflineSave|CheckFBSave|HasOfflineReg|OnChangedID|OnRegistered|OnReassignedID|OnCriticalError|OnError|OnServerSaveInfo|OnCheckSocial|OnFBInfo|OnInfoReceived|ServerActionFailed|ServerActionFinished|ServerRequestCallback|Synchronize|ResetGame|ShowNoConnectionWarning|NeedToShowConnectFBWin)$   # the start-up state machine: NeighboursServer::Init, SocNets' login, CMyServer's requests (main_Loop_Init / main_Loop_Func's profile paths, the server's callbacks, FacebookSyncWindow); Init only resets the profiles' info (the server's) and reads "last_played_save"
+online  ^SwitchProfilesWindow::   # only SettingsWindow::OnProfiles opens it (with a GUID), whose button shows only when the server's "profilebutton_enabled" is set; the Facebook / offline profile switch
+online  ^GameState::GetGameStateInfo$   # only PlayerProfileManager::GetLocalInfo (the profiles' info cards)
+
 # ---- 7c (2026-10-26): the restart -------------------------------------------------------------------
 dead  ^SettingsWindow::(OnRestart|OnRestartConfirm)$   # SettingsWindow::Init gives the restart holder (icon_settings_restart, +0x24) no click; no call, GOT slot or literal of OnRestart anywhere; OnRestartConfirm only from OnRestart's popup
 online  ^(HUDWindow::GameReset|ReloadSavedGame|GameState::RemoveWorkersFromOrders|FileManager::RemoveSaveFiles)$   # GameReset: PlayerProfileManager::ResetGame (the Facebook profile switch) and the dead OnRestartConfirm; ReloadSavedGame: the server's save callbacks, PlayerProfileManager::ResetGame and the dead console; RemoveWorkersFromOrders: those two, CleanBeforeLoading / GoHomeFromFriend (online), the dead GameReload / CmdLoadSaveLocal; RemoveSaveFiles: PlayerProfileManager::ConnectToOffline

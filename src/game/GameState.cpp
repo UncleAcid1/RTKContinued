@@ -21,6 +21,7 @@
 #include "game/Items.h"
 #include "game/Map.h"
 #include "game/Notifications.h"
+#include "game/PlayerProfileManager.h"
 #include "game/Locations.h"
 #include "game/SoldierSlots.h"
 #include "game/Squad.h"
@@ -139,7 +140,6 @@ uint32_t g_questFriendCount = 0;      // Neighbours::Get/SetQuestFriendCount
 uint32_t g_pvpVictories = 0, g_pvpDefeats = 0;   // PvP::Get/SetVictoryCount, DefeatCount
 bool g_pvpTutorial = false;     // 0x612d4c (SetPvPTutorial)
 int g_startingArenaHP = 0;      // GameState::mStartingArenaHP
-uint32_t g_playerType = 0;            // PlayerProfileManager::Get/SetPlayerType
 std::string g_sid, g_guid;            // 0x612f28 / 0x612f2c (null until loaded: getSID / getGUID)
 bool g_hasSid = false, g_hasGuid = false;
 }
@@ -1325,7 +1325,7 @@ void Save(uint32_t version) {
     }
     EndChunk();
     BeginChunk(0x68);
-    SaveUnsigned(g_playerType);
+    SaveUnsigned(PlayerProfileManager::GetPlayerType());
     EndChunk();
     BeginChunk(0x51);
     SaveMap(g_customSubtaskRequirement);
@@ -1673,7 +1673,7 @@ void Load(SaveManager::SaveBlock* block) {
             g_hasGuid = true;
             break;
         }
-        case 0x68: g_playerType = r.u32(); break;   // PlayerProfileManager::SetPlayerType
+        case 0x68: PlayerProfileManager::SetPlayerType(r.u32()); break;
         }
         block->EndChunkLoading(r);
     }
