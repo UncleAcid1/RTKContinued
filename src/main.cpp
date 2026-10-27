@@ -96,7 +96,8 @@ namespace Game { bool main_Loop_Func(); }   // below
 namespace {
 
 struct Options {
-    std::string root = "..";  // the backup folder that contains "Android files", "files", "_extract"
+    std::string root;         // the backup folder that contains "Android files", "files", "_extract"
+                              // (empty: FindGameRoot looks for it)
     unsigned map = 0;
     bool mapGiven = false;    // PORT test aid: without a save, start on that map past the tutorial
     long seed = 1;            // GameState::playerSeed of the test city (no save)
@@ -204,6 +205,77 @@ bool RegisterSources(const std::string& root) {
     FileManager::RegisterWin8Fallback(root + "/_extract/win5/Assets");  // PORT: fallback only
     std::printf("FileManager: %zu files registered\n", FileManager::EntryCount());
     return true;
+}
+
+// PORT: the game files' folder, the player's own copy of the game (it holds "Android files", "files"
+// and "_extract"). Without --root: the one remembered in the storage folder (game_root.txt), the
+// working folder's parent (the port's build folder), or a folder above the program (the app kept
+// next to the files); else the player picks it (not in a headless run), and it is remembered.
+const char* const kApkData = "/Android files/rule-the-kingdom-5-11-multi-android/assets/data";
+
+bool IsGameRoot(const std::string& dir) {
+    SDL_PathInfo info;
+    return !dir.empty() && SDL_GetPathInfo((dir + kApkData).c_str(), &info) && info.type == SDL_PATHTYPE_DIRECTORY;
+}
+
+std::string PickGameRoot(const char* message) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) return "";
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Rule the Kingdom", message, nullptr);
+    struct Pick { std::string dir; bool done = false; } pick;
+    SDL_ShowOpenFolderDialog(
+        [](void* data, const char* const* list, int) {
+            Pick* p = (Pick*)data;
+            if (list && list[0]) p->dir = list[0];
+            p->done = true;
+        },
+        &pick, nullptr, nullptr, false);
+    while (!pick.done) {
+        SDL_Event e;
+        SDL_WaitEventTimeout(&e, 100);
+    }
+    return pick.dir;
+}
+
+std::string FindGameRoot(const std::string& storage, bool ask) {
+    const std::string memo = storage + "game_root.txt";
+    std::vector<std::string> candidates;
+    if (FILE* f = std::fopen(memo.c_str(), "rb")) {
+        char buf[4096];
+        size_t n = std::fread(buf, 1, sizeof buf, f);
+        std::fclose(f);
+        std::string dir(buf, n);
+        while (!dir.empty() && (dir.back() == '\n' || dir.back() == '\r')) dir.pop_back();
+        candidates.push_back(dir);
+    }
+    candidates.push_back("..");
+    if (const char* base = SDL_GetBasePath()) {   // (in an app: its Contents/Resources)
+        std::string dir = base;
+        for (int i = 0; i < 6; ++i) {
+            while (dir.size() > 1 && dir.back() == '/') dir.pop_back();
+            const size_t slash = dir.rfind('/');
+            if (slash == std::string::npos || slash == 0) break;
+            dir.resize(slash);
+            candidates.push_back(dir);
+        }
+    }
+    for (const std::string& dir : candidates)
+        if (IsGameRoot(dir)) return dir;
+    if (!ask) return "";
+    const char* message = "Choose the folder with your Rule the Kingdom game files (the one that holds "
+                          "\"Android files\", \"files\" and \"_extract\").";
+    for (;;) {
+        const std::string dir = PickGameRoot(message);
+        if (dir.empty()) return "";
+        if (IsGameRoot(dir)) {
+            if (FILE* f = std::fopen(memo.c_str(), "wb")) {
+                std::fputs(dir.c_str(), f);
+                std::fclose(f);
+            }
+            return dir;
+        }
+        message = "That folder does not hold the game files (\"Android files/rule-the-kingdom-5-11-multi-android\"). "
+                  "Choose the folder that holds \"Android files\", \"files\" and \"_extract\".";
+    }
 }
 
 Options opt;
@@ -1220,7 +1292,6 @@ int main(int argc, char** argv) {
     headless = !opt.screenshot.empty();
     if (!headless) Game::loadScreenSeconds = 4.0;   // PORT: see Game.h
     traceInput = std::getenv("RTK_TRACE_INPUT") != nullptr;
-    if (!RegisterSources(opt.root)) return 1;
     // PORT: the storage folder is the user's application support folder (Android: the app's files).
     if (opt.storage.empty()) {
         char* pref = SDL_GetPrefPath("", "Rule the Kingdom");
@@ -1230,6 +1301,13 @@ int main(int argc, char** argv) {
         opt.storage += '/';
     }
     FileManager::SetStoragePath(opt.storage);
+    if (opt.root.empty()) opt.root = FindGameRoot(opt.storage, !headless);
+    if (!RegisterSources(opt.root)) {
+        if (!headless)
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Rule the Kingdom",
+                                     "The game files (Rule the Kingdom 5.11 for Android) were not found.", nullptr);
+        return 1;
+    }
 
     int result = RepeatedMain();
     const bool restart = restartGameAfterExit && !headless;

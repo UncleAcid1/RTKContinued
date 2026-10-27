@@ -196,6 +196,11 @@ if(APPLE)
 else()
   target_sources(rtk PRIVATE src/engine/IntroVideo_none.cpp)
 endif()
+# The macOS app ("cmake --build build --target app" -> build/Rule the Kingdom.app), see tools/make_app.sh.
+if(APPLE)
+  add_custom_target(app COMMAND "${CMAKE_SOURCE_DIR}/tools/make_app.sh" "$<TARGET_FILE:rtk>" "${CMAKE_BINARY_DIR}"
+                    DEPENDS rtk VERBATIM)
+endif()
 target_include_directories(rtk PRIVATE src ${VORBIS_INCLUDE_DIR} ${OGG_INCLUDE_DIR})
 target_compile_definitions(rtk PRIVATE GL_SILENCE_DEPRECATION)
 # -ffp-contract=off: ARMv7 VMLA/VMLS round the product and the sum separately; no fused multiply-add.
