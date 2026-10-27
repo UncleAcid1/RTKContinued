@@ -18,6 +18,8 @@
 #include "game/GameData.h"
 #include "game/Fog.h"
 #include "game/Combat.h"
+#include "game/EntityData.h"
+#include "game/Squad.h"
 #include "game/GameState.h"
 #include "game/Locations.h"
 #include "game/SaveManager.h"
@@ -645,13 +647,42 @@ void Update(float dt) {
     UpdatePlayerLocator();
     UpdateTaskLocator();
     UpdateScreenDarkening(dt);
-    // UNVERIFIED (milestones 4g/5): the mission timer box (+0x60: "MISSION_TIME_LEFT" with
-    // Locations::GetMissionRemainingTime on a mission map, a boss fight's time left in a boss
-    // combat), placed under the top bar left of the featured button (CastleTopWindow::GetFeaturedOffset).
-    // Once a second on a campaign map without a help arrow: the locator of whoever the newest open
-    // quest wants the hero to talk to, when that somebody is out of view.
+    // The mission timer box (+0x60): in a boss or arena fight with a boss whose fight has a time
+    // (restore_time) its time left, on a mission's map the mission's; not in the arenas (location
+    // 3). It sits under the top bar, left of the featured button.
     const int now = Timer::GetGlobalTime();
+    bool timerShown = false, bossTimer = false;
+    int bossLeft = 0;
+    BaseCombat* combat = GameState::GetActiveCombat();
+    Entity* boss = combat && combat->GetType() >= 3 && combat->GetEnemySquad() && !GameState::IsCityTutorial()
+                       ? combat->GetEnemySquad()->GetOwner()
+                       : nullptr;
+    const int restore = boss ? boss->GetEntityData()->restoreTime : 0;
+    const uint32_t start = boss ? GameState::GetBossFightStartTime(GameState::mReturnMapID, (uint32_t)GameState::mBossSpawnID) : 0;
+    if (start != 0 && restore != 0) {
+        bossTimer = true;
+        bossLeft = (int)(start + (uint32_t)restore - (uint32_t)now);
+        if (bossLeft < 0) bossLeft = 0;
+        timerShown = GameState::GetCurrentLocation() != 3;
+    } else if (Locations::IsMissionMap((uint32_t)GameState::GetCurrentMapID())) {
+        timerShown = GameState::GetCurrentLocation() != 3;
+    }
+    g_farmTimer.root->SetVisibility(timerShown);
+    g_farmTimer.root->SetPosition(GUI::ScreenWidth() - g_farmTimer.root->w - (int)(GUI::GetHoverScaleFactor(1.f, 1.f) * 50.f) -
+                                      CastleTopWindow::GetFeaturedOffset(),
+                                  (int)(GUI::GetHoverScaleFactor(1.f, 1.f) * 80.f));
+    // Once a second: the timer's text; on a campaign map without a help arrow the locator of whoever
+    // the newest open quest wants the hero to talk to, when that somebody is out of view.
     if (now != g_lastSecond) {
+        if (g_farmTimer.root->visibleSelf) {
+            g_farmTimer.header->SetText(StringTable::GetString("MISSION_TIME_LEFT"));
+            if (bossTimer)
+                g_farmTimer.time->SetText(StringTable::GetNumericTimeString(bossLeft, false).c_str());
+            else
+                g_farmTimer.time->SetText(
+                    StringTable::GetTimeString(Locations::GetMissionRemainingTime((uint32_t)GameState::GetCurrentMapID()), false)
+                        .c_str());
+        }
         if (!g_locatorPending && !g_taskLocator.root->visibleSelf && GameState::GetCurrentLocation() == 2 &&
             !BuildingHovers::ArrowVisible()) {
             Tasks::TaskInfo* cur[0x80] = {};

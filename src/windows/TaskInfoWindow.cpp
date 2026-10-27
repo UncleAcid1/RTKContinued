@@ -3,10 +3,8 @@
 // reward strip. The window shrinks to the number of steps. Port of TaskInfoWindow
 // (libkingdom.so 5.11), 0x359dc8..0x35e9xx. Statics at 0x62f9e4.
 //
-// Not ported, marked where they happen: the boss form of the window (a boss's portrait, fight /
-// shop buttons, OnFight: milestone 5), the task locator icon (4d part 4), ExecuteFirstHelp
-// (0x35d3dc, the autoplay bot: 4d part 4), the windows Show opens for a few special tasks (chests,
-// PvP: milestone 5), sounds (6).
+// A boss's task shows the boss form: its animated portrait, the time until it is back, and the
+// fight / shop buttons. ExecuteFirstHelp (0x35d3dc) is the autoplay bot's (dead).
 #include <cstdio>
 #include <vector>
 
@@ -20,6 +18,7 @@
 #include "game/Contracts.h"
 #include "game/Locations.h"
 #include "game/Combat.h"
+#include "game/Animation.h"
 #include "game/EntityData.h"
 #include "game/EntityManager.h"
 #include "game/AIState.h"
@@ -116,6 +115,8 @@ Window* g_bubble = nullptr;              // 0x62fd48 dialog_hint_window_9s
 Window* g_bubbleArrow = nullptr;         // 0x62fd4c dialog_arrow_sw
 Window* g_bossInfo = nullptr;            // 0x62fd50 boss_task_info
 Textfield* g_bossTimeLabel = nullptr;    // 0x62fd58
+int g_bossFrame = 0;                     // 0x62fd54 the boss portrait's frame
+float g_bossFrameTime = 0.f;             // 0x62fd9c
 Textfield* g_bossTime = nullptr;         // 0x62fd5c
 unsigned g_awardCount = 0;               // 0x62fd60
 Window* g_rewardHolder = nullptr;        // 0x62fd64 task_reward_holder
@@ -215,7 +216,14 @@ void OnContinue() {
     void (*cb)() = g_onContinue;
     g_onContinue = nullptr;
     if (cb) cb();
-    // UNVERIFIED (milestone 5): with a boss set (not task 0x5b7) the hero's AI is told (vfunc +0xe8).
+    // Leaving a boss's window (not the Chest Guardian's) the hero steps back (his AI's Retreat).
+    if (g_boss) {
+        if (g_task == 0x5b7) {
+            HideWindow();
+            return;
+        }
+        EntityManager::GetPlayer()->GetAI()->Retreat();
+    }
     if (g_task == 0x49f) {
         TaskCompleteWindow::Complete(0x49f);
         TaskCompleteWindow::Show();
@@ -574,8 +582,26 @@ void SetTask(uint32_t id, bool boss) {
     g_bossInfo->SetVisibility(g_bossMode);
     g_bossText->SetVisibility(g_bossMode);
     UpdateDescription();
-    // UNVERIFIED (milestone 5): with a boss set its portrait (the "idle_1" animation) and the
-    // time left of its fight ("MISSION_TIME_LEFT", GameState::GetBossFightStartTime).
+    // A boss's portrait (its "idle_1" animation, the frame Update has reached) and the time left
+    // until it is back ("MISSION_TIME_LEFT": its restore_time from its fight's start).
+    if (g_boss) {
+        if (Animation* a = g_boss->GetEntityData()->GetAnimation("idle_1"))
+            if (Render::Texture* tex = a->GetTexByDir(0)) {
+                g_bossIcon->SetVisibility(true);
+                g_bossIcon->SetTexture(tex, true, 0, 0, true, tex->frames ? (unsigned)(g_bossFrame % tex->frames) : 0);
+            }
+        g_bossTimeLabel->SetText(StringTable::GetString("MISSION_TIME_LEFT"));
+        int left = g_boss->GetEntityData()->restoreTime;
+        const uint32_t start = GameState::GetBossFightStartTime((uint32_t)GameState::GetCurrentMapID(), g_boss->GetSpawnPointID());
+        if (start != 0) {
+            left = (int)(start + (uint32_t)left - (uint32_t)Timer::GetGlobalTime());
+            if (left < 0) left = 0;
+        }
+        const bool waiting = left > 0;
+        g_bossTimeLabel->SetVisibility(waiting);
+        g_bossTime->SetVisibility(waiting);
+        g_bossTime->SetText(StringTable::GetNumericTimeString(waiting ? left : 0, false).c_str());
+    }
 
     // The step boxes; the window is shorter by one box for every step the task does not have.
     const int boxHeight = g_boxes[0].root->h;
@@ -718,7 +744,8 @@ void SetTask(uint32_t id, bool boss) {
             r.quantity->SetText(ToWideString((int)a.amount));
         }
     }
-    // UNVERIFIED (milestone 5): task 0x5b7 with its first step done hides the fight and shop buttons.
+    // (Here the original hides the fight and shop buttons for task 0x5b7 with its first step done,
+    // but sets them to the boss form again at the end, so it has no effect.)
     g_fightIcon->SetTexture(IconManager::GetIcon("gold_attack", false), true, 0, 0, false, 0);
     g_fightText->SetText(StringTable::GetString("BOSS_FIGHT"));
     g_shopIcon->SetTexture(IconManager::GetIcon("gold_buy", false), true, 0, 0, false, 0);
@@ -822,7 +849,15 @@ void Show() {
 // @0x35cee4 TaskInfoWindow::Update
 void Update(float dt) {
     if (!g_root->visibleSelf) return;
-    // (the boss portrait's animation frames, 0.1 s each: milestone 5)
+    // The boss portrait's animation: a frame every 0.1 s.
+    g_bossFrameTime += dt;
+    if (g_bossFrameTime > 0.1f) {
+        g_bossFrameTime -= 0.1f;
+        ++g_bossFrame;
+    }
+    if (g_bossFrameTime > 1.f) g_bossFrameTime = 0.f;
+    if (Render::Texture* tex = g_bossIcon->texture)
+        g_bossIcon->SetTexture(tex, true, 0, 0, false, tex->frames ? (unsigned)(g_bossFrame % tex->frames) : 0);
     g_scroller.Update(dt);
     g_left->SetEnabled(g_scroller.CanMoveLeft());
     g_right->SetEnabled(g_scroller.CanMoveRight());

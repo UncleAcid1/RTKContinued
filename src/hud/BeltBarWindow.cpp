@@ -883,7 +883,8 @@ void UpdateCraftBar(float dt) {
     }
 }
 
-// @0x24f744. UNVERIFIED (milestone 5): an item dragged out of the belt.
+// @0x24f744: the card's depth, the slots' bars, the buffs, the raised belt, the crafting bar, the orb
+// flying to a slot and the second tutorial's arrows.
 void Update(float dt) {
     if (!g_root) return;
     if (g_hover->shownHover) {

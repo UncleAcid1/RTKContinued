@@ -52,7 +52,7 @@ void SetLine(ItemHoverWindow::EffectLine& l, const char32_t* text, const char* i
     l.icon->SetTexture(IconManager::GetIcon(icon), true);
 }
 
-// Systems of later milestones the window asks about. UNVERIFIED stand-ins until they are ported.
+// The other windows the card asks about.
 bool LevelInfoWindowIsVisible() { return LevelInfoWindow::IsVisible(); }
 bool RaidInfoWindowIsVisible() { return RaidInfoWindow::IsVisible(); }
 bool ChestsWindowIsVisible() { return ChestsWindow::IsVisible(); }
@@ -956,10 +956,29 @@ void ItemHoverWindow::OnEnable() {
             PopupWindow::Show(StringTable::GetString("MAGNIFYING_GLASS_TOWN"), PopupWindow::Hide, nullptr, nullptr);
             return;
         }
-        // UNVERIFIED (milestone 5, with CharacterInfoWindow): away from the city: CharacterInfoWindow::Hide, the glass is
-        // used up (RemoveUniqueItem), Map::GetDecorationWithAnyDrop -> "MAGNIFYING_GLASS_NONE" or
-        // the camera / arrow on that decoration (Fog::IsVisible, Map::AddCameraPoint). Only the city
-        // is loaded so far.
+        // Away from the city the glass is used up and shows a decoration with a drop: in the fog the
+        // camera travels there, else the view glides to it; the arrow's tap is the tap on it.
+        CharacterInfoWindow::Hide();
+        GameState::RemoveUniqueItem(item->uniqueId);
+        Map::Decor* d = Map::GetDecorationWithAnyDrop();
+        if (!d) {
+            PopupWindow::Show(StringTable::GetString("MAGNIFYING_GLASS_NONE"), PopupWindow::Hide, nullptr, nullptr);
+            return;
+        }
+        int x = d->x, y = d->y;
+        Map::TileCoordinatesToWorld(x, y);
+        if (d->sprite) {
+            x = (int)(d->sprite->x + d->sprite->w * 0.5f);
+            y = (int)(d->sprite->y - d->sprite->h);
+        }
+        BuildingHovers::SetArrowClickCallback(new GUI::Callback([d] { BuildingHovers::OnDecorClick(d, 0, 0); }));
+        if (!Fog::IsVisible(x - 0x1e, y - 0x1e, x + 0x1e, y + 0x1e)) {
+            Map::AddCameraPoint(d->x, d->y, 1, 1, 0, x, y, 0, 1.f, true, 0.f, 0);
+        } else {
+            Render::CenterOn((float)x, (float)y, true, 0.4f, 0, false);
+            BuildingHovers::ArrowAt((float)x, (float)y, false, false, false, false, false, false, false);
+            BuildingHovers::SetArrowClickCallback(new GUI::Callback([d] { BuildingHovers::OnDecorClick(d, 0, 0); }));
+        }
         return;
     }
     int slot = -1;

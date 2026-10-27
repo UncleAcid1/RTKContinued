@@ -232,12 +232,14 @@ void Hide() {
     }
 }
 
-// @0x24ba4c (the heal hover window takes z - 0.0001: milestone 5)
+// @0x24ba4c: the healing card just under the HUD (z - 0.009), the slider and the bar at z - 0.0001
+// (asm 0x24ba4c..0x24bacc).
 void SetZ(float) {
     if (!g_root) return;
     float z = HUDWindow::GetZ();
-    if (g_slider) g_slider->SetZ(z - 0.009f);
-    g_root->SetZ(z - 0.009f);
+    g_heal->SetZ(z - 0.009f);
+    if (g_slider) g_slider->SetZ(z - 0.0001f);
+    g_root->SetZ(z - 0.0001f);
     const int H = GUI::ScreenHeight();
     if (!g_effect->active && g_root->visibleSelf) g_root->SetPosition(g_barX, (g_barDY + H) - g_root->h);
     if (g_slider && !g_sliderEffect->active && g_slider->visibleSelf)

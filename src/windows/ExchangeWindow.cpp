@@ -462,7 +462,7 @@ void Init() {
         std::snprintf(name, sizeof name, "buttons_get_crystals.button_buy_currency_%02u", i + 1);
         g_lines[i].LoadFrom(g_root, name, g_scale);
         g_lines[i].click->SetOnClick([i] { OnBuy(i); });
-        // UNVERIFIED (milestone 5): the action sound is the string at 0x5afb5c.
+        g_lines[i].click->SetActionSound("", 1);   // no click sound (OnBuy plays its own)
         g_chestInfo[i] = GUI::GetWindowTypedF<Window>(g_root, "buttons_get_crystals.button_chest_info_%02u", i + 1);
     }
     UpdateCosts();

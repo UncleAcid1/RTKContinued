@@ -3,9 +3,8 @@
 // quick task description line. Port of TaskHolderWindow (libkingdom.so 5.11), 0x354364..0x359d68.
 // HUDWindow::UpdateTasks @0x2c7ba8 is a jump to UpdateTasks here.
 //
-// Not ported, marked where they happen: the arena event (milestone 5), the expansion download
-// task 0x5eb (online),
-// TaskInfoWindow (4d part 2), BattleBarWindow's quest lines and ExecuteFirstHelp (4d part 4).
+// Not ported: the expansion download task 0x5eb (online, Expansions) and ExecuteFirstHelp (the QA
+// bot's, dead).
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -161,11 +160,12 @@ void OnTaskInfo(uint32_t id) {
         TaskInfoWindow::Show();
         return;
     }
-    // The sultan's visit: the world map on him. UNVERIFIED (milestone 5): SultanArrivingWindow::Show.
+    // The sultan's visit: the world map on him, with his arrival window.
     if (Map::GetCurrentFarm()) HUDWindow::ExitFarm();
     GlobalMapWindow::Show();
     GlobalMapWindow::CenterOnSultan();
     UpdateTasks();
+    SultanArrivingWindow::Show();
 }
 
 }  // namespace

@@ -9,11 +9,8 @@
 // Over the PvP arena's outro (PlayerBattleInOutWindow) it has no band and its buttons are the
 // arena's: after a win "Continue" (back from the fight), after a loss "Attack again" (the fight
 // restarts), "Continue" and "Restock".
-// UNVERIFIED (later milestones):
-//  - PlayerWeakWindow (the warning before a rematch with a weak army or belt): removed, DECIDED
-//    2026-10-18;
-//  - SetParameters(Locations::LocationInfo*, ...) (0x2bd21c) comes with the global map's windows (5);
-//  - OnClose's owners (raid / campaign / boss / chest windows) are named in comments only.
+// PlayerWeakWindow (the warning before a rematch with a weak army or belt) is removed, DECIDED
+// 2026-10-18.
 // PORT (online removed): the share ticks (Shared::ShareButtonsHolder, the Facebook / Twitter
 // toggles of SettingsWindow) stay hidden and no wall posts are made (OnShare); Ok only closes.
 #include <algorithm>
@@ -299,9 +296,8 @@ bool HasPostAction() { return g_postAction != 0; }                         // @0
 // @0x2bbfc0: Ok. Over the PvP arena's outro: after a loss "Attack again" (a weak army or belt is
 // warned about once): the loot is given, the fight is set up again on the same map (a new
 // PvPArenaCombat against the same opponent, its hero from mBossWaves' last entry) and the outro
-// fades into the intro; after a win "Continue": the loot is given, the arena's post action
-// (UNVERIFIED (milestone 5): the valor profession's level up shows LevelInfoWindow, action 4) and
-// ScheduleReturn queued. PORT (online removed): the wall post of the task / location / boss /
+// fades into the intro; after a win "Continue": the loot is given, the arena's post action (the PvP
+// window, or LevelInfoWindow when the valor's level went up) and ScheduleReturn queued. PORT (online removed): the wall post of the task / location / boss /
 // chest (WallPost::PostForEvent with the share ticks, from level 3) is not made.
 void OnShare() {
     if (PlayerBattleInOutWindow::IsVisible() && !PlayerBattleInOutWindow::EnemyDefeated()) {
@@ -333,9 +329,11 @@ void OnShare() {
         return;
     }
     if (PlayerBattleInOutWindow::IsVisible() && PlayerBattleInOutWindow::EnemyDefeated()) {
+        const unsigned valorLevel = Professions::GetPlayerProfessionLevel(7);
         GiveCollectedToPlayer(false, nullptr, false);
         GameState::ResetMapCollectionInfo((uint32_t)GameState::GetCurrentMapID());
-        g_postAction = 3;
+        // The valor's level went up: its levels window; else the PvP window.
+        g_postAction = valorLevel == Professions::GetPlayerProfessionLevel(7) ? 3 : 4;
         WindowManager::EnqueueWindow(PlayerBattleInOutWindow::ScheduleReturn, 0.f);
     }
     OnClose();

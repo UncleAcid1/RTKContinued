@@ -191,8 +191,9 @@ void OnNotifications() {
     UpdateContents();
 }
 
-// The remaining buttons open online features or windows that are not ported. Each keeps the
-// original's Hide() so the dialog closes as it did. UNVERIFIED (later milestones / online):
+// The remaining buttons open online features (port_plan "online": the FAQ web page, HelpWindow's
+// web view of the news, SocialConnectWindow, CouponEntryWindow). Each keeps the original's Hide()
+// so the dialog closes as it did.
 void OnFAQ() { Hide(); }               // @0x33e238 then SystemFuncs::OpenFAQ (web page)
 void OnNews() { Hide(); }              // @0x33e35c then HelpWindow::Show(0)
 void OnSocialConnect() { Hide(); }     // @0x33e338 then SocialConnectWindow::Show

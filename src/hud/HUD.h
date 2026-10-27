@@ -115,8 +115,8 @@ void ShowProfessionPoint(float x, float y, Professions::Profession* p, uint32_t 
 void Move(int x, int y);             // @0x2507d0 an item dragged out of the belt (character window)
 bool Click(int x, int y, bool pressed);   // @0x2509ac
 }
-// The campaign maps' bottom bar (hud/BottomBattleWindow.cpp; its net and stance parts so far,
-// the spells with milestone 5).
+// The campaign maps' bottom bar (hud/BottomBattleWindow.cpp): the net, the stances, the rage bar's
+// spells and the run.
 namespace BottomBattleWindow {
 WindowManager::FunctionalWindow* Queue();
 void Init();                        // @0x25d4a8

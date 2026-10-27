@@ -458,8 +458,7 @@ void Init() {
     Queue()->fn.update = Update;
     Queue()->fn.show = Show;
     Queue()->fn.back = [] { return false; };   // OnBack @0x277894
-    // UNVERIFIED: Setting("campaign_to_city_direct") comes from dynamic_config (milestone 3).
-    g_campaignToCityDirect = false;
+    g_campaignToCityDirect = Setting("campaign_to_city_direct").GetInt() == 1;   // 1 (main's flag globals)
     g_offsetY = (int)((float)g_offsetY * g_scale);
     g_offsetX = (int)((float)g_offsetX * g_scale);
     for (FeaturedQuestHolder*& h : g_holders) {

@@ -11,7 +11,7 @@ namespace PvP { struct PlayerEquipmentInfo; }
 namespace Shared {
 
 // Shared::EndscreenProgressBar (0x30 bytes): the long bar of the end screens (BossIntroWindow's
-// reputation, milestone 5's raid / boss results). The fill is clipped at clip.right.
+// reputation, the raid / boss results). The fill is clipped at clip.right.
 struct EndscreenProgressBar {
     GUI::Window* root = nullptr;         // +0x00 "%s"
     GUI::Window* bg = nullptr;           // +0x04 raid_progress_bar_bg (9-sliced, top inset 1)
@@ -209,7 +209,8 @@ struct ButtonRaidStart {
 };
 
 // Shared::ButtonCraftBuyNow (0x20 bytes): the crafting windows' "buy now" button with its crystal
-// price and the crossed-out discount. LoadFrom @0x344478 (SetCost @0x34422c: milestone 5o).
+// price and the crossed-out discount. LoadFrom @0x344478. (SetCost @0x34422c is not ported: PORT,
+// the crafting windows never offer the crystal "buy now", see CraftingWindow / CraftItemWindow.)
 struct ButtonCraftBuyNow {
     GUI::Window* root = nullptr;             // +0x00 "%s"
     GUI::Textfield* text = nullptr;          // +0x04 text_button_2

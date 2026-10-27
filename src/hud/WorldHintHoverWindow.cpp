@@ -275,7 +275,7 @@ void WorldHintHoverWindow::OnUserClose() {
         special = 0;
         ArenaEventWindow::Show();
     } else if (special == 0x3b1 && task == 1099) {
-        // UNVERIFIED (milestone 5): CastleTopWindow::OnBuyItem(0).
+        CastleTopWindow::OnBuyItem(0);
     }
     OnClose();
 }

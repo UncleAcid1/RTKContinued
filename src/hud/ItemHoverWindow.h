@@ -4,12 +4,10 @@
 // (SetTargetRect) with one of eight frame arrows, picking another side when it would leave the
 // screen (RecomputePosition). Port of ItemHoverWindow (0x38c bytes, vtable 0x609f00,
 // @0x383478..0x38b...): about 25 owners create one (the belt and battle bars, the character,
-// shop, crafting, chest, task, army windows ...); in 5.11 only BeltBarWindow and BattleBarWindow
-// of them are ported so far.
+// shop, crafting, chest, task, army windows ...).
 //
-// UNVERIFIED (later milestones): the actions that open unported windows (crafting,
-// repair, tavern / army, global map, raids, valor, the friends hub) are stand-ins that only
-// hide the popup; see each handler.
+// Each action opens its window (crafting, repair, the tavern / army, the world map, the raids,
+// the reputations); the friends hub's is online (dormant).
 #pragma once
 #include <cstdint>
 #include <string>

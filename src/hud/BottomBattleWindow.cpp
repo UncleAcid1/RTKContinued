@@ -10,10 +10,9 @@
 // the new-spell marker, connectors), the spell that flies from a slot to its target, OnAutoCast /
 // OnSpell / HelpWithSpell, the run / walk switch of the centre button, the stances of every
 // fight, the tutorial's arrow at the first slot, EnableFuryGlow.
-// UNVERIFIED (milestone 5): SpellMovement (5k: placing an area spell in the arenas, the large
-// buttons' accept / decline, the second tutorial's step 0x9e), the spell drag in Click, the mana
-// potion hints' actions (5k, 5l), the round mask on the centre button's icon, showing the bar
-// on every campaign map (Map::Load).
+// PORTED (5k): SpellMovement (placing an area spell in the arenas, the large buttons' accept /
+// decline, the second tutorial's step 0x9e), the mana potion hints; the round mask on the centre
+// button's net / tool icon; Map::Load shows the bar on the campaign maps.
 #include "engine/SoundsManager.h"
 #include "hud/HUD.h"
 
@@ -25,6 +24,7 @@
 
 #include "engine/IconManager.h"
 #include "engine/Render.h"
+#include "engine/Resources.h"
 #include "engine/Timer.h"
 #include "game/AIState.h"
 #include "game/BuildingHovers.h"
@@ -198,7 +198,7 @@ int g_offsetY = 0x17;                  // 0x60f0fc
 unsigned g_selected = (unsigned)-1;    // 0x60f100 the stance: 0 attack, 1 block, 3 auto, -1 none
 bool g_enabled = false;                // 0x60f104 SetEnabled's last state
 int g_offsetX = 0;                     // 0x60f10c
-int g_spell = -1;                      // 0x60f110 (the spells': milestone 5)
+int g_spell = -1;                      // 0x60f110 (only Hide writes it; nothing reads it in 5.11)
 int g_castSlot = 0;                    // 0x60f108 the rage button cast last: 1..3
 // The spell flying from its rage button to the target (OnAutoCast starts it, Update 5j-3c moves it).
 int g_flyX = 0, g_flyY = 0;            // 0x6183f8 0x6183fc where the marker starts: over the button
@@ -591,8 +591,7 @@ void UpdateCentre(Entity* player) {
         g_centre.active->SetAlpha(Pulse(8.f), false);
         if (Items::ItemInfo* info = Items::GetItemInfo(net)) {
             g_centre.icon->SetTexture(info->GetIcon(), true);
-            // UNVERIFIED (milestone 5, the mask shader): the icon is masked round
-            // (button_large_round_mask.png, GUI::Window::ApplyMask).
+            g_centre.icon->ApplyMask(Resources::GetUIImage("button_large_round_mask.png", false, false), g_centre.icon);
         }
         g_stance->SetText(StringTable::GetString("TAME_HINT"));
     } else if (fury) {
@@ -602,7 +601,7 @@ void UpdateCentre(Entity* player) {
         g_centre.active->SetAlpha(Pulse(8.f), false);
         if (Items::ItemInfo* info = Items::GetItemInfo(Professions::GetProfessionTool(fury->id, false, nullptr, true))) {
             g_centre.icon->SetTexture(info->GetIcon(), true);
-            // UNVERIFIED (milestone 5, the mask shader): masked round (button_large_round_mask.png).
+            g_centre.icon->ApplyMask(Resources::GetUIImage("button_large_round_mask.png", false, false), g_centre.icon);
         }
         g_stance->SetText(SWPrintf(0x100, U"%s %s %s",
                                    {StringTable::GetString("BUILDING_BOOST"),
@@ -1112,8 +1111,12 @@ void Show() {
     }
     g_root->SetVisibility(true);
     g_root->PreloadTextures();   // GUI::PreloadWindow
-    // (0x61844c, 0x618448, 0x60f114, 0x618444: the fury bar's animation, milestone 5)
+    // The mana bars ease in from empty again.
+    g_manaTimer = 0.f;
+    g_manaShown = 0.f;
+    g_lastMana = 0;
     g_selected = (unsigned)-1;
+    g_manaInit = false;
     Update(0.f);
 }
 
