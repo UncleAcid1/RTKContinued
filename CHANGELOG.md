@@ -11,6 +11,8 @@
 - The inventory / crafting bar sits in the bottom-right corner at every screen size (its offsets
   are scaled as in the original).
 - The Mac installer shows the game's own logo.
+- The game's SDL error messages show SDL's own text again (the old font library's stand-in had
+  replaced it).
 
 ## Rule the Kingdom 1.0 (2026-10-27)
 
