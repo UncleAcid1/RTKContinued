@@ -27,6 +27,7 @@ add_subdirectory(third_party)   # FreeType 2.4.5 + SDL_ttf 2.0.11, the versions 
 add_executable(rtk
   src/main.cpp
   src/engine/ErrorReporter.cpp
+  src/engine/DisplayOptions.cpp
   src/engine/FileManager.cpp
   src/engine/GL.cpp
   src/engine/SystemFuncs.cpp

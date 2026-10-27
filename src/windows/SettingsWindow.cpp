@@ -5,7 +5,9 @@
 // and 0x60f390.
 #include <string>
 
+#include "engine/DisplayOptions.h"
 #include "engine/FileManager.h"
+#include "engine/IconManager.h"
 #include "engine/SoundsManager.h"
 #include "engine/SystemFuncs.h"
 #include "engine/Timer.h"
@@ -101,6 +103,17 @@ float g_scale = 1.f;               // 0x60f3a0 the layout's scale
 
 ButtonInfo& Btn(int n) { return g_buttons[n - 1]; }   // button_%02d, 1-based
 int Flip(int v) { return v > 1 ? 0 : 1 - v; }          // the original's "1 - v, 0 above 1"
+
+// PORT: the desktop's display options (buttons 9 and 10, see Init).
+void OnFullscreenButton() {
+    DisplayOptions::ToggleFullscreen();
+    UpdateContents();
+}
+
+void OnFrameRateButton() {
+    DisplayOptions::CycleCap();
+    UpdateContents();
+}
 
 void CenterOnScreen() {
     g_root->SetPosition((GUI::ScreenWidth() - g_root->w) / 2, GUI::GetVerticalCenter(g_root->h));
@@ -202,8 +215,8 @@ void OnSpecial() { Hide(); HUDWindow::ShowCheatWindow(); }   // @0x33e3a4
 // (OnGPGS @0x33e17c, Google Play Games sign-in / achievements: online, its button is the screenshot's)
 void OnPP() {}                         // @0x33e990 ToS::Show(1, ...) (privacy policy web view)
 void OnTOS() {}                        // @0x33e88c ToS::Show(0, ...) (terms web view)
-void OnSync() {}                       // @0x33e248 server save (needs the player's city and the server)
-void OnProfiles() {}                   // @0x33e794 SwitchProfilesWindow / a popup
+// (OnSync @0x33e248, a server save, and OnProfiles @0x33e794, SwitchProfilesWindow: online; their
+// buttons are the display options here, see Init.)
 
 }  // namespace
 
@@ -270,8 +283,15 @@ void Init() {
     Btn(5).holder->SetOnClick(OnSocialConnect);
     Btn(6).holder->SetOnClick(OnFAQ);
     Btn(7).holder->SetOnClick(OnNotifications);
-    Btn(9).holder->SetOnClick(OnSync);
-    Btn(10).holder->SetOnClick(OnProfiles);
+    // PORT (user 2026-10-27): the sync and profile buttons are online and hidden offline (their
+    // server settings); on the desktop they are the display options: fullscreen and the frame-rate
+    // cap (DisplayOptions), as F11 and F10 (a Mac keyboard's F keys are media keys by default).
+    Btn(9).holder->SetOnClick(OnFullscreenButton);
+    Btn(10).holder->SetOnClick(OnFrameRateButton);
+    // Their pictures: the world compass (the "To Map" button's) and the speed hourglass, in place of
+    // the sync cloud and the Facebook profile shield.
+    Btn(9).saveGame->SetTexture(IconManager::GetIcon("bottom_bar_map", false));
+    Btn(10).switchProfile->SetTexture(IconManager::GetIcon("hourglass_speed_60", false));
     Btn(8).holder->SetOnClick(OnCoupon);
 
     g_queue->hideOnOuterClick = true;
@@ -349,20 +369,22 @@ void UpdateContents() {
     for (char c : SystemFuncs::getGUID()) id += (char32_t)(unsigned char)c;
     g_id->SetText(id.c_str());
 
-    Btn(9).holder->SetEnabled(g_syncEnabled && GameState::SecondTutorialStep() == 0x100 && GameState::IsPlayerCity());
-    // "last_sync_time" is only written by a server save (online, dormant), so the
-    // "SETTINGS_SYNC_LAST" text with StringTable::GetTimeString(now - last) never shows offline.
-    if (SystemFuncs::GetSetting_Int("last_sync_time", 0) == 0)
-        Btn(9).lastSync->SetText(StringTable::GetString("SETTINGS_SYNC_NEVER"));
-    // NeighboursServer::IsRegistered / PushEnabledToggle (online) are skipped.
-    // PlayerProfileManager::FBEnabled is false offline: the sync and profile buttons show as the
-    // server's settings say (both default to hidden).
-    int sync = SystemFuncs::GetSetting_Int("syncbutton_enabled", 0);
-    Btn(9).text->SetVisibility(sync != 0);
-    Btn(9).holder->SetVisibility(sync != 0);
-    int profile = SystemFuncs::GetSetting_Int("profilebutton_enabled", 0);
-    Btn(10).text->SetVisibility(profile != 0);
-    Btn(10).holder->SetVisibility(profile != 0);
+    // (Online, dormant: button 9 synced the save, enabled after the second tutorial in the city,
+    // with "SETTINGS_SYNC_LAST" / "SETTINGS_SYNC_NEVER" under it; button 10 switched profiles; both
+    // shown as the server's "syncbutton_enabled" / "profilebutton_enabled" said.)
+    // PORT: the two are the desktop's display options (see Init).
+    const int cap = DisplayOptions::GetCap();
+    std::u32string fullscreen = DisplayOptions::IsFullscreen() ? U"Fullscreen: on" : U"Fullscreen: off";
+    std::u32string fps = U"FPS: ";
+    for (char c : cap ? std::to_string(cap) : std::string("max")) fps += (char32_t)c;
+    Btn(9).text->SetText(fullscreen.c_str());
+    Btn(10).text->SetText(fps.c_str());
+    Btn(9).lastSync->SetVisibility(false);
+    for (int n : {9, 10}) {
+        Btn(n).holder->SetEnabled(true);
+        Btn(n).holder->SetVisibility(true);
+        Btn(n).text->SetVisibility(true);
+    }
 }
 
 }  // namespace SettingsWindow

@@ -22,7 +22,7 @@
 //            [--system-lang N]               (PORT test aid: the system's language id, 0..8)
 //            [--empty_strings]               (the original's switch: empty texts show their key)
 //            [--fps N] [--fullscreen | --windowed]   (PORT: the display options for this run, see
-//                                    DisplayOptions below)
+//                                    engine/DisplayOptions.h)
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>   // (Windows: SDL gives the program its WinMain)
 #include "engine/GL.h"
@@ -36,6 +36,7 @@
 
 #include "engine/ErrorReporter.h"
 #include "engine/FileManager.h"
+#include "engine/DisplayOptions.h"
 #include "engine/IntroVideo.h"
 #include "engine/Render.h"
 #include "engine/Resources.h"
@@ -802,53 +803,6 @@ int RunHeadless() {
     return ok ? 0 : 1;
 }
 
-// PORT (user 2026-10-18): the desktop's display options, kept in settings.txt (file "port"). The
-// frame-rate cap ("fps_cap": 30, 60 or 0 for the display's rate; 60 by default, the phones' rate:
-// the port otherwise runs at the display's 120 Hz) waits after the buffer swap; on a display of the
-// cap's rate or slower vsync alone paces the frames. "fullscreen" is the window's state. F10 cycles
-// the cap; F11, Cmd+Ctrl+F or Alt+Enter switch fullscreen (as the window's green button does).
-// Headless test runs are never capped and never fullscreen.
-namespace DisplayOptions {
-int fpsCap = 60;
-uint64_t nextFrame = 0;   // SDL_GetTicksNS of the next capped frame
-
-void Load() {
-    fpsCap = opt.fps >= 0 ? opt.fps : SystemFuncs::GetSetting_Int("fps_cap", 60, "port");
-}
-
-void Present() {
-    SDL_GL_SwapWindow(win);
-    if (headless || fpsCap <= 0) return;
-    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(win));
-    if (mode && mode->refresh_rate > 0.f && mode->refresh_rate <= (float)fpsCap + 1.f) return;
-    const uint64_t period = 1000000000ull / (uint64_t)fpsCap;
-    const uint64_t now = SDL_GetTicksNS();
-    if (now < nextFrame) {
-        SDL_DelayPrecise(nextFrame - now);
-        nextFrame += period;
-    } else if (now - nextFrame < period) {
-        nextFrame += period;   // a little late: keep the rhythm
-    } else {
-        nextFrame = now + period;
-    }
-}
-
-void CycleCap() {
-    fpsCap = fpsCap == 30 ? 60 : (fpsCap == 60 ? 0 : 30);
-    SystemFuncs::SetSetting_Int("fps_cap", fpsCap, "port");
-    std::printf("frame-rate cap: %s\n", fpsCap ? std::to_string(fpsCap).c_str() : "the display's rate");
-}
-
-void ToggleFullscreen() {
-    SDL_SetWindowFullscreen(win, (SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN) == 0);
-}
-
-// The window entered or left fullscreen (a key, the green button or the system).
-void OnFullscreen(bool on) {
-    if (!headless) SystemFuncs::SetSetting_Bool("fullscreen", on, "port");
-}
-}  // namespace DisplayOptions
-
 // The platform start (SDL_baseInit 0x18b1e0, whose command line is read by Parse): SDL, the
 // window and its GL context, the renderer and the fonts. PORT: SDL3 and desktop OpenGL; the
 // device's screen is the window's framebuffer.
@@ -879,7 +833,7 @@ int SDL_baseInit() {
     std::printf("GL %s, framebuffer %dx%d\n", (const char*)glGetString(GL_VERSION), fbw, fbh);
     if (!Render::Init(fbw, fbh)) return 1;
     Render::presentHook = DisplayOptions::Present;   // Render::Update's buffer swap
-    DisplayOptions::Load();
+    DisplayOptions::Init(win, headless, opt.fps);
     if (!headless && (opt.fullscreen >= 0 ? opt.fullscreen != 0 : SystemFuncs::GetSetting_Bool("fullscreen", false, "port")))
         SDL_SetWindowFullscreen(win, true);
     Render::aspect = (float)fbw / (float)fbh;
@@ -1312,7 +1266,7 @@ bool main_Loop_Func() {
                     if (e.key.key == SDLK_F10) { DisplayOptions::CycleCap(); break; }
                     if (e.key.key == SDLK_F11 ||
                         (e.key.key == SDLK_F && (e.key.mod & SDL_KMOD_GUI) && (e.key.mod & SDL_KMOD_CTRL)) ||
-                        (e.key.key == SDLK_RETURN && (e.key.mod & SDL_KMOD_ALT))) {
+                        (e.key.key == SDLK_RETURN && (e.key.mod & (SDL_KMOD_ALT | SDL_KMOD_GUI)))) {
                         DisplayOptions::ToggleFullscreen();
                         break;
                     }
