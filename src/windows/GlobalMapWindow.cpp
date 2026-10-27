@@ -987,7 +987,7 @@ unsigned GetCampaignTasks(Tasks::TaskInfo** out, unsigned max) {
 }
 
 // @0x2befa4: `task` completes its location: among the blocks of end tasks that hold it, the one with
-// the most begun tasks; true when `task` finished every task of that block.
+// the most begun, unfinished tasks; true when no task of that block is begun and unfinished.
 bool LocationHasBeenCompletedByTask(const MetaData* endTasks, uint32_t task) {
     if (!endTasks) return false;
     unsigned best = 0xffffffff, bestBegun = 0;
@@ -999,7 +999,7 @@ bool LocationHasBeenCompletedByTask(const MetaData* endTasks, uint32_t task) {
             const uint32_t id = (uint32_t)block->GetChild(k)->GetInt();
             const bool completed = GameState::TaskCompleted(id);
             if (id == task) has = true;
-            if (completed) break;
+            if (completed) continue;   // (the next task: asm 0x2bf02c; a break here hid `task`, the hunting grounds never ended)
             if (GameState::GetTaskBeginTime(id) != 0) ++begun;
         }
         if (has && (bestBegun < begun || best == 0xffffffff)) {
@@ -1015,7 +1015,7 @@ bool LocationHasBeenCompletedByTask(const MetaData* endTasks, uint32_t task) {
         const uint32_t id = (uint32_t)block->GetChild(k)->GetInt();
         const bool completed = GameState::TaskCompleted(id);
         if (id == task) has = true;
-        if (!completed && GameState::GetTaskBeginTime(id) != 0) break;
+        if (!completed && GameState::GetTaskBeginTime(id) != 0) continue;   // (asm 0x2bf148: the next task)
         ++completedCount;
     }
     if (has && completedCount != 0) return (int)block->GetChildrenCount() == completedCount;

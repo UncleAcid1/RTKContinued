@@ -207,7 +207,18 @@ void RemoveEntity(Entity* e, bool any) {
     DestroyEntity(e);
 }
 
+// PORT (crash fix 2026-10-20): an entity removed while its own Update runs (e.g. a goblin whose walk
+// ends in its removal) is deleted after that Update, not under it.
+static Entity* g_updating = nullptr;
+static std::vector<Entity*> g_deferred;
+
 void DestroyEntity(Entity* e) {
+    if (e == g_updating) {
+        std::printf("EntityManager::DestroyEntity() deferred: entity %u removed during its own update\n",
+                    e->GetEntityData()->id);
+        if (std::find(g_deferred.begin(), g_deferred.end(), e) == g_deferred.end()) g_deferred.push_back(e);
+        return;
+    }
     if (e->GetEntityData()->clas == 10) {
         SoldierSlots::RemoveSoldier(e, false);
         if (GetPlayer() && GetPlayer()->GetSquad()) GetPlayer()->GetSquad()->RemoveSoldierFromSquad(e);
@@ -253,7 +264,18 @@ void Update(float dt) {
         Entity* e = g_entities[i];
         if (!e->IsActive()) continue;
         int clas = e->GetEntityData()->clas;
+        g_updating = e;
         e->Update(clas == 10 || clas == 5 || clas == 9 ? mult * dt : dt);
+        g_updating = nullptr;
+        for (Entity* d : g_deferred) {
+            auto it = std::find(g_entities.begin(), g_entities.end(), d);
+            if (it != g_entities.end()) {
+                if ((size_t)(it - g_entities.begin()) <= i) --i;
+                g_entities.erase(it);
+            }
+            DestroyEntity(d);
+        }
+        g_deferred.clear();
     }
     if (!GameState::IsPaused()) {
         for (size_t i = 0; i < g_entities.size(); ++i) {
