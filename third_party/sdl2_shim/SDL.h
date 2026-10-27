@@ -44,6 +44,10 @@ long SDL_RWtell(SDL_RWops *ctx);
 size_t SDL_RWread(SDL_RWops *ctx, void *ptr, size_t size, size_t maxnum);
 int SDL_RWclose(SDL_RWops *ctx);
 
+/* PORT: the shim's error under its own names, so it does not replace SDL3's SDL_SetError /
+   SDL_GetError (on Windows the two collide when linking); SDL_ttf's TTF_GetError reads this one. */
+#define SDL_SetError RTK_ShimSetError
+#define SDL_GetError RTK_ShimGetError
 int SDL_SetError(const char *fmt, ...);
 const char *SDL_GetError(void);
 
