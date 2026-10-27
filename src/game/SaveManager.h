@@ -96,6 +96,7 @@ public:
     void ResetMap(uint32_t mapId);           // @0x212ef8
     void BeginData();                        // @0x2130a8
     void EndMapData(uint32_t mapId);         // @0x214de4
+    std::unique_ptr<SaveBlock> GetAggregatedData();   // @0x214030 the block written since BeginData, merged
     void EndGameStateData() { EndMapData(0xffffffff); }   // @0x214f60
     void Reset();                            // @0x2140c0
     void Save(std::vector<uint8_t>& out) const;   // @0x21993c

@@ -407,7 +407,7 @@ dead  ^(Cmd\w+|Context\w+|PrintSetting)$   # the original's cheat console: the a
 7  ^Animation::(DumpToResources|PreLoadTextures)$
 
 # ---- residue triage (2026-10-07): each checked against its callers --------------------------------
-online  ^(GameState::(LoadShort|GetUpgraderState|SetUpgraderState|GetUpgradeProgress|SetUpgradeProgress|LockGame|IsGameLocked|ResetGameLock|GetActiveMaps)|Map::(LoadShort|UpdateCityMap))$   # friend visits, the server heartbeat lock, store upgrades, task footprints
+online  ^(GameState::(LoadShort|GetUpgraderState|SetUpgraderState|GetUpgradeProgress|SetUpgradeProgress|LockGame|IsGameLocked|ResetGameLock|GetActiveMaps)|Map::LoadShort)$   # friend visits, the server heartbeat lock, store upgrades, task footprints
 7  ^GameState::GetGameStateInfo$   # PlayerProfileManager
 5x  ^(Map::(GetTavern|GetBarracks|DebugAdvanceTime|ShowLevelStats)|Entity::SetXP|EntityData::GetDiscountSize|GameState::(GetSettingCount|EnumSetting))$   # hiring (HireSoldier), the debug console
 4c  ^(Map::(GetBuildingDataWithContract|GetBuildingWithContract|GetNextAreaID|GetUpgradeableBuilding|GetFarmWithPatchToBuy)|EntityManager::GetEntityWithGUID|GameState::AddEntity)$   # Tasks::TaskSubtask::OnHelp, Bonus::Give

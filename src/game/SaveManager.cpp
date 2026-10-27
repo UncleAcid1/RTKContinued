@@ -245,6 +245,13 @@ void SaveData::EndMapData(uint32_t mapId) {
     blocks.push_back(std::move(current));
 }
 
+std::unique_ptr<SaveBlock> SaveData::GetAggregatedData() {
+    current->MergeChunks();
+    std::printf("SaveManager::GetAggregatedData() Merged chunks and returning data with size %d\n",
+                (int)current->data.size());
+    return std::move(current);
+}
+
 void SaveData::Reset() { blocks.clear(); }
 
 void SaveData::Save(std::vector<uint8_t>& out) const {

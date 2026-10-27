@@ -418,6 +418,7 @@ void ToggleFogRender();                                // @0x1b84d0
 void StoreFogInfo();                                   // @0x1b88ac
 void RestoreFogInfo();                                 // @0x1b88a8
 void UpdateBattleMap();                                // @0x1c4cfc
+void UpdateCityMap();                                  // @0x1c49a8
 // ---- the hero's place over map switches
 void StorePlayerPosition();                            // @0x1b7874 the next load starts where it stands
 void RestorePlayerPosition();                          // @0x1b73ec

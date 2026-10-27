@@ -101,6 +101,9 @@ int g_nextSpawnX = 0, g_nextSpawnY = 0;         // 0x6136d8 0x6136dc
 struct FogMarker { int x, y, size; bool f0c; };  // 0x10 bytes
 std::vector<FogMarker> g_fogMarkers;            // 0x613750 (count 0x613768) the map's covered spots
 bool g_versionUpdate = false;                   // 0x6138cd (Map::Load's version check is running)
+// 0x613800: UpdateCityMap's owned patches (area id, the patch saved alone) that LoadPlayer puts
+// into the map file's new version.
+std::vector<std::pair<uint32_t, std::unique_ptr<SaveManager::SaveBlock>>> g_cityUpdateBlocks;
 bool g_allowBuildingVisibility = false;         // 0x60ef20
 bool g_allowDecorationVisibility = false;       // 0x60ef21
 float g_visibilityTimer = 0.f, g_fogTimer = 0.f;   // 0x6138d0 0x6138d4
@@ -2261,22 +2264,35 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         raw->areaId = id;
         raw->owned = pc->data.size() > 1 && pc->data[1] != 0;
         raw->bordered = pc->data.size() > 2 && pc->data[2] != 0;
-        // UNVERIFIED (milestone 7, map versions): a patch with a pending replacement block (0x613800,
-        // filled by Map::UpdateCityMap) is marked owned and loads from that block instead.
-        // Patch::Load: LoadDecors (5 + n*0xb), LoadBuidings (6 + n*0xc), then mask (7)
-        if (const SaveManager::Chunk* dc = next(SaveManager::kDecorCount)) {
-            int cnt = SaveManager::Reader(*dc).s16();
-            for (int k = 0; k < cnt; ++k) if (auto* c = next(SaveManager::kDecor)) LoadDecors(raw, *c);
+        // A patch UpdateCityMap kept (the city of an older map version) is owned and loads from its
+        // own block; the map file's contents up to its mask are skipped.
+        SaveManager::SaveBlock* from = block;
+        for (auto& [area, kept] : g_cityUpdateBlocks) {
+            if (area != id) continue;
+            raw->owned = true;
+            block->SkipToChunk(SaveManager::kPatchMask);
+            from = kept.get();
+            from->next = 0;
+            break;
         }
-        if (const SaveManager::Chunk* bc = next(SaveManager::kBuildingCount)) {
+        auto nextIn = [&](uint32_t type) -> const SaveManager::Chunk* {
+            from->SkipToChunk(type);
+            return from->NextChunkID() == type ? &from->GetChunk() : nullptr;
+        };
+        // Patch::Load: LoadDecors (5 + n*0xb), LoadBuidings (6 + n*0xc), then mask (7)
+        if (const SaveManager::Chunk* dc = nextIn(SaveManager::kDecorCount)) {
+            int cnt = SaveManager::Reader(*dc).s16();
+            for (int k = 0; k < cnt; ++k) if (auto* c = nextIn(SaveManager::kDecor)) LoadDecors(raw, *c);
+        }
+        if (const SaveManager::Chunk* bc = nextIn(SaveManager::kBuildingCount)) {
             int cnt = SaveManager::Reader(*bc).s16();
             for (int k = 0; k < cnt; ++k) {
-                block->SkipToChunk(SaveManager::kBuilding);
-                if (block->NextChunkID() != SaveManager::kBuilding) continue;
-                LoadBuilding(raw, block);   // the chunk, then its optional followers
+                from->SkipToChunk(SaveManager::kBuilding);
+                if (from->NextChunkID() != SaveManager::kBuilding) continue;
+                LoadBuilding(raw, from);   // the chunk, then its optional followers
             }
         }
-        if (const SaveManager::Chunk* mc = next(SaveManager::kPatchMask)) {
+        if (const SaveManager::Chunk* mc = nextIn(SaveManager::kPatchMask)) {
             SaveManager::Reader mr(*mc);
             raw->mask = mr.str16();
             // Away from the city every tile is listed with its mask character ('1': blocked; no mask:
@@ -2549,9 +2565,8 @@ bool Load(SaveManager::SaveBlock* block, uint32_t time, bool newGame, bool fromC
         } else if (GameState::GetMapVersion(map) < GameState::GetGameMapVersion()) {
             std::printf("Map::Load() Updating user map %d from version %d to %d\n", (int)map,
                         (int)GameState::GetMapVersion(map), (int)GameState::GetGameMapVersion());
-            // UNVERIFIED (milestone 7, map versions): the city's update (Map::UpdateCityMap 0x1c49a8: every owned
-            // patch's content is carried into the map file's new version).
-            if (map != 0) UpdateBattleMap();
+            if (map == 0) UpdateCityMap();
+            else UpdateBattleMap();
             if (GameState::GetMapVersion(GameState::GetCurrentMapID()) == GameState::GetGameMapVersion())
                 std::puts("Map::Load() Successfully updated user map");
             else std::fprintf(stderr, "Map::Load() Failed to update user map\n");
@@ -2576,6 +2591,35 @@ void RemoveFog(float x0, float y0, float x1, float y1) { Fog::Open((x0 + x1) * 0
 void ToggleFogRender() { Fog::ToggleFogRender(); }   // @0x1b84d0
 void StoreFogInfo() { Fog::StoreFogState(); }        // @0x1b88ac
 void RestoreFogInfo() { Fog::RestoreFogState(); }    // @0x1b88a8
+
+// @0x1c49a8 Map::UpdateCityMap: the city of an older map version is loaded again from the map file;
+// every owned patch is saved alone first (its decorations, buildings and mask, then the end chunk)
+// and LoadPlayer puts it back in place of the file's. (The sandbox mode skips the patches: online.)
+namespace { void SavePatch(const Patch* p); }   // (below, with the map's save)
+void UpdateCityMap() {
+    if (GameState::GetCurrentMapID() != 0) {
+        std::fprintf(stderr, "ERROR: Map::UpdateBattleMap() Cannot update battle map %d\n",
+                     (int)GameState::GetCurrentMapID());
+        return;
+    }
+    g_cityUpdateBlocks.clear();
+    for (auto& p : g_patches) {
+        if (!p->owned) continue;
+        SaveManager::GetMainSave()->BeginData();
+        SavePatch(p.get());
+        SaveManager::BeginChunk(SaveManager::kEnd);
+        SaveManager::SaveUnsigned(0);
+        SaveManager::EndChunk();
+        g_cityUpdateBlocks.emplace_back(p->areaId, SaveManager::GetMainSave()->GetAggregatedData());
+    }
+    SaveManager::GetMainSave()->ResetMap(0);
+    Load(SaveManager::GetMapData(0), (uint32_t)Timer::GetGlobalTime(), false, false);
+    g_cityUpdateBlocks.clear();
+    Tasks::Update(true);
+    HUDWindow::UpdateTasks();
+    GameState::SetMapVersion(0, GameState::GetGameMapVersion());
+    SafeSave();
+}
 
 // @0x1c4cfc Map::UpdateBattleMap: a campaign map of an older version is loaded again from its file;
 // what the player did on it (decorations, spawn points, position, fog) is carried over.
